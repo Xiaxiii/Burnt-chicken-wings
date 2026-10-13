@@ -69,6 +69,16 @@ async function writePreset(name, data, reason = "保存") {
     s.extensions = structuredClone(data.extensions || {});
     ctx().saveSettingsDebounced();
     const et2 = ctx().eventTypes || ctx().event_types;
+    // 1.3.5：百宝箱会把「当前预设」的分组缓存在内存里，只在换预设、导入、改名时才重新读。
+    // 不提醒它的话，它下一次保存会拿旧分组把刚改的盖回去（表现为：新建的分组没了，看起来像只改了个名）。
+    // 「预设导入完成」这个事件酒馆本体没人监听，百宝箱收到后只会清掉这个预设的分组缓存、重新从预设里读。
+    if (ctx().extensionSettings?.baiBaiToolkit && et2.OAI_PRESET_IMPORT_READY) {
+      try {
+        await ctx().eventSource.emit(et2.OAI_PRESET_IMPORT_READY, { presetName: name, data: structuredClone(data) });
+      } catch (e) {
+        console.warn("[裁缝铺] 通知百宝箱刷新分组失败", e);
+      }
+    }
     await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
   }
 }

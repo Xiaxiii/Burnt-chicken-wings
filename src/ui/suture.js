@@ -299,10 +299,41 @@ function mountSuture(page, app) {
     const ids = d.sortByOrder([...st.gsel]);
     if (!ids.length) return toast("先点选条目");
     if (a === "new") {
-      const name = await promptBox("新分组叫什么", "", "比如：缝进来的文风");
+      // 选中的正好是某个组的全部条目：建新组就等于给它改名，直接说清楚
+      const gids = new Set(ids.map((id) => d.groupOf(id)));
+      const only = gids.size === 1 ? [...gids][0] : null;
+      if (only && d.order.filter((o) => d.groupOf(o.identifier) === only).length === ids.length) {
+        const g = d.group(only);
+        const v = await pickBox(`选中的就是「${g?.name}」整组`, [
+          { label: "给这个组改名", value: "rename" },
+          { label: "还是建新分组", sub: `条目都会挪进新组，「${g?.name}」会变成空的`, value: "new" }
+        ], { hint: "想把组里的一部分分出去，只选那几条就行。" });
+        if (!v) return;
+        if (v === "rename") {
+          const n = await promptBox("分组名", g?.name || "");
+          if (n) mutate(d, "分组改名", (x) => x.renameGroup(only, n));
+          st.gsel.clear();
+          return renderDst();
+        }
+      }
+      const name = await promptBox(`把选中的 ${ids.length} 条建成新分组，叫什么？`, "", "比如：缝进来的文风");
       if (!name) return;
-      mutate(d, `建分组「${name}」`, (x) => x.createGroup(name, ids));
+      let newId = null;
+      mutate(d, `建分组「${name}」`, (x) => { newId = x.createGroup(name, ids); });
+      st.dstCollapsed.delete(newId);
+      st.gsel.clear();
+      renderDst();
+      dstList.querySelector(`.pa-ghead[data-gid="${newId}"]`)?.scrollIntoView({ block: "center" });
       toast(`建好了「${name}」，会自动保存`, "success");
+      // 保存后再看一眼：要是被别的插件盖回去了，要告诉用户
+      setTimeout(() => {
+        try {
+          const back = new Draft(d.name, readPreset(d.name));
+          if (!back.groups.groups.some((g) => g.name === name)) toast(`「${name}」保存后又不见了，可能被别的插件（比如百宝箱的分组）改回去了。刷新页面后再试一次；还不行告诉我。`, "error");
+        } catch {
+        }
+      }, 3e3);
+      return;
     }
     if (a === "out") {
       if (!ids.some((id) => d.groupOf(id))) return toast("选中的条目本来就不在分组里");
