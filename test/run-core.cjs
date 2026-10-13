@@ -274,6 +274,13 @@ test("预设清理：拆出系列名和版本号", () => {
   assert.equal(A.splitPresetName("Ariadne-V1_3Beta-3_1Pro改版_json").base, A.splitPresetName("Ariadne-V1_3Beta-3_1Pro改版").base);
   assert.equal(A.splitPresetName("双人成行 V6.0 —OOC警告").base, "双人成行 ooc警告");
   assert.equal(A.splitPresetName("小冰块(1)").base, "小冰块");
+  // 版本号紧跟在】或汉字后面
+  assert.deepEqual(A.splitPresetName("【小冰块】v3.83"), { base: "【小冰块】", ver: [3, 83] });
+  assert.equal(A.splitPresetName("【小冰块】V3.82").base, "【小冰块】");
+  assert.deepEqual(A.splitPresetName("【爱蘑神】众生相3.0二改条目"), { base: "【爱蘑神】众生相 二改条目", ver: [3, 0] });
+  assert.equal(A.splitPresetName("【爱蘑神】众生相4.0二改条目 (1)").base, "【爱蘑神】众生相 二改条目");
+  // 字母中间的 v 不算版本号
+  assert.equal(A.splitPresetName("Aria-Gemini-dev2").ver, null);
 });
 test("预设清理：完全相同、旧版本、同系列、内容相近都能认出，当前预设不建议清理", () => {
   const P = (contents) => ({ prompts: contents.map((c, i) => ({ identifier: "p" + i, content: c.padEnd(30, "。") })) });

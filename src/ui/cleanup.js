@@ -94,11 +94,7 @@ function mountCleanup(sec) {
   // 估算：勾选的预设一共能让打开快多少（按本次打开实测的压缩比例和速度）
   function estimate(bytes) {
     try {
-      const m = measureLoad();
-      const raw = st.rows.reduce((n, r) => n + r.size, 0) + jsonSize(ctx().extensionSettings);
-      if (!m.settingsOnce || !m.bandwidth || !raw) return null;
-      const wire = bytes * (m.settingsOnce / raw);
-      return { wire, secs: wire / m.bandwidth, times: m.settingsCount };
+      return wireEstimate(bytes);
     } catch {
       return null;
     }
@@ -141,6 +137,14 @@ function mountCleanup(sec) {
     const arch = archiveList();
     const archSize = arch.reduce((n, a) => n + (a.size || 0), 0);
     const est = estimate(total);
+    const others = (() => {
+      try {
+        const l = allPresetSizes().filter((x) => x.api !== "openai");
+        return { n: l.length, size: l.reduce((n, x) => n + x.size, 0) };
+      } catch {
+        return { n: 0, size: 0 };
+      }
+    })();
     const max = all[0] ? Math.max(...all.map((r) => r.size)) : 1;
     const since = settings().presetUseSince;
     const tagChip = (t) => `<span class="pa-chip pa-ctag-${t.k}" title="${esc(t.t)}">${esc(t.t)}</span>`;
@@ -157,7 +161,8 @@ function mountCleanup(sec) {
     const list = view();
     body.innerHTML = `
       <div class="pa-verdict ${sugg.length ? "pa-bad" : "pa-good"}">
-        <p>预设文件夹中有 <b>${all.length}</b> 个预设，共 <b>${fmtSize(total)}</b>，酒馆每次打开都会全部下载${est ? `（压缩传输约 ${fmtSize(est.wire)}，按本次实测速度约 ${fmtMs(est.secs * 1000)}${est.times > 1 ? `；本次下载了 ${est.times} 次` : ""}）` : ""}。</p>
+        <p>聊天补全预设 <b>${all.length}</b> 个，共 <b>${fmtSize(total)}</b>，酒馆每次打开都会全部下载${est ? `（压缩传输约 ${fmtSize(est.wire)}${est.secs ? `，按本次实测速度约 ${fmtMs(est.secs * 1000)}` : ""}${est.times > 1 ? `；本次下载了 ${est.times} 次` : ""}）` : ""}。</p>
+        ${others.n ? `<p class="pa-hint">另有文本补全等其他类型的预设 ${others.n} 个，共 ${fmtSize(others.size)}，也会随设置下载；这一页只处理聊天补全预设，其他类型可在酒馆对应的预设菜单中删除。</p>` : ""}
         ${sugg.length ? `<p>其中 <b>${sugg.length}</b> 个可考虑清理，共 <b>${fmtSize(suggSize)}</b>。</p>` : "<p>没有发现重复或旧版本的预设。</p>"}
         ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再下载。</p>` : ""}
         <div class="pa-stack" aria-hidden="true">${[...all].sort((a, b) => (b.suggest - a.suggest) || (b.size - a.size)).map((r) => `<i class="${st.sel.has(r.name) ? "sel" : r.suggest ? "sug" : ""}" style="flex-grow:${r.size}" title="${esc(r.name)} ${fmtSize(r.size)}"></i>`).join("")}</div>
@@ -194,7 +199,7 @@ function mountCleanup(sec) {
     if (act.hidden) return;
     const size = pick.reduce((n, r) => n + r.size, 0);
     const est = estimate(size);
-    act.innerHTML = `<b>已选 ${pick.length} 个 · ${fmtSize(size)}${est && est.secs >= 1 ? ` · 打开约快 ${fmtMs(est.secs * est.times * 1000)}` : ""}</b>
+    act.innerHTML = `<b>已选 ${pick.length} 个 · ${fmtSize(size)}${est?.secs >= 1 ? ` · 打开约快 ${fmtMs(est.secs * est.times * 1000)}` : ""}</b>
       <button class="pa-btn" data-c="none">取消</button>
       <button class="pa-btn" data-c="dl">下载</button>
       <button class="pa-btn pa-btn-danger-soft" data-c="del">删除</button>

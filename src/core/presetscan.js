@@ -17,10 +17,12 @@ function splitPresetName(name) {
   let s = String(name || "").trim().toLowerCase();
   s = s.replace(/[\s_\-]*(?:\(\d+\)|（\d+）|副本\d*|copy\d*|备份\d*|_?json|旧版|old)$/g, "");
   let ver = null;
-  const m = /(?:^|[\s_\-（(])v\.?(\d+(?:[._]\d+)*)(?![\d])/i.exec(s) || /(?:^|[\s_\-])(\d+(?:\.\d+)+)(?![\d.])/.exec(s);
+  // 版本号前面可以是任何非字母（空格、括号、【】、汉字……），如「【小冰块】v3.83」「众生相3.0二改」
+  const m = /(^|[^a-z])v\.?(\d+(?:[._]\d+)*)(?!\d)/i.exec(s) || /(^|[^\d.a-z])(\d+(?:\.\d+)+)(?![\d.])/.exec(s);
   if (m) {
-    ver = m[1].split(/[._]/).map(Number);
-    s = (s.slice(0, m.index) + " " + s.slice(m.index + m[0].length)).trim();
+    ver = m[2].split(/[._]/).map(Number);
+    const at = m.index + m[1].length;
+    s = (s.slice(0, at) + " " + s.slice(m.index + m[0].length)).trim();
   }
   const base = s.replace(/[\s_\-—–·.]+/g, " ").trim();
   return { base, ver };

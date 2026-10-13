@@ -1,7 +1,7 @@
-// 预设裁缝铺 1.7.3（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.7.4（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.7.3";
-var CHANGELOG = "预设裁缝铺（焦香鸡翅）1.7.3\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.7.3\n- 手机上顶栏剪刀旁显示扩展名称（原先窄屏一律隐藏）；只有出现「撤销」「确认」时为了腾出位置暂时隐藏。\n\n1.7.2\n- 清理 → 扩展数据：检测后新增「一键清理」，一次删除所有确认没有扩展使用的数据（删除前先下载备份）。\n- 「检测不完整」改为逐个扩展判断：每个扩展最多查 400 个文件，没查完或读取失败的扩展会点名列出；只有这种情况下才标「请确认」，其余未找到使用者的数据直接标「可以删除」。\n";
+var VERSION = "1.7.4";
+var CHANGELOG = "预设裁缝铺（焦香鸡翅）1.7.4\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.7.4\n- 加载体检和清理页的预设数字统一：体检统计的是全部类型的预设（聊天补全、文本补全、KoboldAI、NovelAI，打开时都会下载），现在按类型分开显示；清理页只处理聊天补全预设，并注明其他类型的数量和大小。\n- 预计下载时间改用设置文件本身的实测下载速度计算，体检和清理页使用同一套算法。\n- 加载体检每次切换到该页时重新检查，清理、归档后数字随之更新。\n- 版本号识别：「【小冰块】v3.83」「众生相3.0二改条目」这类版本号紧跟在括号或汉字后面的名称，现在能认出是同一系列的不同版本。\n\n1.7.3\n- 手机上顶栏剪刀旁显示扩展名称（原先窄屏一律隐藏）；只有出现「撤销」「确认」时为了腾出位置暂时隐藏。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -3819,10 +3819,12 @@ function splitPresetName(name) {
   let s = String(name || "").trim().toLowerCase();
   s = s.replace(/[\s_\-]*(?:\(\d+\)|（\d+）|副本\d*|copy\d*|备份\d*|_?json|旧版|old)$/g, "");
   let ver = null;
-  const m = /(?:^|[\s_\-（(])v\.?(\d+(?:[._]\d+)*)(?![\d])/i.exec(s) || /(?:^|[\s_\-])(\d+(?:\.\d+)+)(?![\d.])/.exec(s);
+  // 版本号前面可以是任何非字母（空格、括号、【】、汉字……），如「【小冰块】v3.83」「众生相3.0二改」
+  const m = /(^|[^a-z])v\.?(\d+(?:[._]\d+)*)(?!\d)/i.exec(s) || /(^|[^\d.a-z])(\d+(?:\.\d+)+)(?![\d.])/.exec(s);
   if (m) {
-    ver = m[1].split(/[._]/).map(Number);
-    s = (s.slice(0, m.index) + " " + s.slice(m.index + m[0].length)).trim();
+    ver = m[2].split(/[._]/).map(Number);
+    const at = m.index + m[1].length;
+    s = (s.slice(0, at) + " " + s.slice(m.index + m[0].length)).trim();
   }
   const base = s.replace(/[\s_\-—–·.]+/g, " ").trim();
   return { base, ver };
@@ -6006,6 +6008,35 @@ function categorize(url) {
   if (/\/api\//.test(p)) return { cat: `接口 ${p.replace(/^.*\/api\//, "")}`, key: `api:${p}` };
   return { cat: "酒馆程序文件", key: "core" };
 }
+var PRESET_APIS = [["openai", "聊天补全"], ["textgenerationwebui", "文本补全"], ["kobold", "KoboldAI"], ["novel", "NovelAI"]];
+// 全部预设的大小（酒馆打开时，这几类预设都会随设置一起下载）
+function allPresetSizes() {
+  const out = [];
+  for (const [api] of PRESET_APIS) {
+    try {
+      const list = ctx().getPresetManager(api)?.getPresetList?.();
+      if (!list) continue;
+      const names = Array.isArray(list.preset_names) ? list.preset_names : Object.keys(list.preset_names || {});
+      const idxOf = (n) => Array.isArray(list.preset_names) ? list.preset_names.indexOf(n) : list.preset_names[n];
+      for (const n of names) {
+        if (api === "openai" && n === "gui") continue;
+        const data = api === "openai" && n === currentPresetName() ? (() => { try { return readPreset(n); } catch { return null; } })() : list.presets?.[idxOf(n)];
+        if (data) out.push({ api, name: n, size: jsonSize(data) });
+      }
+    } catch {
+    }
+  }
+  return out.sort((a, b) => b.size - a.size);
+}
+// 估算：这么多字节的预设，压缩后要传多少、要下载几秒。体检和清理页用同一套算法，数字一致
+function wireEstimate(bytes) {
+  const m = measureLoad();
+  const raw = allPresetSizes().reduce((n, x) => n + x.size, 0) + jsonSize(ctx().extensionSettings || {});
+  if (!m.settingsOnce || !raw) return null;
+  const wire = bytes * Math.min(1, m.settingsOnce / raw);
+  const rate = m.rate;
+  return { wire, secs: rate ? wire / rate : null, times: m.settingsCount };
+}
 async function collectHealth() {
   const c2 = ctx();
   const out = { warn: [], tips: [] };
@@ -6014,24 +6045,13 @@ async function collectHealth() {
   out.domReady = nav ? nav.domContentLoadedEventEnd : null;
   out.readyAt = PA_T.readyAt;
   out.evalAt = PA_T.evalAt;
-  // ---- 预设（每次打开都整个下载）
-  out.presets = [];
-  for (const api of ["openai", "textgenerationwebui", "kobold", "novel"]) {
-    try {
-      const pmx = c2.getPresetManager(api);
-      const list = pmx?.getPresetList?.();
-      if (!list) continue;
-      const names = Array.isArray(list.preset_names) ? list.preset_names : Object.keys(list.preset_names || {});
-      const idxOf = (n) => Array.isArray(list.preset_names) ? list.preset_names.indexOf(n) : list.preset_names[n];
-      for (const n of names) {
-        const data = list.presets?.[idxOf(n)];
-        if (data) out.presets.push({ api, name: n, size: jsonSize(data) });
-      }
-    } catch {
-    }
-  }
-  out.presets.sort((a, b) => b.size - a.size);
+  // ---- 预设（每次打开都整个下载）：聊天补全，以及文本补全、Kobold、NovelAI 的预设
+  out.presets = allPresetSizes();
   out.presetTotal = out.presets.reduce((n, x) => n + x.size, 0);
+  out.presetByApi = PRESET_APIS.map(([api, label]) => {
+    const l = out.presets.filter((x) => x.api === api);
+    return { api, label, n: l.length, size: l.reduce((n, x) => n + x.size, 0) };
+  }).filter((x) => x.n);
   // ---- 设置文件里各扩展存的数据（每次打开下载、每次保存上传）
   const es = c2.extensionSettings || {};
   out.extData = Object.keys(es).map((k) => ({ key: k, size: jsonSize(es[k]) })).sort((a, b) => b.size - a.size);
@@ -6093,9 +6113,10 @@ async function collectHealth() {
   const sec = (bytes) => bw ? fmtMs(bytes / bw * 1000) : null;
   if (out.settingsCount > 1) out.warn.push({ t: `「设置与全部预设」本次下载了 ${out.settingsCount} 次（共 ${fmtSize(out.settingsBytes)}）。`, d: "正常只需下载一次。常见原因是同时开启了两个「启动加速」类功能，例如柏宝箱的「Settings get/save 加速」和鸡尾酒的「启动加载优化」，保留其中一个即可；两个都关闭时，酒馆本身也可能下载两次。" });
   // 预设在设置下载里大约占多少（按未压缩大小的比例估算）
-  const presetShare = out.presetTotal / ((out.presetTotal + out.extDataTotal) || 1);
-  const presetWire = out.settingsOnce ? out.settingsOnce * presetShare : 0;
-  if (out.presetTotal > 5 * MB) out.warn.push({ t: `全部预设共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个）${presetWire ? `，压缩传输约 ${fmtSize(presetWire)}` : ""}${presetWire && bw ? `，按本次实测速度约需 ${sec(presetWire)}` : ""}。酒馆每次打开都会完整下载。`, d: "不常用的预设可在「清理」中归档：移到服务器上的另一个位置，打开时不再下载，需要时可恢复。", act: "clean" });
+  const est = wireEstimate(out.presetTotal);
+  const byApi = out.presetByApi.length > 1 ? `（${out.presetByApi.map((x) => `${x.label} ${x.n} 个 ${fmtSize(x.size)}`).join("，")}）` : `（${out.presets.length} 个）`;
+  const others = out.presetByApi.filter((x) => x.api !== "openai");
+  if (out.presetTotal > 5 * MB) out.warn.push({ t: `全部预设共 ${fmtSize(out.presetTotal)}${byApi}${est ? `，压缩传输约 ${fmtSize(est.wire)}` : ""}${est?.secs ? `，按本次实测速度约需 ${fmtMs(est.secs * 1000)}` : ""}。酒馆每次打开都会完整下载。`, d: `不常用的聊天补全预设可在「清理」中归档：移到服务器上的另一个位置，打开时不再下载，需要时可恢复。${others.length ? `${others.map((x) => x.label).join("、")}预设「清理」页不处理，可在酒馆对应的预设菜单中删除。` : ""}`, act: "clean" });
   else if (out.presetTotal > 2 * MB) out.tips.push({ t: `预设共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个），每次打开都会下载。`, d: "不常用的预设可在「清理」中归档。", act: "clean" });
   if (out.queued.length >= 3) {
     const longest = Math.max(...out.queued.map((r) => r.duration));
@@ -6138,6 +6159,10 @@ function measureLoad() {
   if (curE > curS) busy += curE - curS;
   // 太少的数据量测不准（本地酒馆、缓存命中），不给速度
   const bandwidth = bytes > 2 * 1024 * 1024 && busy > 2000 ? bytes / (busy / 1000) : null;
+  // 设置文件自己的下载速度（只算它接收数据的那段时间），用来估算预设要下载多久，比整体平均更准
+  const big = settings2.slice().sort((a, b) => sizeOf(b) - sizeOf(a))[0];
+  const dl = big && big.responseStart > 0 ? big.responseEnd - big.responseStart : 0;
+  const settingsRate = big && dl > 500 && sizeOf(big) > 512 * 1024 ? sizeOf(big) / (dl / 1000) : null;
   return {
     res,
     bufferFull: all.length === 250,
@@ -6145,6 +6170,8 @@ function measureLoad() {
     settingsBytes,
     settingsOnce: settings2.length ? Math.max(...settings2.map(sizeOf)) : 0,
     bandwidth,
+    settingsRate,
+    rate: settingsRate || bandwidth,
     saveDuringLoad: PA_T.readyAt ? res.some((r) => categorize(r.name).key === "settingsSave" && r.startTime < PA_T.readyAt) : false
   };
 }
@@ -6170,8 +6197,8 @@ function mountHealth(sec, { goClean } = {}) {
     box.innerHTML = `
       <div class="pa-verdict ${r.warn.length ? "pa-bad" : "pa-good"}">
         <p>${r.readyAt ? `本次打开到可用耗时 <b>${fmtMs(r.readyAt)}</b>（页面本身 ${fmtMs(r.domReady)}）。` : `页面本身加载耗时 <b>${fmtMs(r.domReady)}</b>。`}</p>
-        <p>每次打开需下载：全部预设 <b>${fmtSize(r.presetTotal)}</b>，扩展数据 <b>${fmtSize(r.extDataTotal)}</b>，角色卡 ${r.charCount} 张${r.lazyChars ? "（按需加载）" : ""}。</p>
-        ${r.bandwidth ? `<p>本次实测服务器下载速度约 <b>${fmtSize(r.bandwidth)}/秒</b>。${r.bandwidth < 600 * 1024 ? "速度较低，下载量对打开时间影响很大。" : ""}</p>` : ""}
+        <p>每次打开需下载：全部预设 <b>${fmtSize(r.presetTotal)}</b>${r.presetByApi.length > 1 ? `（${r.presetByApi.map((x) => `${x.label} ${fmtSize(x.size)}`).join("，")}）` : ""}，扩展数据 <b>${fmtSize(r.extDataTotal)}</b>，角色卡 ${r.charCount} 张${r.lazyChars ? "（按需加载）" : ""}。</p>
+        ${r.rate ? `<p>本次实测服务器下载速度约 <b>${fmtSize(r.rate)}/秒</b>。${r.rate < 600 * 1024 ? "速度较低，下载量对打开时间影响很大。" : ""}</p>` : ""}
       </div>
       ${r.timeline.length > 1 ? `<h3 class="pa-h">打开过程</h3>
       <div class="pa-tl">${r.timeline.map((t) => `<div><span>${esc(t.label)}${t.n > 1 ? `<i>×${t.n}</i>` : ""}</span><i class="pa-tl-track"><b style="left:${pct(t.start)};width:${pct(Math.max(t.end - t.start, total * 0.006))}"></b></i><em>${fmtMs(t.end)}</em></div>`).join("")}
@@ -6180,7 +6207,7 @@ function mountHealth(sec, { goClean } = {}) {
       ${r.warn.map((w) => card(w, true)).join("")}
       ${r.tips.map((w) => card(w, false)).join("")}
       <h3 class="pa-h">最大的预设</h3>
-      <div class="pa-rank">${r.presets.slice(0, 8).map((p) => `<div><span>${esc(p.name)}</span>${bar(p.size, maxP)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">未读取到</p>'}</div>
+      <div class="pa-rank">${r.presets.slice(0, 8).map((p) => `<div><span>${p.api !== "openai" ? `<i class="pa-dim">${esc(PRESET_APIS.find(([a]) => a === p.api)?.[1] || "")}·</i>` : ""}${esc(p.name)}</span>${bar(p.size, maxP)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">未读取到</p>'}</div>
       <h3 class="pa-h">扩展在设置文件中的数据</h3>
       <div class="pa-rank">${r.extData.filter((p) => p.size >= 1024).slice(0, 8).map((p) => `<div><span>${esc(p.key)}</span>${bar(p.size, maxE)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">均小于 1 KB。</p>'}</div>
       <h3 class="pa-h">本次打开时最慢的请求</h3>
@@ -6194,11 +6221,12 @@ function mountHealth(sec, { goClean } = {}) {
   box.addEventListener("click", (e) => {
     if (e.target.closest("[data-h=clean]")) goClean?.();
   });
-  let ran = false;
+  // 每次切到这一页都重新检查（清理、归档之后数字会变）
+  let last = 0;
   return {
     render() {
-      if (ran) return;
-      ran = true;
+      if (Date.now() - last < 3000) return;
+      last = Date.now();
       run();
     }
   };
@@ -6301,11 +6329,7 @@ function mountCleanup(sec) {
   // 估算：勾选的预设一共能让打开快多少（按本次打开实测的压缩比例和速度）
   function estimate(bytes) {
     try {
-      const m = measureLoad();
-      const raw = st.rows.reduce((n, r) => n + r.size, 0) + jsonSize(ctx().extensionSettings);
-      if (!m.settingsOnce || !m.bandwidth || !raw) return null;
-      const wire = bytes * (m.settingsOnce / raw);
-      return { wire, secs: wire / m.bandwidth, times: m.settingsCount };
+      return wireEstimate(bytes);
     } catch {
       return null;
     }
@@ -6348,6 +6372,14 @@ function mountCleanup(sec) {
     const arch = archiveList();
     const archSize = arch.reduce((n, a) => n + (a.size || 0), 0);
     const est = estimate(total);
+    const others = (() => {
+      try {
+        const l = allPresetSizes().filter((x) => x.api !== "openai");
+        return { n: l.length, size: l.reduce((n, x) => n + x.size, 0) };
+      } catch {
+        return { n: 0, size: 0 };
+      }
+    })();
     const max = all[0] ? Math.max(...all.map((r) => r.size)) : 1;
     const since = settings().presetUseSince;
     const tagChip = (t) => `<span class="pa-chip pa-ctag-${t.k}" title="${esc(t.t)}">${esc(t.t)}</span>`;
@@ -6364,7 +6396,8 @@ function mountCleanup(sec) {
     const list = view();
     body.innerHTML = `
       <div class="pa-verdict ${sugg.length ? "pa-bad" : "pa-good"}">
-        <p>预设文件夹中有 <b>${all.length}</b> 个预设，共 <b>${fmtSize(total)}</b>，酒馆每次打开都会全部下载${est ? `（压缩传输约 ${fmtSize(est.wire)}，按本次实测速度约 ${fmtMs(est.secs * 1000)}${est.times > 1 ? `；本次下载了 ${est.times} 次` : ""}）` : ""}。</p>
+        <p>聊天补全预设 <b>${all.length}</b> 个，共 <b>${fmtSize(total)}</b>，酒馆每次打开都会全部下载${est ? `（压缩传输约 ${fmtSize(est.wire)}${est.secs ? `，按本次实测速度约 ${fmtMs(est.secs * 1000)}` : ""}${est.times > 1 ? `；本次下载了 ${est.times} 次` : ""}）` : ""}。</p>
+        ${others.n ? `<p class="pa-hint">另有文本补全等其他类型的预设 ${others.n} 个，共 ${fmtSize(others.size)}，也会随设置下载；这一页只处理聊天补全预设，其他类型可在酒馆对应的预设菜单中删除。</p>` : ""}
         ${sugg.length ? `<p>其中 <b>${sugg.length}</b> 个可考虑清理，共 <b>${fmtSize(suggSize)}</b>。</p>` : "<p>没有发现重复或旧版本的预设。</p>"}
         ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再下载。</p>` : ""}
         <div class="pa-stack" aria-hidden="true">${[...all].sort((a, b) => (b.suggest - a.suggest) || (b.size - a.size)).map((r) => `<i class="${st.sel.has(r.name) ? "sel" : r.suggest ? "sug" : ""}" style="flex-grow:${r.size}" title="${esc(r.name)} ${fmtSize(r.size)}"></i>`).join("")}</div>
@@ -6401,7 +6434,7 @@ function mountCleanup(sec) {
     if (act.hidden) return;
     const size = pick.reduce((n, r) => n + r.size, 0);
     const est = estimate(size);
-    act.innerHTML = `<b>已选 ${pick.length} 个 · ${fmtSize(size)}${est && est.secs >= 1 ? ` · 打开约快 ${fmtMs(est.secs * est.times * 1000)}` : ""}</b>
+    act.innerHTML = `<b>已选 ${pick.length} 个 · ${fmtSize(size)}${est?.secs >= 1 ? ` · 打开约快 ${fmtMs(est.secs * est.times * 1000)}` : ""}</b>
       <button class="pa-btn" data-c="none">取消</button>
       <button class="pa-btn" data-c="dl">下载</button>
       <button class="pa-btn pa-btn-danger-soft" data-c="del">删除</button>
