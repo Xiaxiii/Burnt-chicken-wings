@@ -1,6 +1,6 @@
-// 「更多」页：开关方案、API 站点、外观、加载体检，顶部分段切换
+// 「更多」页：方案（含 API 站点）、外观、加载体检、清理，顶部分段切换
 function mountMore(page, app) {
-  const SUBS = [["schemes", "方案"], ["look", "外观"], ["health", "加载体检"]];
+  const SUBS = [["schemes", "方案"], ["look", "外观"], ["health", "加载体检"], ["clean", "清理"]];
   page.innerHTML = `
     <div class="pa-more-head"><div class="pa-seg pa-seg-s" role="tablist">${SUBS.map(([k, l]) => `<button data-m="${k}">${l}</button>`).join("")}</div></div>
     ${SUBS.map(([k]) => `<section class="pa-subpage" data-mp="${k}" hidden></section>`).join("")}`;
@@ -17,10 +17,13 @@ function mountMore(page, app) {
     })(),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
+      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">文字大小</h3><div class="pa-fsslot"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
       const slot = box.querySelector(".pa-look");
       const bgSlot = box.querySelector(".pa-bgslot");
+      const fsSlot = box.querySelector(".pa-fsslot");
+      bindFontSize(fsSlot);
       const render = () => {
+        fsSlot.innerHTML = fontSizeSeg();
         slot.innerHTML = themeCards();
         bgSlot.innerHTML = bgPanel();
       };
@@ -28,7 +31,8 @@ function mountMore(page, app) {
       bindBgPanel(bgSlot, render);
       return { render };
     })(),
-    health: mountHealth(sec("health"))
+    health: mountHealth(sec("health"), { goClean: () => { show("clean"); saveSettings(); } }),
+    clean: mountCleanup(sec("clean"))
   };
   if (settings().moreTab === "api") settings().moreTab = "schemes";
   let cur = settings().moreTab && subs[settings().moreTab] ? settings().moreTab : "schemes";

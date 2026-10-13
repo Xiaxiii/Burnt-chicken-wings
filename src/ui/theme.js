@@ -9,6 +9,7 @@ var THEMES = [
   { id: "sage", fg: "#2c3a58", name: "海雾", sub: "雾蓝粉橙水彩", dots: ["#f6e6da", "#5a6e9e", "#f0b878"], paint: true },
   { id: "matcha", fg: "#3a4433", name: "春芽", sub: "绿色水彩", dots: ["#fbeccf", "#7b986c", "#a2b891"], paint: true },
   { id: "goose", fg: "#3d4540", name: "春和", sub: "粉绿水彩", dots: ["#fbded0", "#d1e5d9", "#bdcdb0"], paint: true },
+  { id: "taro", fg: "#4a4160", name: "玫瑰芋泥", sub: "粉紫朦胧水彩", dots: ["#f5e8f3", "#cdbddb", "#9c91b8"], paint: true },
   { id: "night", name: "夜雾", sub: "深色", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
 ];
 function readColor(value) {
@@ -30,6 +31,7 @@ function applyTheme(root) {
   // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
   const id = THEMES.some((t) => t.id === settings().theme) ? settings().theme : "follow";
   root.dataset.theme = id;
+  root.dataset.fs = fontSizePref();
   root.classList.toggle("pa-painted", !!THEMES.find((t) => t.id === id)?.paint);
   if (id !== "follow") {
     root.style.removeProperty("--pa-tint");
@@ -201,5 +203,32 @@ function bindBgPanel(box, rerender) {
     bgUrl = null;
     applyBackground(root());
     rerender();
+  });
+}
+// 1.5.0 文字大小：小 / 标准 / 大。每台设备单独记（手机和平板常常想要不同的大小），存在本浏览器
+var FS_KEY = "presetAtelier:fontSize";
+function fontSizePref() {
+  try {
+    return localStorage.getItem(FS_KEY) || "m";
+  } catch {
+    return "m";
+  }
+}
+function fontSizeSeg() {
+  const cur = fontSizePref();
+  return `<div class="pa-seg pa-seg-s pa-fs" role="tablist">${[["s", "小"], ["m", "标准"], ["l", "大"]].map(([k, l]) => `<button data-fs="${k}" class="${k === cur ? "on" : ""}">${l}</button>`).join("")}</div>
+    <p class="pa-hint">只对这台设备生效。手机上默认比平板、电脑紧凑一些。</p>`;
+}
+function bindFontSize(box) {
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fs]");
+    if (!b) return;
+    try {
+      localStorage.setItem(FS_KEY, b.dataset.fs);
+    } catch {
+    }
+    const root = document.getElementById("pa-root");
+    if (root) root.dataset.fs = b.dataset.fs;
+    box.querySelectorAll("[data-fs]").forEach((x) => x.classList.toggle("on", x === b));
   });
 }

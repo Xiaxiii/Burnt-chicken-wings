@@ -268,4 +268,40 @@ test("空白分组——建在两个组之间、放条目进去、移空后留�
   assert.equal(view(back), "b2 [顶上:] [A:a1,a2] [新组:l,b1] [B:]");
 });
 
+test("预设清理：拆出系列名和版本号", () => {
+  assert.deepEqual(A.splitPresetName("【留光】Aria-Gemini-v3.6.8"), { base: "【留光】aria gemini", ver: [3, 6, 8] });
+  assert.deepEqual(A.splitPresetName("【留光】Aria-Gemini-v3.6.1").base, "【留光】aria gemini");
+  assert.equal(A.splitPresetName("Ariadne-V1_3Beta-3_1Pro改版_json").base, A.splitPresetName("Ariadne-V1_3Beta-3_1Pro改版").base);
+  assert.equal(A.splitPresetName("双人成行 V6.0 —OOC警告").base, "双人成行 ooc警告");
+  assert.equal(A.splitPresetName("小冰块(1)").base, "小冰块");
+});
+test("预设清理：完全相同、旧版本、同系列、内容相近都能认出，当前预设不建议清理", () => {
+  const P = (contents) => ({ prompts: contents.map((c, i) => ({ identifier: "p" + i, content: c.padEnd(30, "。") })) });
+  const base = ["写作风格", "人物塑造", "世界规则", "输出格式", "思维链", "禁词表"];
+  const list = [
+    { name: "留光 v3.6.8", data: P(base), size: 10 },
+    { name: "留光 v3.6.1", data: P(base.slice(0, 5)), size: 9 },
+    { name: "双人成行 V6.0", data: P(["甲", "乙", "丙"]), size: 8 },
+    { name: "双人成行 V6.0(1)", data: P(["甲", "乙", "丙"]), size: 8 },
+    { name: "Ariadne改版", data: P(["a1", "a2", "a3", "a4", "a5"]), size: 7 },
+    { name: "Ariadne改版_json", data: P(["a1", "a2", "a3", "a4", "x"]), size: 7 },
+    { name: "ariad", data: P(["a1", "a2", "a3", "a4", "a5", "a6"]), size: 7 },
+    { name: "独立预设", data: P(["z1", "z2", "z3"]), size: 5 }
+  ];
+  const r = Object.fromEntries(A.scanPresets(list, { current: "ariad" }).map((x) => [x.name, x]));
+  assert.equal(r["留光 v3.6.1"].tags[0].k, "old");
+  assert.equal(r["留光 v3.6.8"].tags.length, 0);
+  assert.equal(r["双人成行 V6.0(1)"].tags[0].k, "same");
+  assert.equal(r["双人成行 V6.0"].tags.length, 0);
+  assert.equal(r["Ariadne改版_json"].tags[0].k, "series");
+  assert.equal(r["Ariadne改版"].tags[0].k, "near");
+  assert.equal(r["Ariadne改版"].tags[0].ref, "ariad");
+  assert.equal(r["ariad"].suggest, false);
+  assert.equal(r["独立预设"].suggest, false);
+  // 当前用的是旧版本时，新版本不提示清理
+  const r2 = Object.fromEntries(A.scanPresets(list, { current: "留光 v3.6.1" }).map((x) => [x.name, x]));
+  assert.equal(r2["留光 v3.6.8"].tags.length, 0);
+  assert.equal(r2["留光 v3.6.1"].suggest, false);
+});
+
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

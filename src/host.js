@@ -351,3 +351,154 @@ async function assetGet(key) {
 async function assetDel(key) {
   await tx("assets", "readwrite", (s) => s.delete(key));
 }
+
+// ---- 1.5.0 预设归档：把预设移到服务器的「用户文件」目录（酒馆打开时不下载），需要时再移回预设文件夹
+// 用的都是酒馆自带接口：/api/files/upload、/api/files/delete（数据库附件用的同一套）、/api/presets/save、/api/presets/delete。
+// 云端酒馆、安卓本地酒馆（Termux）都一样可用。
+async function stPost(path, body) {
+  return fetch(stUrl(path), { method: "POST", headers: ctx().getRequestHeaders?.() || { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+}
+async function gzipText(text) {
+  if (typeof CompressionStream === "undefined") return null;
+  try {
+    return await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).blob();
+  } catch {
+    return null;
+  }
+}
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ""));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+// 上传一个文件到用户文件目录，返回服务器给的路径（如 user/files/xxx）
+async function userFilePut(name, blob) {
+  const r = await stPost("api/files/upload", { name, data: await blobToBase64(blob) });
+  if (!r.ok) throw new Error(`上传失败（${r.status}${r.status === 413 ? "，文件太大" : ""}）`);
+  const j = await r.json().catch(() => ({}));
+  return String(j.path || `user/files/${name}`).replace(/\\/g, "/").replace(/^\/+/, "");
+}
+async function userFileExists(path) {
+  try {
+    const r = await stPost("api/files/verify", { urls: [path] });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return !!(j[path] ?? Object.values(j)[0]);
+  } catch {
+    return null;
+  }
+}
+async function userFileDel(path) {
+  const r = await stPost("api/files/delete", { path });
+  if (!r.ok && r.status !== 404) throw new Error(`删除文件失败（${r.status}）`);
+}
+async function userFileGetText(path, gz) {
+  const r = await fetch(stUrl(path), { cache: "no-store" });
+  if (!r.ok) throw new Error(r.status === 404 ? "服务器上找不到归档文件" : `读取归档失败（${r.status}）`);
+  const buf = await r.arrayBuffer();
+  if (gz && typeof DecompressionStream !== "undefined") {
+    try {
+      return await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+    } catch {
+      // 个别服务器会自动解压 .gz，拿到的已经是文本
+    }
+  }
+  return new TextDecoder().decode(buf);
+}
+// 从服务器删除预设（只删预设文件夹里的那个文件），并从酒馆的预设下拉框里去掉。不能删当前预设。
+async function deletePresetFile(name) {
+  if (name === currentPresetName()) throw new Error("不能删除正在使用的预设");
+  let r = await stPost("api/presets/delete", { name, apiId: "openai" });
+  if (r.status === 404 || r.status === 405) r = await stPost("api/presets/delete-openai", { name });
+  if (!r.ok && r.status !== 404) throw new Error(`删除预设失败（${r.status}）`);
+  const { preset_names } = pm().getPresetList();
+  const idx = presetIndex(name);
+  if (Array.isArray(preset_names)) {
+    if (idx >= 0) preset_names.splice(idx, 1);
+  } else {
+    delete preset_names[name];
+  }
+  // 预设数组本身不动：酒馆下拉框的值是数组下标，删掉中间一个会让后面的全部错位
+  if (idx !== void 0 && idx >= 0) $(`#settings_preset_openai option[value="${idx}"]`).remove();
+}
+// 把预设写回预设文件夹，并加进下拉框。返回服务器实际使用的名称。
+async function restorePresetFile(name, data) {
+  const r = await stPost("api/presets/save", { apiId: "openai", name, preset: data });
+  if (!r.ok) throw new Error(`恢复失败（${r.status}）`);
+  const j = await r.json().catch(() => ({}));
+  const real = j.name || name;
+  const { presets, preset_names } = pm().getPresetList();
+  const idx = presetIndex(real);
+  if (idx !== void 0 && idx >= 0) {
+    presets[idx] = structuredClone(data);
+  } else if (!Array.isArray(preset_names)) {
+    presets.push(structuredClone(data));
+    preset_names[real] = presets.length - 1;
+    const opt = document.createElement("option");
+    opt.value = String(presets.length - 1);
+    opt.textContent = real;
+    document.querySelector("#settings_preset_openai")?.append(opt);
+  }
+  return real;
+}
+// 不压缩的 zip（预设文本本来就要下载到本地，打包只是为了一次下完）。文件名用 UTF-8。
+var CRC_T = null;
+function crc32(bytes) {
+  if (!CRC_T) {
+    CRC_T = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      CRC_T[i] = c >>> 0;
+    }
+  }
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = CRC_T[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function makeZip(files) {
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  const used = new Set();
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for (const f of files) {
+    let fname = String(f.name).replace(/[\\/:*?"<>|]/g, "_");
+    while (used.has(fname)) fname = fname.replace(/(\.json)?$/, "_$1");
+    used.add(fname);
+    const name = enc.encode(fname);
+    const data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+    const crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(10, dosTime, true); h.setUint16(12, dosDate, true);
+    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+    parts.push(h, name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(12, dosTime, true); c.setUint16(14, dosDate, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true);
+    c.setUint32(42, offset, true);
+    central.push(c, name);
+    offset += 30 + name.length + data.length;
+  }
+  const csize = central.reduce((n, x) => n + x.byteLength, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, csize, true); e.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, e], { type: "application/zip" });
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  // 立即移除链接，部分浏览器会丢掉文件名（变成「download」），稍后再移除
+  setTimeout(() => a.remove(), 3000);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}

@@ -20,6 +20,15 @@ function schemeMatches(d, scheme) {
   return true;
 }
 async function applyScheme(scheme, { quiet = false } = {}) {
+  // 1.5.0：预设已归档的，先从归档恢复
+  if (!listPresets().includes(scheme.preset) && archiveList().some((x) => x.name === scheme.preset)) {
+    try {
+      await restoreArchivedByName(scheme.preset);
+    } catch (e) {
+      toast(`从归档恢复「${scheme.preset}」失败：${e.message}`, "error");
+      return false;
+    }
+  }
   if (!listPresets().includes(scheme.preset)) {
     toast(`方案「${scheme.name}」对应的预设「${scheme.preset}」已不存在`, "error");
     return false;
@@ -81,7 +90,7 @@ function mountSchemes(page, { after } = {}) {
     const on = d && s.preset === d.name && schemeMatches(d, s);
     return `<article class="pa-card pa-scheme${on ? " pa-scheme-on" : ""}" data-id="${esc(s.id)}">
             <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">已绑定本聊天</span>' : ""}</header>
-            <small>${esc(s.preset)} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}${s.siteId ? ` \xB7 API ${esc(settings().sites.find((x) => x.id === s.siteId)?.name || "（站点已删除）")}` : ""}</small>
+            <small>${esc(s.preset)}${!listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset) ? "（已归档，套用时自动恢复）" : ""} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}${s.siteId ? ` \xB7 API ${esc(settings().sites.find((x) => x.id === s.siteId)?.name || "（站点已删除）")}` : ""}</small>
             <div class="pa-card-act">
                 <button class="pa-btn pa-btn-primary" data-a="apply">套用</button>
                 <button class="pa-btn" data-a="update">更新为当前状态</button>

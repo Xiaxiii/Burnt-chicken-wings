@@ -1,7 +1,7 @@
-// 预设裁缝铺 1.4.3（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.5.0（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.4.3";
-var CHANGELOG = "预设裁缝铺（焦香鸡翅）1.4.3\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.4.3\n- 「灰绿」换为「海雾」：雾蓝紫晕到粉橙的水彩背景（深蓝、雾蓝紫、暮霭、暖珊瑚、蜜橘）。原来选择灰绿的，自动改为海雾。\n- 「更多」中的「方案与 API」改名为「方案」。\n- 配色：杏色、鹅黄、芽绿换为画面风格的背景：秋樱（粉色花海）、春芽（绿色水彩）、春和（粉绿水彩）。原来选择杏色、鹅黄、芽绿的，分别对应秋樱、春和、春芽。\n\n1.4.1\n- 扩展默认名称改为「焦香鸡翅」。扩展页设置框中可点「修改」更改名称，面板标题、魔棒菜单、设置框同步更新（酒馆「扩展管理」列表中的名称固定，无法按用户修改）。\n- 缝合预览：每条默认收起，只显示名称、缝法、是否接入思维链和提醒数，点击展开详情。\n- 接入思维链默认不勾选（每接入一条，思维链就多一个问题，条目多时思考变慢）。预览顶部可选「全部接入」「推荐接入」「全部不接入」；推荐的条目标有「推荐」。\n- 方案：去掉单独的「当前连接」卡片，连接状态、模型和「重新连接」并入使用中的站点卡片；其余站点列在下方。\n- 杏色、鹅黄、芽绿改为莫兰迪奶油色。\n- 思维链页「说明」改为两栏对齐排版。\n";
+var VERSION = "1.5.0";
+var CHANGELOG = "预设裁缝铺（焦香鸡翅）1.5.0\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.5.0\n- 新增「更多 → 清理」：列出全部预设的大小，自动标出可清理的预设（与另一个完全相同、有新版本、同系列副本、大部分条目与另一个相同），并显示被哪些方案使用、最近一次使用时间（从本版本开始记录）。勾选后显示预计能让酒馆打开快多少。\n- 归档：把预设移到酒馆服务器的用户文件目录，打开酒馆时不再下载，在「清理 → 已归档」中可随时恢复；换设备、换浏览器都能恢复。可同时下载一份 zip 到本地。套用方案时，如果对应预设已归档，会自动恢复。云端酒馆和安卓本地酒馆均可使用。\n- 加载体检：能识别柏宝箱等扩展的设置加速接口；设置被下载多次时给出提示；新增「打开过程」时间线和服务器实测下载速度；排队等待的小请求（头像等）单独说明，不再列为最慢的请求；打开过程中保存设置时给出提示。\n- 新配色「玫瑰芋泥」：粉紫朦胧水彩。\n- 手机端更紧凑：字号最大 14px（酒馆字号调大时面板不再挤），按钮、输入框、弹窗的留白收小；平板、电脑不变。「外观」新增「文字大小」（小／标准／大），每台设备单独记。\n\n1.4.3\n- 「灰绿」换为「海雾」：雾蓝紫晕到粉橙的水彩背景（深蓝、雾蓝紫、暮霭、暖珊瑚、蜜橘）。原来选择灰绿的，自动改为海雾。\n- 「更多」中的「方案与 API」改名为「方案」。\n- 配色：杏色、鹅黄、芽绿换为画面风格的背景：秋樱（粉色花海）、春芽（绿色水彩）、春和（粉绿水彩）。原来选择杏色、鹅黄、芽绿的，分别对应秋樱、春和、春芽。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -467,6 +467,157 @@ async function assetGet(key) {
 }
 async function assetDel(key) {
   await tx("assets", "readwrite", (s) => s.delete(key));
+}
+
+// ---- 1.5.0 预设归档：把预设移到服务器的「用户文件」目录（酒馆打开时不下载），需要时再移回预设文件夹
+// 用的都是酒馆自带接口：/api/files/upload、/api/files/delete（数据库附件用的同一套）、/api/presets/save、/api/presets/delete。
+// 云端酒馆、安卓本地酒馆（Termux）都一样可用。
+async function stPost(path, body) {
+  return fetch(stUrl(path), { method: "POST", headers: ctx().getRequestHeaders?.() || { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+}
+async function gzipText(text) {
+  if (typeof CompressionStream === "undefined") return null;
+  try {
+    return await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"))).blob();
+  } catch {
+    return null;
+  }
+}
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ""));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(blob);
+  });
+}
+// 上传一个文件到用户文件目录，返回服务器给的路径（如 user/files/xxx）
+async function userFilePut(name, blob) {
+  const r = await stPost("api/files/upload", { name, data: await blobToBase64(blob) });
+  if (!r.ok) throw new Error(`上传失败（${r.status}${r.status === 413 ? "，文件太大" : ""}）`);
+  const j = await r.json().catch(() => ({}));
+  return String(j.path || `user/files/${name}`).replace(/\\/g, "/").replace(/^\/+/, "");
+}
+async function userFileExists(path) {
+  try {
+    const r = await stPost("api/files/verify", { urls: [path] });
+    if (!r.ok) return null;
+    const j = await r.json();
+    return !!(j[path] ?? Object.values(j)[0]);
+  } catch {
+    return null;
+  }
+}
+async function userFileDel(path) {
+  const r = await stPost("api/files/delete", { path });
+  if (!r.ok && r.status !== 404) throw new Error(`删除文件失败（${r.status}）`);
+}
+async function userFileGetText(path, gz) {
+  const r = await fetch(stUrl(path), { cache: "no-store" });
+  if (!r.ok) throw new Error(r.status === 404 ? "服务器上找不到归档文件" : `读取归档失败（${r.status}）`);
+  const buf = await r.arrayBuffer();
+  if (gz && typeof DecompressionStream !== "undefined") {
+    try {
+      return await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+    } catch {
+      // 个别服务器会自动解压 .gz，拿到的已经是文本
+    }
+  }
+  return new TextDecoder().decode(buf);
+}
+// 从服务器删除预设（只删预设文件夹里的那个文件），并从酒馆的预设下拉框里去掉。不能删当前预设。
+async function deletePresetFile(name) {
+  if (name === currentPresetName()) throw new Error("不能删除正在使用的预设");
+  let r = await stPost("api/presets/delete", { name, apiId: "openai" });
+  if (r.status === 404 || r.status === 405) r = await stPost("api/presets/delete-openai", { name });
+  if (!r.ok && r.status !== 404) throw new Error(`删除预设失败（${r.status}）`);
+  const { preset_names } = pm().getPresetList();
+  const idx = presetIndex(name);
+  if (Array.isArray(preset_names)) {
+    if (idx >= 0) preset_names.splice(idx, 1);
+  } else {
+    delete preset_names[name];
+  }
+  // 预设数组本身不动：酒馆下拉框的值是数组下标，删掉中间一个会让后面的全部错位
+  if (idx !== void 0 && idx >= 0) $(`#settings_preset_openai option[value="${idx}"]`).remove();
+}
+// 把预设写回预设文件夹，并加进下拉框。返回服务器实际使用的名称。
+async function restorePresetFile(name, data) {
+  const r = await stPost("api/presets/save", { apiId: "openai", name, preset: data });
+  if (!r.ok) throw new Error(`恢复失败（${r.status}）`);
+  const j = await r.json().catch(() => ({}));
+  const real = j.name || name;
+  const { presets, preset_names } = pm().getPresetList();
+  const idx = presetIndex(real);
+  if (idx !== void 0 && idx >= 0) {
+    presets[idx] = structuredClone(data);
+  } else if (!Array.isArray(preset_names)) {
+    presets.push(structuredClone(data));
+    preset_names[real] = presets.length - 1;
+    const opt = document.createElement("option");
+    opt.value = String(presets.length - 1);
+    opt.textContent = real;
+    document.querySelector("#settings_preset_openai")?.append(opt);
+  }
+  return real;
+}
+// 不压缩的 zip（预设文本本来就要下载到本地，打包只是为了一次下完）。文件名用 UTF-8。
+var CRC_T = null;
+function crc32(bytes) {
+  if (!CRC_T) {
+    CRC_T = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      CRC_T[i] = c >>> 0;
+    }
+  }
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) c = CRC_T[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+function makeZip(files) {
+  const enc = new TextEncoder();
+  const parts = [], central = [];
+  let offset = 0;
+  const used = new Set();
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for (const f of files) {
+    let fname = String(f.name).replace(/[\\/:*?"<>|]/g, "_");
+    while (used.has(fname)) fname = fname.replace(/(\.json)?$/, "_$1");
+    used.add(fname);
+    const name = enc.encode(fname);
+    const data = typeof f.data === "string" ? enc.encode(f.data) : f.data;
+    const crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(10, dosTime, true); h.setUint16(12, dosDate, true);
+    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true); h.setUint16(26, name.length, true);
+    parts.push(h, name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(12, dosTime, true); c.setUint16(14, dosDate, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true); c.setUint16(28, name.length, true);
+    c.setUint32(42, offset, true);
+    central.push(c, name);
+    offset += 30 + name.length + data.length;
+  }
+  const csize = central.reduce((n, x) => n + x.byteLength, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, csize, true); e.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, e], { type: "application/zip" });
+}
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.append(a);
+  a.click();
+  // 立即移除链接，部分浏览器会丢掉文件名（变成「download」），稍后再移除
+  setTimeout(() => a.remove(), 3000);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 // src/core/model.js
@@ -3600,6 +3751,127 @@ function wrappersAt(draft, prof, idx) {
   }).map((w) => w.name);
 }
 
+// src/core/presetscan.js
+// 1.5.0 预设清理：找出完全相同、同系列旧版本、内容相近的预设。只做判断，不改任何东西。
+// 不用 crypto.subtle：云酒馆多是 http 地址，浏览器在 http 下不提供它。
+function hashStr(s) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(16).padStart(8, "0") + (h1 >>> 0).toString(16).padStart(8, "0");
+}
+// 名称拆成「系列名」和「版本号」。例：【留光】Aria-Gemini-v3.6.8 → 系列「【留光】aria-gemini」，版本 [3,6,8]
+// 副本后缀（_json、(1)、副本、copy、备份）去掉后算同一系列。
+function splitPresetName(name) {
+  let s = String(name || "").trim().toLowerCase();
+  s = s.replace(/[\s_\-]*(?:\(\d+\)|（\d+）|副本\d*|copy\d*|备份\d*|_?json|旧版|old)$/g, "");
+  let ver = null;
+  const m = /(?:^|[\s_\-（(])v\.?(\d+(?:[._]\d+)*)(?![\d])/i.exec(s) || /(?:^|[\s_\-])(\d+(?:\.\d+)+)(?![\d.])/.exec(s);
+  if (m) {
+    ver = m[1].split(/[._]/).map(Number);
+    s = (s.slice(0, m.index) + " " + s.slice(m.index + m[0].length)).trim();
+  }
+  const base = s.replace(/[\s_\-—–·.]+/g, " ").trim();
+  return { base, ver };
+}
+function cmpVer(a, b) {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] || 0) - (b[i] || 0);
+    if (d) return d;
+  }
+  return 0;
+}
+// 条目内容的指纹集合：用来算两个预设有多少条目相同
+function promptPrints(data) {
+  const out = new Set();
+  for (const p of data?.prompts || []) {
+    const c = String(p?.content || "").trim();
+    if (c.length >= 20) out.add(hashStr(c));
+  }
+  return out;
+}
+function overlap(a, b) {
+  if (!a.size || !b.size) return 0;
+  let n = 0;
+  const [small, big] = a.size < b.size ? [a, b] : [b, a];
+  for (const x of small) if (big.has(x)) n++;
+  return n / (a.size + b.size - n);
+}
+// list: [{ name, data, size }]；opts: { current, inUse: { name: [原因] }, lastUse: { name: 时间 } }
+// 返回每个预设的标签：
+//   same   与另一个预设内容完全相同（保留一个即可）
+//   old    同系列有更新的版本
+//   series 同系列的另一份（名称只差副本后缀）
+//   near   与另一个预设大部分条目相同
+// 「保留哪一个」：当前使用 > 方案在用 > 最近用过 > 更新的版本 > 名称在前的
+function scanPresets(list, opts = {}) {
+  const { current = null, inUse = {}, lastUse = {} } = opts;
+  const rows = list.map((x) => ({ ...x, full: hashStr(JSON.stringify(x.data ?? null)), ...splitPresetName(x.name), prints: promptPrints(x.data), tags: [] }));
+  const rank = (r) => [r.name === current ? 1 : 0, inUse[r.name]?.length ? 1 : 0, lastUse[r.name] || 0];
+  const better = (a, b) => {
+    const ra = rank(a), rb = rank(b);
+    for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] > rb[i];
+    if (a.ver && b.ver && cmpVer(a.ver, b.ver)) return cmpVer(a.ver, b.ver) > 0;
+    return a.name.localeCompare(b.name, "zh") < 0;
+  };
+  const pick = (group) => group.reduce((k, r) => better(r, k) ? r : k);
+  const tagged = new Set();
+  // 完全相同
+  const byFull = new Map();
+  for (const r of rows) (byFull.get(r.full) || byFull.set(r.full, []).get(r.full)).push(r);
+  for (const g of byFull.values()) {
+    if (g.length < 2) continue;
+    const keep = pick(g);
+    for (const r of g) if (r !== keep) { r.tags.push({ k: "same", t: `与「${keep.name}」完全相同`, ref: keep.name }); tagged.add(r); }
+  }
+  // 同系列
+  const byBase = new Map();
+  for (const r of rows) if (r.base) (byBase.get(r.base) || byBase.set(r.base, []).get(r.base)).push(r);
+  for (const g of byBase.values()) {
+    const live = g.filter((r) => !tagged.has(r));
+    if (live.length < 2) continue;
+    const vers = live.filter((r) => r.ver);
+    const newest = vers.length ? vers.reduce((k, r) => cmpVer(r.ver, k.ver) > 0 ? r : k) : null;
+    const keep = pick(live);
+    for (const r of live) {
+      if (r === keep) continue;
+      // 最新版本不提示清理（即使当前用的是旧版本）
+      if (r === newest) continue;
+      if (newest && r.ver && cmpVer(r.ver, newest.ver) < 0) r.tags.push({ k: "old", t: `有新版「${newest.name}」`, ref: newest.name });
+      else r.tags.push({ k: "series", t: `与「${keep.name}」同系列`, ref: keep.name });
+      tagged.add(r);
+    }
+  }
+  // 内容相近（条目有六成以上相同）
+  for (const r of rows) {
+    if (tagged.has(r) || r.prints.size < 3) continue;
+    let best = null, bestV = 0;
+    for (const o of rows) {
+      if (o === r || o.prints.size < 3) continue;
+      const v = overlap(r.prints, o.prints);
+      if (v > bestV) { bestV = v; best = o; }
+    }
+    // 同系列里更新的版本，不因为和旧版本相近而被提示清理
+    const newer = best && best.base === r.base && r.ver && best.ver && cmpVer(r.ver, best.ver) > 0;
+    if (best && bestV >= 0.6 && !newer && better(best, r)) r.tags.push({ k: "near", t: `与「${best.name}」${Math.round(bestV * 100)}% 条目相同`, ref: best.name, v: bestV });
+  }
+  return rows.map((r) => ({
+    name: r.name,
+    size: r.size,
+    tags: r.tags,
+    hash: r.full,
+    current: r.name === current,
+    inUse: inUse[r.name] || [],
+    lastUse: lastUse[r.name] || 0,
+    suggest: r.tags.length > 0 && r.name !== current
+  }));
+}
+
 // src/ui/suture.js
 function mountSuture(page, app) {
   const st = {
@@ -4563,6 +4835,15 @@ function schemeMatches(d, scheme) {
   return true;
 }
 async function applyScheme(scheme, { quiet = false } = {}) {
+  // 1.5.0：预设已归档的，先从归档恢复
+  if (!listPresets().includes(scheme.preset) && archiveList().some((x) => x.name === scheme.preset)) {
+    try {
+      await restoreArchivedByName(scheme.preset);
+    } catch (e) {
+      toast(`从归档恢复「${scheme.preset}」失败：${e.message}`, "error");
+      return false;
+    }
+  }
   if (!listPresets().includes(scheme.preset)) {
     toast(`方案「${scheme.name}」对应的预设「${scheme.preset}」已不存在`, "error");
     return false;
@@ -4624,7 +4905,7 @@ function mountSchemes(page, { after } = {}) {
     const on = d && s.preset === d.name && schemeMatches(d, s);
     return `<article class="pa-card pa-scheme${on ? " pa-scheme-on" : ""}" data-id="${esc(s.id)}">
             <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">已绑定本聊天</span>' : ""}</header>
-            <small>${esc(s.preset)} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}${s.siteId ? ` \xB7 API ${esc(settings().sites.find((x) => x.id === s.siteId)?.name || "（站点已删除）")}` : ""}</small>
+            <small>${esc(s.preset)}${!listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset) ? "（已归档，套用时自动恢复）" : ""} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}${s.siteId ? ` \xB7 API ${esc(settings().sites.find((x) => x.id === s.siteId)?.name || "（站点已删除）")}` : ""}</small>
             <div class="pa-card-act">
                 <button class="pa-btn pa-btn-primary" data-a="apply">套用</button>
                 <button class="pa-btn" data-a="update">更新为当前状态</button>
@@ -5063,6 +5344,7 @@ var THEMES = [
   { id: "sage", fg: "#2c3a58", name: "海雾", sub: "雾蓝粉橙水彩", dots: ["#f6e6da", "#5a6e9e", "#f0b878"], paint: true },
   { id: "matcha", fg: "#3a4433", name: "春芽", sub: "绿色水彩", dots: ["#fbeccf", "#7b986c", "#a2b891"], paint: true },
   { id: "goose", fg: "#3d4540", name: "春和", sub: "粉绿水彩", dots: ["#fbded0", "#d1e5d9", "#bdcdb0"], paint: true },
+  { id: "taro", fg: "#4a4160", name: "玫瑰芋泥", sub: "粉紫朦胧水彩", dots: ["#f5e8f3", "#cdbddb", "#9c91b8"], paint: true },
   { id: "night", name: "夜雾", sub: "深色", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
 ];
 function readColor(value) {
@@ -5084,6 +5366,7 @@ function applyTheme(root) {
   // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
   const id = THEMES.some((t) => t.id === settings().theme) ? settings().theme : "follow";
   root.dataset.theme = id;
+  root.dataset.fs = fontSizePref();
   root.classList.toggle("pa-painted", !!THEMES.find((t) => t.id === id)?.paint);
   if (id !== "follow") {
     root.style.removeProperty("--pa-tint");
@@ -5257,6 +5540,33 @@ function bindBgPanel(box, rerender) {
     rerender();
   });
 }
+// 1.5.0 文字大小：小 / 标准 / 大。每台设备单独记（手机和平板常常想要不同的大小），存在本浏览器
+var FS_KEY = "presetAtelier:fontSize";
+function fontSizePref() {
+  try {
+    return localStorage.getItem(FS_KEY) || "m";
+  } catch {
+    return "m";
+  }
+}
+function fontSizeSeg() {
+  const cur = fontSizePref();
+  return `<div class="pa-seg pa-seg-s pa-fs" role="tablist">${[["s", "小"], ["m", "标准"], ["l", "大"]].map(([k, l]) => `<button data-fs="${k}" class="${k === cur ? "on" : ""}">${l}</button>`).join("")}</div>
+    <p class="pa-hint">只对这台设备生效。手机上默认比平板、电脑紧凑一些。</p>`;
+}
+function bindFontSize(box) {
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fs]");
+    if (!b) return;
+    try {
+      localStorage.setItem(FS_KEY, b.dataset.fs);
+    } catch {
+    }
+    const root = document.getElementById("pa-root");
+    if (root) root.dataset.fs = b.dataset.fs;
+    box.querySelectorAll("[data-fs]").forEach((x) => x.classList.toggle("on", x === b));
+  });
+}
 
 // src/ui/health.js
 // 1.3.4：加载体检——看看酒馆打开慢，慢在哪
@@ -5296,8 +5606,10 @@ function categorize(url) {
   if (u.origin !== location.origin) return { cat: `外部：${u.host}`, key: `ext:${u.host}` };
   let m = /\/scripts\/extensions\/third-party\/([^/]+)\//.exec(p);
   if (m) return { cat: `扩展「${m[1]}」`, key: `tp:${m[1]}`, ext: m[1] };
-  if (/\/api\/settings\/get/.test(p)) return { cat: "设置与全部预设", key: "settings" };
-  if (/\/api\/characters\/(all|get)/.test(p)) return { cat: "角色卡", key: "chars" };
+  // 1.5.0：柏宝箱等扩展会用自己的接口代替 /api/settings/get，下载的是同一份数据
+  if (/\/api\/settings\/get|\/settings\/fast-get/.test(p)) return { cat: "设置与全部预设", key: "settings" };
+  if (/\/api\/settings\/save|\/settings\/fast-save/.test(p)) return { cat: "保存设置", key: "settingsSave" };
+  if (/\/api\/characters\/(all|get)/.test(p)) return { cat: "角色列表", key: "chars" };
   if (/\/api\/chats\//.test(p)) return { cat: "聊天记录", key: "chats" };
   if (/\/api\/worldinfo\//.test(p)) return { cat: "世界书", key: "wi" };
   if (/\/thumbnail/.test(p) || /\/(characters|User Avatars)\//.test(p)) return { cat: "头像/缩略图", key: "thumb" };
@@ -5359,11 +5671,8 @@ async function collectHealth() {
   } catch {
   }
   // ---- 打开时的请求（能记到多少算多少）
-  const all = performance.getEntriesByType("resource");
-  out.bufferFull = all.length === 250;
-  // 只看「打开酒馆那一阵」的请求，之后你自己点出来的（检查更新之类）不算
-  const cutoff = PA_T.readyAt ? PA_T.readyAt + 1500 : Infinity;
-  const res = all.filter((r) => r.startTime <= cutoff);
+  Object.assign(out, measureLoad());
+  const res = out.res;
   const groups = /* @__PURE__ */ new Map();
   for (const r of res) {
     const { cat, key } = categorize(r.name);
@@ -5376,24 +5685,82 @@ async function collectHealth() {
   }
   out.groups = [...groups.values()].sort((a, b) => b.max - a.max);
   out.settingsReq = groups.get("settings") || null;
-  out.slow = res.filter((r) => r.duration > 300).sort((a, b) => b.duration - a.duration).slice(0, 8).map((r) => ({ ...categorize(r.name), dur: r.duration, size: r.transferSize || r.encodedBodySize || 0, url: r.name }));
+  // 很小的请求等了很久，是在排队（同一服务器最多同时 6 个连接），不算「慢」
+  const isQueued = (r) => (r.transferSize || r.encodedBodySize || 0) < 64 * 1024 && r.duration > 3000 && categorize(r.name).key !== "settingsSave";
+  out.queued = res.filter(isQueued);
+  out.slow = res.filter((r) => r.duration > 300 && !isQueued(r)).sort((a, b) => b.duration - a.duration).slice(0, 8).map((r) => ({ ...categorize(r.name), dur: r.duration, size: r.transferSize || r.encodedBodySize || 0, url: r.name }));
+  // ---- 时间线
+  const span = (list) => list.length ? { start: Math.min(...list.map((r) => r.startTime)), end: Math.max(...list.map((r) => r.responseEnd || r.startTime + r.duration)) } : null;
+  const of = (key) => res.filter((r) => categorize(r.name).key === key);
+  out.timeline = [
+    { label: "页面", ...(out.domReady ? { start: 0, end: out.domReady } : {}) },
+    { label: "设置与全部预设", ...span(of("settings")), n: of("settings").length },
+    { label: "角色列表", ...span(of("chars")) },
+    { label: "扩展脚本", ...span(res.filter((r) => /\/scripts\/extensions\/third-party\//.test(r.name))) },
+    { label: "头像等小文件排队", ...span(out.queued), n: out.queued.length }
+  ].filter((x) => x.end != null);
   // ---- 建议
   const MB = 1024 * 1024;
-  if (out.presetTotal > 5 * MB) out.warn.push({ t: `全部预设共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个）。酒馆每次打开都会完整下载，这是云端酒馆加载慢的主要原因。`, d: "建议将不用的预设导出备份后，在酒馆中删除。最大的几个见下方列表。" });
-  else if (out.presetTotal > 2 * MB) out.tips.push({ t: `预设共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个），每次打开都会下载。`, d: "不常用的预设可导出备份后删除。" });
+  const bw = out.bandwidth;
+  const sec = (bytes) => bw ? fmtMs(bytes / bw * 1000) : null;
+  if (out.settingsCount > 1) out.warn.push({ t: `「设置与全部预设」本次下载了 ${out.settingsCount} 次（共 ${fmtSize(out.settingsBytes)}）。`, d: "正常只需下载一次。常见原因是同时开启了两个「启动加速」类功能，例如柏宝箱的「Settings get/save 加速」和鸡尾酒的「启动加载优化」，保留其中一个即可；两个都关闭时，酒馆本身也可能下载两次。" });
+  // 预设在设置下载里大约占多少（按未压缩大小的比例估算）
+  const presetShare = out.presetTotal / ((out.presetTotal + out.extDataTotal) || 1);
+  const presetWire = out.settingsOnce ? out.settingsOnce * presetShare : 0;
+  if (out.presetTotal > 5 * MB) out.warn.push({ t: `全部预设共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个）${presetWire ? `，压缩传输约 ${fmtSize(presetWire)}` : ""}${presetWire && bw ? `，按本次实测速度约需 ${sec(presetWire)}` : ""}。酒馆每次打开都会完整下载。`, d: "不常用的预设可在「清理」中归档：移到服务器上的另一个位置，打开时不再下载，需要时可恢复。", act: "clean" });
+  else if (out.presetTotal > 2 * MB) out.tips.push({ t: `预设共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个），每次打开都会下载。`, d: "不常用的预设可在「清理」中归档。", act: "clean" });
+  if (out.queued.length >= 3) {
+    const longest = Math.max(...out.queued.map((r) => r.duration));
+    out.tips.push({ t: `${out.queued.length} 个很小的请求（头像等）最长等待了 ${fmtMs(longest)}。`, d: "它们本身只有几百字节，时间都花在排队上：浏览器对同一服务器最多同时建立 6 个连接，前面有大文件在下载时，后面的请求只能等待。减少大文件（预设、角色列表）的下载量，排队也会随之缩短。" });
+  }
+  if (out.saveDuringLoad) out.tips.push({ t: "打开过程中有扩展保存了一次设置。", d: "保存需要把整个设置文件上传一遍，会和打开时的下载争用带宽。如果每次打开都出现，可逐个停用扩展，找出是哪一个。" });
   const bigExt = out.extData.filter((x) => x.size > 512 * 1024);
   if (bigExt.length) out.warn.push({ t: `以下扩展在设置文件中存有大量数据：${bigExt.slice(0, 3).map((x) => `「${x.key}」${fmtSize(x.size)}`).join("、")}。`, d: "设置文件每次打开都要下载，每次修改设置都要完整上传。可查看这些扩展是否提供清理或导出旧数据的功能，不用的扩展可停用。" });
   if (out.charCount > 150 && !out.lazyChars) out.tips.push({ t: `角色卡共 ${out.charCount} 张，打开时全部读取。`, d: "如能修改服务器上的 config.yaml，可将 performance 下的 lazyLoadCharacters 设为 true（按需加载角色卡），然后重启酒馆。" });
   if (out.autoLoadChat && out.chatLen > 300) out.tips.push({ t: `打开时自动进入上次的聊天，该聊天共 ${out.chatLen} 楼（${fmtSize(out.chatSize)}）。`, d: "可在「用户设置」中关闭「自动加载上次聊天」；长聊天可新开存档，或总结后隐藏旧楼层。" });
   if (out.chatTruncation && out.chatTruncation > 100) out.tips.push({ t: `「一次加载的消息数」为 ${out.chatTruncation}。`, d: "可在「用户设置」中调小（如 30～50），进入聊天会明显加快，向上翻阅时可继续加载。" });
-  if (out.extEnabled != null && out.extEnabled > 15) out.tips.push({ t: `已开启 ${out.extEnabled} 个第三方扩展。`, d: "每个扩展在打开时都要加载脚本和设置，「加速」类扩展本身也会增加加载量。不常用的扩展可在扩展管理中停用，无需卸载。" });
+  if (out.extEnabled != null && out.extEnabled > 15) out.tips.push({ t: `已开启 ${out.extEnabled} 个第三方扩展。`, d: "每个扩展在打开时都要加载脚本和设置。不常用的扩展可在扩展管理中停用，无需卸载。" });
   const slowExt = out.groups.filter((g) => g.cat.startsWith("扩展「") && g.max > 1500);
   if (slowExt.length) out.tips.push({ t: `加载较慢的扩展：${slowExt.slice(0, 4).map((g) => `${g.cat.replace(/^扩展/, "")}（最长 ${fmtMs(g.max)}）`).join("、")}。`, d: "可先停用，比较打开速度是否改善。" });
   const ext = out.groups.filter((g) => g.cat.startsWith("外部：") && g.max > 1500);
   if (ext.length) out.tips.push({ t: `有扩展从外部网站加载资源：${ext.slice(0, 3).map((g) => `${g.cat.replace(/^外部：/, "")}（最长 ${fmtMs(g.max)}）`).join("、")}。`, d: "这些网站在国内可能访问缓慢或无法访问，会拖慢整个打开过程。" });
   return out;
 }
-function mountHealth(sec) {
+// 打开那一阵的请求：设置下载了几次、多大、服务器实测速度。「清理」页也用它来估算能快多少。
+function measureLoad() {
+  const all = performance.getEntriesByType("resource");
+  // 只看「打开酒馆那一阵」的请求，之后自己点出来的（检查更新之类）不算
+  const cutoff = PA_T.readyAt ? PA_T.readyAt + 1500 : Infinity;
+  const res = all.filter((r) => r.startTime <= cutoff);
+  const sizeOf = (r) => r.transferSize || r.encodedBodySize || 0;
+  const settings2 = res.filter((r) => categorize(r.name).key === "settings");
+  const settingsBytes = settings2.reduce((n, r) => n + sizeOf(r), 0);
+  // 实测速度：把所有同源请求「正在接收数据」的时间段合并，总字节数 ÷ 忙碌的总时长
+  const same = (r) => { try { return new URL(r.name, location.href).origin === location.origin; } catch { return false; } };
+  const spans = res.filter((r) => same(r) && sizeOf(r) > 0 && r.responseStart > 0 && r.responseEnd > r.responseStart).map((r) => [r.responseStart, r.responseEnd, sizeOf(r)]).sort((a, b) => a[0] - b[0]);
+  let busy = 0, bytes = 0, curS = -1, curE = -1;
+  for (const [s, e, n] of spans) {
+    bytes += n;
+    if (s > curE) {
+      if (curE > curS) busy += curE - curS;
+      curS = s;
+      curE = e;
+    } else curE = Math.max(curE, e);
+  }
+  if (curE > curS) busy += curE - curS;
+  // 太少的数据量测不准（本地酒馆、缓存命中），不给速度
+  const bandwidth = bytes > 2 * 1024 * 1024 && busy > 2000 ? bytes / (busy / 1000) : null;
+  return {
+    res,
+    bufferFull: all.length === 250,
+    settingsCount: settings2.length,
+    settingsBytes,
+    settingsOnce: settings2.length ? Math.max(...settings2.map(sizeOf)) : 0,
+    bandwidth,
+    saveDuringLoad: PA_T.readyAt ? res.some((r) => categorize(r.name).key === "settingsSave" && r.startTime < PA_T.readyAt) : false
+  };
+}
+function mountHealth(sec, { goClean } = {}) {
   sec.innerHTML = `<div class="pa-scroll pa-health"><div class="pa-health-body"><p class="pa-hint">正在检查…</p></div>
     <div class="pa-card-act"><button class="pa-btn" data-h="run">重新检查</button></div></div>`;
   const box = sec.querySelector(".pa-health-body");
@@ -5409,25 +5776,36 @@ function mountHealth(sec) {
     const bar = (v, max) => `<i class="pa-bar"><b style="width:${Math.max(2, Math.round(v / (max || 1) * 100))}%"></b></i>`;
     const maxP = r.presets[0]?.size || 1;
     const maxE = r.extData[0]?.size || 1;
+    const total = Math.max(r.readyAt || 0, ...r.timeline.map((t) => t.end)) || 1;
+    const pct = (v) => `${Math.max(0, Math.min(100, v / total * 100)).toFixed(2)}%`;
+    const card = (w, warn) => `<div class="pa-card ${warn ? "pa-card-warn" : ""}"><p>${warn ? `<b>${esc(w.t)}</b>` : esc(w.t)}</p><small>${esc(w.d)}</small>${w.act === "clean" && goClean ? '<div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-h="clean">去清理</button></div>' : ""}</div>`;
     box.innerHTML = `
       <div class="pa-verdict ${r.warn.length ? "pa-bad" : "pa-good"}">
         <p>${r.readyAt ? `本次打开到可用耗时 <b>${fmtMs(r.readyAt)}</b>（页面本身 ${fmtMs(r.domReady)}）。` : `页面本身加载耗时 <b>${fmtMs(r.domReady)}</b>。`}</p>
         <p>每次打开需下载：全部预设 <b>${fmtSize(r.presetTotal)}</b>，扩展数据 <b>${fmtSize(r.extDataTotal)}</b>，角色卡 ${r.charCount} 张${r.lazyChars ? "（按需加载）" : ""}。</p>
-        ${r.settingsReq ? `<p>其中「设置与全部预设」请求耗时 <b>${fmtMs(r.settingsReq.max)}</b>${r.settingsReq.size ? `（传输 ${fmtSize(r.settingsReq.size)}）` : ""}。</p>` : ""}
+        ${r.bandwidth ? `<p>本次实测服务器下载速度约 <b>${fmtSize(r.bandwidth)}/秒</b>。${r.bandwidth < 600 * 1024 ? "速度较低，下载量对打开时间影响很大。" : ""}</p>` : ""}
       </div>
-      ${r.warn.map((w) => `<div class="pa-card pa-card-warn"><p><b>${esc(w.t)}</b></p><small>${esc(w.d)}</small></div>`).join("")}
-      ${r.tips.map((w) => `<div class="pa-card"><p>${esc(w.t)}</p><small>${esc(w.d)}</small></div>`).join("")}
+      ${r.timeline.length > 1 ? `<h3 class="pa-h">打开过程</h3>
+      <div class="pa-tl">${r.timeline.map((t) => `<div><span>${esc(t.label)}${t.n > 1 ? `<i>×${t.n}</i>` : ""}</span><i class="pa-tl-track"><b style="left:${pct(t.start)};width:${pct(Math.max(t.end - t.start, total * 0.006))}"></b></i><em>${fmtMs(t.end)}</em></div>`).join("")}
+        ${r.readyAt ? `<div class="pa-tl-ready"><span>可用</span><i class="pa-tl-track"><b style="left:${pct(r.readyAt)}"></b></i><em>${fmtMs(r.readyAt)}</em></div>` : ""}</div>
+      <p class="pa-hint">每一行是该类请求从开始到结束的时间段，右侧是结束于打开后第几秒。</p>` : ""}
+      ${r.warn.map((w) => card(w, true)).join("")}
+      ${r.tips.map((w) => card(w, false)).join("")}
       <h3 class="pa-h">最大的预设</h3>
       <div class="pa-rank">${r.presets.slice(0, 8).map((p) => `<div><span>${esc(p.name)}</span>${bar(p.size, maxP)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">未读取到</p>'}</div>
       <h3 class="pa-h">扩展在设置文件中的数据</h3>
       <div class="pa-rank">${r.extData.filter((p) => p.size >= 1024).slice(0, 8).map((p) => `<div><span>${esc(p.key)}</span>${bar(p.size, maxE)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">均小于 1 KB。</p>'}</div>
       <h3 class="pa-h">本次打开时最慢的请求</h3>
       ${r.slow.length ? `<div class="pa-rank">${r.slow.map((s) => `<div title="${esc(s.url)}"><span>${esc(s.cat)}</span>${bar(s.dur, r.slow[0].dur)}<em>${fmtMs(s.dur)}${s.size ? ` · ${fmtSize(s.size)}` : ""}</em></div>`).join("")}</div>` : '<p class="pa-hint">没有超过 0.3 秒的请求，或未记录到。</p>'}
+      ${r.queued.length ? `<p class="pa-hint">另有 ${r.queued.length} 个小请求因排队等待较久，未列入上表。</p>` : ""}
       ${r.bufferFull ? '<p class="pa-hint">浏览器只记录前 250 个请求，其余请求未计入。</p>' : ""}
       <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：已开启 ${r.extEnabled} 个，共安装 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。检查只在本浏览器中进行，不上传任何数据。</p>
       <p class="pa-hint">如仅在长时间未使用后首次打开较慢，通常是云服务器休眠后重新启动，与预设和扩展无关，需更换不休眠的套餐或设置保活。</p>`;
   }
   sec.querySelector("[data-h=run]").addEventListener("click", run);
+  box.addEventListener("click", (e) => {
+    if (e.target.closest("[data-h=clean]")) goClean?.();
+  });
   let ran = false;
   return {
     render() {
@@ -5438,10 +5816,352 @@ function mountHealth(sec) {
   };
 }
 
+// src/ui/cleanup.js
+// 1.5.0「清理」页：看清每个预设占多少、哪些可以清理；归档到服务器（打开时不再下载）、随时恢复。
+// 归档文件放在酒馆的「用户文件」目录，清单记在本扩展的设置里，换设备、换浏览器都能看到和恢复。
+
+// 记录每个预设最近一次被选用的时间（酒馆本身不记）。只记名称和时间。
+function notePresetUse(name, { save = true } = {}) {
+  if (!name) return;
+  const s = settings();
+  if (!s.presetUse || typeof s.presetUse !== "object") s.presetUse = {};
+  if (!s.presetUseSince) s.presetUseSince = Date.now();
+  s.presetUse[name] = Date.now();
+  if (save) saveSettings();
+}
+function archiveList() {
+  const s = settings();
+  if (!Array.isArray(s.archive)) s.archive = [];
+  return s.archive;
+}
+function relDay(t) {
+  if (!t) return "";
+  const d = Math.floor((Date.now() - t) / 864e5);
+  return d <= 0 ? "今天用过" : d === 1 ? "昨天用过" : `${d} 天前用过`;
+}
+function dateStr(t) {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// 哪些预设被方案或酒馆的「连接配置」用着
+function presetUsers() {
+  const out = {};
+  const add = (n, why) => (out[n] ||= []).push(why);
+  for (const s of settings().schemes || []) if (s.preset) add(s.preset, `方案「${s.name}」`);
+  for (const p of ctx().extensionSettings?.connectionManager?.profiles || []) if (p?.preset) add(p.preset, `连接配置「${p.name}」`);
+  return out;
+}
+function presetText(name) {
+  const { presets } = pm().getPresetList();
+  const idx = presetIndex(name);
+  const data = name === currentPresetName() ? readPreset(name) : presets[idx];
+  return JSON.stringify(data ?? null);
+}
+// 从归档恢复一个预设。被方案套用时也会调用（方案对应的预设已归档 → 自动恢复后再切换）。
+async function restoreArchived(entry, { ask = true } = {}) {
+  const text = await userFileGetText(entry.path, entry.gz);
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("归档文件已损坏，无法读取");
+  }
+  if (listPresets().includes(entry.name)) {
+    if (ask && !await confirmBox("已有同名预设", `预设文件夹中已有「${entry.name}」。恢复会用归档的版本覆盖它，是否继续？`, "覆盖")) return false;
+  }
+  await restorePresetFile(entry.name, data);
+  const list = archiveList();
+  const i = list.indexOf(entry);
+  if (i >= 0) list.splice(i, 1);
+  saveSettings();
+  await userFileDel(entry.path).catch((e) => console.warn("[裁缝铺] 归档文件删除失败", e));
+  dropDraft(entry.name);
+  return true;
+}
+async function restoreArchivedByName(name) {
+  const e = archiveList().find((x) => x.name === name);
+  if (!e) return false;
+  toast(`正在从归档恢复「${name}」…`);
+  return restoreArchived(e, { ask: false });
+}
+function mountCleanup(sec) {
+  sec.innerHTML = `<div class="pa-scroll pa-clean"><div class="pa-clean-body"><p class="pa-hint">正在分析预设…</p></div></div>
+    <div class="pa-movebar pa-clean-act" hidden></div>`;
+  const body = sec.querySelector(".pa-clean-body");
+  const act = sec.querySelector(".pa-clean-act");
+  const st = { filter: null, sort: "size", sel: new Set(), rows: [], busy: false, open: new Set() };
+  const MB = 1024 * 1024;
+  // 估算：勾选的预设一共能让打开快多少（按本次打开实测的压缩比例和速度）
+  function estimate(bytes) {
+    try {
+      const m = measureLoad();
+      const raw = st.rows.reduce((n, r) => n + r.size, 0) + jsonSize(ctx().extensionSettings);
+      if (!m.settingsOnce || !m.bandwidth || !raw) return null;
+      const wire = bytes * (m.settingsOnce / raw);
+      return { wire, secs: wire / m.bandwidth, times: m.settingsCount };
+    } catch {
+      return null;
+    }
+  }
+  async function scan() {
+    const names = listPresets();
+    const { presets } = pm().getPresetList();
+    const cur = currentPresetName();
+    const list = [];
+    for (const n of names) {
+      let text;
+      try {
+        text = n === cur ? presetText(n) : JSON.stringify(presets[presetIndex(n)] ?? null);
+      } catch {
+        continue;
+      }
+      list.push({ name: n, data: JSON.parse(text), size: new Blob([text]).size });
+      if (list.length % 10 === 0) await new Promise((r) => setTimeout(r, 0));
+    }
+    st.rows = scanPresets(list, { current: cur, inUse: presetUsers(), lastUse: settings().presetUse || {} });
+    for (const n of [...st.sel]) if (!st.rows.some((r) => r.name === n && !r.current)) st.sel.delete(n);
+    if (!st.filter) st.filter = st.rows.some((r) => r.suggest) ? "suggest" : "all";
+  }
+  function view() {
+    let rows = st.filter === "suggest" ? st.rows.filter((r) => r.suggest) : st.rows;
+    const by = {
+      size: (a, b) => b.size - a.size,
+      name: (a, b) => a.name.localeCompare(b.name, "zh"),
+      used: (a, b) => (a.lastUse || 0) - (b.lastUse || 0) || b.size - a.size
+    }[st.sort];
+    return [...rows].sort(by);
+  }
+  function draw() {
+    const all = st.rows;
+    const total = all.reduce((n, r) => n + r.size, 0);
+    const sugg = all.filter((r) => r.suggest);
+    const suggSize = sugg.reduce((n, r) => n + r.size, 0);
+    const arch = archiveList();
+    const archSize = arch.reduce((n, a) => n + (a.size || 0), 0);
+    const est = estimate(total);
+    const max = all[0] ? Math.max(...all.map((r) => r.size)) : 1;
+    const since = settings().presetUseSince;
+    const tagChip = (t) => `<span class="pa-chip pa-ctag-${t.k}" title="${esc(t.t)}">${esc(t.t)}</span>`;
+    const row = (r) => `<label class="pa-crow${r.current ? " pa-locked" : ""}${st.sel.has(r.name) ? " on" : ""}">
+        <input type="checkbox" data-c="pick" data-n="${esc(r.name)}" ${r.current ? "disabled" : ""} ${st.sel.has(r.name) ? "checked" : ""}>
+        <span class="pa-crow-main"><b>${esc(r.name)}</b><span class="pa-crow-tags">${r.current ? '<span class="pa-chip pa-chip-cot">当前使用</span>' : ""}${r.tags.map(tagChip).join("")}${r.inUse.map((w) => `<span class="pa-chip pa-ctag-use" title="${esc(w)}在用">${esc(w)}在用</span>`).join("")}${r.lastUse ? `<span class="pa-chip pa-chip-dim">${relDay(r.lastUse)}</span>` : since && Date.now() - since > 7 * 864e5 ? '<span class="pa-chip pa-chip-dim">开始记录后未用过</span>' : ""}</span></span>
+        <span class="pa-crow-size"><i class="pa-bar"><b style="width:${Math.max(2, Math.round(r.size / max * 100))}%"></b></i><em>${fmtSize(r.size)}</em></span>
+      </label>`;
+    const archRow = (a, i) => `<div class="pa-crow pa-crow-arch">
+        <span class="pa-crow-main"><b>${esc(a.name)}</b><span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${dateStr(a.at)} 归档</span></span></span>
+        <span class="pa-crow-size"><em>${fmtSize(a.size || 0)}</em></span>
+        <span class="pa-crow-btns"><button class="pa-btn pa-btn-s pa-btn-soft" data-c="restore" data-i="${i}">恢复</button><button class="pa-btn pa-btn-s" data-c="adl" data-i="${i}">下载</button><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-c="adel" data-i="${i}">删除</button></span>
+      </div>`;
+    const list = view();
+    body.innerHTML = `
+      <div class="pa-verdict ${sugg.length ? "pa-bad" : "pa-good"}">
+        <p>预设文件夹中有 <b>${all.length}</b> 个预设，共 <b>${fmtSize(total)}</b>，酒馆每次打开都会全部下载${est ? `（压缩传输约 ${fmtSize(est.wire)}，按本次实测速度约 ${fmtMs(est.secs * 1000)}${est.times > 1 ? `；本次下载了 ${est.times} 次` : ""}）` : ""}。</p>
+        ${sugg.length ? `<p>其中 <b>${sugg.length}</b> 个可考虑清理，共 <b>${fmtSize(suggSize)}</b>。</p>` : "<p>没有发现重复或旧版本的预设。</p>"}
+        ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再下载。</p>` : ""}
+        <div class="pa-stack" aria-hidden="true">${[...all].sort((a, b) => (b.suggest - a.suggest) || (b.size - a.size)).map((r) => `<i class="${st.sel.has(r.name) ? "sel" : r.suggest ? "sug" : ""}" style="flex-grow:${r.size}" title="${esc(r.name)} ${fmtSize(r.size)}"></i>`).join("")}</div>
+        <div class="pa-stack-key"><span><i class="sug"></i>可考虑清理</span><span><i></i>其余预设</span><span><i class="sel"></i>已勾选</span></div>
+      </div>
+      <div class="pa-clean-bar">
+        <div class="pa-seg pa-seg-s" role="tablist">
+          <button data-f="suggest" class="${st.filter === "suggest" ? "on" : ""}">可清理 ${sugg.length}</button>
+          <button data-f="all" class="${st.filter === "all" ? "on" : ""}">全部 ${all.length}</button>
+          <button data-f="arch" class="${st.filter === "arch" ? "on" : ""}">已归档 ${arch.length}</button>
+        </div>
+        ${st.filter !== "arch" ? `<select class="pa-select pa-select-s" data-c="sort" aria-label="排序">
+          <option value="size" ${st.sort === "size" ? "selected" : ""}>按大小</option>
+          <option value="used" ${st.sort === "used" ? "selected" : ""}>按最近使用</option>
+          <option value="name" ${st.sort === "name" ? "selected" : ""}>按名称</option></select>` : ""}
+      </div>
+      ${st.filter === "arch" ? arch.length ? `<div class="pa-clist">${arch.map(archRow).join("")}</div><p class="pa-hint">归档文件保存在酒馆服务器的用户文件目录，换设备、换浏览器都能恢复。恢复后回到预设列表，归档文件随之删除。</p>` : '<p class="pa-empty">还没有归档的预设。</p>'
+        : `${list.length ? `<div class="pa-clist-head"><button class="pa-link" data-c="all">${list.filter((r) => !r.current).every((r) => st.sel.has(r.name)) ? "取消全选" : "全选本页"}</button></div><div class="pa-clist">${list.map(row).join("")}</div>` : '<p class="pa-empty">没有可清理的预设。</p>'}
+      <details class="pa-clean-help"><summary>标签说明</summary>
+        <ul class="pa-legend">
+          <li><span class="pa-chip pa-ctag-same">完全相同</span><span>与另一个预设内容一字不差，保留一个即可。</span></li>
+          <li><span class="pa-chip pa-ctag-old">有新版</span><span>名称相同、版本号更低。</span></li>
+          <li><span class="pa-chip pa-ctag-series">同系列</span><span>名称只差「_json」「(1)」「副本」等后缀。</span></li>
+          <li><span class="pa-chip pa-ctag-near">条目相同</span><span>与另一个预设的大部分条目内容相同，可能是改版或旧版。</span></li>
+          <li><span class="pa-chip pa-ctag-use">在用</span><span>被方案或酒馆的连接配置使用。归档后套用这些方案时会自动恢复。</span></li>
+        </ul>
+        <p class="pa-hint">「几天前用过」从本版本开始记录。标签只是提示，清理哪些由你决定；正在使用的预设不能勾选。</p>
+      </details>`}`;
+    drawBar();
+  }
+  function drawBar() {
+    const pick = st.rows.filter((r) => st.sel.has(r.name));
+    act.hidden = !pick.length || st.filter === "arch";
+    if (act.hidden) return;
+    const size = pick.reduce((n, r) => n + r.size, 0);
+    const est = estimate(size);
+    act.innerHTML = `<b>已选 ${pick.length} 个 · ${fmtSize(size)}${est && est.secs >= 1 ? ` · 打开约快 ${fmtMs(est.secs * est.times * 1000)}` : ""}</b>
+      <button class="pa-btn" data-c="none">取消</button>
+      <button class="pa-btn" data-c="dl">下载</button>
+      <button class="pa-btn pa-btn-danger-soft" data-c="del">删除</button>
+      <button class="pa-btn pa-btn-primary" data-c="arch">归档</button>
+      <small>归档：移出预设文件夹，存到服务器的用户文件目录，打开酒馆时不再下载，可随时恢复。</small>`;
+  }
+  async function render() {
+    if (st.busy) return;
+    try {
+      await scan();
+    } catch (e) {
+      body.innerHTML = `<p class="pa-warn">分析出错：${esc(e.message)}</p>`;
+      return;
+    }
+    draw();
+  }
+  const stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  function zipOf(names) {
+    return makeZip(names.map((n) => ({ name: `${n}.json`, data: JSON.stringify(JSON.parse(presetText(n)), null, 4) })));
+  }
+  function busy(on, text) {
+    st.busy = on;
+    act.querySelectorAll("button").forEach((b) => { b.disabled = on; });
+    if (text) act.querySelector("b").textContent = text;
+  }
+  const usersOf = (names) => names.flatMap((n) => (presetUsers()[n] || []).map((w) => `${w}（${n}）`));
+  async function doArchive(names) {
+    const users = usersOf(names);
+    const size = st.rows.filter((r) => names.includes(r.name)).reduce((n, r) => n + r.size, 0);
+    const ok = await sheet({
+      title: `归档 ${names.length} 个预设`,
+      body: `<p class="pa-p">共 ${fmtSize(size)}。归档后这些预设不再出现在酒馆的预设列表中，打开酒馆时也不再下载；在「清理 → 已归档」中可随时恢复。</p>
+        ${users.length ? `<p class="pa-p pa-dim">${esc(users.slice(0, 4).join("、"))}${users.length > 4 ? ` 等 ${users.length} 处` : ""}使用了这些预设。${users.some((w) => w.startsWith("方案")) ? "套用相应方案时会自动从归档恢复。" : ""}${users.some((w) => w.startsWith("连接配置")) ? "酒馆的连接配置不会自动恢复，使用前需先在这里恢复。" : ""}</p>` : ""}
+        <label class="pa-cbox"><input type="checkbox" data-zip checked> 同时下载一份到本地（zip）</label>`,
+      actions: [{ label: "取消", value: null }, { label: "归档", kind: "primary", value: (w) => ({ zip: w.querySelector("[data-zip]").checked }) }]
+    });
+    if (!ok) return;
+    if (ok.zip) downloadBlob(zipOf(names), `preset-archive-${stamp()}.zip`);
+    const done = [], fail = [];
+    for (const [i, n] of names.entries()) {
+      busy(true, `正在归档 ${i + 1}/${names.length}：${n}`);
+      let path = null;
+      try {
+        if (drafts.get(n)?.dirty) await saveDraft(n, "归档前保存");
+        const text = presetText(n);
+        const gz = await gzipText(text);
+        const fname = `pa-preset-${hashStr(n + text).slice(0, 12)}-${Date.now().toString(36)}.json${gz ? ".gz" : ""}`;
+        path = await userFilePut(fname, gz || new Blob([text], { type: "application/json" }));
+        if (await userFileExists(path) === false) throw new Error("上传后在服务器上找不到文件");
+        await deletePresetFile(n);
+        const list = archiveList();
+        const old = list.filter((x) => x.name === n);
+        list.push({ id: Date.now().toString(36) + i, name: n, path, gz: !!gz, size: new Blob([text]).size, at: Date.now() });
+        for (const o of old) {
+          list.splice(list.indexOf(o), 1);
+          userFileDel(o.path).catch(() => {});
+        }
+        saveSettings();
+        dropDraft(n);
+        st.sel.delete(n);
+        done.push(n);
+      } catch (e) {
+        console.warn("[裁缝铺] 归档失败", n, e);
+        // 已上传但没删掉预设：把上传的文件删掉，保持原样
+        if (path && listPresets().includes(n)) userFileDel(path).catch(() => {});
+        fail.push(`${n}：${e.message}`);
+      }
+    }
+    busy(false);
+    if (done.length) toast(`已归档 ${done.length} 个预设`, "success");
+    if (fail.length) toast(`${fail.length} 个归档失败（预设保持原样）：${fail.slice(0, 2).join("；")}`, "error");
+    emitChange(currentPresetName());
+    render();
+  }
+  async function doDelete(names) {
+    const ok = await sheet({
+      title: `删除 ${names.length} 个预设`,
+      body: `<p class="pa-p">将从服务器上删除这些预设，<b>删除后无法在酒馆中恢复</b>。如果以后可能还会用到，建议改用「归档」。</p>
+        <label class="pa-cbox"><input type="checkbox" data-zip checked> 删除前先下载一份到本地（zip）</label>`,
+      actions: [{ label: "取消", value: null }, { label: "删除", kind: "danger", value: (w) => ({ zip: w.querySelector("[data-zip]").checked }) }]
+    });
+    if (!ok) return;
+    if (ok.zip) downloadBlob(zipOf(names), `preset-backup-${stamp()}.zip`);
+    let n = 0;
+    const fail = [];
+    for (const [i, name] of names.entries()) {
+      busy(true, `正在删除 ${i + 1}/${names.length}：${name}`);
+      try {
+        await deletePresetFile(name);
+        dropDraft(name);
+        st.sel.delete(name);
+        n++;
+      } catch (e) {
+        fail.push(`${name}：${e.message}`);
+      }
+    }
+    busy(false);
+    if (n) toast(`已删除 ${n} 个预设`, "success");
+    if (fail.length) toast(`${fail.length} 个删除失败：${fail.slice(0, 2).join("；")}`, "error");
+    emitChange(currentPresetName());
+    render();
+  }
+  sec.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.matches("[data-c=pick]")) {
+      if (t.checked) st.sel.add(t.dataset.n);
+      else st.sel.delete(t.dataset.n);
+      t.closest(".pa-crow")?.classList.toggle("on", t.checked);
+      draw();
+    } else if (t.matches("[data-c=sort]")) {
+      st.sort = t.value;
+      draw();
+    }
+  });
+  sec.addEventListener("click", async (e) => {
+    const f = e.target.closest("[data-f]");
+    if (f) {
+      st.filter = f.dataset.f;
+      return draw();
+    }
+    const b = e.target.closest("button[data-c]");
+    if (!b || st.busy) return;
+    const c = b.dataset.c;
+    const names = st.rows.filter((r) => st.sel.has(r.name)).map((r) => r.name);
+    if (c === "all") {
+      const vis = view().filter((r) => !r.current);
+      const allOn = vis.every((r) => st.sel.has(r.name));
+      for (const r of vis) allOn ? st.sel.delete(r.name) : st.sel.add(r.name);
+      return draw();
+    }
+    if (c === "none") {
+      st.sel.clear();
+      return draw();
+    }
+    if (c === "dl") return downloadBlob(zipOf(names), `presets-${stamp()}.zip`);
+    if (c === "arch") return doArchive(names);
+    if (c === "del") return doDelete(names);
+    const a = archiveList()[Number(b.dataset.i)];
+    if (!a) return;
+    b.disabled = true;
+    try {
+      if (c === "restore") {
+        if (await restoreArchived(a)) toast(`已恢复「${a.name}」`, "success");
+        emitChange(currentPresetName());
+        await render();
+      } else if (c === "adl") {
+        const text = await userFileGetText(a.path, a.gz);
+        downloadBlob(new Blob([JSON.stringify(JSON.parse(text), null, 4)], { type: "application/json" }), `${a.name}.json`);
+      } else if (c === "adel") {
+        if (!await confirmBox("删除归档", `将从服务器上删除「${a.name}」的归档文件，删除后无法恢复。`, "删除", true)) return;
+        await userFileDel(a.path);
+        const list = archiveList();
+        list.splice(list.indexOf(a), 1);
+        saveSettings();
+        draw();
+      }
+    } catch (err) {
+      toast(err.message, "error");
+    } finally {
+      b.disabled = false;
+    }
+  });
+  return { render };
+}
+
 // src/ui/more.js
-// 「更多」页：开关方案、API 站点、外观、加载体检，顶部分段切换
+// 「更多」页：方案（含 API 站点）、外观、加载体检、清理，顶部分段切换
 function mountMore(page, app) {
-  const SUBS = [["schemes", "方案"], ["look", "外观"], ["health", "加载体检"]];
+  const SUBS = [["schemes", "方案"], ["look", "外观"], ["health", "加载体检"], ["clean", "清理"]];
   page.innerHTML = `
     <div class="pa-more-head"><div class="pa-seg pa-seg-s" role="tablist">${SUBS.map(([k, l]) => `<button data-m="${k}">${l}</button>`).join("")}</div></div>
     ${SUBS.map(([k]) => `<section class="pa-subpage" data-mp="${k}" hidden></section>`).join("")}`;
@@ -5458,10 +6178,13 @@ function mountMore(page, app) {
     })(),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
+      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">文字大小</h3><div class="pa-fsslot"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
       const slot = box.querySelector(".pa-look");
       const bgSlot = box.querySelector(".pa-bgslot");
+      const fsSlot = box.querySelector(".pa-fsslot");
+      bindFontSize(fsSlot);
       const render = () => {
+        fsSlot.innerHTML = fontSizeSeg();
         slot.innerHTML = themeCards();
         bgSlot.innerHTML = bgPanel();
       };
@@ -5469,7 +6192,8 @@ function mountMore(page, app) {
       bindBgPanel(bgSlot, render);
       return { render };
     })(),
-    health: mountHealth(sec("health"))
+    health: mountHealth(sec("health"), { goClean: () => { show("clean"); saveSettings(); } }),
+    clean: mountCleanup(sec("clean"))
   };
   if (settings().moreTab === "api") settings().moreTab = "schemes";
   let cur = settings().moreTab && subs[settings().moreTab] ? settings().moreTab : "schemes";
@@ -5488,7 +6212,7 @@ function mountMore(page, app) {
 }
 
 // src/ui/style.css
-var style_default = "/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用\"缝线\"虚线做标记。所有选择器都限定在 #pa-root 内。 */\n\n#pa-root {\n    --pa-text: var(--SmartThemeBodyColor, #e6e1d8);\n    --pa-tint: var(--SmartThemeBlurTintColor, rgba(28, 26, 30, 0.94));\n    --pa-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));\n    --pa-thread: var(--SmartThemeQuoteColor, #e0a24a);\n    --pa-em: var(--SmartThemeEmColor, #b9b3a8);\n    --pa-dim: rgba(128, 128, 128, 0.95);\n    --pa-card: rgba(127, 127, 127, 0.09);\n    --pa-card-2: rgba(127, 127, 127, 0.16);\n    --pa-sel: rgba(224, 162, 74, 0.16);\n    --pa-warn: #e0784a;\n    --pa-ok: #6fb38a;\n    --pa-on-accent: #1b1712;\n    --pa-input-bg: rgba(0, 0, 0, .18);\n    --pa-r: 10px;\n    --pa-row-h: 38px;\n    position: fixed;\n    inset: 0;\n    width: 100%; height: 100vh; height: 100dvh;\n    max-height: none; min-height: 0; margin: 0; padding: 0;\n    z-index: 10010;\n    color: var(--pa-text);\n    font-size: var(--mainFontSize, 15px);\n    line-height: 1.45;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #pa-root {\n        --pa-dim: color-mix(in srgb, var(--pa-text) 58%, transparent);\n        --pa-card: color-mix(in srgb, var(--pa-text) 7%, transparent);\n        --pa-card-2: color-mix(in srgb, var(--pa-text) 13%, transparent);\n        --pa-sel: color-mix(in srgb, var(--pa-thread) 20%, transparent);\n    }\n}\n@media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }\n#pa-root[hidden] { display: none; }\nhtml.pa-open body { overflow: hidden; }\n\n#pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }\n#pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }\n#pa-root [hidden] { display: none !important; }\n\n/* ---------- 外壳 ---------- */\n#pa-root .pa-shell {\n    position: absolute; inset: 0;\n    display: grid;\n    grid-template-rows: auto auto minmax(0, 1fr);\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-areas: \"top\" \"tabs\" \"main\";\n    width: 100%; overflow: hidden;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    height: 100vh; height: 100dvh;\n}\n#pa-root .pa-shell::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }\n#pa-root .pa-top {\n    grid-area: top;\n    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;\n    padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n}\n#pa-root .pa-brand { display: flex; align-items: center; gap: 8px; font-size: 1.05em; white-space: nowrap; }\n#pa-root .pa-logo { display: inline-flex; color: var(--pa-thread); }\n#pa-root .pa-logo svg { width: 20px; height: 20px; }\n#pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }\n#pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }\n#pa-root .pa-backup-btn { margin-left: auto; color: var(--pa-dim); }\n#pa-root .pa-savebar:not([hidden]) + .pa-backup-btn { margin-left: 0; }\n#pa-root .pa-backup-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-top .pa-savebar .pa-btn { min-height: 34px; padding: 3px 12px; }\n@media (max-width: 459px) { #pa-root .pa-brand b { display: none; } }\n\n#pa-root .pa-tabs {\n    grid-area: tabs;\n    display: flex; gap: 2px; padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n    overflow-x: auto; scrollbar-width: none;\n}\n#pa-root .pa-tabs::-webkit-scrollbar { display: none; }\n#pa-root .pa-tabs button {\n    flex: 1 0 auto; min-width: 64px;\n    padding: 10px 12px; border: 0; background: none; cursor: pointer;\n    color: var(--pa-dim); border-bottom: 2px solid transparent;\n}\n#pa-root .pa-tabs button[aria-selected=\"true\"] { color: var(--pa-text); border-bottom: 2px dashed var(--pa-thread); }\n\n#pa-root .pa-main { grid-area: main; min-height: 0; position: relative; }\n#pa-root .pa-page { height: 100%; display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }\n#pa-root .pa-scroll {\n    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;\n    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;\n    padding: 6px calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));\n    position: relative;\n}\n\n/* 手机：页签放到底部，拇指够得着 */\n@media (max-width: 759px) {\n    #pa-root .pa-shell { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: \"top\" \"main\" \"tabs\"; }\n    #pa-root .pa-tabs { border-bottom: 0; border-top: 1px solid var(--pa-line); padding-bottom: env(safe-area-inset-bottom); }\n    #pa-root .pa-tabs button { border-bottom: 0; border-top: 2px solid transparent; padding: 11px 6px; min-width: 0; flex: 1 1 0; }\n    #pa-root .pa-tabs button[aria-selected=\"true\"] { border-top: 2px dashed var(--pa-thread); border-bottom: 0; }\n    #pa-root .pa-top:has(.pa-savebar:not([hidden])) .pa-brand b { display: none; }\n    #pa-root .pa-dirty-text { max-width: 38vw; }\n}\n\n/* ---------- 基础控件 ---------- */\n#pa-root .pa-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: 36px; padding: 6px 12px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-card); cursor: pointer; white-space: nowrap;\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-btn:disabled { opacity: .45; cursor: default; }\n#pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }\n#pa-root .pa-btn-soft { background: transparent; border-style: dashed; }\n#pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }\n#pa-root .pa-btn-danger-soft { color: var(--pa-warn); border-color: currentColor; background: transparent; }\n#pa-root .pa-sq { min-width: 40px; padding: 6px; }\n#pa-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-style: dashed; }\n#pa-root .pa-mini { border: 1px dashed var(--pa-thread); color: var(--pa-thread); background: none; border-radius: 999px; padding: 2px 10px; font-size: .82em; cursor: pointer; white-space: nowrap; min-height: 28px; }\n#pa-root .pa-icon-btn {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 34px; height: 34px; flex: none;\n    border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }\n#pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-input, #pa-root .pa-select {\n    width: 100%; min-height: 38px; padding: 7px 10px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-input-bg); color: var(--pa-text);\n    font-size: max(16px, 1em); /* iOS 小于 16px 会自动放大页面 */\n}\n#pa-root .pa-select { appearance: auto; }\n#pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }\n#pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }\n#pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }\n#pa-root .pa-text-s { min-height: 26vh; }\n#pa-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }\n#pa-root .pa-pad { padding: 0 14px; }\n#pa-root .pa-p { margin: 0 0 8px; }\n#pa-root .pa-empty { color: var(--pa-dim); text-align: center; padding: 28px 12px; }\n#pa-root .pa-h { font-size: 1em; margin: 18px 2px 8px; font-weight: 600; }\n#pa-root .pa-inline-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: .92em; }\n#pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }\n#pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }\n#pa-root .pa-field > span { color: var(--pa-dim); }\n#pa-root .pa-form { display: grid; gap: 12px; }\n#pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }\n#pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-groups-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 24px; }\n#pa-root .pa-chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: .74em; line-height: 1.7; border: 1px solid var(--pa-line); color: var(--pa-em); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }\n#pa-root .pa-chip-dim { opacity: .7; }\n#pa-root .pa-chip-cot { border-color: var(--pa-thread); color: var(--pa-thread); }\n\n#pa-root .pa-seg { display: inline-flex; border: 1px solid var(--pa-line); border-radius: 999px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }\n#pa-root .pa-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; color: var(--pa-dim); white-space: nowrap; min-height: 32px; }\n#pa-root .pa-seg button.on { background: var(--pa-card-2); color: var(--pa-text); }\n#pa-root .pa-seg-s button { padding: 4px 10px; font-size: .9em; }\n\n/* 开关 */\n#pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }\n#pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }\n#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }\n#pa-root .pa-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }\n#pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }\n#pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-switch-s { width: 32px; height: 19px; }\n#pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }\n#pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }\n#pa-root .pa-switch-s i::after { width: 13px; height: 13px; }\n#pa-root .pa-switch-s input:checked + i::after { transform: translateX(13px); }\n\n/* ---------- 工具栏 ---------- */\n#pa-root .pa-toolbar {\n    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;\n    padding: 10px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n}\n#pa-root .pa-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }\n#pa-root .pa-picker > span { color: var(--pa-dim); font-size: .88em; white-space: nowrap; }\n#pa-root .pa-picker .pa-select { min-width: 0; }\n#pa-root .pa-search-row { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-search-row .pa-search { flex: 1 1 auto; width: auto; min-width: 0; }\n#pa-root .pa-toolbar > .pa-search { flex: 1 1 160px; width: auto; }\n#pa-root .pa-tools-more { display: none; }\n#pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }\n#pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }\n@media (max-width: 759px) {\n    #pa-root .pa-tools { display: none; }\n    #pa-root .pa-tools-more { display: inline-flex; }\n    #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }\n    #pa-root .pa-chip { max-width: 5em; }\n    #pa-root .pa-badges { max-width: 32%; }\n}\n\n/* ---------- 条目列表 ---------- */\n#pa-root .pa-loose { padding: 2px 0; }\n#pa-root .pa-row {\n    display: flex; align-items: center; gap: 6px;\n    min-height: var(--pa-row-h); padding: 3px 4px 3px 8px;\n    border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;\n    -webkit-tap-highlight-color: transparent; position: relative;\n}\n#pa-root .pa-row:hover { background: var(--pa-card); }\n#pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }\n#pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }\n#pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }\n#pa-root .pa-row.pa-sel { background: var(--pa-sel); }\n#pa-root .pa-row.pa-sel .pa-check { border: 2px dashed var(--pa-thread); background: radial-gradient(circle, var(--pa-thread) 0 4px, transparent 4.5px); }\n#pa-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }\n#pa-root .pa-peek { width: 30px; height: 30px; opacity: .6; }\n#pa-root .pa-handle {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none;\n    color: var(--pa-dim); cursor: grab; touch-action: none; border-radius: 8px;\n}\n#pa-root .pa-handle:active { cursor: grabbing; background: var(--pa-card-2); }\n#pa-root .pa-row.pa-dragging { opacity: .35; }\n#pa-root .pa-row.pa-flash { animation: pa-flash 1.4s ease-out; }\n@keyframes pa-flash { 0%, 30% { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); } 100% { background: transparent; box-shadow: none; } }\n\n/* 分组框：左边一道缝线 */\n#pa-root .pa-group { margin: 6px 0; border-radius: var(--pa-r); background: var(--pa-card); position: relative; }\n#pa-root .pa-group::before { content: \"\"; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed var(--pa-thread); opacity: .75; }\n#pa-root .pa-group.pa-goff { opacity: .6; }\n#pa-root .pa-group.pa-goff::before { border-left-color: var(--pa-dim); }\n#pa-root .pa-group.pa-gsel { box-shadow: inset 0 0 0 1px var(--pa-thread); }\n#pa-root .pa-ghead { display: flex; align-items: center; gap: 4px; min-height: 42px; padding: 4px 6px 4px 6px; cursor: pointer; }\n#pa-root .pa-caret svg { transition: transform .15s; transform: rotate(90deg); }\n#pa-root .pa-collapsed .pa-caret svg { transform: rotate(0deg); }\n#pa-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); font-size: .8em; margin-left: 6px; }\n#pa-root .pa-count { color: var(--pa-dim); font-size: .82em; font-variant-numeric: tabular-nums; margin-right: 4px; }\n#pa-root .pa-gbody { padding: 0 2px 6px 10px; }\n#pa-root .pa-collapsed .pa-gbody { display: none; }\n\n#pa-root .pa-drop-line { position: absolute; left: 6px; right: 6px; height: 0; border-top: 3px solid var(--pa-thread); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n#pa-root .pa-ghost {\n    position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none;\n    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px);\n    padding: 8px 12px; border-radius: 10px; background: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600;\n    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);\n}\n#pa-root .pa-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-insert-mark {\n    position: relative; margin: 2px 6px 6px; padding: 3px 10px; font-size: .82em; font-weight: 600;\n    color: var(--pa-on-accent); background: var(--pa-thread); border-radius: 6px; text-align: left;\n}\n#pa-root .pa-insert-mark::before { content: \"⬇ \"; }\n#pa-root .pa-row.pa-at { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-group.pa-has-at > .pa-ghead { box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-at-chip { flex: none; padding: 1px 8px; border-radius: 999px; font-size: .78em; font-weight: 600; background: var(--pa-thread); color: var(--pa-on-accent); }\n#pa-root .pa-placing .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }\n#pa-root .pa-placing .pa-row:not(.pa-sel):hover, #pa-root .pa-placing .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }\n/* 选位置：点组头＝放在组后面，所以按下组头时提示线画在整个组框的下沿 */\n#pa-root .pa-placing .pa-group:has(> .pa-ghead:hover:not(:has(.pa-caret:hover))), #pa-root .pa-placing .pa-group:has(> .pa-ghead:active:not(:has(.pa-caret:active))) { box-shadow: 0 3px 0 var(--pa-thread); }\n#pa-root .pa-group.pa-after-at { box-shadow: 0 0 0 1.5px var(--pa-thread); }\n#pa-root .pa-group.pa-after-at + .pa-insert-mark { margin-top: 4px; }\n#pa-root .pa-slot {\n    display: block; width: 100%; min-height: 30px; margin: 0 0 4px; padding: 3px 12px;\n    border: 1px dashed var(--pa-line); border-radius: 8px; background: transparent;\n    color: var(--pa-dim); font-size: .85em; text-align: left; cursor: pointer;\n}\n#pa-root .pa-slot:hover, #pa-root .pa-slot:active { color: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-slot-in { margin: 2px 0 2px; border-color: transparent; }\n@media (pointer: coarse) { #pa-root .pa-slot { min-height: 36px; } }\n\n/* ---------- 底部操作条 ---------- */\n#pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar {\n    flex: none; border-top: 1px solid var(--pa-line);\n    padding: 8px calc(10px + env(safe-area-inset-right)) 8px calc(10px + env(safe-area-inset-left));\n    background: var(--pa-card);\n}\n#pa-root .pa-selbar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }\n#pa-root .pa-selbar-btns { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }\n#pa-root .pa-selbar-btns::-webkit-scrollbar { display: none; }\n#pa-root .pa-movebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; }\n#pa-root .pa-movebar > b { flex: 1 1 auto; min-width: 0; color: var(--pa-thread); white-space: nowrap; }\n#pa-root .pa-movebar .pa-btn { min-height: 34px; padding: 3px 10px; }\n#pa-root .pa-movebar .pa-sq { width: 38px; padding: 0; }\n#pa-root .pa-movebar > small { flex: 1 0 100%; color: var(--pa-dim); font-size: .8em; }\n#pa-root .pa-stitchbar { display: flex; align-items: center; gap: 8px; }\n#pa-root .pa-stitchbar .pa-link, #pa-root .pa-stitchbar .pa-btn { flex: none; white-space: nowrap; }\n#pa-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }\n#pa-root .pa-stitch-info span { color: var(--pa-dim); font-size: .84em; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }\n@media (max-width: 759px) {\n    #pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar { padding-bottom: 8px; }\n}\n\n/* ---------- 缝合 ---------- */\n#pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }\n#pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }\n#pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }\n#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }\n#pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#pa-root .pa-src { border-right: 0; }\n#pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }\n#pa-root .pa-pane-head > b { white-space: nowrap; }\n#pa-root .pa-pane-head .pa-dst-picker { flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-src-pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 12px; }\n#pa-root .pa-src-pick .pa-select { flex: 1 1 55%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-search { flex: 1 1 35%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-file { flex: none; }\n#pa-root .pa-dst-hint { padding: 0 12px; margin: 0 0 4px; }\n#pa-root .pa-file { position: relative; overflow: hidden; }\n#pa-root .pa-paste { padding: 4px 2px; }\n@media (max-width: 759px) {\n    #pa-root .pa-suture { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(90px, var(--pa-split, 45%)) 18px minmax(90px, 1fr); }\n    #pa-root .pa-splitter { cursor: row-resize; border-top: 2px dashed var(--pa-thread); border-bottom: 1px solid var(--pa-line); background: var(--pa-card); }\n    #pa-root .pa-splitter span { width: 48px; height: 4px; }\n    #pa-root .pa-pane-head { padding: 6px 10px 2px; }\n    #pa-root .pa-dst-hint { font-size: .8em; }\n}\n\n#pa-root .pa-review { display: grid; gap: 12px; }\n#pa-root .pa-target-card { border: 1px dashed var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 6px; }\n#pa-root .pa-target-card small { color: var(--pa-dim); }\n#pa-root .pa-items { display: grid; gap: 12px; }\n#pa-root .pa-item { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; background: var(--pa-card); }\n#pa-root .pa-item header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }\n#pa-root .pa-item header .pa-input { flex: 1 1 180px; width: auto; }\n#pa-root .pa-from { color: var(--pa-dim); }\n#pa-root .pa-item-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: end; }\n#pa-root .pa-notes { margin: 0; padding-left: 18px; font-size: .88em; color: var(--pa-em); }\n#pa-root .pa-notes .pa-warn { color: var(--pa-warn); }\n#pa-root .pa-item details summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 4px 0; }\n#pa-root .pa-item .pa-text { min-height: 30vh; margin-top: 6px; }\n\n/* ---------- 卡片（思维链/方案/API） ---------- */\n#pa-root .pa-cards { display: grid; gap: 8px; }\n#pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }\n#pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }\n#pa-root .pa-card small { display: block; color: var(--pa-dim); }\n#pa-root .pa-card p { margin: 2px 0; }\n#pa-root .pa-card-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }\n#pa-root .pa-card-warn { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root details.pa-card > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; list-style: none; }\n#pa-root details.pa-card > summary::-webkit-details-marker { display: none; }\n#pa-root details.pa-card > summary::before { content: \"▸\"; color: var(--pa-thread); }\n#pa-root details.pa-card[open] > summary::before { content: \"▾\"; }\n#pa-root .pa-reads { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 6px; }\n#pa-root .pa-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .9em; }\n#pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }\n#pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }\n#pa-root .pa-cot { padding-top: 4px; }\n#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin: 6px 0 4px; }\n#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }\n#pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }\n#pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }\n#pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }\n#pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }\n#pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }\n#pa-root .pa-cov .pa-link { grid-row: 1; grid-column: 3; font-size: .8em; }\n#pa-root .pa-cov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-lv { font-size: .74em; padding: 1px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }\n#pa-root .pa-lv-ok { color: var(--pa-ok); }\n#pa-root .pa-lv-maybe { color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-lv-none { color: var(--pa-dim); }\n#pa-root .pa-optional { margin-top: 16px; }\n\n#pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }\n#pa-root .pa-live .pa-dot::before { content: \"●\"; margin-right: 4px; }\n#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }\n#pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\n#pa-root .pa-plan { padding-top: 10px; }\n#pa-root .pa-plan .pa-card .pa-inline-check { display: flex; margin: 4px 0; }\n#pa-root .pa-plan .pa-toolbar-flat { padding: 0 0 4px; }\n#pa-root .pa-plan-schemes, #pa-root .pa-plan-sites { margin-top: 14px; }\n\n/* ---------- 弹层 ---------- */\n#pa-root .pa-sheet-mask {\n    position: absolute; inset: 0; z-index: 50;\n    background: rgba(0, 0, 0, .45);\n    display: flex; align-items: flex-end; justify-content: center;\n    animation: pa-fade .16s ease-out;\n}\n#pa-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }\n#pa-root .pa-sheet {\n    width: 100%; max-height: 90vh; max-height: 90dvh;\n    display: flex; flex-direction: column;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);\n    border: 1px solid var(--pa-line); border-bottom: 0;\n    border-radius: 16px 16px 0 0;\n    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);\n    animation: pa-up .2s ease-out;\n    position: relative;\n}\n#pa-root .pa-sheet::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); border-radius: inherit; z-index: -1; }\n#pa-root .pa-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; border-bottom: 1px dashed var(--pa-line); }\n#pa-root .pa-sheet-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-sheet-body { padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }\n#pa-root .pa-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--pa-line); }\n@media (min-width: 760px) {\n    #pa-root .pa-sheet-mask { align-items: center; padding: 24px; }\n    #pa-root .pa-sheet { max-width: 560px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: 86vh; }\n    #pa-root .pa-sheet-wide { max-width: 920px; }\n}\n@keyframes pa-fade { from { opacity: 0; } }\n@keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }\n#pa-root .pa-pick { display: grid; gap: 6px; }\n#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }\n#pa-root .pa-pick-item small { color: var(--pa-dim); }\n#pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }\n#pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }\n#pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }\n#pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n\n/* ---------- 缝合：紧凑控件 ---------- */\n#pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }\n#pa-root .pa-compact .pa-seg button { min-height: 28px; padding: 3px 10px; }\n#pa-root .pa-compact .pa-pane-head { padding: 6px 10px 2px; gap: 6px; }\n#pa-root .pa-compact .pa-src-pick { padding: 2px 10px 4px; }\n#pa-root .pa-compact .pa-row { min-height: 34px; }\n#pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 15px; height: 15px; border-width: 1.5px; }\n#pa-root .pa-compact .pa-ghead { min-height: 36px; }\n#pa-root .pa-compact .pa-mini { min-height: 26px; padding: 1px 9px; }\n#pa-root .pa-compact .pa-picker > span { font-size: .8em; }\n#pa-root .pa-stitchbar .pa-link { padding: 4px 4px; font-size: .9em; }\n\n/* ---------- 缝合预览 ---------- */\n#pa-root .pa-hook { border-left: 3px solid var(--pa-thread); padding: 6px 10px; display: grid; gap: 6px; border-radius: 4px; background: var(--pa-card); }\n#pa-root .pa-hook small { color: var(--pa-dim); line-height: 1.5; display: block; }\n#pa-root .pa-hook .pa-warn { margin: 0; font-size: .88em; }\n#pa-root .pa-hook-covered, #pa-root .pa-hook-mention, #pa-root .pa-hook-skip, #pa-root .pa-hook-cot { border-left-color: var(--pa-ok); }\n#pa-root .pa-hook-nocot { border-left-color: var(--pa-warn); }\n#pa-root .pa-field-wide { flex: 1 1 260px; min-width: 0; grid-column: 1 / -1; }\n#pa-root .pa-field-wide .pa-input { width: 100%; }\n#pa-root .pa-explain summary, #pa-root .pa-adv summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-explain .pa-notes { margin-top: 6px; color: var(--pa-text); }\n#pa-root .pa-was { display: grid; gap: 2px; font-size: .92em; }\n#pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }\n#pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }\n\n#pa-root .pa-modes { display: grid; gap: 8px; }\n#pa-root .pa-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); cursor: pointer; background: transparent; }\n#pa-root .pa-mode.on { border: 2px dashed var(--pa-thread); background: var(--pa-sel); padding: 7px 9px; }\n#pa-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }\n#pa-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }\n#pa-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }\n#pa-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }\n#pa-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n\n/* ---------- 思维链页 ---------- */\n#pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }\n#pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }\n#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }\n#pa-root .pa-verdict p { margin: 0; }\n#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }\n#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }\n#pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }\n#pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }\n#pa-root .pa-legend .pa-lv { flex: none; }\n#pa-root .pa-cot-sum span { line-height: 1.3; }\n\n/* ---------- 更多：方案 / API / 外观 ---------- */\n#pa-root .pa-more-head { display: flex; justify-content: center; padding: 8px 10px 2px; }\n#pa-root .pa-subpage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n#pa-root .pa-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }\n#pa-root .pa-theme { display: grid; gap: 8px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--pa-line); cursor: pointer; min-height: 72px; }\n#pa-root .pa-theme[aria-pressed=\"true\"] { outline: 2px dashed var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-theme-dots { display: flex; gap: 5px; }\n#pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }\n#pa-root .pa-theme b { font-size: .95em; }\n#pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }\n\n/* ---------- 莫兰迪色卡（不透明） ---------- */\n#pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-shell, #pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }\n#pa-root[data-theme=\"mist\"]     { --pa-tint:#f6f2e2; --pa-text:#2f3a46; --pa-thread:#4f74a3; --pa-em:#4f5d6a; --pa-line:#d3d9c6; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b25a3c; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); --pa-sel:rgba(79,116,163,.18); }\n#pa-root[data-theme=\"bean\"]     { --pa-tint:#f7ece9; --pa-text:#45343f; --pa-thread:#b0607e; --pa-em:#6a5562; --pa-line:#e3d1d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(176,96,126,.16); }\n#pa-root[data-theme=\"oat\"]      { --pa-tint:#f6e6e3; --pa-text:#4a3438; --pa-thread:#b5566a; --pa-em:#6d5357; --pa-line:#e6cfcf; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4472e; --pa-ok:#5b7d4f; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }\n#pa-root[data-theme=\"sage\"]     { --pa-tint:#f7efe8; --pa-text:#2c3a58; --pa-thread:#5a6e9e; --pa-em:#55607a; --pa-line:#e1d6d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b0604a; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(90,110,158,.16); }\n#pa-root[data-theme=\"matcha\"]   { --pa-tint:#f9f1e4; --pa-text:#3a4433; --pa-thread:#5f7a52; --pa-em:#556049; --pa-line:#dfdcbf; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#a85a45; --pa-ok:#5f7a52; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }\n#pa-root[data-theme=\"goose\"]    { --pa-tint:#f9f1e4; --pa-text:#3d4540; --pa-thread:#5f7f68; --pa-em:#59625b; --pa-line:#e3ddd0; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0604a; --pa-ok:#5f7f68; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); }\n#pa-root[data-theme=\"night\"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }\n#pa-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }\n\n@media (prefers-reduced-motion: reduce) {\n    #pa-root *, #pa-root *::before, #pa-root *::after { animation: none !important; transition: none !important; }\n}\n\n/* 1.3.4 加载体检 */\n#pa-root .pa-health-body { display: block; }\n#pa-root .pa-rank { display: grid; grid-template-columns: minmax(0, 1fr) 26% auto; gap: 7px 8px; align-items: center; font-size: .9em; margin-bottom: 6px; }\n#pa-root .pa-rank > div { display: contents; }\n#pa-root .pa-rank > p { grid-column: 1 / -1; }\n#pa-root .pa-rank span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-rank em { text-align: right; font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .92em; }\n#pa-root .pa-bar { display: block; height: 6px; border-radius: 3px; background: var(--pa-line); overflow: hidden; }\n#pa-root .pa-bar b { display: block; height: 100%; background: var(--pa-thread); border-radius: 3px; }\n#pa-root .pa-health .pa-card-act { margin: 10px 0 4px; }\n\n/* 1.3.4 扩展页设置框（在酒馆页面里，不在 #pa-root 里，用酒馆自己的颜色） */\n#pa-settings .pa-set-badge { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78em; font-weight: 500; line-height: 1.6; vertical-align: 1px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); opacity: .85; }\n#pa-settings .inline-drawer-content { padding: 4px 2px 6px; }\n#pa-settings .pa-set-intro { font-size: .9em; opacity: .75; margin: 2px 0 6px; }\n#pa-settings .pa-set-btns { display: flex; flex-wrap: wrap; gap: 6px; }\n#pa-settings .menu_button { width: auto; white-space: nowrap; padding: 4px 10px; margin: 2px 0; gap: 6px; }\n#pa-settings .menu_button span { font-size: inherit; }\n#pa-settings .pa-set-btns .menu_button { flex: 1 1 0; min-width: 7.5em; }\n#pa-settings .pa-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }\n#pa-settings .pa-set-k { opacity: .7; min-width: 2.5em; }\n#pa-settings .pa-set-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; }\n#pa-settings .pa-set-mini { font-size: .88em; padding: 2px 8px; }\n#pa-settings .pa-set-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9em; margin: 2px 0 6px; padding: 6px 8px; border-radius: 6px; border: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-status[hidden] { display: none; }\n#pa-settings .pa-set-status.new { border-style: solid; border-color: var(--SmartThemeQuoteColor, #e18a24); }\n#pa-settings .pa-set-status.bad { border-color: #d36b6b; }\n#pa-settings .pa-set-log { margin: 6px 0; }\n#pa-settings .pa-set-log > summary { cursor: pointer; opacity: .85; padding: 2px 0; }\n#pa-settings .pa-set-logs { max-height: 34vh; overflow: auto; margin-top: 4px; padding-right: 4px; }\n#pa-settings .pa-set-logv { font-size: .86em; line-height: 1.55; margin: 6px 0 8px; padding-left: 8px; border-left: 2px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-logv b { display: block; margin-bottom: 2px; }\n#pa-settings .pa-set-foot { font-size: .82em; opacity: .65; margin-top: 6px; }\n#pa-settings .pa-set-foot a { color: inherit; text-decoration: underline; margin-left: 4px; }\n#pa-settings code { font-size: .95em; padding: 0 3px; }\n\n/* 折叠箭头 */\n#pa-root .pa-caret svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .15s; }\n#pa-root .pa-caret.open svg { transform: rotate(90deg); }\n\n/* 1.3.7 API 站点：点开看详情、直接换模型 */\n#pa-root .pa-field-row { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; }\n#pa-root .pa-field-row > span { flex: none; color: var(--pa-dim); }\n#pa-root .pa-select-s { min-width: 0; flex: 1 1 auto; max-width: 100%; padding: 4px 8px; }\n#pa-root .pa-site > header { cursor: pointer; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin: 0; }\n#pa-root .pa-site > header b { flex: none; }\n#pa-root .pa-site-caret { color: var(--pa-dim); width: 1em; flex: none; }\n#pa-root .pa-site-model { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pa-dim); }\n#pa-root .pa-btn-s { padding: 3px 12px; min-height: 0; }\n#pa-root .pa-site-dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 10px 0 4px; align-items: center; }\n#pa-root .pa-site-dl dt { color: var(--pa-dim); font-size: .9em; }\n#pa-root .pa-site-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n#pa-root .pa-dim { color: var(--pa-dim); }\n\n/* 1.3.9 花田、晴野：油画感渐变背景。几层柔和色团叠在浅色底上，再加一层很淡的画布纹理 */\n#pa-root { --pa-canvas: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); }\n#pa-root[data-theme=\"bean\"] .pa-shell, #pa-root .pa-paint-bean {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),\n        radial-gradient(ellipse 55% 28% at 84% 86%, rgba(244, 178, 150, .46), transparent 70%),\n        radial-gradient(ellipse 48% 24% at 46% 72%, rgba(190, 170, 226, .42), transparent 72%),\n        radial-gradient(ellipse 70% 20% at 72% 36%, rgba(206, 190, 226, .50), transparent 70%),\n        radial-gradient(ellipse 50% 18% at 18% 40%, rgba(214, 198, 228, .46), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 56%, rgba(246, 212, 192, .40), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),\n        linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%);\n}\n#pa-root[data-theme=\"mist\"] .pa-shell, #pa-root .pa-paint-mist {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),\n        radial-gradient(ellipse 45% 16% at 12% 10%, rgba(104, 148, 138, .36), transparent 70%),\n        radial-gradient(ellipse 55% 26% at 30% 54%, rgba(246, 230, 146, .52), transparent 70%),\n        radial-gradient(ellipse 46% 24% at 78% 64%, rgba(212, 226, 164, .56), transparent 70%),\n        radial-gradient(ellipse 28% 14% at 70% 40%, rgba(240, 176, 186, .42), transparent 70%),\n        radial-gradient(ellipse 34% 16% at 22% 86%, rgba(198, 188, 236, .42), transparent 70%),\n        radial-gradient(ellipse 30% 14% at 86% 90%, rgba(244, 196, 160, .40), transparent 70%),\n        linear-gradient(180deg, #e2eaec 0%, #f6f1db 26%, #f3eecd 60%, #e2e9cf 100%);\n}\n#pa-root.pa-painted .pa-shell::before { background: none; }\n/* 渐变背景上的半透明面板 */\n#pa-root.pa-painted .pa-top, #pa-root.pa-painted .pa-tabs { background: rgba(255, 255, 255, .34); }\n#pa-root.pa-painted :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: rgba(255, 255, 255, .62); }\n\n/* 1.3.9 自定义背景图：图片上盖一层主题底色 */\n#pa-root.pa-has-bg .pa-shell { background: linear-gradient(var(--pa-bg-veil), var(--pa-bg-veil)), var(--pa-bg-img) center / cover no-repeat; }\n#pa-root.pa-has-bg .pa-shell::before { background: none; }\n#pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }\n#pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }\n#pa-root.pa-has-bg { --pa-card: color-mix(in srgb, var(--pa-tint) 58%, transparent); --pa-card-2: color-mix(in srgb, var(--pa-tint) 78%, transparent); }\n#pa-root .pa-bgpanel input[type=range] { flex: 1 1 auto; accent-color: var(--pa-thread); }\n#pa-root .pa-bgpanel em { font-style: normal; color: var(--pa-dim); min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }\n\n/* 1.3.9 空分组、分组拖动、新分组选位置、模型下拉 */\n#pa-root .pa-gempty { margin: 0; padding: 4px 14px 8px; color: var(--pa-dim); font-size: .85em; }\n#pa-root .pa-group.pa-gempty-box { border: 1px dashed var(--pa-line); }\n#pa-root .pa-group.pa-dragging { opacity: .4; }\n#pa-root .pa-ghead .pa-handle { height: 32px; width: 34px; }\n#pa-root .pa-movebar-ng > b { color: var(--pa-text); }\n#pa-root .pa-ngbar { border-top: 2px solid var(--pa-thread); }\n#pa-root .pa-model-slot { display: grid; gap: 6px; }\n#pa-root .pa-model-slot .pa-select { width: 100%; }\n#pa-root .pa-selbar-top .pa-selcancel { margin-left: auto; }\n\n/* 1.4.0 模型按钮、模型选择框 */\n#pa-root .pa-model-btn { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; max-width: 100%; min-height: 34px; padding: 4px 10px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-input-bg); color: var(--pa-text); text-align: left; cursor: pointer; }\n#pa-root .pa-model-btn span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-model-btn i { font-style: normal; color: var(--pa-dim); flex: none; }\n#pa-root .pa-field > .pa-model-btn { width: 100%; }\n#pa-root .pa-site-dl dd .pa-model-btn { flex: 1 1 200px; }\n#pa-root .pa-mpick { display: grid; gap: 8px; }\n#pa-root .pa-mpick-list { max-height: min(52vh, 460px); overflow-y: auto; display: grid; gap: 4px; overscroll-behavior: contain; }\n#pa-root .pa-mpick-item { text-align: left; padding: 8px 10px; min-height: 40px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); color: var(--pa-text); cursor: pointer; overflow-wrap: anywhere; }\n#pa-root .pa-mpick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); font-weight: 600; }\n#pa-root .pa-mpick-custom { border-style: dashed; color: var(--pa-thread); }\n\n/* 1.4.1 缝合预览：每条默认收起 */\n#pa-root .pa-item { gap: 0; padding: 0; }\n#pa-root .pa-item-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; min-height: 44px; }\n#pa-root .pa-item-head input[type=checkbox] { flex: none; width: 18px; height: 18px; }\n#pa-root .pa-item-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }\n#pa-root .pa-item-head .pa-badges { max-width: 55%; flex-wrap: nowrap; }\n#pa-root .pa-item-caret { flex: none; color: var(--pa-dim); width: 1em; text-align: center; }\n#pa-root .pa-item-body { display: grid; gap: 8px; padding: 0 12px 12px; }\n#pa-root .pa-item-body[hidden] { display: none; }\n#pa-root .pa-item.open { border-color: var(--pa-thread); }\n#pa-root .pa-chip-warn { color: var(--pa-warn); border-color: var(--pa-warn); }\n#pa-root .pa-hookbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }\n#pa-root .pa-hookbar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }\n/* 说明里的名词标签 */\n#pa-root .pa-legend .pa-lv-term { border-style: solid; border-color: var(--pa-thread); color: var(--pa-thread); white-space: nowrap; }\n#pa-root .pa-legend { grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; align-items: baseline; }\n#pa-root .pa-legend li { display: contents; }\n#pa-root .pa-legend .pa-lv { justify-self: start; }\n#pa-root .pa-site > header .pa-dot { flex: none; white-space: nowrap; }\n#pa-root .pa-site > header .pa-chip { flex: none; }\n\n/* 1.4.2 秋樱：粉色花海油画 */\n#pa-root[data-theme=\"oat\"] .pa-shell, #pa-root .pa-paint-oat {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 50% 22% at 30% 56%, rgba(236, 140, 165, .48), transparent 70%),\n        radial-gradient(ellipse 45% 20% at 74% 46%, rgba(240, 160, 182, .44), transparent 70%),\n        radial-gradient(ellipse 26% 12% at 30% 72%, rgba(214, 80, 82, .24), transparent 70%),\n        radial-gradient(ellipse 22% 10% at 64% 66%, rgba(220, 96, 110, .22), transparent 70%),\n        radial-gradient(ellipse 24% 12% at 84% 50%, rgba(240, 200, 92, .32), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 58% 36%, rgba(206, 172, 220, .30), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 100%, rgba(140, 158, 108, .40), transparent 72%),\n        linear-gradient(180deg, #f6e4e1 0%, #f4dad9 34%, #f0d4d5 60%, #e2dfca 86%, #d3d8b8 100%);\n}\n/* 海雾：雾蓝紫晕到粉橙的水彩。色卡 1E3E6E 5A6E9E 9E8EAA D49E8A F0B878 */\n#pa-root[data-theme=\"sage\"] .pa-shell, #pa-root .pa-paint-sage {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 46% 26% at 6% 6%, rgba(118, 132, 190, .52), transparent 70%),\n        radial-gradient(ellipse 36% 26% at 16% 34%, rgba(158, 142, 170, .42), transparent 70%),\n        radial-gradient(ellipse 50% 24% at 10% 86%, rgba(108, 124, 182, .48), transparent 70%),\n        radial-gradient(ellipse 34% 8% at 36% 80%, rgba(255, 255, 255, .70), transparent 70%),\n        radial-gradient(ellipse 36% 22% at 92% 16%, rgba(212, 158, 138, .45), transparent 70%),\n        radial-gradient(ellipse 40% 28% at 92% 66%, rgba(240, 184, 120, .48), transparent 70%),\n        radial-gradient(ellipse 60% 26% at 76% 100%, rgba(236, 168, 112, .55), transparent 72%),\n        radial-gradient(ellipse 48% 30% at 52% 46%, rgba(255, 249, 242, .80), transparent 72%),\n        linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%);\n}\n/* 春芽：绿色水彩 FBECCF 7B986C D5D3A0 A2B891 F9F1E4 */\n#pa-root[data-theme=\"matcha\"] .pa-shell, #pa-root .pa-paint-matcha {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 30% 26% at 10% 66%, rgba(123, 152, 108, .56), transparent 70%),\n        radial-gradient(ellipse 42% 28% at 28% 44%, rgba(162, 184, 145, .62), transparent 70%),\n        radial-gradient(ellipse 40% 22% at 72% 26%, rgba(213, 211, 160, .55), transparent 70%),\n        radial-gradient(ellipse 38% 24% at 84% 84%, rgba(162, 184, 145, .58), transparent 70%),\n        radial-gradient(ellipse 30% 18% at 60% 62%, rgba(213, 211, 160, .40), transparent 70%),\n        linear-gradient(160deg, #f9f1e4 0%, #fbeccf 45%, #f6efd9 100%);\n}\n/* 春和：粉绿水彩 F0DEC6 BDCDB0 FBDED0 D1E5D9 F9F1E4 */\n#pa-root[data-theme=\"goose\"] .pa-shell, #pa-root .pa-paint-goose {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 45% 30% at 6% 8%, rgba(251, 222, 208, .95), transparent 70%),\n        radial-gradient(ellipse 40% 34% at 18% 52%, rgba(240, 222, 198, .85), transparent 70%),\n        radial-gradient(ellipse 50% 40% at 88% 46%, rgba(209, 229, 217, .95), transparent 72%),\n        radial-gradient(ellipse 40% 26% at 82% 92%, rgba(189, 205, 176, .75), transparent 70%),\n        radial-gradient(ellipse 30% 20% at 12% 92%, rgba(189, 205, 176, .55), transparent 70%),\n        linear-gradient(120deg, #f9f1e4 0%, #f9f1e4 40%, #e8efe4 100%);\n}\n";
+var style_default = "/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用\"缝线\"虚线做标记。所有选择器都限定在 #pa-root 内。 */\n\n#pa-root {\n    --pa-text: var(--SmartThemeBodyColor, #e6e1d8);\n    --pa-tint: var(--SmartThemeBlurTintColor, rgba(28, 26, 30, 0.94));\n    --pa-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));\n    --pa-thread: var(--SmartThemeQuoteColor, #e0a24a);\n    --pa-em: var(--SmartThemeEmColor, #b9b3a8);\n    --pa-dim: rgba(128, 128, 128, 0.95);\n    --pa-card: rgba(127, 127, 127, 0.09);\n    --pa-card-2: rgba(127, 127, 127, 0.16);\n    --pa-sel: rgba(224, 162, 74, 0.16);\n    --pa-warn: #e0784a;\n    --pa-ok: #6fb38a;\n    --pa-on-accent: #1b1712;\n    --pa-input-bg: rgba(0, 0, 0, .18);\n    --pa-r: 10px;\n    --pa-row-h: 38px;\n    position: fixed;\n    inset: 0;\n    width: 100%; height: 100vh; height: 100dvh;\n    max-height: none; min-height: 0; margin: 0; padding: 0;\n    z-index: 10010;\n    color: var(--pa-text);\n    /* 1.5.0：字号跟随酒馆，手机上最大 14px（酒馆字号调大时面板不会挤）；「外观 → 文字大小」可再整体缩放 */\n    --pa-base: var(--mainFontSize, 15px);\n    font-size: calc(var(--pa-base) * var(--pa-k, 1));\n    line-height: 1.45;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #pa-root {\n        --pa-dim: color-mix(in srgb, var(--pa-text) 58%, transparent);\n        --pa-card: color-mix(in srgb, var(--pa-text) 7%, transparent);\n        --pa-card-2: color-mix(in srgb, var(--pa-text) 13%, transparent);\n        --pa-sel: color-mix(in srgb, var(--pa-thread) 20%, transparent);\n    }\n}\n@media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }\n#pa-root[hidden] { display: none; }\nhtml.pa-open body { overflow: hidden; }\n\n#pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }\n#pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }\n#pa-root [hidden] { display: none !important; }\n\n/* ---------- 外壳 ---------- */\n#pa-root .pa-shell {\n    position: absolute; inset: 0;\n    display: grid;\n    grid-template-rows: auto auto minmax(0, 1fr);\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-areas: \"top\" \"tabs\" \"main\";\n    width: 100%; overflow: hidden;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    height: 100vh; height: 100dvh;\n}\n#pa-root .pa-shell::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }\n#pa-root .pa-top {\n    grid-area: top;\n    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;\n    padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n}\n#pa-root .pa-brand { display: flex; align-items: center; gap: 8px; font-size: 1.05em; white-space: nowrap; }\n#pa-root .pa-logo { display: inline-flex; color: var(--pa-thread); }\n#pa-root .pa-logo svg { width: 20px; height: 20px; }\n#pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }\n#pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }\n#pa-root .pa-backup-btn { margin-left: auto; color: var(--pa-dim); }\n#pa-root .pa-savebar:not([hidden]) + .pa-backup-btn { margin-left: 0; }\n#pa-root .pa-backup-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-top .pa-savebar .pa-btn { min-height: 34px; padding: 3px 12px; }\n@media (max-width: 459px) { #pa-root .pa-brand b { display: none; } }\n\n#pa-root .pa-tabs {\n    grid-area: tabs;\n    display: flex; gap: 2px; padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n    overflow-x: auto; scrollbar-width: none;\n}\n#pa-root .pa-tabs::-webkit-scrollbar { display: none; }\n#pa-root .pa-tabs button {\n    flex: 1 0 auto; min-width: 64px;\n    padding: 10px 12px; border: 0; background: none; cursor: pointer;\n    color: var(--pa-dim); border-bottom: 2px solid transparent;\n}\n#pa-root .pa-tabs button[aria-selected=\"true\"] { color: var(--pa-text); border-bottom: 2px dashed var(--pa-thread); }\n\n#pa-root .pa-main { grid-area: main; min-height: 0; position: relative; }\n#pa-root .pa-page { height: 100%; display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }\n#pa-root .pa-scroll {\n    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;\n    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;\n    padding: 6px calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));\n    position: relative;\n}\n\n/* 手机：页签放到底部，拇指够得着 */\n@media (max-width: 759px) {\n    #pa-root .pa-shell { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: \"top\" \"main\" \"tabs\"; }\n    #pa-root .pa-tabs { border-bottom: 0; border-top: 1px solid var(--pa-line); padding-bottom: env(safe-area-inset-bottom); }\n    #pa-root .pa-tabs button { border-bottom: 0; border-top: 2px solid transparent; padding: 11px 6px; min-width: 0; flex: 1 1 0; }\n    #pa-root .pa-tabs button[aria-selected=\"true\"] { border-top: 2px dashed var(--pa-thread); border-bottom: 0; }\n    #pa-root .pa-top:has(.pa-savebar:not([hidden])) .pa-brand b { display: none; }\n    #pa-root .pa-dirty-text { max-width: 38vw; }\n}\n\n/* ---------- 基础控件 ---------- */\n#pa-root .pa-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: 36px; padding: 6px 12px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-card); cursor: pointer; white-space: nowrap;\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-btn:disabled { opacity: .45; cursor: default; }\n#pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }\n#pa-root .pa-btn-soft { background: transparent; border-style: dashed; }\n#pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }\n#pa-root .pa-btn-danger-soft { color: var(--pa-warn); border-color: currentColor; background: transparent; }\n#pa-root .pa-sq { min-width: 40px; padding: 6px; }\n#pa-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-style: dashed; }\n#pa-root .pa-mini { border: 1px dashed var(--pa-thread); color: var(--pa-thread); background: none; border-radius: 999px; padding: 2px 10px; font-size: .82em; cursor: pointer; white-space: nowrap; min-height: 28px; }\n#pa-root .pa-icon-btn {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 34px; height: 34px; flex: none;\n    border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }\n#pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-input, #pa-root .pa-select {\n    width: 100%; min-height: 38px; padding: 7px 10px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-input-bg); color: var(--pa-text);\n    font-size: 1em;\n}\n/* iOS 输入框字号小于 16px 时点进去会自动放大页面，只对 iOS 保留 16px */\n@supports (-webkit-touch-callout: none) {\n    #pa-root .pa-input, #pa-root .pa-select { font-size: max(16px, 1em); }\n}\n#pa-root .pa-select { appearance: auto; }\n#pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }\n#pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }\n#pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }\n#pa-root .pa-text-s { min-height: 26vh; }\n#pa-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }\n#pa-root .pa-pad { padding: 0 14px; }\n#pa-root .pa-p { margin: 0 0 8px; }\n#pa-root .pa-empty { color: var(--pa-dim); text-align: center; padding: 28px 12px; }\n#pa-root .pa-h { font-size: 1em; margin: 18px 2px 8px; font-weight: 600; }\n#pa-root .pa-inline-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: .92em; }\n#pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }\n#pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }\n#pa-root .pa-field > span { color: var(--pa-dim); }\n#pa-root .pa-form { display: grid; gap: 12px; }\n#pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }\n#pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-groups-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 24px; }\n#pa-root .pa-chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: .74em; line-height: 1.7; border: 1px solid var(--pa-line); color: var(--pa-em); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }\n#pa-root .pa-chip-dim { opacity: .7; }\n#pa-root .pa-chip-cot { border-color: var(--pa-thread); color: var(--pa-thread); }\n\n#pa-root .pa-seg { display: inline-flex; border: 1px solid var(--pa-line); border-radius: 999px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }\n#pa-root .pa-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; color: var(--pa-dim); white-space: nowrap; min-height: 32px; }\n#pa-root .pa-seg button.on { background: var(--pa-card-2); color: var(--pa-text); }\n#pa-root .pa-seg-s button { padding: 4px 10px; font-size: .9em; }\n\n/* 开关 */\n#pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }\n#pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }\n#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }\n#pa-root .pa-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }\n#pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }\n#pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-switch-s { width: 32px; height: 19px; }\n#pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }\n#pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }\n#pa-root .pa-switch-s i::after { width: 13px; height: 13px; }\n#pa-root .pa-switch-s input:checked + i::after { transform: translateX(13px); }\n\n/* ---------- 工具栏 ---------- */\n#pa-root .pa-toolbar {\n    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;\n    padding: 10px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n}\n#pa-root .pa-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }\n#pa-root .pa-picker > span { color: var(--pa-dim); font-size: .88em; white-space: nowrap; }\n#pa-root .pa-picker .pa-select { min-width: 0; }\n#pa-root .pa-search-row { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-search-row .pa-search { flex: 1 1 auto; width: auto; min-width: 0; }\n#pa-root .pa-toolbar > .pa-search { flex: 1 1 160px; width: auto; }\n#pa-root .pa-tools-more { display: none; }\n#pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }\n#pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }\n@media (max-width: 759px) {\n    #pa-root .pa-tools { display: none; }\n    #pa-root .pa-tools-more { display: inline-flex; }\n    #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }\n    #pa-root .pa-chip { max-width: 5em; }\n    #pa-root .pa-badges { max-width: 32%; }\n}\n\n/* ---------- 条目列表 ---------- */\n#pa-root .pa-loose { padding: 2px 0; }\n#pa-root .pa-row {\n    display: flex; align-items: center; gap: 6px;\n    min-height: var(--pa-row-h); padding: 3px 4px 3px 8px;\n    border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;\n    -webkit-tap-highlight-color: transparent; position: relative;\n}\n#pa-root .pa-row:hover { background: var(--pa-card); }\n#pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }\n#pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }\n#pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }\n#pa-root .pa-row.pa-sel { background: var(--pa-sel); }\n#pa-root .pa-row.pa-sel .pa-check { border: 2px dashed var(--pa-thread); background: radial-gradient(circle, var(--pa-thread) 0 4px, transparent 4.5px); }\n#pa-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }\n#pa-root .pa-peek { width: 30px; height: 30px; opacity: .6; }\n#pa-root .pa-handle {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none;\n    color: var(--pa-dim); cursor: grab; touch-action: none; border-radius: 8px;\n}\n#pa-root .pa-handle:active { cursor: grabbing; background: var(--pa-card-2); }\n#pa-root .pa-row.pa-dragging { opacity: .35; }\n#pa-root .pa-row.pa-flash { animation: pa-flash 1.4s ease-out; }\n@keyframes pa-flash { 0%, 30% { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); } 100% { background: transparent; box-shadow: none; } }\n\n/* 分组框：左边一道缝线 */\n#pa-root .pa-group { margin: 6px 0; border-radius: var(--pa-r); background: var(--pa-card); position: relative; }\n#pa-root .pa-group::before { content: \"\"; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed var(--pa-thread); opacity: .75; }\n#pa-root .pa-group.pa-goff { opacity: .6; }\n#pa-root .pa-group.pa-goff::before { border-left-color: var(--pa-dim); }\n#pa-root .pa-group.pa-gsel { box-shadow: inset 0 0 0 1px var(--pa-thread); }\n#pa-root .pa-ghead { display: flex; align-items: center; gap: 4px; min-height: 42px; padding: 4px 6px 4px 6px; cursor: pointer; }\n#pa-root .pa-caret svg { transition: transform .15s; transform: rotate(90deg); }\n#pa-root .pa-collapsed .pa-caret svg { transform: rotate(0deg); }\n#pa-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); font-size: .8em; margin-left: 6px; }\n#pa-root .pa-count { color: var(--pa-dim); font-size: .82em; font-variant-numeric: tabular-nums; margin-right: 4px; }\n#pa-root .pa-gbody { padding: 0 2px 6px 10px; }\n#pa-root .pa-collapsed .pa-gbody { display: none; }\n\n#pa-root .pa-drop-line { position: absolute; left: 6px; right: 6px; height: 0; border-top: 3px solid var(--pa-thread); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n#pa-root .pa-ghost {\n    position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none;\n    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px);\n    padding: 8px 12px; border-radius: 10px; background: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600;\n    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);\n}\n#pa-root .pa-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-insert-mark {\n    position: relative; margin: 2px 6px 6px; padding: 3px 10px; font-size: .82em; font-weight: 600;\n    color: var(--pa-on-accent); background: var(--pa-thread); border-radius: 6px; text-align: left;\n}\n#pa-root .pa-insert-mark::before { content: \"⬇ \"; }\n#pa-root .pa-row.pa-at { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-group.pa-has-at > .pa-ghead { box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-at-chip { flex: none; padding: 1px 8px; border-radius: 999px; font-size: .78em; font-weight: 600; background: var(--pa-thread); color: var(--pa-on-accent); }\n#pa-root .pa-placing .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }\n#pa-root .pa-placing .pa-row:not(.pa-sel):hover, #pa-root .pa-placing .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }\n/* 选位置：点组头＝放在组后面，所以按下组头时提示线画在整个组框的下沿 */\n#pa-root .pa-placing .pa-group:has(> .pa-ghead:hover:not(:has(.pa-caret:hover))), #pa-root .pa-placing .pa-group:has(> .pa-ghead:active:not(:has(.pa-caret:active))) { box-shadow: 0 3px 0 var(--pa-thread); }\n#pa-root .pa-group.pa-after-at { box-shadow: 0 0 0 1.5px var(--pa-thread); }\n#pa-root .pa-group.pa-after-at + .pa-insert-mark { margin-top: 4px; }\n#pa-root .pa-slot {\n    display: block; width: 100%; min-height: 30px; margin: 0 0 4px; padding: 3px 12px;\n    border: 1px dashed var(--pa-line); border-radius: 8px; background: transparent;\n    color: var(--pa-dim); font-size: .85em; text-align: left; cursor: pointer;\n}\n#pa-root .pa-slot:hover, #pa-root .pa-slot:active { color: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-slot-in { margin: 2px 0 2px; border-color: transparent; }\n@media (pointer: coarse) { #pa-root .pa-slot { min-height: 36px; } }\n\n/* ---------- 底部操作条 ---------- */\n#pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar {\n    flex: none; border-top: 1px solid var(--pa-line);\n    padding: 8px calc(10px + env(safe-area-inset-right)) 8px calc(10px + env(safe-area-inset-left));\n    background: var(--pa-card);\n}\n#pa-root .pa-selbar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }\n#pa-root .pa-selbar-btns { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }\n#pa-root .pa-selbar-btns::-webkit-scrollbar { display: none; }\n#pa-root .pa-movebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; }\n#pa-root .pa-movebar > b { flex: 1 1 auto; min-width: 0; color: var(--pa-thread); white-space: nowrap; }\n#pa-root .pa-movebar .pa-btn { min-height: 34px; padding: 3px 10px; }\n#pa-root .pa-movebar .pa-sq { width: 38px; padding: 0; }\n#pa-root .pa-movebar > small { flex: 1 0 100%; color: var(--pa-dim); font-size: .8em; }\n#pa-root .pa-stitchbar { display: flex; align-items: center; gap: 8px; }\n#pa-root .pa-stitchbar .pa-link, #pa-root .pa-stitchbar .pa-btn { flex: none; white-space: nowrap; }\n#pa-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }\n#pa-root .pa-stitch-info span { color: var(--pa-dim); font-size: .84em; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }\n@media (max-width: 759px) {\n    #pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar { padding-bottom: 8px; }\n}\n\n/* ---------- 缝合 ---------- */\n#pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }\n#pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }\n#pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }\n#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }\n#pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#pa-root .pa-src { border-right: 0; }\n#pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }\n#pa-root .pa-pane-head > b { white-space: nowrap; }\n#pa-root .pa-pane-head .pa-dst-picker { flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-src-pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 12px; }\n#pa-root .pa-src-pick .pa-select { flex: 1 1 55%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-search { flex: 1 1 35%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-file { flex: none; }\n#pa-root .pa-dst-hint { padding: 0 12px; margin: 0 0 4px; }\n#pa-root .pa-file { position: relative; overflow: hidden; }\n#pa-root .pa-paste { padding: 4px 2px; }\n@media (max-width: 759px) {\n    #pa-root .pa-suture { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(90px, var(--pa-split, 45%)) 18px minmax(90px, 1fr); }\n    #pa-root .pa-splitter { cursor: row-resize; border-top: 2px dashed var(--pa-thread); border-bottom: 1px solid var(--pa-line); background: var(--pa-card); }\n    #pa-root .pa-splitter span { width: 48px; height: 4px; }\n    #pa-root .pa-pane-head { padding: 6px 10px 2px; }\n    #pa-root .pa-dst-hint { font-size: .8em; }\n}\n\n#pa-root .pa-review { display: grid; gap: 12px; }\n#pa-root .pa-target-card { border: 1px dashed var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 6px; }\n#pa-root .pa-target-card small { color: var(--pa-dim); }\n#pa-root .pa-items { display: grid; gap: 12px; }\n#pa-root .pa-item { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; background: var(--pa-card); }\n#pa-root .pa-item header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }\n#pa-root .pa-item header .pa-input { flex: 1 1 180px; width: auto; }\n#pa-root .pa-from { color: var(--pa-dim); }\n#pa-root .pa-item-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: end; }\n#pa-root .pa-notes { margin: 0; padding-left: 18px; font-size: .88em; color: var(--pa-em); }\n#pa-root .pa-notes .pa-warn { color: var(--pa-warn); }\n#pa-root .pa-item details summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 4px 0; }\n#pa-root .pa-item .pa-text { min-height: 30vh; margin-top: 6px; }\n\n/* ---------- 卡片（思维链/方案/API） ---------- */\n#pa-root .pa-cards { display: grid; gap: 8px; }\n#pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }\n#pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }\n#pa-root .pa-card small { display: block; color: var(--pa-dim); }\n#pa-root .pa-card p { margin: 2px 0; }\n#pa-root .pa-card-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }\n#pa-root .pa-card-warn { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root details.pa-card > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; list-style: none; }\n#pa-root details.pa-card > summary::-webkit-details-marker { display: none; }\n#pa-root details.pa-card > summary::before { content: \"▸\"; color: var(--pa-thread); }\n#pa-root details.pa-card[open] > summary::before { content: \"▾\"; }\n#pa-root .pa-reads { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 6px; }\n#pa-root .pa-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .9em; }\n#pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }\n#pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }\n#pa-root .pa-cot { padding-top: 4px; }\n#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin: 6px 0 4px; }\n#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }\n#pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }\n#pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }\n#pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }\n#pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }\n#pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }\n#pa-root .pa-cov .pa-link { grid-row: 1; grid-column: 3; font-size: .8em; }\n#pa-root .pa-cov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-lv { font-size: .74em; padding: 1px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }\n#pa-root .pa-lv-ok { color: var(--pa-ok); }\n#pa-root .pa-lv-maybe { color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-lv-none { color: var(--pa-dim); }\n#pa-root .pa-optional { margin-top: 16px; }\n\n#pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }\n#pa-root .pa-live .pa-dot::before { content: \"●\"; margin-right: 4px; }\n#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }\n#pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\n#pa-root .pa-plan { padding-top: 10px; }\n#pa-root .pa-plan .pa-card .pa-inline-check { display: flex; margin: 4px 0; }\n#pa-root .pa-plan .pa-toolbar-flat { padding: 0 0 4px; }\n#pa-root .pa-plan-schemes, #pa-root .pa-plan-sites { margin-top: 14px; }\n\n/* ---------- 弹层 ---------- */\n#pa-root .pa-sheet-mask {\n    position: absolute; inset: 0; z-index: 50;\n    background: rgba(0, 0, 0, .45);\n    display: flex; align-items: flex-end; justify-content: center;\n    animation: pa-fade .16s ease-out;\n}\n#pa-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }\n#pa-root .pa-sheet {\n    width: 100%; max-height: 90vh; max-height: 90dvh;\n    display: flex; flex-direction: column;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);\n    border: 1px solid var(--pa-line); border-bottom: 0;\n    border-radius: 16px 16px 0 0;\n    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);\n    animation: pa-up .2s ease-out;\n    position: relative;\n}\n#pa-root .pa-sheet::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); border-radius: inherit; z-index: -1; }\n#pa-root .pa-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; border-bottom: 1px dashed var(--pa-line); }\n#pa-root .pa-sheet-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-sheet-body { padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }\n#pa-root .pa-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--pa-line); }\n@media (min-width: 760px) {\n    #pa-root .pa-sheet-mask { align-items: center; padding: 24px; }\n    #pa-root .pa-sheet { max-width: 560px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: 86vh; }\n    #pa-root .pa-sheet-wide { max-width: 920px; }\n}\n@keyframes pa-fade { from { opacity: 0; } }\n@keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }\n#pa-root .pa-pick { display: grid; gap: 6px; }\n#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }\n#pa-root .pa-pick-item small { color: var(--pa-dim); }\n#pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }\n#pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }\n#pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }\n#pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n\n/* ---------- 缝合：紧凑控件 ---------- */\n#pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }\n#pa-root .pa-compact .pa-seg button { min-height: 28px; padding: 3px 10px; }\n#pa-root .pa-compact .pa-pane-head { padding: 6px 10px 2px; gap: 6px; }\n#pa-root .pa-compact .pa-src-pick { padding: 2px 10px 4px; }\n#pa-root .pa-compact .pa-row { min-height: 34px; }\n#pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 15px; height: 15px; border-width: 1.5px; }\n#pa-root .pa-compact .pa-ghead { min-height: 36px; }\n#pa-root .pa-compact .pa-mini { min-height: 26px; padding: 1px 9px; }\n#pa-root .pa-compact .pa-picker > span { font-size: .8em; }\n#pa-root .pa-stitchbar .pa-link { padding: 4px 4px; font-size: .9em; }\n\n/* ---------- 缝合预览 ---------- */\n#pa-root .pa-hook { border-left: 3px solid var(--pa-thread); padding: 6px 10px; display: grid; gap: 6px; border-radius: 4px; background: var(--pa-card); }\n#pa-root .pa-hook small { color: var(--pa-dim); line-height: 1.5; display: block; }\n#pa-root .pa-hook .pa-warn { margin: 0; font-size: .88em; }\n#pa-root .pa-hook-covered, #pa-root .pa-hook-mention, #pa-root .pa-hook-skip, #pa-root .pa-hook-cot { border-left-color: var(--pa-ok); }\n#pa-root .pa-hook-nocot { border-left-color: var(--pa-warn); }\n#pa-root .pa-field-wide { flex: 1 1 260px; min-width: 0; grid-column: 1 / -1; }\n#pa-root .pa-field-wide .pa-input { width: 100%; }\n#pa-root .pa-explain summary, #pa-root .pa-adv summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-explain .pa-notes { margin-top: 6px; color: var(--pa-text); }\n#pa-root .pa-was { display: grid; gap: 2px; font-size: .92em; }\n#pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }\n#pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }\n\n#pa-root .pa-modes { display: grid; gap: 8px; }\n#pa-root .pa-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); cursor: pointer; background: transparent; }\n#pa-root .pa-mode.on { border: 2px dashed var(--pa-thread); background: var(--pa-sel); padding: 7px 9px; }\n#pa-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }\n#pa-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }\n#pa-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }\n#pa-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }\n#pa-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n\n/* ---------- 思维链页 ---------- */\n#pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }\n#pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }\n#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }\n#pa-root .pa-verdict p { margin: 0; }\n#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }\n#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }\n#pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }\n#pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }\n#pa-root .pa-legend .pa-lv { flex: none; }\n#pa-root .pa-cot-sum span { line-height: 1.3; }\n\n/* ---------- 更多：方案 / API / 外观 ---------- */\n#pa-root .pa-more-head { display: flex; justify-content: center; padding: 8px 10px 2px; }\n#pa-root .pa-subpage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n#pa-root .pa-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }\n#pa-root .pa-theme { display: grid; gap: 8px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--pa-line); cursor: pointer; min-height: 72px; }\n#pa-root .pa-theme[aria-pressed=\"true\"] { outline: 2px dashed var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-theme-dots { display: flex; gap: 5px; }\n#pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }\n#pa-root .pa-theme b { font-size: .95em; }\n#pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }\n\n/* ---------- 莫兰迪色卡（不透明） ---------- */\n#pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-shell, #pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }\n#pa-root[data-theme=\"mist\"]     { --pa-tint:#f6f2e2; --pa-text:#2f3a46; --pa-thread:#4f74a3; --pa-em:#4f5d6a; --pa-line:#d3d9c6; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b25a3c; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); --pa-sel:rgba(79,116,163,.18); }\n#pa-root[data-theme=\"bean\"]     { --pa-tint:#f7ece9; --pa-text:#45343f; --pa-thread:#b0607e; --pa-em:#6a5562; --pa-line:#e3d1d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(176,96,126,.16); }\n#pa-root[data-theme=\"oat\"]      { --pa-tint:#f6e6e3; --pa-text:#4a3438; --pa-thread:#b5566a; --pa-em:#6d5357; --pa-line:#e6cfcf; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4472e; --pa-ok:#5b7d4f; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }\n#pa-root[data-theme=\"sage\"]     { --pa-tint:#f7efe8; --pa-text:#2c3a58; --pa-thread:#5a6e9e; --pa-em:#55607a; --pa-line:#e1d6d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b0604a; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(90,110,158,.16); }\n#pa-root[data-theme=\"matcha\"]   { --pa-tint:#f9f1e4; --pa-text:#3a4433; --pa-thread:#5f7a52; --pa-em:#556049; --pa-line:#dfdcbf; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#a85a45; --pa-ok:#5f7a52; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }\n#pa-root[data-theme=\"goose\"]    { --pa-tint:#f9f1e4; --pa-text:#3d4540; --pa-thread:#5f7f68; --pa-em:#59625b; --pa-line:#e3ddd0; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0604a; --pa-ok:#5f7f68; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); }\n#pa-root[data-theme=\"taro\"]     { --pa-tint:#f6eef6; --pa-text:#4a4160; --pa-thread:#7b6fa3; --pa-em:#635a7c; --pa-line:#e3d9ea; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0566a; --pa-ok:#5b7d6a; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(156,145,184,.2); }\n#pa-root[data-theme=\"night\"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }\n#pa-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }\n\n@media (prefers-reduced-motion: reduce) {\n    #pa-root *, #pa-root *::before, #pa-root *::after { animation: none !important; transition: none !important; }\n}\n\n/* 1.3.4 加载体检 */\n#pa-root .pa-health-body { display: block; }\n#pa-root .pa-rank { display: grid; grid-template-columns: minmax(0, 1fr) 26% auto; gap: 7px 8px; align-items: center; font-size: .9em; margin-bottom: 6px; }\n#pa-root .pa-rank > div { display: contents; }\n#pa-root .pa-rank > p { grid-column: 1 / -1; }\n#pa-root .pa-rank span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-rank em { text-align: right; font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .92em; }\n#pa-root .pa-bar { display: block; height: 6px; border-radius: 3px; background: var(--pa-line); overflow: hidden; }\n#pa-root .pa-bar b { display: block; height: 100%; background: var(--pa-thread); border-radius: 3px; }\n#pa-root .pa-health .pa-card-act { margin: 10px 0 4px; }\n\n/* 1.3.4 扩展页设置框（在酒馆页面里，不在 #pa-root 里，用酒馆自己的颜色） */\n#pa-settings .pa-set-badge { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78em; font-weight: 500; line-height: 1.6; vertical-align: 1px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); opacity: .85; }\n#pa-settings .inline-drawer-content { padding: 4px 2px 6px; }\n#pa-settings .pa-set-intro { font-size: .9em; opacity: .75; margin: 2px 0 6px; }\n#pa-settings .pa-set-btns { display: flex; flex-wrap: wrap; gap: 6px; }\n#pa-settings .menu_button { width: auto; white-space: nowrap; padding: 4px 10px; margin: 2px 0; gap: 6px; }\n#pa-settings .menu_button span { font-size: inherit; }\n#pa-settings .pa-set-btns .menu_button { flex: 1 1 0; min-width: 7.5em; }\n#pa-settings .pa-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }\n#pa-settings .pa-set-k { opacity: .7; min-width: 2.5em; }\n#pa-settings .pa-set-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; }\n#pa-settings .pa-set-mini { font-size: .88em; padding: 2px 8px; }\n#pa-settings .pa-set-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9em; margin: 2px 0 6px; padding: 6px 8px; border-radius: 6px; border: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-status[hidden] { display: none; }\n#pa-settings .pa-set-status.new { border-style: solid; border-color: var(--SmartThemeQuoteColor, #e18a24); }\n#pa-settings .pa-set-status.bad { border-color: #d36b6b; }\n#pa-settings .pa-set-log { margin: 6px 0; }\n#pa-settings .pa-set-log > summary { cursor: pointer; opacity: .85; padding: 2px 0; }\n#pa-settings .pa-set-logs { max-height: 34vh; overflow: auto; margin-top: 4px; padding-right: 4px; }\n#pa-settings .pa-set-logv { font-size: .86em; line-height: 1.55; margin: 6px 0 8px; padding-left: 8px; border-left: 2px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-logv b { display: block; margin-bottom: 2px; }\n#pa-settings .pa-set-foot { font-size: .82em; opacity: .65; margin-top: 6px; }\n#pa-settings .pa-set-foot a { color: inherit; text-decoration: underline; margin-left: 4px; }\n#pa-settings code { font-size: .95em; padding: 0 3px; }\n\n/* 折叠箭头 */\n#pa-root .pa-caret svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .15s; }\n#pa-root .pa-caret.open svg { transform: rotate(90deg); }\n\n/* 1.3.7 API 站点：点开看详情、直接换模型 */\n#pa-root .pa-field-row { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; }\n#pa-root .pa-field-row > span { flex: none; color: var(--pa-dim); }\n#pa-root .pa-select-s { min-width: 0; flex: 1 1 auto; max-width: 100%; padding: 4px 8px; }\n#pa-root .pa-site > header { cursor: pointer; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin: 0; }\n#pa-root .pa-site > header b { flex: none; }\n#pa-root .pa-site-caret { color: var(--pa-dim); width: 1em; flex: none; }\n#pa-root .pa-site-model { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pa-dim); }\n#pa-root .pa-btn-s { padding: 3px 12px; min-height: 0; }\n#pa-root .pa-site-dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 10px 0 4px; align-items: center; }\n#pa-root .pa-site-dl dt { color: var(--pa-dim); font-size: .9em; }\n#pa-root .pa-site-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n#pa-root .pa-dim { color: var(--pa-dim); }\n\n/* 1.3.9 花田、晴野：油画感渐变背景。几层柔和色团叠在浅色底上，再加一层很淡的画布纹理 */\n#pa-root { --pa-canvas: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); }\n#pa-root[data-theme=\"bean\"] .pa-shell, #pa-root .pa-paint-bean {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),\n        radial-gradient(ellipse 55% 28% at 84% 86%, rgba(244, 178, 150, .46), transparent 70%),\n        radial-gradient(ellipse 48% 24% at 46% 72%, rgba(190, 170, 226, .42), transparent 72%),\n        radial-gradient(ellipse 70% 20% at 72% 36%, rgba(206, 190, 226, .50), transparent 70%),\n        radial-gradient(ellipse 50% 18% at 18% 40%, rgba(214, 198, 228, .46), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 56%, rgba(246, 212, 192, .40), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),\n        linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%);\n}\n#pa-root[data-theme=\"mist\"] .pa-shell, #pa-root .pa-paint-mist {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),\n        radial-gradient(ellipse 45% 16% at 12% 10%, rgba(104, 148, 138, .36), transparent 70%),\n        radial-gradient(ellipse 55% 26% at 30% 54%, rgba(246, 230, 146, .52), transparent 70%),\n        radial-gradient(ellipse 46% 24% at 78% 64%, rgba(212, 226, 164, .56), transparent 70%),\n        radial-gradient(ellipse 28% 14% at 70% 40%, rgba(240, 176, 186, .42), transparent 70%),\n        radial-gradient(ellipse 34% 16% at 22% 86%, rgba(198, 188, 236, .42), transparent 70%),\n        radial-gradient(ellipse 30% 14% at 86% 90%, rgba(244, 196, 160, .40), transparent 70%),\n        linear-gradient(180deg, #e2eaec 0%, #f6f1db 26%, #f3eecd 60%, #e2e9cf 100%);\n}\n#pa-root.pa-painted .pa-shell::before { background: none; }\n/* 渐变背景上的半透明面板 */\n#pa-root.pa-painted .pa-top, #pa-root.pa-painted .pa-tabs { background: rgba(255, 255, 255, .34); }\n#pa-root.pa-painted :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: rgba(255, 255, 255, .62); }\n\n/* 1.3.9 自定义背景图：图片上盖一层主题底色 */\n#pa-root.pa-has-bg .pa-shell { background: linear-gradient(var(--pa-bg-veil), var(--pa-bg-veil)), var(--pa-bg-img) center / cover no-repeat; }\n#pa-root.pa-has-bg .pa-shell::before { background: none; }\n#pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }\n#pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }\n#pa-root.pa-has-bg { --pa-card: color-mix(in srgb, var(--pa-tint) 58%, transparent); --pa-card-2: color-mix(in srgb, var(--pa-tint) 78%, transparent); }\n#pa-root .pa-bgpanel input[type=range] { flex: 1 1 auto; accent-color: var(--pa-thread); }\n#pa-root .pa-bgpanel em { font-style: normal; color: var(--pa-dim); min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }\n\n/* 1.3.9 空分组、分组拖动、新分组选位置、模型下拉 */\n#pa-root .pa-gempty { margin: 0; padding: 4px 14px 8px; color: var(--pa-dim); font-size: .85em; }\n#pa-root .pa-group.pa-gempty-box { border: 1px dashed var(--pa-line); }\n#pa-root .pa-group.pa-dragging { opacity: .4; }\n#pa-root .pa-ghead .pa-handle { height: 32px; width: 34px; }\n#pa-root .pa-movebar-ng > b { color: var(--pa-text); }\n#pa-root .pa-ngbar { border-top: 2px solid var(--pa-thread); }\n#pa-root .pa-model-slot { display: grid; gap: 6px; }\n#pa-root .pa-model-slot .pa-select { width: 100%; }\n#pa-root .pa-selbar-top .pa-selcancel { margin-left: auto; }\n\n/* 1.4.0 模型按钮、模型选择框 */\n#pa-root .pa-model-btn { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; max-width: 100%; min-height: 34px; padding: 4px 10px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-input-bg); color: var(--pa-text); text-align: left; cursor: pointer; }\n#pa-root .pa-model-btn span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-model-btn i { font-style: normal; color: var(--pa-dim); flex: none; }\n#pa-root .pa-field > .pa-model-btn { width: 100%; }\n#pa-root .pa-site-dl dd .pa-model-btn { flex: 1 1 200px; }\n#pa-root .pa-mpick { display: grid; gap: 8px; }\n#pa-root .pa-mpick-list { max-height: min(52vh, 460px); overflow-y: auto; display: grid; gap: 4px; overscroll-behavior: contain; }\n#pa-root .pa-mpick-item { text-align: left; padding: 8px 10px; min-height: 40px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); color: var(--pa-text); cursor: pointer; overflow-wrap: anywhere; }\n#pa-root .pa-mpick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); font-weight: 600; }\n#pa-root .pa-mpick-custom { border-style: dashed; color: var(--pa-thread); }\n\n/* 1.4.1 缝合预览：每条默认收起 */\n#pa-root .pa-item { gap: 0; padding: 0; }\n#pa-root .pa-item-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; min-height: 44px; }\n#pa-root .pa-item-head input[type=checkbox] { flex: none; width: 18px; height: 18px; }\n#pa-root .pa-item-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }\n#pa-root .pa-item-head .pa-badges { max-width: 55%; flex-wrap: nowrap; }\n#pa-root .pa-item-caret { flex: none; color: var(--pa-dim); width: 1em; text-align: center; }\n#pa-root .pa-item-body { display: grid; gap: 8px; padding: 0 12px 12px; }\n#pa-root .pa-item-body[hidden] { display: none; }\n#pa-root .pa-item.open { border-color: var(--pa-thread); }\n#pa-root .pa-chip-warn { color: var(--pa-warn); border-color: var(--pa-warn); }\n#pa-root .pa-hookbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }\n#pa-root .pa-hookbar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }\n/* 说明里的名词标签 */\n#pa-root .pa-legend .pa-lv-term { border-style: solid; border-color: var(--pa-thread); color: var(--pa-thread); white-space: nowrap; }\n#pa-root .pa-legend { grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; align-items: baseline; }\n#pa-root .pa-legend li { display: contents; }\n#pa-root .pa-legend .pa-lv { justify-self: start; }\n#pa-root .pa-site > header .pa-dot { flex: none; white-space: nowrap; }\n#pa-root .pa-site > header .pa-chip { flex: none; }\n\n/* 1.4.2 秋樱：粉色花海油画 */\n#pa-root[data-theme=\"oat\"] .pa-shell, #pa-root .pa-paint-oat {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 50% 22% at 30% 56%, rgba(236, 140, 165, .48), transparent 70%),\n        radial-gradient(ellipse 45% 20% at 74% 46%, rgba(240, 160, 182, .44), transparent 70%),\n        radial-gradient(ellipse 26% 12% at 30% 72%, rgba(214, 80, 82, .24), transparent 70%),\n        radial-gradient(ellipse 22% 10% at 64% 66%, rgba(220, 96, 110, .22), transparent 70%),\n        radial-gradient(ellipse 24% 12% at 84% 50%, rgba(240, 200, 92, .32), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 58% 36%, rgba(206, 172, 220, .30), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 100%, rgba(140, 158, 108, .40), transparent 72%),\n        linear-gradient(180deg, #f6e4e1 0%, #f4dad9 34%, #f0d4d5 60%, #e2dfca 86%, #d3d8b8 100%);\n}\n/* 海雾：雾蓝紫晕到粉橙的水彩。色卡 1E3E6E 5A6E9E 9E8EAA D49E8A F0B878 */\n#pa-root[data-theme=\"sage\"] .pa-shell, #pa-root .pa-paint-sage {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 46% 26% at 6% 6%, rgba(118, 132, 190, .52), transparent 70%),\n        radial-gradient(ellipse 36% 26% at 16% 34%, rgba(158, 142, 170, .42), transparent 70%),\n        radial-gradient(ellipse 50% 24% at 10% 86%, rgba(108, 124, 182, .48), transparent 70%),\n        radial-gradient(ellipse 34% 8% at 36% 80%, rgba(255, 255, 255, .70), transparent 70%),\n        radial-gradient(ellipse 36% 22% at 92% 16%, rgba(212, 158, 138, .45), transparent 70%),\n        radial-gradient(ellipse 40% 28% at 92% 66%, rgba(240, 184, 120, .48), transparent 70%),\n        radial-gradient(ellipse 60% 26% at 76% 100%, rgba(236, 168, 112, .55), transparent 72%),\n        radial-gradient(ellipse 48% 30% at 52% 46%, rgba(255, 249, 242, .80), transparent 72%),\n        linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%);\n}\n/* 春芽：绿色水彩 FBECCF 7B986C D5D3A0 A2B891 F9F1E4 */\n#pa-root[data-theme=\"matcha\"] .pa-shell, #pa-root .pa-paint-matcha {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 30% 26% at 10% 66%, rgba(123, 152, 108, .56), transparent 70%),\n        radial-gradient(ellipse 42% 28% at 28% 44%, rgba(162, 184, 145, .62), transparent 70%),\n        radial-gradient(ellipse 40% 22% at 72% 26%, rgba(213, 211, 160, .55), transparent 70%),\n        radial-gradient(ellipse 38% 24% at 84% 84%, rgba(162, 184, 145, .58), transparent 70%),\n        radial-gradient(ellipse 30% 18% at 60% 62%, rgba(213, 211, 160, .40), transparent 70%),\n        linear-gradient(160deg, #f9f1e4 0%, #fbeccf 45%, #f6efd9 100%);\n}\n/* 春和：粉绿水彩 F0DEC6 BDCDB0 FBDED0 D1E5D9 F9F1E4 */\n#pa-root[data-theme=\"goose\"] .pa-shell, #pa-root .pa-paint-goose {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 45% 30% at 6% 8%, rgba(251, 222, 208, .95), transparent 70%),\n        radial-gradient(ellipse 40% 34% at 18% 52%, rgba(240, 222, 198, .85), transparent 70%),\n        radial-gradient(ellipse 50% 40% at 88% 46%, rgba(209, 229, 217, .95), transparent 72%),\n        radial-gradient(ellipse 40% 26% at 82% 92%, rgba(189, 205, 176, .75), transparent 70%),\n        radial-gradient(ellipse 30% 20% at 12% 92%, rgba(189, 205, 176, .55), transparent 70%),\n        linear-gradient(120deg, #f9f1e4 0%, #f9f1e4 40%, #e8efe4 100%);\n}\n/* 1.5.0 玫瑰芋泥：粉紫朦胧水彩 F5E8F3 D9D3EA CDBDDB 9C91B8 */\n#pa-root[data-theme=\"taro\"] .pa-shell, #pa-root .pa-paint-taro {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 52% 30% at 4% 4%, rgba(156, 145, 184, .50), transparent 70%),\n        radial-gradient(ellipse 44% 26% at 92% 10%, rgba(232, 196, 222, .62), transparent 70%),\n        radial-gradient(ellipse 40% 30% at 20% 46%, rgba(217, 211, 234, .85), transparent 72%),\n        radial-gradient(ellipse 36% 22% at 78% 42%, rgba(205, 189, 219, .62), transparent 70%),\n        radial-gradient(ellipse 30% 10% at 56% 64%, rgba(255, 255, 255, .72), transparent 70%),\n        radial-gradient(ellipse 56% 30% at 90% 94%, rgba(156, 145, 184, .46), transparent 72%),\n        radial-gradient(ellipse 44% 24% at 14% 92%, rgba(240, 206, 228, .66), transparent 70%),\n        radial-gradient(ellipse 60% 34% at 50% 30%, rgba(250, 244, 250, .80), transparent 72%),\n        linear-gradient(160deg, #e9e2f1 0%, #f5e8f3 40%, #efe4f2 70%, #ddd5ea 100%);\n}\n\n/* 1.5.0 加载体检：打开过程时间线 */\n#pa-root .pa-tl { display: grid; grid-template-columns: max-content minmax(0, 1fr) auto; gap: 8px 10px; align-items: center; font-size: .9em; margin: 2px 0 4px; }\n#pa-root .pa-tl > div { display: contents; }\n#pa-root .pa-tl span { white-space: nowrap; }\n#pa-root .pa-tl span i { font-style: normal; margin-left: 4px; color: var(--pa-warn); font-size: .85em; }\n#pa-root .pa-tl em { font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; font-size: .92em; }\n#pa-root .pa-tl-track { position: relative; display: block; height: 10px; border-radius: 5px; background: var(--pa-line); }\n#pa-root .pa-tl-track b { position: absolute; top: 0; bottom: 0; border-radius: 5px; background: var(--pa-thread); min-width: 3px; }\n#pa-root .pa-tl-ready span, #pa-root .pa-tl-ready em { color: var(--pa-text); font-weight: 600; }\n#pa-root .pa-tl-ready .pa-tl-track { background: none; border-bottom: 1px dashed var(--pa-line); height: 10px; border-radius: 0; }\n#pa-root .pa-tl-ready .pa-tl-track b { width: 3px; top: -4px; bottom: -4px; background: var(--pa-warn); }\n\n/* 1.5.0 清理 */\n#pa-root .pa-stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; gap: 1px; background: var(--pa-line); margin-top: 4px; }\n#pa-root .pa-stack i { display: block; flex-basis: 0; min-width: 1px; background: var(--pa-thread); opacity: .55; }\n#pa-root .pa-stack i.sug { background: var(--pa-warn); opacity: .55; }\n#pa-root .pa-stack i.sel { background: var(--pa-warn); opacity: 1; }\n#pa-root .pa-stack-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-stack-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; background: var(--pa-thread); opacity: .55; }\n#pa-root .pa-stack-key i.sug { background: var(--pa-warn); }\n#pa-root .pa-stack-key i.sel { background: var(--pa-warn); opacity: 1; }\n#pa-root .pa-clean-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 12px 0 6px; }\n#pa-root .pa-clean-bar .pa-select-s { flex: 0 1 auto; width: auto; }\n#pa-root .pa-clist-head { display: flex; justify-content: flex-end; margin: -2px 0 2px; }\n#pa-root .pa-clist { display: grid; gap: 6px; }\n#pa-root .pa-crow { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(64px, 22%); align-items: center; gap: 4px 10px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: 10px; background: var(--pa-card); cursor: pointer; }\n#pa-root .pa-crow.on { border-color: var(--pa-warn); background: var(--pa-card-2); }\n#pa-root .pa-crow.pa-locked { cursor: default; opacity: .8; }\n#pa-root .pa-crow input[type=checkbox] { width: 18px; height: 18px; margin: 0; }\n#pa-root .pa-crow-main { min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-crow-main b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-crow-tags { display: flex; flex-wrap: wrap; gap: 4px; }\n#pa-root .pa-crow-tags .pa-chip { max-width: 100%; }\n#pa-root .pa-crow-size { display: grid; gap: 3px; justify-items: end; }\n#pa-root .pa-crow-size .pa-bar { width: 100%; }\n#pa-root .pa-crow-size em { font-style: normal; color: var(--pa-dim); font-size: .85em; font-variant-numeric: tabular-nums; white-space: nowrap; }\n#pa-root .pa-crow-arch { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }\n#pa-root .pa-crow-btns { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; }\n#pa-root .pa-ctag-same { border-color: var(--pa-warn); color: var(--pa-warn); }\n#pa-root .pa-ctag-old, #pa-root .pa-ctag-series { border-color: color-mix(in srgb, var(--pa-warn) 60%, var(--pa-line)); color: color-mix(in srgb, var(--pa-warn) 75%, var(--pa-text)); }\n#pa-root .pa-ctag-near { border-style: dashed; }\n#pa-root .pa-ctag-use { border-color: var(--pa-thread); color: var(--pa-thread); }\n#pa-root .pa-clean-help { margin: 14px 2px 4px; font-size: .92em; }\n#pa-root .pa-clean-help summary { cursor: pointer; color: var(--pa-dim); }\n#pa-root .pa-clean-help .pa-legend { grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; }\n#pa-root .pa-clean-act > b { color: var(--pa-text); white-space: normal; }\n#pa-root .pa-cbox { display: flex; align-items: center; gap: 8px; margin-top: 6px; cursor: pointer; }\n#pa-root .pa-cbox input { width: 18px; height: 18px; margin: 0; }\n\n/* 1.5.0 文字大小（每台设备单独记） */\n#pa-root[data-fs=\"s\"] { --pa-k: .9; }\n#pa-root[data-fs=\"l\"] { --pa-k: 1.12; }\n#pa-root .pa-fs { margin-bottom: 4px; }\n\n/* 1.5.0 手机：更紧凑。平板、电脑不变 */\n@media (max-width: 599px) {\n    #pa-root { --pa-base: min(var(--mainFontSize, 14px), 14px); --pa-r: 9px; --pa-row-h: 40px; }\n    #pa-root .pa-ghead { min-height: 38px; padding: 2px 4px; }\n    #pa-root .pa-group { margin: 5px 0; }\n    #pa-root .pa-pane-head { padding: 6px 8px 2px; gap: 6px; }\n    #pa-root .pa-src-pick { padding: 2px 8px 4px; }\n    #pa-root .pa-toolbar { gap: 6px; }\n    #pa-root .pa-scroll { padding-left: calc(8px + env(safe-area-inset-left)); padding-right: calc(8px + env(safe-area-inset-right)); }\n    #pa-root .pa-btn { min-height: 34px; padding: 5px 10px; }\n    #pa-root .pa-input, #pa-root .pa-select { min-height: 34px; padding: 5px 9px; }\n    #pa-root .pa-card { padding: 8px 10px; }\n    #pa-root .pa-h { margin: 14px 2px 6px; }\n    #pa-root .pa-sheet-head { padding: 9px 8px 6px 12px; }\n    #pa-root .pa-sheet-body { padding: 10px 10px; }\n    #pa-root .pa-sheet-actions { padding: 8px 10px calc(8px + env(safe-area-inset-bottom)); }\n    #pa-root .pa-sheet-actions .pa-btn { min-height: 38px; }\n    #pa-root .pa-item-head { padding: 6px 8px; min-height: 40px; gap: 6px; }\n    #pa-root .pa-item-head input[type=checkbox] { width: 16px; height: 16px; }\n    #pa-root .pa-item-body { padding: 0 8px 10px; gap: 6px; }\n    #pa-root .pa-chip { font-size: .72em; padding: 0 6px; }\n    #pa-root .pa-crow { padding: 7px 8px; gap: 4px 8px; }\n    #pa-root .pa-verdict { padding: 8px 10px; }\n}\n";
 
 // src/ui/app.js
 var TABS = [
@@ -5849,6 +6573,7 @@ function bindEvents() {
   };
   on(et2.PRESET_CHANGED, (e) => {
     if (e?.apiId && e.apiId !== "openai") return;
+    try { notePresetUse(currentPresetName()); } catch {}
     keepConnection();
     dropClean();
     if (rootEl2 && !rootEl2.hidden) emitChange(focusPreset());
@@ -5878,6 +6603,7 @@ async function start() {
   addSettingsEntry();
   registerSlash();
   bindEvents();
+  try { notePresetUse(currentPresetName(), { save: false }); } catch {}
   let tries = 0;
   const timer = setInterval(() => {
     addMenuEntry();
@@ -5920,12 +6646,7 @@ async function backupsSheet(name) {
   const b = await backupGet(id);
   const how = await pickBox("选择操作", [{ label: "恢复", sub: "恢复后自动保存，可撤销", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
   if (how === "download") {
-    const blob = new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${name}-备份-${new Date(b.time).toISOString().slice(0, 16).replace(/[:T]/g, "")}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5e3);
+    downloadBlob(new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" }), `${name}-备份-${new Date(b.time).toISOString().slice(0, 16).replace(/[:T]/g, "")}.json`);
   }
   if (how === "restore") {
     const d = getDraft(name);

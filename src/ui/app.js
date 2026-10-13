@@ -356,6 +356,7 @@ function bindEvents() {
   };
   on(et2.PRESET_CHANGED, (e) => {
     if (e?.apiId && e.apiId !== "openai") return;
+    try { notePresetUse(currentPresetName()); } catch {}
     keepConnection();
     dropClean();
     if (rootEl2 && !rootEl2.hidden) emitChange(focusPreset());
@@ -385,6 +386,7 @@ async function start() {
   addSettingsEntry();
   registerSlash();
   bindEvents();
+  try { notePresetUse(currentPresetName(), { save: false }); } catch {}
   let tries = 0;
   const timer = setInterval(() => {
     addMenuEntry();
@@ -427,12 +429,7 @@ async function backupsSheet(name) {
   const b = await backupGet(id);
   const how = await pickBox("选择操作", [{ label: "恢复", sub: "恢复后自动保存，可撤销", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
   if (how === "download") {
-    const blob = new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${name}-备份-${new Date(b.time).toISOString().slice(0, 16).replace(/[:T]/g, "")}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5e3);
+    downloadBlob(new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" }), `${name}-备份-${new Date(b.time).toISOString().slice(0, 16).replace(/[:T]/g, "")}.json`);
   }
   if (how === "restore") {
     const d = getDraft(name);
