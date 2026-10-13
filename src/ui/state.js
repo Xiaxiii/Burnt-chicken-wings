@@ -11,7 +11,8 @@ var DEFAULTS = {
   sutureSplit: 45,
   moreTab: "schemes",
   nameWithSource: false,
-  noPullRefresh: true
+  noPullRefresh: true,
+  rescue: true
 };
 function settings() {
   const all = ctx().extensionSettings;

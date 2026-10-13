@@ -22,6 +22,7 @@
  "ui/cleanmore.js",
  "ui/more.js",
  "ui/style.css",
+ "ui/rescue.js",
  "ui/app.js",
  "main.js"
 ]

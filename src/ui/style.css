@@ -812,3 +812,10 @@ html.pa-open body { overflow: hidden; }
         linear-gradient(175deg, #e2eef0 0%, #f8e7e3 34%, #fde6d2 64%, #f8edc8 100%);
 }
 #pa-root .pa-h .pa-chip { max-width: none; }
+
+/* 1.7.1 后台中断补救提示条（在酒馆页面上，用酒馆的颜色） */
+#pa-rescue { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 10005; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; width: min(520px, calc(100vw - 20px)); box-sizing: border-box; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(30,30,34,.95)); color: var(--SmartThemeBodyColor, #ddd); box-shadow: 0 6px 24px rgba(0,0,0,.25); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: .92em; }
+#pa-rescue > span { flex: 1 1 100%; }
+#pa-rescue .pa-rescue-x { margin-left: auto !important; }
+#pa-rescue .menu_button { width: auto; margin: 0; padding: 4px 12px; white-space: nowrap; }
+#pa-rescue .pa-rescue-x { padding: 4px 8px; opacity: .7; }
