@@ -11,6 +11,7 @@ function mountSuture(page, app) {
     dstCollapsed: null,
     dstFor: null,
     marker: null,
+    newGroup: null,
     pasteN: 0,
     worldCache: /* @__PURE__ */ new Map()
   };
@@ -270,10 +271,12 @@ function mountSuture(page, app) {
       st.dstFor = d.name;
       st.dstCollapsed = new Set(d.groups.groups.map((g) => g.id));
       st.marker = null;
+      st.newGroup = null;
     }
     const top = dstList.scrollTop;
-    dstList.innerHTML = renderList(d, { mode: st.groupEdit ? "target-group" : "target", selected: st.groupEdit ? st.gsel : void 0, collapsed: st.dstCollapsed, marker: st.marker, highlight: st.highlight || void 0 });
-    page.querySelector(".pa-dst-hint").textContent = st.groupEdit ? "整理分组中：点条目选中，再点下面的按钮" : "点一个条目＝缝在它后面；点「缝进这组」＝缝到组末尾";
+    const ngRow = st.groupEdit ? "" : st.newGroup ? `<div class="pa-ng-row on"><span>缝成新分组「${esc(st.newGroup)}」</span><button class="pa-mini" data-act="ng-rename">改名</button><button class="pa-mini" data-act="ng-cancel">取消</button></div>` : '<button class="pa-ng-row" data-act="ng-new">＋ 缝成一个新分组</button>';
+    dstList.innerHTML = ngRow + renderList(d, { mode: st.groupEdit ? "target-group" : "target", selected: st.groupEdit ? st.gsel : void 0, collapsed: st.dstCollapsed, marker: st.marker, highlight: st.highlight || void 0 });
+    page.querySelector(".pa-dst-hint").textContent = st.groupEdit ? "整理分组中：点条目选中，再点下面的按钮" : st.newGroup ? "选位置：新分组放在点中的条目后面（点在组里则放在该组之后）" : "展开分组后点条目＝缝在它后面；「缝进这组」＝组末尾";
     page.querySelector("[data-gm=toggle]").textContent = st.groupEdit ? "退出整理" : "整理分组";
     bar.hidden = !!st.groupEdit;
     gbar.hidden = !st.groupEdit;
@@ -382,10 +385,25 @@ function mountSuture(page, app) {
       }
       return;
     }
+    if (act === "ng-new" || act === "ng-rename") {
+      const n = await promptBox("新分组叫什么", st.newGroup || "", "比如：缝进来的文风");
+      if (n) st.newGroup = n.trim();
+      if (st.newGroup && st.marker) st.marker = ngWhere(d, st.marker);
+      return renderDst();
+    }
+    if (act === "ng-cancel") {
+      st.newGroup = null;
+      return renderDst();
+    }
+    if (act === "gstart") {
+      const gid = e.target.closest("[data-gid]")?.dataset.gid;
+      if (gid) st.marker = st.newGroup ? ngWhere(d, { groupStart: gid }) : { groupStart: gid };
+      return renderDst();
+    }
     if (head) {
       const gid = head.dataset.gid;
       if (act === "into") {
-        st.marker = { groupEnd: gid };
+        st.marker = st.newGroup ? ngWhere(d, { groupEnd: gid }) : { groupEnd: gid };
         st.dstCollapsed.delete(gid);
       } else {
         st.dstCollapsed.has(gid) ? st.dstCollapsed.delete(gid) : st.dstCollapsed.add(gid);
@@ -394,13 +412,30 @@ function mountSuture(page, app) {
     }
     const row = e.target.closest(".pa-row");
     if (row) {
-      st.marker = { after: row.dataset.id };
+      st.marker = st.newGroup ? ngWhere(d, { after: row.dataset.id }) : { after: row.dataset.id };
       renderDst();
     }
   });
+  // 新分组不能插在别的组中间（会把那个组劈成两段），点在组里就放到那个组后面
+  function ngWhere(d, m) {
+    const gid = m.groupEnd || m.groupStart || (m.after ? d.groupOf(m.after) : null);
+    if (!gid) return m;
+    const members = d.order.filter((o) => d.groupOf(o.identifier) === gid);
+    if (m.groupStart) {
+      const k = d.order.findIndex((o) => o.identifier === members[0]?.identifier);
+      return k > 0 ? { after: d.order[k - 1].identifier } : { index: 0 };
+    }
+    return members.length ? { after: members[members.length - 1].identifier } : m;
+  }
   function whereText(d) {
     const m = st.marker;
-    if (!m) return "还没选位置";
+    if (!m) return st.newGroup ? `新分组「${st.newGroup}」：还没选位置` : "还没选位置";
+    if (st.newGroup) {
+      const ag = m.after ? d.groupOf(m.after) : null;
+      const ref = ag ? `「${d.group(ag)?.name}」组后面` : m.after ? `「${d.prompt(m.after)?.name}」后面` : m.index === 0 ? "最前面" : "最后";
+      return `缝成新分组「${st.newGroup}」，放在${ref}`;
+    }
+    if (m.groupStart) return `缝进「${d.group(m.groupStart)?.name}」组开头`;
     if (m.groupEnd) return `缝进「${d.group(m.groupEnd)?.name}」组末尾`;
     if (m.after) {
       const g = d.groupOf(m.after);
@@ -431,7 +466,8 @@ function mountSuture(page, app) {
   async function review() {
     const d = target();
     const where = { ...st.marker };
-    const gid = where.groupEnd || (where.after ? d.groupOf(where.after) : null);
+    const newGroup = st.newGroup;
+    const gid = newGroup ? null : where.groupEnd || where.groupStart || (where.after ? d.groupOf(where.after) : null);
     const t = inferTarget(d, where, gid);
     const tgtProf = profilePreset(d);
     const idx = insertionIndex(d, where);
@@ -640,7 +676,8 @@ function mountSuture(page, app) {
         }
         return { prompt, enabled: it.enabled };
       });
-      newIds = x.insertPrompts(prompts, where, gid);
+      newIds = x.insertPrompts(prompts, where, newGroup ? null : gid);
+      if (newGroup) x.createGroup(newGroup, newIds);
       // 挂进思维链：同一个位置挂好几条时，按缝合顺序一条接一条往下排
       const chain = /* @__PURE__ */ new Map();
       items.forEach((it, i) => {
@@ -662,6 +699,7 @@ function mountSuture(page, app) {
       });
     });
     st.picked.clear();
+    st.newGroup = null;
     st.marker = { after: newIds[newIds.length - 1] };
     toast(`缝好了 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条挂进了思维链` : ""}${inits.length ? `，并在初始化条目里补了变量 ${inits.join("、")}` : ""}。会自动保存，不满意可以点「撤销」`, "success");
     if (gid) st.dstCollapsed.delete(gid);

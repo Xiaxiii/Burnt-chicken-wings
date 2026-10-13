@@ -97,7 +97,7 @@ function updateSavebar() {
   }
   const n = d?.dirty ? d.history.length : 0;
   bar.hidden = !d || (!d.dirty && !d.history.length);
-  rootEl2.querySelector(".pa-dirty-text").textContent = saveErrors.has(d?.name) ? "保存失败 · 点保存重试" : saveJobs.has(d?.name) ? "自动保存中…" : d?.dirty ? "草稿已即时备份 · 等待自动保存" : "已自动保存";
+  rootEl2.querySelector(".pa-dirty-text").textContent = saveErrors.has(d?.name) ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)} · 点保存重试` : saveJobs.has(d?.name) ? "自动保存中…" : d?.dirty ? "草稿已即时备份 · 等待自动保存" : "已自动保存";
 }
 function show(tab) {
   current = tab;

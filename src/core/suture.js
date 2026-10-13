@@ -392,6 +392,10 @@ function insertionIndex(draft, where) {
     });
     return last < 0 ? order.length : last + 1;
   }
+  if (where.groupStart) {
+    const i = order.findIndex((id) => draft.groupOf(id) === where.groupStart);
+    return i < 0 ? order.length : i;
+  }
   if (typeof where.index === "number") return where.index;
   return order.length;
 }

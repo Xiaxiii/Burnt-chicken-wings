@@ -32,9 +32,22 @@ var saveJobs = new Map();
 var autoTimers = new Map();
 var saveErrors = new Map();
 function recoveryKey(name) { return "presetAtelier:recovery:v110:" + name; }
+// 1.3.6：大预设（1MB 以上）几份草稿就会把 localStorage（约 5MB）写满。
+// 写满时先清掉别的预设的旧草稿再试；还不行就只是不做即时备份——这不是保存失败，不再显示「保存失败」。
 function checkpoint(d) {
-  try { localStorage.setItem(recoveryKey(d.name), JSON.stringify({ preset: d.toPreset(), history: [], time: Date.now() })); }
-  catch (e) { saveErrors.set(d.name, "即时草稿备份失败：" + e.message); }
+  const key = recoveryKey(d.name);
+  let text;
+  try { text = JSON.stringify({ preset: d.toPreset(), history: [], time: Date.now() }); } catch { return; }
+  try { localStorage.setItem(key, text); return; } catch {}
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k !== key && k.startsWith("presetAtelier:recovery:") && !drafts.get(k.replace(/^presetAtelier:recovery:v110:/, ""))?.dirty) localStorage.removeItem(k);
+    }
+    localStorage.setItem(key, text);
+  } catch {
+    try { localStorage.removeItem(key); } catch {}
+  }
 }
 function queueAutoSave(name) {
   clearTimeout(autoTimers.get(name));

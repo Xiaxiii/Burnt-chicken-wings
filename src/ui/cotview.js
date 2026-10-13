@@ -109,33 +109,33 @@ function mountCot(page, app) {
     for (const c2 of a.coverage.values()) counts[c2.level]++;
     const cotVarReads = a.cot.reduce((n, c2) => n + c2.reads.length, 0);
     const okN = counts.var + counts.chain;
-    const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "主要靠变量把条目读进来" : cotVarReads >= 3 ? "一部分靠变量读，一部分靠文字点名" : "靠文字点名——在思维链里写到条目的名字或标签，不读变量";
+    const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字点名并用" : "以文字点名为主，不读变量";
     const total = okN + counts.mention + counts.none;
     page.querySelector("[data-repair-all]").disabled = !dead.length;
     let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
-            ${a.cotIds.length ? `<p>这个预设有 <b>${a.cotIds.length}</b> 条思维链，${style}。</p>
-            <p>开着的 ${total} 条普通条目里：思维链<b>读到 ${okN} 条</b>，<b>文字提到 ${counts.mention} 条</b>，<b>没提到 ${counts.none} 条</b>。</p>` : `<p>没认出开着的思维链。如果它的名字比较特别（不带"思维链/COT/思考"这些字），在下面的列表里找到它，点「设为思维链」。</p>`}
-            <p>${dead.length ? `有 <b>${dead.length}</b> 处变量写了却没人读，这些内容根本不会发给模型——下面有修复办法。` : "变量都对得上 ✓"}</p>
-            ${counts.none ? `<p class="pa-hint">"没提到"的条目里，破限、规则这类不用管；缝进来的、文风、人设、小剧场这类，想让模型写之前专门想到它，就点它旁边的「挂进思维链」。</p>` : ""}
+            ${a.cotIds.length ? `<p>思维链 <b>${a.cotIds.length}</b> 条，${style}。</p>
+            <p>开启的普通条目 ${total} 条：读到 <b>${okN}</b>，文字提到 <b>${counts.mention}</b>，没提到 <b>${counts.none}</b>。</p>` : `<p>未识别到开启的思维链。名称不含"思维链/COT/思考"时，请在下方列表中手动「设为思维链」。</p>`}
+            <p>${dead.length ? `<b>${dead.length}</b> 处变量写入后无人读取，内容不会发送，见下方修复。` : "变量读写一致 ✓"}</p>
+            ${counts.none ? `<p class="pa-hint">「没提到」的条目中，破限、规则类无需处理；文风、人设、小剧场等需要模型重点考虑的，可点「挂进思维链」。</p>` : ""}
         </div>
-        <details class="pa-card pa-explain-card"><summary><b>思维链是什么？这页在看什么？</b></summary>
-            <p class="pa-p">思维链＝模型正式写正文之前，先按这些条目列的步骤"想一遍"（一般是 &lt;thinking&gt; 里那一段）。</p>
-            <p class="pa-p">条目开着，只代表它的内容发给了模型；思维链里没提到它的话，模型想的时候可能会把它忽略掉——看起来就像"没生效"。所以这页帮你看：每个开着的条目，思维链有没有想到它。</p>
+        <details class="pa-card pa-explain-card"><summary><b>说明</b></summary>
+            <p class="pa-p">思维链：模型输出正文前执行的思考步骤（通常为 &lt;thinking&gt; 部分）。</p>
+            <p class="pa-p">条目开启仅表示内容已发送；未被思维链引用的条目，可能在思考时被忽略。本页检查每条开启条目是否被思维链引用。</p>
             <ul class="pa-legend">
-                <li><span class="pa-lv pa-lv-ok">读到了</span>思维链里有 {{getvar::变量}}，把这条登记的内容直接读进来，最稳。</li>
-                <li><span class="pa-lv pa-lv-maybe">文字提到</span>思维链里直接写到了这条的名字或标签，一般也会想到。</li>
-                <li><span class="pa-lv pa-lv-none">没提到</span>思维链里找不到它。</li>
-                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量没人读</span>条目把内容存进了变量，却没有任何开着的条目读它，这段内容不会发出去。</li>
+                <li><span class="pa-lv pa-lv-ok">读到了</span>思维链通过 {{getvar}} 读取该条目写入的变量。</li>
+                <li><span class="pa-lv pa-lv-maybe">文字提到</span>思维链中出现该条目的名称或标签。</li>
+                <li><span class="pa-lv pa-lv-none">没提到</span>思维链中未出现。</li>
+                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量没人读</span>条目写入的变量没有被任何开启条目读取，内容不会发送。</li>
             </ul>
         </details>
         <div class="pa-cot-sum">
             <div><b>${a.cotIds.length}</b><span>条思维链</span></div>
-            <div><b>${okN}</b><span>条被思维链读到</span></div>
-            <div><b>${counts.mention}</b><span>条被文字提到</span></div>
+            <div><b>${okN}</b><span>条读到</span></div>
+            <div><b>${counts.mention}</b><span>条文字提到</span></div>
             <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>处变量没人读</span></div>
         </div>`;
     if (dead.length) {
-      html += `<h3 class="pa-h">变量没人读</h3><p class="pa-hint">这些条目把内容存进了变量，但没有开着的条目读它。可以打开读它的条目，或者点「查看修复方案」补一个读取（会先给你看）。带条件、脚本的预设以实际发送为准。</p><div class="pa-cards">`;
+      html += `<h3 class="pa-h">变量没人读</h3><p class="pa-hint">以下条目写入的变量无人读取。可开启读取它的条目，或点「查看修复方案」补充读取（应用前可预览）。含条件、脚本的预设以实际发送为准。</p><div class="pa-cards">`;
       for (const i of dead) {
         html += `<div class="pa-card pa-card-warn"><p>${i.ids.map((id) => `「${nm(id)}」`).join("")}${esc(i.text)}</p>
                     <div class="pa-card-act">${i.readersOff?.length ? `<button class="pa-btn pa-btn-soft" data-fix="${esc(i.readersOff.join("|"))}">打开读取它的条目</button>` : ""}
@@ -144,7 +144,7 @@ function mountCot(page, app) {
       html += "</div>";
     }
     html += `<h3 class="pa-h">每条思维链在读什么</h3>`;
-    if (!a.cotIds.length) html += '<p class="pa-hint">没认出开着的思维链条目。可以在下面的条目列表里手动「设为思维链」。</p>';
+    if (!a.cotIds.length) html += '<p class="pa-hint">未识别到开启的思维链条目，可在下方列表中手动「设为思维链」。</p>';
     html += '<div class="pa-cards">';
     for (const c2 of a.cot) {
       const reads = c2.reads.map((r) => `<li><span class="pa-chip">${esc(r.name)}</span>${r.suppliers.length ? r.suppliers.map((s) => `<span class="pa-sup">${nm(s)}</span>`).join("") : '<span class="pa-sup pa-dim">没开任何选项（空）</span>'}</li>`).join("");
@@ -158,7 +158,7 @@ function mountCot(page, app) {
             <div class="pa-seg pa-seg-s" role="tablist">
                 ${[["none", `没提到 ${counts.none}`], ["mention", `文字提到 ${counts.mention}`], ["ok", `读到了 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
             </div>
-            <p class="pa-hint">点「挂进思维链」会照这个预设自己的习惯挂上：思维链读变量的，就配一句问句变量；靠文字点名的，就在思维链里加一行点它的名字。可以撤销。</p>`;
+            <p class="pa-hint">「挂进思维链」按本预设的写法处理：读变量的预设补问句变量，文字点名的预设在思维链中加一行名称。可撤销。</p>`;
     const groupsOrder = [];
     const byGroup = /* @__PURE__ */ new Map();
     for (const [id, c2] of a.coverage) {
@@ -184,7 +184,7 @@ function mountCot(page, app) {
     if (!groupsOrder.length) html += '<p class="pa-hint">这一栏是空的。</p>';
     if (a.optional.length) {
       html += `<details class="pa-card pa-optional"><summary>思维链里留了位置、但没开任何选项的变量（${a.optional.length}）</summary>
-                <p class="pa-hint">这些通常是可选功能，没开就是空的，不用管。缝了东西却出现在这里，说明写进了别的变量名。</p>
+                <p class="pa-hint">通常为可选功能，未开启时为空，无需处理。缝合的条目出现在此处，说明写入了其他变量名。</p>
                 <ul class="pa-reads">${a.optional.map((o) => `<li><span class="pa-chip">${esc(o.varName)}</span>${o.ids.map((id) => `<span class="pa-sup">${nm(id)}</span>`).join("")}</li>`).join("")}</ul></details>`;
     }
     box.innerHTML = html;
