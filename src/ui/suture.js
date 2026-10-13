@@ -273,6 +273,9 @@ function mountSuture(page, app) {
       st.marker = null;
       st.newGroup = null;
     }
+    // 位置指向的条目/分组已经不在了（换了预设、被撤销、被别的插件改过）就清掉，免得显示「undefined」
+    const m0 = st.marker;
+    if (m0 && (m0.after && !d.order.some((o) => o.identifier === m0.after) || m0.groupEnd && !d.group(m0.groupEnd) || m0.groupStart && !d.group(m0.groupStart))) st.marker = null;
     const top = dstList.scrollTop;
     const ngRow = st.groupEdit ? "" : st.newGroup ? `<div class="pa-ng-row on"><span>缝成新分组「${esc(st.newGroup)}」</span><button class="pa-mini" data-act="ng-rename">改名</button><button class="pa-mini" data-act="ng-cancel">取消</button></div>` : '<button class="pa-ng-row" data-act="ng-new">＋ 缝成一个新分组</button>';
     dstList.innerHTML = ngRow + renderList(d, { mode: st.groupEdit ? "target-group" : "target", selected: st.groupEdit ? st.gsel : void 0, collapsed: st.dstCollapsed, marker: st.marker, highlight: st.highlight || void 0 });
@@ -432,14 +435,14 @@ function mountSuture(page, app) {
     if (!m) return st.newGroup ? `新分组「${st.newGroup}」：还没选位置` : "还没选位置";
     if (st.newGroup) {
       const ag = m.after ? d.groupOf(m.after) : null;
-      const ref = ag ? `「${d.group(ag)?.name}」组后面` : m.after ? `「${d.prompt(m.after)?.name}」后面` : m.index === 0 ? "最前面" : "最后";
+      const ref = ag ? `「${d.group(ag)?.name}」组后面` : m.after ? `「${(d.prompt(m.after)?.name || m.after)}」后面` : m.index === 0 ? "最前面" : "最后";
       return `缝成新分组「${st.newGroup}」，放在${ref}`;
     }
     if (m.groupStart) return `缝进「${d.group(m.groupStart)?.name}」组开头`;
     if (m.groupEnd) return `缝进「${d.group(m.groupEnd)?.name}」组末尾`;
     if (m.after) {
       const g = d.groupOf(m.after);
-      return `缝在「${d.prompt(m.after)?.name}」后面${g ? `（${d.group(g)?.name} 组内）` : ""}`;
+      return `缝在「${(d.prompt(m.after)?.name || m.after)}」后面${g ? `（${d.group(g)?.name} 组内）` : ""}`;
     }
     return "缝在最后";
   }

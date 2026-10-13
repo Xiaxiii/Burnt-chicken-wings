@@ -114,7 +114,7 @@ function mountCot(page, app) {
     page.querySelector("[data-repair-all]").disabled = !dead.length;
     let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
             ${a.cotIds.length ? `<p>思维链 <b>${a.cotIds.length}</b> 条，${style}。</p>
-            <p>开启的普通条目 ${total} 条：读到 <b>${okN}</b>，文字提到 <b>${counts.mention}</b>，没提到 <b>${counts.none}</b>。</p>` : `<p>未识别到开启的思维链。名称不含"思维链/COT/思考"时，请在下方列表中手动「设为思维链」。</p>`}
+            <p>开启的普通条目 ${total} 条：读到 <b>${okN}</b>，文字提到 <b>${counts.mention}</b>，没提到 <b>${counts.none}</b>。</p>` : `<p>未识别到开启的思维链。名称不含"思维链/COT/思考"时，请在下方「手动指定思维链」。</p>`}
             <p>${dead.length ? `<b>${dead.length}</b> 处变量写入后无人读取，内容不会发送，见下方修复。` : "变量读写一致 ✓"}</p>
             ${counts.none ? `<p class="pa-hint">「没提到」的条目中，破限、规则类无需处理；文风、人设、小剧场等需要模型重点考虑的，可点「挂进思维链」。</p>` : ""}
         </div>
@@ -143,8 +143,8 @@ function mountCot(page, app) {
       }
       html += "</div>";
     }
-    html += `<h3 class="pa-h">每条思维链在读什么</h3>`;
-    if (!a.cotIds.length) html += '<p class="pa-hint">未识别到开启的思维链条目，可在下方列表中手动「设为思维链」。</p>';
+    html += `<div class="pa-row-head"><h3 class="pa-h">每条思维链在读什么</h3><button class="pa-link" data-markpick="1">漏认了？手动指定思维链</button></div>`;
+    if (!a.cotIds.length) html += '<p class="pa-hint">未识别到开启的思维链条目，点右上「手动指定思维链」。</p>';
     html += '<div class="pa-cards">';
     for (const c2 of a.cot) {
       const reads = c2.reads.map((r) => `<li><span class="pa-chip">${esc(r.name)}</span>${r.suppliers.length ? r.suppliers.map((s) => `<span class="pa-sup">${nm(s)}</span>`).join("") : '<span class="pa-sup pa-dim">没开任何选项（空）</span>'}</li>`).join("");
@@ -158,7 +158,7 @@ function mountCot(page, app) {
             <div class="pa-seg pa-seg-s" role="tablist">
                 ${[["none", `没提到 ${counts.none}`], ["mention", `文字提到 ${counts.mention}`], ["ok", `读到了 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
             </div>
-            <p class="pa-hint">「挂进思维链」按本预设的写法处理：读变量的预设补问句变量，文字点名的预设在思维链中加一行名称。可撤销。</p>`;
+            <p class="pa-hint">「挂进思维链」：让思维链引用这个条目（按本预设写法补变量读取或名称），可撤销。</p>`;
     const groupsOrder = [];
     const byGroup = /* @__PURE__ */ new Map();
     for (const [id, c2] of a.coverage) {
@@ -177,7 +177,7 @@ function mountCot(page, app) {
       for (const [id, c2] of byGroup.get(gname)) {
         const [cls, label] = LEVEL[c2.level];
         const via = c2.level === "none" ? "" : `${esc(c2.via)} → ${nm(c2.cot)}`;
-        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">挂进思维链</button>` : ""}<button class="pa-link" data-mark="${esc(id)}" data-v="1">设为思维链</button></div>`;
+        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">挂进思维链</button>` : ""}</div>`;
       }
       html += "</div>";
     }
@@ -189,6 +189,7 @@ function mountCot(page, app) {
     }
     box.innerHTML = html;
   }
+  const a0 = (d) => analyze(d, manualFor(d.name));
   box.addEventListener("click", async (e) => {
     const d = getDraft(focusPreset());
     if (e.target.closest("[data-repair-all]")) { try { await repairAllVariables(d, manualFor(d.name)); } catch(err) { toast("一键修复失败："+err.message,"error"); } return; }
@@ -210,6 +211,15 @@ function mountCot(page, app) {
     }
     const go = e.target.closest("[data-goto]");
     if (go) return app.showOrganize(go.dataset.goto.split("|"));
+    if (e.target.closest("[data-markpick]")) {
+      const cot = new Set(a0(d).cotIds);
+      const items = d.order.filter((o) => o.enabled !== false && !cot.has(o.identifier) && !d.isMarker(o.identifier)).map((o) => ({ label: d.prompt(o.identifier)?.name || o.identifier, value: o.identifier }));
+      const id = await pickBox("哪一条是思维链？", items, { hint: "选中的条目会被当作思维链来检查。" });
+      if (!id) return;
+      manualFor(d.name)[id] = true;
+      saveSettings();
+      return render();
+    }
     const mk = e.target.closest("[data-mark]");
     if (mk) {
       manualFor(d.name)[mk.dataset.mark] = mk.dataset.v === "1";

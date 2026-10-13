@@ -9,30 +9,51 @@ function mountApi(page) {
   page.innerHTML = `<div class="pa-scroll pa-api"></div>`;
   const box = page.querySelector(".pa-api");
   const sites = () => settings().sites;
+  const open = /* @__PURE__ */ new Set();
+  const modelSelect = (cur, list, attr) => {
+    const all = [...new Set([cur, ...list].filter(Boolean))];
+    if (!all.length) return '<span class="pa-dim">—</span>';
+    return `<select class="pa-select pa-select-s" ${attr}>${all.map((m) => `<option value="${esc(m)}" ${m === cur ? "selected" : ""}>${esc(m)}</option>`).join("")}</select>`;
+  };
   function render() {
     const live = liveConnection();
     const s = settings();
     const active = sites().find((x) => x.id === s.activeSiteId);
     const src = SOURCES[live.source];
+    const liveModels = liveModelOptions();
+    // 在用的站点顺手记下它的模型列表，展开别的站点时也能选
+    if (active && active.source === live.source && liveModels.length && JSON.stringify(active.models || []) !== JSON.stringify(liveModels)) {
+      active.models = liveModels;
+      saveSettings();
+    }
     box.innerHTML = `
         <div class="pa-card pa-live">
             <header><b>现在连着</b><span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span></header>
-            <p>${esc(src?.label || live.source || "—")}${live.url ? ` \xB7 ${esc(hostOf(live.url))}` : ""}</p>
-            <p>模型：${esc(live.model || "—")}${live.secretMask ? ` \xB7 key ${esc(live.secretMask)}` : ""}</p>
-            ${active ? `<small>站点：${esc(active.name)}</small>` : ""}
-            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button><button class="pa-btn pa-btn-soft" data-a="capture">把现在的连接存成站点</button></div>
+            <p>${esc(active?.name || src?.label || live.source || "—")}${live.url ? ` \xB7 ${esc(hostOf(live.url))}` : ""}${live.secretMask ? ` \xB7 key ${esc(live.secretMask)}` : ""}</p>
+            <label class="pa-field pa-field-row"><span>模型</span>${modelSelect(live.model, liveModels, 'data-a="livemodel"')}</label>
+            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button><button class="pa-btn pa-btn-soft" data-a="capture">存成站点</button></div>
         </div>
         <div class="pa-card">
-            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 换预设后自动恢复到当前站点（解决"换预设 API 就断"）</label>
-            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 换预设时不改连接设置（关掉酒馆的"绑定预设与连接"）</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 换预设后自动恢复到当前站点</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 换预设时不改连接设置</label>
         </div>
         <div class="pa-row-head"><h3 class="pa-h">我的站点</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 新站点</button></div>
-        ${sites().length ? sites().map((x) => `<article class="pa-card pa-site${x.id === s.activeSiteId ? " pa-site-on" : ""}" data-id="${esc(x.id)}">
-            <header><b>${esc(x.name)}</b>${x.id === s.activeSiteId ? '<span class="pa-chip">在用</span>' : ""}</header>
-            <small>${esc(SOURCES[x.source]?.label || x.source)}${x.url ? ` \xB7 ${esc(hostOf(x.url))}` : ""}</small>
-            <small>模型 ${esc(x.model || "—")} \xB7 key ${esc(x.keyMask || (x.secretId ? "已存" : "沿用当前"))}${x.note ? ` \xB7 ${esc(x.note)}` : ""}</small>
-            <div class="pa-card-act"><button class="pa-btn pa-btn-primary" data-a="use">切换</button><button class="pa-btn" data-a="edit">编辑</button><button class="pa-btn pa-btn-danger-soft" data-a="del">删除</button></div>
-        </article>`).join("") : '<p class="pa-empty">还没有站点。点「＋ 新站点」，或者先在酒馆里连好再点「把现在的连接存成站点」。</p>'}`;
+        ${sites().length ? sites().map((x) => {
+      const on = x.id === s.activeSiteId;
+      const isOpen = open.has(x.id);
+      return `<article class="pa-card pa-site${on ? " pa-site-on" : ""}${isOpen ? " pa-open" : ""}" data-id="${esc(x.id)}">
+            <header data-a="toggle"><span class="pa-site-caret">${isOpen ? "▾" : "▸"}</span><b>${esc(x.name)}</b>${on ? '<span class="pa-chip">在用</span>' : ""}<small class="pa-site-model">${esc(x.model || "")}</small>
+              ${on ? "" : '<button class="pa-btn pa-btn-primary pa-btn-s" data-a="use">切换</button>'}</header>
+            ${isOpen ? `<dl class="pa-site-dl">
+              <dt>类型</dt><dd>${esc(SOURCES[x.source]?.label || x.source)}</dd>
+              ${x.url ? `<dt>网址</dt><dd>${esc(x.url)}</dd>` : ""}
+              <dt>Key</dt><dd>${esc(x.keyMask || (x.secretId ? "已存" : "沿用当前"))}</dd>
+              <dt>模型</dt><dd>${modelSelect(x.model, x.models || [], 'data-a="sitemodel"')}${(x.models || []).length ? "" : '<small class="pa-dim">（切换到这个站点后能拉到模型列表）</small>'}</dd>
+              ${x.note ? `<dt>备注</dt><dd>${esc(x.note)}</dd>` : ""}
+            </dl>
+            <div class="pa-card-act"><button class="pa-btn" data-a="edit">编辑</button><button class="pa-btn pa-btn-danger-soft" data-a="del">删除</button></div>` : ""}
+        </article>`;
+    }).join("") : '<p class="pa-empty">还没有站点。点「＋ 新站点」，或者先在酒馆里连好再点「存成站点」。</p>'}`;
   }
   async function editSite(site) {
     const isNew = !site;
@@ -135,6 +156,16 @@ function mountApi(page) {
     render();
   }
   box.addEventListener("change", (e) => {
+    const a = e.target.dataset.a;
+    if (a === "livemodel" || a === "sitemodel") {
+      const m = e.target.value;
+      const site = a === "sitemodel" ? sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id) : sites().find((x) => x.id === settings().activeSiteId);
+      if (site) site.model = m;
+      if (a === "livemodel" || site?.id === settings().activeSiteId) setLiveModel(m);
+      saveSettings();
+      toast(`模型改成 ${m}`, "success");
+      return render();
+    }
     const o = e.target.dataset.o;
     if (o === "keep") {
       settings().keepApi = e.target.checked;
@@ -143,9 +174,14 @@ function mountApi(page) {
     if (o === "unbind") setBindPresetToConnection(!e.target.checked);
   });
   box.addEventListener("click", async (e) => {
+    if (e.target.closest("select")) return;
     const a = e.target.closest("[data-a]")?.dataset.a;
     if (!a) return;
     const site = sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id);
+    if (a === "toggle") {
+      open.has(site.id) ? open.delete(site.id) : open.add(site.id);
+      return render();
+    }
     if (a === "new") return editSite(null);
     if (a === "edit") return editSite(site);
     if (a === "del") {

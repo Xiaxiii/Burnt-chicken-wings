@@ -210,6 +210,21 @@ async function applyConnection(site, { connect = true } = {}) {
   }
   return liveConnection();
 }
+// 1.3.7：当前连接能选的模型（酒馆连上后自己拉到的列表）
+function liveModelOptions() {
+  const src = SOURCES[mods.openai?.oai_settings?.chat_completion_source];
+  if (!src) return [];
+  return $(`${src.modelList || src.model} option`).map((_, o) => o.value).toArray().filter(Boolean);
+}
+function setLiveModel(model) {
+  const source = mods.openai?.oai_settings?.chat_completion_source;
+  const src = SOURCES[source];
+  if (!src || !model) return;
+  if (source === "custom") {
+    $("#custom_model_id").val(model).trigger("input");
+    setSelect("#model_custom_select", model);
+  } else setSelect(src.model, model);
+}
 function customModelOptions() {
   return $("#model_custom_select option").map((_, o) => o.value).toArray().filter(Boolean);
 }

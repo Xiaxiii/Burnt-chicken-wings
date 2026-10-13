@@ -20,23 +20,17 @@ function mountOrganize(page) {
                 <button class="pa-btn pa-btn-soft" data-tool="backup">备份</button>
             </div>
         </div>
-        <div class="pa-movebar" hidden><span>点一个条目：放到它<b>后面</b>；点组标题：放到组<b>开头</b></span><button class="pa-btn pa-btn-soft" data-mv="end">放到最后</button><button class="pa-btn" data-mv="cancel">取消</button></div>
+        <div class="pa-movebar" hidden><span>点条目＝放到它后面；「放进这组」＝组末尾</span><button class="pa-btn pa-sq" data-mv="up" aria-label="上移一格">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一格">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">放到最后</button><button class="pa-btn pa-btn-primary" data-mv="cancel">完成</button></div>
         <div class="pa-scroll pa-list" role="list"></div>
         <div class="pa-selbar" hidden>
             <div class="pa-selbar-top"><b class="pa-selcount"></b>
-                <label class="pa-inline-check"><input type="checkbox" data-opt="clickorder"> 按点选先后排</label>
                 <button class="pa-link" data-sel="all">全选可见</button><button class="pa-link" data-sel="none">取消选择</button></div>
             <div class="pa-selbar-btns">
-                <button class="pa-btn pa-btn-primary" data-sel="newgroup">新建分组</button>
-                <button class="pa-btn" data-sel="intogroup">移入分组</button>
-                <button class="pa-btn" data-sel="moveto">整批移到…</button>
-                <button class="pa-btn" data-sel="sorttags">按标签顺序排列</button>
-                <button class="pa-btn pa-sq" data-sel="up" aria-label="上移">↑</button>
-                <button class="pa-btn pa-sq" data-sel="down" aria-label="下移">↓</button>
+                <button class="pa-btn pa-btn-primary" data-sel="moveto">移动</button>
+                <button class="pa-btn" data-sel="newgroup">建分组</button>
                 <button class="pa-btn" data-sel="on">开</button>
                 <button class="pa-btn" data-sel="off">关</button>
-                <button class="pa-btn" data-sel="ungroup">移出分组</button>
-                <button class="pa-btn pa-btn-danger-soft" data-sel="delete">删除</button>
+                <button class="pa-btn" data-sel="more">更多</button>
             </div>
         </div>`;
   const list = page.querySelector(".pa-list");
@@ -65,18 +59,13 @@ function mountOrganize(page) {
     picker.set(d.name);
     for (const id of [...st.selected]) if (!d.order.some((o) => o.identifier === id)) st.selected.delete(id);
     const top = list.scrollTop;
-    list.innerHTML = renderList(d, { mode: "organize", selected: st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
-    for (const id of st.expanded) {
-      const r = list.querySelector(`.pa-row[data-id="${CSS.escape(id)}"]`);
-      if (r) r.after(el(`<pre class="pa-pre pa-inline-content">${esc(d.prompt(id)?.content || "（空条目）")}</pre>`));
-    }
+    list.innerHTML = renderList(d, { mode: "organize", moveMode: st.moveMode, startRows: st.moveMode, selected: st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
     list.scrollTop = top;
     list.classList.toggle("pa-moving", st.moveMode);
     const n = st.selected.size;
     selbar.hidden = n === 0 || st.moveMode;
     movebar.hidden = !st.moveMode;
     page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
-    page.querySelector("[data-opt=clickorder]").checked = !!settings().keepClickOrder;
     if (st.highlight.size) {
       const first = list.querySelector(".pa-flash");
       first?.scrollIntoView({ block: "center" });
@@ -95,6 +84,7 @@ function mountOrganize(page) {
     const ids = ordered();
     mutate(d, label, (x) => x.move(ids, where));
     st.moveMode = false;
+    toast(`已移动 ${ids.length} 条`, "success");
     flash(ids);
     render();
   }
@@ -120,9 +110,7 @@ function mountOrganize(page) {
     }
     if (head) {
       const gid = head.dataset.gid;
-      if (st.moveMode && act !== "gtoggle" && act !== "gmenu") {
-        return doMove({ groupStart: gid }, "移到组开头");
-      }
+      if (st.moveMode && act === "into") return doMove({ groupEnd: gid }, "移到组末尾");
       if (act === "collapse" || !act) {
         st.collapsed.has(gid) ? st.collapsed.delete(gid) : st.collapsed.add(gid);
         return render();
@@ -140,14 +128,18 @@ function mountOrganize(page) {
       }
       return;
     }
+    if (act === "gstart") {
+      if (st.moveMode) return doMove({ groupStart: actEl.dataset.gid }, "移到组开头");
+      return;
+    }
     if (rowEl) {
       const id = rowEl.dataset.id;
       if (st.moveMode) {
         if (st.selected.has(id)) return toast("不能放到自己后面，点别的条目");
         return doMove({ after: id }, "移到条目后");
       }
-      if (e.target.closest(".pa-check")) st.selected.has(id) ? st.selected.delete(id) : st.selected.add(id);
-      else st.expanded.has(id) ? st.expanded.delete(id) : st.expanded.add(id);
+      // 点整行＝选中/取消；看内容点右边的眼睛
+      st.selected.has(id) ? st.selected.delete(id) : st.selected.add(id);
       render();
     }
   });
@@ -181,6 +173,12 @@ function mountOrganize(page) {
       render();
     }
     if (a === "end") doMove({ index: draft().order.length }, "移到最后");
+    if (a === "up" || a === "down") {
+      const ids = ordered();
+      mutate(draft(), "移动", (x) => x.moveStep(ids, a === "up" ? -1 : 1));
+      flash(ids);
+      render();
+    }
   });
   selbar.addEventListener("change", (e) => {
     if (e.target.dataset.opt === "clickorder") {
@@ -201,6 +199,27 @@ function mountOrganize(page) {
       list.querySelectorAll(".pa-row").forEach((r) => st.selected.add(r.dataset.id));
       return render();
     }
+    if (a === "more") {
+      const v = await pickBox(`已选 ${ids.length} 条`, [
+        { label: "移入已有分组…", value: "intogroup" },
+        { label: "移出分组", value: "ungroup" },
+        { label: "按标签顺序排列…", value: "sorttags" },
+        { label: settings().keepClickOrder ? "✓ 移动/建组时按点选先后排" : "移动/建组时按点选先后排", sub: "不勾就保持原来的先后", value: "clickorder" },
+        { label: "删除", value: "delete" }
+      ]);
+      if (!v) return;
+      if (v === "clickorder") {
+        settings().keepClickOrder = !settings().keepClickOrder;
+        saveSettings();
+        return toast(settings().keepClickOrder ? "已改为按点选先后排" : "已改为保持原来的先后");
+      }
+      return selAction(v);
+    }
+    return selAction(a);
+  });
+  async function selAction(a) {
+    const d = draft();
+    const ids = ordered();
     if (a === "newgroup") {
       const name = await promptBox("新分组名字", "", "比如：文风、小剧场");
       if (!name) return;
@@ -215,10 +234,7 @@ function mountOrganize(page) {
       groups.push({ label: "＋ 新建一个分组…", value: "__new" });
       const gid = await pickBox("移入哪个分组？", groups, { hint: "会排到这个组的最后面" });
       if (!gid) return;
-      if (gid === "__new") {
-        e.target.closest(".pa-selbar").querySelector("[data-sel=newgroup]").click();
-        return;
-      }
+      if (gid === "__new") return selAction("newgroup");
       mutate(d, "移入分组", (x) => x.moveIntoGroup(ids, gid, { keepClickOrder: settings().keepClickOrder }));
       st.selected.clear();
       flash(ids);
@@ -249,13 +265,12 @@ function mountOrganize(page) {
       st.selected.clear();
       return render();
     }
-  });
+  }
   async function groupMenu(d, gid) {
     const g = d.group(gid);
     const parts = d.blocks().filter((b) => b.groupId === gid).length;
     const items = [
       { label: "重命名", value: "rename" },
-      { label: "全选本组", value: "select" },
       { label: "整组上移", value: "up" },
       { label: "整组下移", value: "down" }
     ];

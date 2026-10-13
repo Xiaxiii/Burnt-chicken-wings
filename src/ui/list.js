@@ -33,9 +33,10 @@ function renderList(draft, o) {
       if (isCotEntry(draft, id)) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
     }
     if (marker) badge = '<span class="pa-chip pa-chip-dim">酒馆位置</span>';
-    const ins = o.marker && o.marker.after === id && o.mode !== "target-group" ? '<div class="pa-insert-mark">缝在这里</div>' : "";
+    const at = o.marker && o.marker.after === id && o.mode !== "target-group";
+    const ins = at ? `<div class="pa-insert-mark">${o.markLabel || "缝在这里"}</div>` : "";
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
-    return `<div class="pa-row${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}">
+    return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}">
             <span class="pa-check" aria-hidden="true"></span>
             <span class="pa-name">${esc(name)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="看内容">${ICON.eye}</button>
@@ -57,19 +58,22 @@ function renderList(draft, o) {
     const isCol = !q && collapsed.has(b.groupId);
     const onCount = b.ids.filter((id) => enabledMap.get(id)).length;
     const allSel = b.ids.length && b.ids.every((id) => sel.has(id));
-    const startMark = o.mode !== "target-group" && o.marker && o.marker.groupStart === b.groupId && b.part === 1 ? '<div class="pa-insert-mark">缝在组开头</div>' : "";
-    const endMark = o.mode !== "target-group" && o.marker && o.marker.groupEnd === b.groupId && b.part === b.parts ? '<div class="pa-insert-mark">缝在组末尾</div>' : "";
-    html += `<section class="pa-group${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
+    const verb = o.mode === "organize" ? "放" : "缝";
+    const startMark = o.mode !== "target-group" && o.marker && o.marker.groupStart === b.groupId && b.part === 1 ? `<div class="pa-insert-mark">${verb}在组开头</div>` : "";
+    const endMark = o.mode !== "target-group" && o.marker && o.marker.groupEnd === b.groupId && b.part === b.parts ? `<div class="pa-insert-mark">${verb}在组末尾</div>` : "";
+    const headAt = o.mode !== "target-group" && !!o.marker && (o.marker.groupEnd === b.groupId || o.marker.groupStart === b.groupId || !!o.marker.after && b.ids.includes(o.marker.after));
+    html += `<section class="pa-group${headAt ? " pa-has-at" : ""}${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}">
                 ${o.mode === "target" ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开/折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="全选/取消本组" aria-pressed="${!!allSel}"><span class="pa-check"></span></button>`}
                 <span class="pa-gname" data-act="collapse">${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第${b.part}/${b.parts}段</em>` : ""}</span>
-                <span class="pa-count">${onCount}/${b.ids.length}</span>
-                ${o.mode === "organize" ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
+                ${headAt && isCol ? `<span class="pa-at-chip">${verb}在这组</span>` : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
+                ${o.moveMode ? `<button class="pa-mini" data-act="into">放进这组</button>` : ""}
+                ${o.mode === "organize" && !o.moveMode ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
                 ${o.mode === "target" ? `<button class="pa-mini" data-act="into">缝进这组</button>` : ""}
                 ${o.mode === "target-group" ? `<button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
             </header>
-            ${startMark}<div class="pa-gbody">${o.mode === "target" && !isCol && b.part === 1 && !(o.marker && o.marker.groupStart === b.groupId) ? `<button class="pa-gstart" data-act="gstart" data-gid="${esc(b.groupId)}">↑ 缝在组开头</button>` : ""}${visibleRows}</div>${endMark}
+            ${startMark}<div class="pa-gbody">${(o.mode === "target" || o.startRows) && !isCol && b.part === 1 && !(o.marker && o.marker.groupStart === b.groupId) ? `<button class="pa-gstart" data-act="gstart" data-gid="${esc(b.groupId)}">↑ ${verb}在组开头</button>` : ""}${visibleRows}</div>${endMark}
         </section>`;
   }
   if (o.marker && o.marker.index !== void 0 && o.marker.index > 0) html += '<div class="pa-insert-mark">缝在最后</div>';
