@@ -1,7 +1,7 @@
-// 预设裁缝铺 1.3.7（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.3.8（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.3.7";
-var CHANGELOG = "预设裁缝铺 1.3.7\n\n整理分组（点选建组、只拖把手）、跨预设缝合（自动改变量写法、自动挂进思维链）、思维链检查、开关方案、API 站点。\n打开方式：魔棒菜单 →「预设裁缝铺」，或在输入框发 /atelier\n保存前会自动备份预设。扩展版和脚本版同时装时，只有扩展版会启动。\n\n1.3.7\n- 整理：点整行即选中，看内容点眼睛。选中后底栏只剩「移动 / 建分组 / 开 / 关 / 更多」。\n- 移动：点「移动」后，点条目＝放到它后面，「放进这组」＝组末尾，组内有「↑ 放在组开头」；顶部 ↑ ↓ 微调一格。\n- 分组菜单去掉与圆圈重复的「全选本组」。\n- 缝合位置标记更醒目：选中的条目高亮，下方出现「⬇ 缝在这里」；分组折叠时，组标题显示「缝在这组」。修正底栏显示「undefined」。\n- 思维链页：去掉每行的「设为思维链」，改为一个「手动指定思维链」入口。\n- API 站点：点站点展开详情，可直接选模型；「现在连着」里也能直接换模型。\n\n1.3.6\n- 缝合「缝到哪儿」：顶部新增「＋ 缝成一个新分组」，取名后点位置即可；点在组内时，新分组放在该组之后。\n- 分组左侧改为展开箭头；展开后点条目＝缝在它后面，组内第一行「↑ 缝在组开头」。\n- 思维链页说明文字精简。\n- 修正：预设较大时，浏览器本地草稿备份空间不足被误报为「保存失败」。现在会先清理其他预设的旧草稿；真的保存失败时显示具体原因。\n\n1.3.5\n- 修正：装了百宝箱时，在「当前预设」里建分组（缝合页的整理分组、整理页都一样），保存后会被百宝箱用它内存里的旧分组盖回去，看起来像没建成、只改了个名。现在每次保存都会让百宝箱重新读一遍分组。\n- 建新分组时，如果选中的正好是某个组的全部条目，会先问你是「给这个组改名」还是「还是建新分组」。\n- 建好的新分组会自动展开并滚到眼前；保存后要是又被别的插件改没了，会提醒你。\n\n1.3.4\n- 扩展页里的设置框重做：标题旁边显示版本号，按钮横排（不再竖着挤成一列），可以直接「检查更新 / 现在更新」，展开就能看更新说明。没有悬浮球。\n- 新增「加载体检」（更多 → 加载体检，或设置框里的按钮）：量一下酒馆打开时慢在哪——全部预设一共多大（酒馆每次打开都会整个下载一遍）、哪些扩展存了很多数据、角色卡和聊天多长、哪些请求最慢，并给出能做的事。只在你的浏览器里看，不上传任何东西。\n\n1.3.3（用【小冰块】v3.83 测）\n- 修正：宏里少写一个 }（比如 {{user}：…）时，后面的 {{getvar}} 会被漏掉，导致误报\"没人读这个变量\"。\n- 小冰块的写法：文风正文包在 <writing_style：名字> 里、只登记名字 {{addvar::文风::名字}}；缝进来会照样包标签、照样登记名字，不会把别的预设的问句当成名字登记进去。\n- 包进变量的单选（顶栏规范这类 setvar）也有\"别顶掉你选好的那项\"的保护；真的加入单选时，改动里会写明。\n- 读这个变量的条目（小剧场一键开关之类）全关着时会提醒：要打开它，缝进来的才会发出去。由一键开关统一发出去的条目，挂进思维链默认不勾。\n- 共用标签 <small_theater: 名字> 时，用后面的名字称呼这条。\n- 写法分析：按\"由谁统一发出去\"合并成一行，并标出关着的一键开关；分得清\"整段包进变量\"和\"只登记名字\"。\n\n1.3.2\n- 缝合预览改成两张卡片：「直接缝入」（不改写法，原样放进去）/「按目标写法缝入」（照目标预设的写法改好），各带内容预览和改动要点；选哪种，下面的完整正文跟着变。去掉了原来那个四选一的\"写法\"下拉。\n- 碰到单选槽位时多一张卡片「按目标写法缝入，并加入单选 X」，由你决定要不要顶掉同类。\n- 新勾选：条目名后面加上「（来自 来源预设）」。\n- 「缝到哪儿」加了「整理分组」：点选条目建新分组、移出分组；分组右边 ⋯ 可以改名、解除分组。\n- 思维链有好几个「选一」版本、都读同一组变量时（V2.61），挂进思维链会加到每个版本里，换版本也不会丢；编号变量接着编号（修复模式18）。\n- 登记的内容照邻居的格式写（[模式：名字]、文风选择 追加名字等）；方括号标题支持中文。\n\n1.3.1\n- 认得没有分组、名字也不带\"思维链\"的思维链：从「思维链始 / 思考开始 / 单独一行的 <thinking>」到「思维链终 / 思考结束 / </thinking>」之间都算（Ariadne）。\n- 认得注释分区 <!-- START: WRITING_STYLE --> … <!-- END: … -->（众生相），以及思维链里用 writing_style 这类名字点名整个分区。\n- 单选槽位：好几条都往同一个变量登记问句、只开一条的写法（Ariadne 的 叙事风格1/2/3、故事基调）。同类条目缝进来会照样登记、套上 [Writing Style: 名字] 这类标题；不是同一类的不会加入，免得顶掉你选好的那一项。\n- 思维链靠文字点名、又没提到某个分区时（众生相的 STORY_TONE），可以在思维链里加一步点名整个分区，按原来的 Phase 编号接着写。\n- 标题格式互换：# writing_style: 名字 ↔ [Writing Style: 名字]，不会叠两个标题。\n- 修正：英文普通单词碰巧出现在思维链里（narrative 之类）不再算\"提到\"；句子里提到 <thinking> 不再被当成思维链开头。\n- 写法分析会把关着的选项也算进去，能看出单选槽位。\n\n1.3.0\n- 缝合前先分析两边预设\"是怎么让条目生效的\"：变量包裹、问句变量、汇总变量、靠文字点名的思维链、初始化条目、外层标签、深度注入、条件宏/脚本、正则。缝合预览里写清楚\"它在原预设里怎么起作用 → 缝过去改了什么\"。\n- 挂进思维链支持三种写法：各自的问句变量 / 往汇总变量里追加 / 思维链靠文字点名时在思维链里加一行点名；来源里被思维链用到的条目默认挂上。\n- 修正：邻居各用各的标签时，不再把邻居的标签套给新条目。\n- 外观：默认跟随酒馆美化并自动补成不透明；新增 7 套莫兰迪色卡（雾霾蓝、豆沙粉、抹茶绿、燕麦奶茶、薰衣草、海盐、夜雾）。顶部调色板按钮可随时换。\n- 缝合页上下分区可以拖动调整大小；选择框和搜索框改小。\n- 思维链页改成大白话：一句话结论、\"思维链是什么\"说明、状态改名为 读到了 / 文字提到 / 没提到。\n- 方案、API、外观合并到「更多」页。\n- 新增扩展版（可在酒馆里一键安装和更新）。\n\n1.2.0\n- 缝合时自动「挂进思维链」；写法转换（纯文本 / 包进变量 / addvar↔setvar）改成大白话说明。\n- 修正：邻居各用各的变量时，不再误当成共用变量去覆盖邻居的问句。\n- 思维链页「没提到」的条目可一键挂进思维链。\n\n1.1.3\n- 分组只按原格式写回一种（百宝箱分组里不会再套一层同名分组，并清掉旧版镜像）；能读成员列表式分组。\n- 在酒馆里直接改过预设后，不再用旧草稿覆盖。\n- 思维链检查认得 <text_style> 这类外层标签。\n\n1.1.2 及更早\n- 识别缝合带来的冗余变量包裹；思维链页一键修复；即时草稿恢复及自动保存；标签自然排序；整批移动保留点选顺序。\n";
+var VERSION = "1.3.8";
+var CHANGELOG = "预设裁缝铺 1.3.8\n\n整理分组（点选建组、只拖把手）、跨预设缝合（自动改变量写法、自动挂进思维链）、思维链检查、开关方案、API 站点。\n打开方式：魔棒菜单 →「预设裁缝铺」，或在输入框发 /atelier\n保存前会自动备份预设。扩展版和脚本版同时装时，只有扩展版会启动。\n\n1.3.8\n- 选位置改了：点组名＝放在这组后面（组外）；展开组再点组内条目＝放进组里。缝合「缝到哪儿」和整理页「移动」都是这样。去掉「缝进这组 / 放进这组」；列表顶上有「↑ 最前面」，展开的组里有「↑ 组内最前」。\n- 来源里整组选中、缝到组外时，默认在目标里照原名建组（缝合预览里可改成「放进新分组」或「不分组」）。原来的「＋ 缝成一个新分组」并到这里。\n- 整理页：整组选中后移到组外，分组跟着走，不再散开。拖到组头：上半＝组前面，下半＝组内最前（展开时）或组后面（折叠时）。\n- 手机上：整理页工具栏不再「工具」和四个按钮同时出现；移动条压成一行；缝合底栏的位置写全，按钮不折行。\n- 删掉一批多余的说明和提示语。\n\n1.3.7\n- 整理：点整行即选中，看内容点眼睛。选中后底栏只剩「移动 / 建分组 / 开 / 关 / 更多」。\n- 移动：点「移动」后，点条目＝放到它后面，「放进这组」＝组末尾，组内有「↑ 放在组开头」；顶部 ↑ ↓ 微调一格。\n- 分组菜单去掉与圆圈重复的「全选本组」。\n- 缝合位置标记更醒目：选中的条目高亮，下方出现「⬇ 缝在这里」；分组折叠时，组标题显示「缝在这组」。修正底栏显示「undefined」。\n- 思维链页：去掉每行的「设为思维链」，改为一个「手动指定思维链」入口。\n- API 站点：点站点展开详情，可直接选模型；「现在连着」里也能直接换模型。\n\n1.3.6\n- 缝合「缝到哪儿」：顶部新增「＋ 缝成一个新分组」，取名后点位置即可；点在组内时，新分组放在该组之后。\n- 分组左侧改为展开箭头；展开后点条目＝缝在它后面，组内第一行「↑ 缝在组开头」。\n- 思维链页说明文字精简。\n- 修正：预设较大时，浏览器本地草稿备份空间不足被误报为「保存失败」。现在会先清理其他预设的旧草稿；真的保存失败时显示具体原因。\n\n1.3.5\n- 修正：装了百宝箱时，在「当前预设」里建分组（缝合页的整理分组、整理页都一样），保存后会被百宝箱用它内存里的旧分组盖回去，看起来像没建成、只改了个名。现在每次保存都会让百宝箱重新读一遍分组。\n- 建新分组时，如果选中的正好是某个组的全部条目，会先问你是「给这个组改名」还是「还是建新分组」。\n- 建好的新分组会自动展开并滚到眼前；保存后要是又被别的插件改没了，会提醒你。\n\n1.3.4\n- 扩展页里的设置框重做：标题旁边显示版本号，按钮横排（不再竖着挤成一列），可以直接「检查更新 / 现在更新」，展开就能看更新说明。没有悬浮球。\n- 新增「加载体检」（更多 → 加载体检，或设置框里的按钮）：量一下酒馆打开时慢在哪——全部预设一共多大（酒馆每次打开都会整个下载一遍）、哪些扩展存了很多数据、角色卡和聊天多长、哪些请求最慢，并给出能做的事。只在你的浏览器里看，不上传任何东西。\n\n1.3.3（用【小冰块】v3.83 测）\n- 修正：宏里少写一个 }（比如 {{user}：…）时，后面的 {{getvar}} 会被漏掉，导致误报\"没人读这个变量\"。\n- 小冰块的写法：文风正文包在 <writing_style：名字> 里、只登记名字 {{addvar::文风::名字}}；缝进来会照样包标签、照样登记名字，不会把别的预设的问句当成名字登记进去。\n- 包进变量的单选（顶栏规范这类 setvar）也有\"别顶掉你选好的那项\"的保护；真的加入单选时，改动里会写明。\n- 读这个变量的条目（小剧场一键开关之类）全关着时会提醒：要打开它，缝进来的才会发出去。由一键开关统一发出去的条目，挂进思维链默认不勾。\n- 共用标签 <small_theater: 名字> 时，用后面的名字称呼这条。\n- 写法分析：按\"由谁统一发出去\"合并成一行，并标出关着的一键开关；分得清\"整段包进变量\"和\"只登记名字\"。\n\n1.3.2\n- 缝合预览改成两张卡片：「直接缝入」（不改写法，原样放进去）/「按目标写法缝入」（照目标预设的写法改好），各带内容预览和改动要点；选哪种，下面的完整正文跟着变。去掉了原来那个四选一的\"写法\"下拉。\n- 碰到单选槽位时多一张卡片「按目标写法缝入，并加入单选 X」，由你决定要不要顶掉同类。\n- 新勾选：条目名后面加上「（来自 来源预设）」。\n- 「缝到哪儿」加了「整理分组」：点选条目建新分组、移出分组；分组右边 ⋯ 可以改名、解除分组。\n- 思维链有好几个「选一」版本、都读同一组变量时（V2.61），挂进思维链会加到每个版本里，换版本也不会丢；编号变量接着编号（修复模式18）。\n- 登记的内容照邻居的格式写（[模式：名字]、文风选择 追加名字等）；方括号标题支持中文。\n\n1.3.1\n- 认得没有分组、名字也不带\"思维链\"的思维链：从「思维链始 / 思考开始 / 单独一行的 <thinking>」到「思维链终 / 思考结束 / </thinking>」之间都算（Ariadne）。\n- 认得注释分区 <!-- START: WRITING_STYLE --> … <!-- END: … -->（众生相），以及思维链里用 writing_style 这类名字点名整个分区。\n- 单选槽位：好几条都往同一个变量登记问句、只开一条的写法（Ariadne 的 叙事风格1/2/3、故事基调）。同类条目缝进来会照样登记、套上 [Writing Style: 名字] 这类标题；不是同一类的不会加入，免得顶掉你选好的那一项。\n- 思维链靠文字点名、又没提到某个分区时（众生相的 STORY_TONE），可以在思维链里加一步点名整个分区，按原来的 Phase 编号接着写。\n- 标题格式互换：# writing_style: 名字 ↔ [Writing Style: 名字]，不会叠两个标题。\n- 修正：英文普通单词碰巧出现在思维链里（narrative 之类）不再算\"提到\"；句子里提到 <thinking> 不再被当成思维链开头。\n- 写法分析会把关着的选项也算进去，能看出单选槽位。\n\n1.3.0\n- 缝合前先分析两边预设\"是怎么让条目生效的\"：变量包裹、问句变量、汇总变量、靠文字点名的思维链、初始化条目、外层标签、深度注入、条件宏/脚本、正则。缝合预览里写清楚\"它在原预设里怎么起作用 → 缝过去改了什么\"。\n- 挂进思维链支持三种写法：各自的问句变量 / 往汇总变量里追加 / 思维链靠文字点名时在思维链里加一行点名；来源里被思维链用到的条目默认挂上。\n- 修正：邻居各用各的标签时，不再把邻居的标签套给新条目。\n- 外观：默认跟随酒馆美化并自动补成不透明；新增 7 套莫兰迪色卡（雾霾蓝、豆沙粉、抹茶绿、燕麦奶茶、薰衣草、海盐、夜雾）。顶部调色板按钮可随时换。\n- 缝合页上下分区可以拖动调整大小；选择框和搜索框改小。\n- 思维链页改成大白话：一句话结论、\"思维链是什么\"说明、状态改名为 读到了 / 文字提到 / 没提到。\n- 方案、API、外观合并到「更多」页。\n- 新增扩展版（可在酒馆里一键安装和更新）。\n\n1.2.0\n- 缝合时自动「挂进思维链」；写法转换（纯文本 / 包进变量 / addvar↔setvar）改成大白话说明。\n- 修正：邻居各用各的变量时，不再误当成共用变量去覆盖邻居的问句。\n- 思维链页「没提到」的条目可一键挂进思维链。\n\n1.1.3\n- 分组只按原格式写回一种（百宝箱分组里不会再套一层同名分组，并清掉旧版镜像）；能读成员列表式分组。\n- 在酒馆里直接改过预设后，不再用旧草稿覆盖。\n- 思维链检查认得 <text_style> 这类外层标签。\n\n1.1.2 及更早\n- 识别缝合带来的冗余变量包裹；思维链页一键修复；即时草稿恢复及自动保存；标签自然排序；整批移动保留点选顺序。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -579,6 +579,27 @@ var Draft = class {
     this.order.splice(idx, 0, ...taken);
     const g = groupId === void 0 ? autoGroup : groupId;
     for (const id of ids) this._setGroup(id, g);
+  }
+  /**
+   * 按"选位置"的结果移动：groupId 为某组＝放进该组；为 null＝放在组外（顶层）。
+   * 放在组外时，整组都被选中的分组保持成组，跟着一起挪（相当于移动整个分组）。
+   * 只有一条的组不算：把那一条拖出来就是要它出组。
+   */
+  place(ids, where, groupId) {
+    if (groupId) return this.move(ids, where, groupId);
+    const set = new Set(ids);
+    const whole = /* @__PURE__ */ new Map();
+    const was = new Map(ids.map((id) => [id, this.groupOf(id)]));
+    for (const g of new Set(was.values())) {
+      if (!g) continue;
+      const mem = this.order.filter((o) => this.groupOf(o.identifier) === g);
+      whole.set(g, mem.length > 1 && mem.every((o) => set.has(o.identifier)));
+    }
+    this.move(ids, where, null);
+    for (const id of ids) {
+      const g = was.get(id);
+      if (g && whole.get(g)) this._setGroup(id, g);
+    }
   }
   _groupAt(where) {
     if (where.groupStart) return where.groupStart;
@@ -1456,12 +1477,22 @@ var ICON = {
   caret: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
   needle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4 7 17"/><path d="M17 4h3v3"/><path d="M7 17c-2 2-4 2-4 2s0-2 2-4"/></svg>'
 };
+/**
+ * 列表渲染。o.place 为 true 时是"选位置"：
+ *   点组头＝放在这组后面（组外）；展开后点组内条目＝放进组里、它的后面；
+ *   顶部「最前面」、展开组的第一行「组内最前」。
+ * o.marker：{ at: "top" } | { at: "row", id } | { at: "block", id: 组块最后一条 } | { at: "gstart", gid }
+ */
 function renderList(draft, o) {
   const q = (o.query || "").trim().toLowerCase();
   const sel = o.selected || /* @__PURE__ */ new Set();
   const collapsed = o.collapsed || /* @__PURE__ */ new Set();
-  const showSwitch = o.mode === "organize";
-  const showHandle = o.mode === "organize";
+  const place = !!o.place;
+  const showSwitch = o.mode === "organize" && !place;
+  const showHandle = showSwitch;
+  const m = o.mode === "target-group" ? null : o.marker || null;
+  const verb = o.mode === "organize" ? "放" : "缝";
+  const mark = `<div class="pa-insert-mark">${verb}在这里</div>`;
   const matches = (id) => {
     if (!q) return true;
     const p = draft.prompt(id);
@@ -1484,8 +1515,7 @@ function renderList(draft, o) {
       if (isCotEntry(draft, id)) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
     }
     if (marker) badge = '<span class="pa-chip pa-chip-dim">酒馆位置</span>';
-    const at = o.marker && o.marker.after === id && o.mode !== "target-group";
-    const ins = at ? `<div class="pa-insert-mark">${o.markLabel || "缝在这里"}</div>` : "";
+    const at = m?.at === "row" && m.id === id;
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
     return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}">
             <span class="pa-check" aria-hidden="true"></span>
@@ -1493,10 +1523,10 @@ function renderList(draft, o) {
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="看内容">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" ${on ? "checked" : ""}><i></i></label>` : ""}
             ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="按住拖动">${ICON.grip}</span>` : ""}
-        </div>${ins}`;
+        </div>${at ? mark : ""}`;
   };
   let html = "";
-  if (o.marker && o.marker.index === 0) html += '<div class="pa-insert-mark">缝在这里</div>';
+  if (place) html += m?.at === "top" ? mark : `<button class="pa-slot" data-act="top">↑ 最前面</button>`;
   for (const b of draft.blocks()) {
     if (!b.groupId) {
       const inner = b.ids.map(row).join("");
@@ -1509,26 +1539,57 @@ function renderList(draft, o) {
     const isCol = !q && collapsed.has(b.groupId);
     const onCount = b.ids.filter((id) => enabledMap.get(id)).length;
     const allSel = b.ids.length && b.ids.every((id) => sel.has(id));
-    const verb = o.mode === "organize" ? "放" : "缝";
-    const startMark = o.mode !== "target-group" && o.marker && o.marker.groupStart === b.groupId && b.part === 1 ? `<div class="pa-insert-mark">${verb}在组开头</div>` : "";
-    const endMark = o.mode !== "target-group" && o.marker && o.marker.groupEnd === b.groupId && b.part === b.parts ? `<div class="pa-insert-mark">${verb}在组末尾</div>` : "";
-    const headAt = o.mode !== "target-group" && !!o.marker && (o.marker.groupEnd === b.groupId || o.marker.groupStart === b.groupId || !!o.marker.after && b.ids.includes(o.marker.after));
-    html += `<section class="pa-group${headAt ? " pa-has-at" : ""}${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
-            <header class="pa-ghead" data-gid="${esc(b.groupId)}">
-                ${o.mode === "target" ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开/折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="全选/取消本组" aria-pressed="${!!allSel}"><span class="pa-check"></span></button>`}
-                <span class="pa-gname" data-act="collapse">${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第${b.part}/${b.parts}段</em>` : ""}</span>
-                ${headAt && isCol ? `<span class="pa-at-chip">${verb}在这组</span>` : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
-                ${o.moveMode ? `<button class="pa-mini" data-act="into">放进这组</button>` : ""}
-                ${o.mode === "organize" && !o.moveMode ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
+    const first = b.ids[0];
+    const last = b.ids[b.ids.length - 1];
+    const afterHere = m?.at === "block" && m.id === last;
+    const atStart = m?.at === "gstart" && m.gid === b.groupId && b.part === 1;
+    const inside = atStart || m?.at === "row" && b.ids.includes(m.id);
+    const caret = place || o.mode === "target";
+    const startSlot = place && !isCol && b.part === 1 ? atStart ? mark : `<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(b.groupId)}">↑ 组内最前</button>` : "";
+    html += `<section class="pa-group${inside ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
+            <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}">
+                ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开/折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="全选/取消本组" aria-pressed="${!!allSel}"><span class="pa-check"></span></button>`}
+                <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第${b.part}/${b.parts}段</em>` : ""}</span>
+                ${inside && isCol ? `<span class="pa-at-chip">${verb}在组内</span>` : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
+                ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
-                ${o.mode === "target" ? `<button class="pa-mini" data-act="into">缝进这组</button>` : ""}
                 ${o.mode === "target-group" ? `<button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
             </header>
-            ${startMark}<div class="pa-gbody">${(o.mode === "target" || o.startRows) && !isCol && b.part === 1 && !(o.marker && o.marker.groupStart === b.groupId) ? `<button class="pa-gstart" data-act="gstart" data-gid="${esc(b.groupId)}">↑ ${verb}在组开头</button>` : ""}${visibleRows}</div>${endMark}
-        </section>`;
+            <div class="pa-gbody">${startSlot}${visibleRows}</div>
+        </section>${afterHere ? mark : ""}`;
   }
-  if (o.marker && o.marker.index !== void 0 && o.marker.index > 0) html += '<div class="pa-insert-mark">缝在最后</div>';
   return html || '<p class="pa-empty">没有匹配的条目</p>';
+}
+/** 选好的位置 → 插入点 + 归属分组（null＝组外） */
+function placeOf(d, m) {
+  if (!m) return null;
+  if (m.at === "top") return { where: { index: 0 }, gid: null };
+  if (m.at === "gstart") return { where: { groupStart: m.gid }, gid: m.gid };
+  if (m.at === "block") return { where: { after: m.id }, gid: null };
+  return { where: { after: m.id }, gid: d.groupOf(m.id) };
+}
+/** 位置还有效吗；组块标记总是指向那一块的最后一条（组被改过就跟着挪），失效返回 null */
+function fixPlace(d, m) {
+  if (!m) return null;
+  if (m.at === "top") return m;
+  if (m.at === "gstart") return d.group(m.gid) && d.order.some((o) => d.groupOf(o.identifier) === m.gid) ? m : null;
+  if (!d.order.some((o) => o.identifier === m.id)) return null;
+  if (m.at === "block") {
+    const b = d.blocks().find((x) => x.ids.includes(m.id));
+    if (!b?.groupId) return { at: "row", id: m.id };
+    const last = b.ids[b.ids.length - 1];
+    return last === m.id ? m : { at: "block", id: last };
+  }
+  return m;
+}
+function placeText(d, m) {
+  const nm = (id) => d.prompt(id)?.name || id;
+  const gn = (g) => d.group(g)?.name || "分组";
+  if (m.at === "top") return "最前面";
+  if (m.at === "gstart") return `「${gn(m.gid)}」组内最前`;
+  if (m.at === "block") return `「${gn(d.groupOf(m.id))}」组之后（组外）`;
+  const g = d.groupOf(m.id);
+  return g ? `「${gn(g)}」组内，「${nm(m.id)}」之后` : `「${nm(m.id)}」之后`;
 }
 
 function tagKey(d, id) {
@@ -1571,7 +1632,7 @@ async function sortTagsDialog(d, ids) {
     try { categories = await recommendTagCategories(d,ids,categories); }
     catch(e) { toast('AI 推荐失败：'+e.message+'；改用手动排序','warning'); }
   }
-  const body = el('<div><p class="pa-hint">仅排列选中的条目，放回原先选中位置；未选条目位置不变。上下箭头调整类别，类别内按数字升序，无数字排在数字前。</p><div class="pa-tag-order"></div><details><summary>排列预览</summary><div class="pa-tag-preview"></div></details></div>');
+  const body = el('<div><p class="pa-hint">只排选中的条目，未选的不动。类别内按编号升序。</p><div class="pa-tag-order"></div><details><summary>排列预览</summary><div class="pa-tag-preview"></div></details></div>');
   function paint() {
     body.querySelector('.pa-tag-order').innerHTML = categories.map((x,i) => `<div class="pa-card pa-row-head"><span>${i+1}. ${esc(x)}</span><span><button class="pa-btn" data-rank="${i}" data-dir="-1" ${i===0?'disabled':''}>↑</button><button class="pa-btn" data-rank="${i}" data-dir="1" ${i===categories.length-1?'disabled':''}>↓</button></span></div>`).join('');
     body.querySelector('.pa-tag-preview').innerHTML = sortTagIds(d,ids,categories).map(id => `<p>${esc(tagKey(d,id).label)} · ${esc(d.prompt(id)?.name)}</p>`).join('');
@@ -1588,7 +1649,7 @@ async function sortTagsDialog(d, ids) {
   const sorted=sortTagIds(d,ids,categories), selected=new Set(ids);
   const values=new Map(d.order.map(o=>[o.identifier,o])); let k=0;
   mutate(d,'按标签排序',x => { findOrderList(x.preset).order=x.order.map(o=>selected.has(o.identifier)?values.get(sorted[k++]):o); });
-  toast('已按标签排列，正在自动保存','success');
+  toast('已按标签排列','success');
 }
 function simpleValueMacros(text) {
   const input=String(text||''); const tops=scanTopMacros(input);
@@ -1669,7 +1730,7 @@ async function repairVariableDialog(d,key) {
   if(JSON.stringify(d.toPreset())!==version) return toast('预设已变化，请重新生成修复方案','warning');
   variableRepairPlan(d,key);
   mutate(d,'补充变量读取',x=>x.insertPrompts([{prompt:{identifier:uid(),name:'变量读取 · '+plan.name,content:plan.macro,role:'system',system_prompt:false,marker:false,injection_position:0,injection_depth:4,injection_order:100},enabled:true}],{after:plan.last},d.groupOf(plan.last)));
-  toast('已添加读取条目，正在自动保存','success');
+  toast('已添加读取条目','success');
 }
 
 
@@ -1922,7 +1983,7 @@ function mountOrganize(page) {
                 <button class="pa-btn pa-btn-soft" data-tool="backup">备份</button>
             </div>
         </div>
-        <div class="pa-movebar" hidden><span>点条目＝放到它后面；「放进这组」＝组末尾</span><button class="pa-btn pa-sq" data-mv="up" aria-label="上移一格">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一格">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">放到最后</button><button class="pa-btn pa-btn-primary" data-mv="cancel">完成</button></div>
+        <div class="pa-movebar" hidden><b class="pa-move-n"></b><button class="pa-btn pa-sq" data-mv="up" aria-label="上移一格">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一格">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">放到最后</button><button class="pa-btn pa-btn-primary" data-mv="cancel">完成</button><small>点组名＝放在组后；展开组再点条目＝放进组内</small></div>
         <div class="pa-scroll pa-list" role="list"></div>
         <div class="pa-selbar" hidden>
             <div class="pa-selbar-top"><b class="pa-selcount"></b>
@@ -1961,13 +2022,14 @@ function mountOrganize(page) {
     picker.set(d.name);
     for (const id of [...st.selected]) if (!d.order.some((o) => o.identifier === id)) st.selected.delete(id);
     const top = list.scrollTop;
-    list.innerHTML = renderList(d, { mode: "organize", moveMode: st.moveMode, startRows: st.moveMode, selected: st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
+    list.innerHTML = renderList(d, { mode: "organize", place: st.moveMode, selected: st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
     list.scrollTop = top;
-    list.classList.toggle("pa-moving", st.moveMode);
+    list.classList.toggle("pa-placing", st.moveMode);
     const n = st.selected.size;
     selbar.hidden = n === 0 || st.moveMode;
     movebar.hidden = !st.moveMode;
     page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
+    page.querySelector(".pa-move-n").textContent = `移动 ${n} 条到…`;
     if (st.highlight.size) {
       const first = list.querySelector(".pa-flash");
       first?.scrollIntoView({ block: "center" });
@@ -1981,10 +2043,11 @@ function mountOrganize(page) {
     const d = draft();
     return settings().keepClickOrder ? [...st.selected] : d.sortByOrder([...st.selected]);
   };
-  function doMove(where, label = "移动") {
+  // gid：放进哪个组；null＝放在组外（整组选中的分组会保持成组）
+  function doMove(where, gid, label = "移动") {
     const d = draft();
     const ids = ordered();
-    mutate(d, label, (x) => x.move(ids, where));
+    mutate(d, label, (x) => x.place(ids, where, gid));
     st.moveMode = false;
     toast(`已移动 ${ids.length} 条`, "success");
     flash(ids);
@@ -2010,9 +2073,14 @@ function mountOrganize(page) {
       e.stopPropagation();
       return peek(d, rowEl.dataset.id);
     }
+    if (st.moveMode && act === "top") return doMove({ index: 0 }, null, "移到最前");
     if (head) {
       const gid = head.dataset.gid;
-      if (st.moveMode && act === "into") return doMove({ groupEnd: gid }, "移到组末尾");
+      if (st.moveMode && act !== "collapse") {
+        const blockIds = d.blocks().find((b) => b.ids.includes(head.dataset.last))?.ids || [];
+        if (blockIds.every((i) => st.selected.has(i))) return toast("这组就是要移动的，点别处");
+        return doMove({ after: head.dataset.last }, null, "移到组后");
+      }
       if (act === "collapse" || !act) {
         st.collapsed.has(gid) ? st.collapsed.delete(gid) : st.collapsed.add(gid);
         return render();
@@ -2031,14 +2099,14 @@ function mountOrganize(page) {
       return;
     }
     if (act === "gstart") {
-      if (st.moveMode) return doMove({ groupStart: actEl.dataset.gid }, "移到组开头");
+      if (st.moveMode) return doMove({ groupStart: actEl.dataset.gid }, actEl.dataset.gid, "移到组内最前");
       return;
     }
     if (rowEl) {
       const id = rowEl.dataset.id;
       if (st.moveMode) {
-        if (st.selected.has(id)) return toast("不能放到自己后面，点别的条目");
-        return doMove({ after: id }, "移到条目后");
+        if (st.selected.has(id)) return toast("这条就是要移动的，点别处");
+        return doMove({ after: id }, d.groupOf(id), "移到条目后");
       }
       // 点整行＝选中/取消；看内容点右边的眼睛
       st.selected.has(id) ? st.selected.delete(id) : st.selected.add(id);
@@ -2074,7 +2142,7 @@ function mountOrganize(page) {
       st.moveMode = false;
       render();
     }
-    if (a === "end") doMove({ index: draft().order.length }, "移到最后");
+    if (a === "end") doMove({ index: draft().order.length }, null, "移到最后");
     if (a === "up" || a === "down") {
       const ids = ordered();
       mutate(draft(), "移动", (x) => x.moveStep(ids, a === "up" ? -1 : 1));
@@ -2128,7 +2196,7 @@ function mountOrganize(page) {
       mutate(d, "新建分组", (x) => x.createGroup(name, ids, { keepClickOrder: settings().keepClickOrder }));
       st.selected.clear();
       flash(ids);
-      toast(`已建分组「${name}」，${ids.length} 条已排在一起`, "success");
+      toast(`已建分组「${name}」`, "success");
       return render();
     }
     if (a === "intogroup") {
@@ -2190,7 +2258,7 @@ function mountOrganize(page) {
     }
     if (v === "gather") mutate(d, "收拢分组", (x) => x.gatherGroup(gid));
     if (v === "up" || v === "down") mutate(d, "整组移动", (x) => x.moveGroupBlock(gid, v === "up" ? -1 : 1));
-    if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？里面的条目不会删除，只是不再成组。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
+    if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
   }
   async function peek(d, id) {
     const p = d.prompt(id);
@@ -2201,7 +2269,7 @@ function mountOrganize(page) {
     const body = el(`<div class="pa-form">
             <label class="pa-field"><span>名字</span><input class="pa-input" data-f="name" value="${esc(p.name || "")}"></label>
             <p class="pa-hint">写法：${esc(info)}${p.injection_position === 1 ? ` \xB7 聊天内注入，深度 ${esc(p.injection_depth)}` : ""} \xB7 角色 ${esc(p.role || "system")}</p>
-            ${marker ? '<p class="pa-hint">这是酒馆自动填内容的位置条目，正文不用改。</p>' : `<textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
+            ${marker ? '<p class="pa-hint">酒馆位置条目，没有正文。</p>' : `<textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
         </div>`);
     body.addEventListener("input", (e) => {
       if (!e.target.matches("[data-f=name], [data-f=content]")) return;
@@ -2220,8 +2288,8 @@ function mountOrganize(page) {
   }
   async function smartGroups(d) {
     const sug = suggestGroups(d);
-    if (!sug.length) return toast("没找到可以自动分组的连续条目（已分组的条目不会动）");
-    const body = el(`<div><p class="pa-hint">只会把<b>本来就挨在一起</b>的条目框起来，不会打乱顺序。名字可以直接改，不想要的取消勾选。</p>
+    if (!sug.length) return toast("没有可自动分组的连续条目");
+    const body = el(`<div><p class="pa-hint">只框连续条目，不改顺序。</p>
             <div class="pa-sug">${sug.map((g, i) => `<div class="pa-sug-item">
                 <label class="pa-inline-check"><input type="checkbox" data-i="${i}" checked></label>
                 <div class="pa-sug-main"><input class="pa-input pa-input-s" data-n="${i}" value="${esc(g.name)}">
@@ -2232,7 +2300,7 @@ function mountOrganize(page) {
       for (const g of r) x.createGroup(g.name, g.ids);
     });
     r.forEach((g) => st.collapsed.add(x_last(d, g)));
-    toast(`建好了 ${r.length} 个分组，会自动保存`, "success");
+    toast(`已建 ${r.length} 个分组`, "success");
     render();
   }
   const x_last = (d, g) => d.groupOf(g.ids[0]);
@@ -2243,9 +2311,9 @@ function mountOrganize(page) {
     } catch (e) {
       return toast("读不到备份：" + e.message, "error");
     }
-    if (!list2.length) return toast("这个预设还没有备份。每次用裁缝铺保存前都会自动备份一份。");
+    if (!list2.length) return toast("这个预设还没有备份");
     const items = list2.map((b2) => ({ label: new Date(b2.time).toLocaleString(), sub: b2.reason, value: b2.id }));
-    const id = await pickBox(`「${name}」的备份`, items, { hint: "点一个备份：恢复并自动保存，或者下载" });
+    const id = await pickBox(`「${name}」的备份`, items);
     if (!id) return;
     const b = await backupGet(id);
     const how = await pickBox("这个备份要…", [{ label: "恢复到草稿", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
@@ -2264,7 +2332,7 @@ function mountOrganize(page) {
         x.preset = tmp.preset;
         x.groups = tmp.groups;
       });
-      toast("已恢复，正在自动保存", "success");
+      toast("已恢复", "success");
     }
   }
   let drag = null;
@@ -2305,12 +2373,24 @@ function mountOrganize(page) {
     if (row && list.contains(row) && !drag.ids.includes(row.dataset.id)) {
       const r = row.getBoundingClientRect();
       const after = y > r.top + r.height / 2;
-      target = after ? { after: row.dataset.id } : { before: row.dataset.id };
+      target = { where: after ? { after: row.dataset.id } : { before: row.dataset.id }, gid: draft().groupOf(row.dataset.id) };
       lineY = (after ? r.bottom : r.top) - lr.top + list.scrollTop;
     } else if (head && list.contains(head)) {
+      // 组头上半＝放在这组前面（组外）；下半：展开着＝组内最前，折叠着＝这组后面（组外）
       const r = head.getBoundingClientRect();
-      target = { groupStart: head.dataset.gid };
-      lineY = r.bottom - lr.top + list.scrollTop;
+      const box = head.closest(".pa-group").getBoundingClientRect();
+      const upper = y < r.top + r.height / 2;
+      const open = !head.closest(".pa-group").classList.contains("pa-collapsed");
+      if (upper) {
+        target = { where: { before: head.dataset.first }, gid: null };
+        lineY = box.top - lr.top + list.scrollTop - 3;
+      } else if (open) {
+        target = { where: { before: head.dataset.first }, gid: head.dataset.gid };
+        lineY = r.bottom - lr.top + list.scrollTop;
+      } else {
+        target = { where: { after: head.dataset.last }, gid: null };
+        lineY = box.bottom - lr.top + list.scrollTop + 3;
+      }
     }
     drag.target = target;
     if (lineY == null) drag.line.style.display = "none";
@@ -2341,7 +2421,7 @@ function mountOrganize(page) {
     drag = null;
     if (commit && target) {
       const d = draft();
-      mutate(d, "拖动", (x) => x.move(ids, target));
+      mutate(d, "拖动", (x) => x.place(ids, target.where, target.gid));
       flash(ids);
     } else render();
   };
@@ -3300,7 +3380,6 @@ function mountSuture(page, app) {
     dstCollapsed: null,
     dstFor: null,
     marker: null,
-    newGroup: null,
     pasteN: 0,
     worldCache: /* @__PURE__ */ new Map()
   };
@@ -3318,12 +3397,12 @@ function mountSuture(page, app) {
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整上下大小" title="拖动调整大小"><span></span></div>
         <div class="pa-pane pa-dst">
             <div class="pa-pane-head"><b>缝到哪儿</b><div class="pa-dst-picker"></div><button class="pa-mini" data-gm="toggle">整理分组</button></div>
-            <p class="pa-hint pa-dst-hint">点一个条目＝缝在它后面；点「缝进这组」＝缝到组末尾</p>
+            <p class="pa-hint pa-dst-hint"></p>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
     </div>
     <div class="pa-stitchbar pa-groupbar" hidden>
-        <div class="pa-stitch-info"><b class="pa-gsel-n">点选条目来建分组</b><span>点分组右边的 ⋯ 可以改名、解除分组</span></div>
+        <div class="pa-stitch-info"><b class="pa-gsel-n">点选条目</b></div>
         <button class="pa-btn" data-gm="new">建新分组</button>
         <button class="pa-btn" data-gm="out">移出分组</button>
         <button class="pa-btn pa-btn-primary" data-gm="done">完成</button>
@@ -3407,7 +3486,7 @@ function mountSuture(page, app) {
                 <input class="pa-input pa-search" type="search" placeholder="搜条目名" value="${esc(st.srcQuery)}">` : '<p class="pa-hint">酒馆里还没有世界书</p>';
     } else if (st.srcType === "file") {
       srcPick.innerHTML = `<label class="pa-btn pa-btn-soft pa-file">选预设 JSON 文件<input type="file" accept=".json,application/json" hidden></label>
-                <span class="pa-hint">${st.fileDraft ? esc(st.fileDraft.name) : "别人发你的预设，不用先导入酒馆"}</span>
+                ${st.fileDraft ? `<span class="pa-hint">${esc(st.fileDraft.name)}</span>` : ""}
                 <input class="pa-input pa-search" type="search" placeholder="搜条目名" value="${esc(st.srcQuery)}">`;
     } else {
       srcPick.innerHTML = "";
@@ -3539,7 +3618,7 @@ function mountSuture(page, app) {
     const id = row.dataset.id;
     const p = d.prompt(id);
     if (peekBtn) return showText(p.name, p.content);
-    if (d.isMarker(id)) return toast("这是酒馆自动填内容的位置条目，不用缝");
+    if (d.isMarker(id)) return toast("酒馆位置条目，不能缝");
     const k = srcList._keyOf(id);
     st.picked.has(k) ? st.picked.delete(k) : st.picked.set(k, { name: p.name, content: p.content, prompt: p, from: d.name, srcDraft: d, srcId: id });
     renderSrc();
@@ -3560,19 +3639,19 @@ function mountSuture(page, app) {
       st.dstFor = d.name;
       st.dstCollapsed = new Set(d.groups.groups.map((g) => g.id));
       st.marker = null;
-      st.newGroup = null;
     }
-    // 位置指向的条目/分组已经不在了（换了预设、被撤销、被别的插件改过）就清掉，免得显示「undefined」
-    const m0 = st.marker;
-    if (m0 && (m0.after && !d.order.some((o) => o.identifier === m0.after) || m0.groupEnd && !d.group(m0.groupEnd) || m0.groupStart && !d.group(m0.groupStart))) st.marker = null;
+    // 位置指向的条目/分组已经不在了（换了预设、被撤销、被别的插件改过）就清掉
+    st.marker = fixPlace(d, st.marker);
     const top = dstList.scrollTop;
-    const ngRow = st.groupEdit ? "" : st.newGroup ? `<div class="pa-ng-row on"><span>缝成新分组「${esc(st.newGroup)}」</span><button class="pa-mini" data-act="ng-rename">改名</button><button class="pa-mini" data-act="ng-cancel">取消</button></div>` : '<button class="pa-ng-row" data-act="ng-new">＋ 缝成一个新分组</button>';
-    dstList.innerHTML = ngRow + renderList(d, { mode: st.groupEdit ? "target-group" : "target", selected: st.groupEdit ? st.gsel : void 0, collapsed: st.dstCollapsed, marker: st.marker, highlight: st.highlight || void 0 });
-    page.querySelector(".pa-dst-hint").textContent = st.groupEdit ? "整理分组中：点条目选中，再点下面的按钮" : st.newGroup ? "选位置：新分组放在点中的条目后面（点在组里则放在该组之后）" : "展开分组后点条目＝缝在它后面；「缝进这组」＝组末尾";
+    dstList.classList.toggle("pa-placing", !st.groupEdit);
+    dstList.innerHTML = renderList(d, { mode: st.groupEdit ? "target-group" : "target", place: !st.groupEdit, selected: st.groupEdit ? st.gsel : void 0, collapsed: st.dstCollapsed, marker: st.marker, highlight: st.highlight || void 0 });
+    const hint = page.querySelector(".pa-dst-hint");
+    hint.textContent = st.groupEdit ? "点选条目，再点下面的按钮" : "点组名＝缝在组后；展开组再点条目＝缝进组内";
+    hint.hidden = !st.groupEdit && !!st.marker;
     page.querySelector("[data-gm=toggle]").textContent = st.groupEdit ? "退出整理" : "整理分组";
     bar.hidden = !!st.groupEdit;
     gbar.hidden = !st.groupEdit;
-    gbar.querySelector(".pa-gsel-n").textContent = st.gsel.size ? `已选 ${st.gsel.size} 条` : "点选条目来建分组";
+    gbar.querySelector(".pa-gsel-n").textContent = st.gsel.size ? `已选 ${st.gsel.size} 条` : "点选条目";
     dstList.scrollTop = top;
     renderBar();
   }
@@ -3602,7 +3681,7 @@ function mountSuture(page, app) {
         const v = await pickBox(`选中的就是「${g?.name}」整组`, [
           { label: "给这个组改名", value: "rename" },
           { label: "还是建新分组", sub: `条目都会挪进新组，「${g?.name}」会变成空的`, value: "new" }
-        ], { hint: "想把组里的一部分分出去，只选那几条就行。" });
+        ]);
         if (!v) return;
         if (v === "rename") {
           const n = await promptBox("分组名", g?.name || "");
@@ -3619,7 +3698,7 @@ function mountSuture(page, app) {
       st.gsel.clear();
       renderDst();
       dstList.querySelector(`.pa-ghead[data-gid="${newId}"]`)?.scrollIntoView({ block: "center" });
-      toast(`建好了「${name}」，会自动保存`, "success");
+      toast(`已建分组「${name}」`, "success");
       // 保存后再看一眼：要是被别的插件盖回去了，要告诉用户
       setTimeout(() => {
         try {
@@ -3633,7 +3712,7 @@ function mountSuture(page, app) {
     if (a === "out") {
       if (!ids.some((id) => d.groupOf(id))) return toast("选中的条目本来就不在分组里");
       mutate(d, "移出分组", (x) => x.removeFromGroup(ids));
-      toast("已移出分组，会自动保存", "success");
+      toast("已移出分组", "success");
     }
     st.gsel.clear();
     renderDst();
@@ -3662,7 +3741,7 @@ function mountSuture(page, app) {
           }
           if (v === "dissolve" && await confirmBox("解除分组", `解除「${g?.name}」？里面的条目不会删除，也不会挪位置。`, "解除")) {
             mutate(d, `解除分组「${g?.name}」`, (x) => x.dissolveGroup(gid2));
-            toast("已解除，会自动保存", "success");
+            toast("已解除分组", "success");
           }
         } else {
           st.dstCollapsed.has(gid2) ? st.dstCollapsed.delete(gid2) : st.dstCollapsed.add(gid2);
@@ -3677,64 +3756,27 @@ function mountSuture(page, app) {
       }
       return;
     }
-    if (act === "ng-new" || act === "ng-rename") {
-      const n = await promptBox("新分组叫什么", st.newGroup || "", "比如：缝进来的文风");
-      if (n) st.newGroup = n.trim();
-      if (st.newGroup && st.marker) st.marker = ngWhere(d, st.marker);
-      return renderDst();
-    }
-    if (act === "ng-cancel") {
-      st.newGroup = null;
+    if (act === "top") {
+      st.marker = { at: "top" };
       return renderDst();
     }
     if (act === "gstart") {
-      const gid = e.target.closest("[data-gid]")?.dataset.gid;
-      if (gid) st.marker = st.newGroup ? ngWhere(d, { groupStart: gid }) : { groupStart: gid };
+      st.marker = { at: "gstart", gid: e.target.closest("[data-act]").dataset.gid };
       return renderDst();
     }
     if (head) {
-      const gid = head.dataset.gid;
-      if (act === "into") {
-        st.marker = st.newGroup ? ngWhere(d, { groupEnd: gid }) : { groupEnd: gid };
-        st.dstCollapsed.delete(gid);
-      } else {
+      if (act === "collapse") {
+        const gid = head.dataset.gid;
         st.dstCollapsed.has(gid) ? st.dstCollapsed.delete(gid) : st.dstCollapsed.add(gid);
-      }
+      } else st.marker = { at: "block", id: head.dataset.last };
       return renderDst();
     }
     const row = e.target.closest(".pa-row");
     if (row) {
-      st.marker = st.newGroup ? ngWhere(d, { after: row.dataset.id }) : { after: row.dataset.id };
+      st.marker = { at: "row", id: row.dataset.id };
       renderDst();
     }
   });
-  // 新分组不能插在别的组中间（会把那个组劈成两段），点在组里就放到那个组后面
-  function ngWhere(d, m) {
-    const gid = m.groupEnd || m.groupStart || (m.after ? d.groupOf(m.after) : null);
-    if (!gid) return m;
-    const members = d.order.filter((o) => d.groupOf(o.identifier) === gid);
-    if (m.groupStart) {
-      const k = d.order.findIndex((o) => o.identifier === members[0]?.identifier);
-      return k > 0 ? { after: d.order[k - 1].identifier } : { index: 0 };
-    }
-    return members.length ? { after: members[members.length - 1].identifier } : m;
-  }
-  function whereText(d) {
-    const m = st.marker;
-    if (!m) return st.newGroup ? `新分组「${st.newGroup}」：还没选位置` : "还没选位置";
-    if (st.newGroup) {
-      const ag = m.after ? d.groupOf(m.after) : null;
-      const ref = ag ? `「${d.group(ag)?.name}」组后面` : m.after ? `「${(d.prompt(m.after)?.name || m.after)}」后面` : m.index === 0 ? "最前面" : "最后";
-      return `缝成新分组「${st.newGroup}」，放在${ref}`;
-    }
-    if (m.groupStart) return `缝进「${d.group(m.groupStart)?.name}」组开头`;
-    if (m.groupEnd) return `缝进「${d.group(m.groupEnd)?.name}」组末尾`;
-    if (m.after) {
-      const g = d.groupOf(m.after);
-      return `缝在「${(d.prompt(m.after)?.name || m.after)}」后面${g ? `（${d.group(g)?.name} 组内）` : ""}`;
-    }
-    return "缝在最后";
-  }
   function renderBar() {
     const n = st.picked.size;
     let d = null;
@@ -3743,7 +3785,7 @@ function mountSuture(page, app) {
     } catch {
     }
     bar.querySelector(".pa-picked-n").textContent = n ? `已选 ${n} 条材料` : "还没选材料";
-    bar.querySelector(".pa-where").textContent = d ? whereText(d) : "";
+    bar.querySelector(".pa-where").textContent = d && st.marker ? `缝到：${placeText(d, st.marker)}` : "还没选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && st.marker);
   }
   bar.addEventListener("click", (e) => {
@@ -3755,11 +3797,21 @@ function mountSuture(page, app) {
     if (a === "go") review();
     if (a === "profile") showProfiles();
   });
+  // 这条材料所在的来源分组是不是整组都选了（酒馆位置条目不算）
+  function wholeGroupOf(src) {
+    const sd = src.srcDraft;
+    if (!sd || !src.srcId) return null;
+    const g = sd.groupOf(src.srcId);
+    if (!g) return null;
+    const picked = new Set([...st.picked.values()].filter((v) => v.srcDraft?.name === sd.name).map((v) => v.srcId));
+    const mem = sd.order.map((o) => o.identifier).filter((x) => sd.groupOf(x) === g && !sd.isMarker(x));
+    return mem.length && mem.every((x) => picked.has(x)) ? { key: `${sd.name}|${g}`, name: sd.group(g)?.name || "分组" } : null;
+  }
   async function review() {
     const d = target();
-    const where = { ...st.marker };
-    const newGroup = st.newGroup;
-    const gid = newGroup ? null : where.groupEnd || where.groupStart || (where.after ? d.groupOf(where.after) : null);
+    const marker = fixPlace(d, st.marker);
+    if (!marker) return renderDst();
+    const { where, gid } = placeOf(d, marker);
     const t = inferTarget(d, where, gid);
     const tgtProf = profilePreset(d);
     const idx = insertionIndex(d, where);
@@ -3775,8 +3827,24 @@ function mountSuture(page, app) {
           console.warn("[裁缝铺] 来源分析失败", e);
         }
       }
-      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: {}, manual: null, enabled: true };
+      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: {}, manual: null, enabled: true, srcGroup: wholeGroupOf(src) };
     });
+    // 整组选中的来源分组：成员排在一起（在第一次出现的位置），缝到组外时可以保持成组
+    const groupKeys = [];
+    for (const it of items) if (it.srcGroup && !groupKeys.some((g) => g.key === it.srcGroup.key)) groupKeys.push(it.srcGroup);
+    items.splice(0, items.length, ...items.reduce((acc, it) => {
+      if (!it.srcGroup) acc.push(it);
+      else if (!acc.some((x) => x.srcGroup?.key === it.srcGroup.key)) acc.push(...items.filter((x) => x.srcGroup?.key === it.srcGroup.key));
+      return acc;
+    }, []));
+    const grpDefault = groupKeys.length ? "keep" : "none";
+    const grpRow = gid ? "" : `<div class="pa-field-row"><span>分组</span>
+                <select class="pa-select pa-select-s" data-g="grp">
+                    ${groupKeys.length ? `<option value="keep">保持原分组（${esc(groupKeys.map((g) => g.name).join("、"))}）</option>` : ""}
+                    <option value="none" ${grpDefault === "none" ? "selected" : ""}>不分组</option>
+                    <option value="new">放进新分组</option>
+                </select>
+                <input class="pa-input pa-input-s" data-g="gname" placeholder="新分组名" hidden></div>`;
     const fromLabel = (it) => {
       const f = String(it.src.from || "").replace(/^世界书\s*/, "");
       return f && f !== "粘贴" ? f : "";
@@ -3784,10 +3852,10 @@ function mountSuture(page, app) {
     const nameOf = (it) => it.customName ?? (settings().nameWithSource && fromLabel(it) ? `${it.src.name}（来自${fromLabel(it)}）` : it.src.name);
     const body = el(`<div class="pa-review">
             <div class="pa-target-card">
-                <div><b>目标「${esc(d.name)}」是这样写的</b></div>
-                <ul class="pa-notes">${tgtProf.lines.slice(0, 3).map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
-                ${tgtProf.lines.length > 3 ? `<details class="pa-explain"><summary>还有 ${tgtProf.lines.length - 3} 条</summary><ul class="pa-notes">${tgtProf.lines.slice(3).map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : ""}
-                <small>缝到这里，附近条目的写法：${esc(t.summary)}${tgtWr.length ? `；会落在 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 里面` : ""}</small>
+                <div><b>位置：${esc(placeText(d, marker))}</b></div>
+                ${grpRow}
+                <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `；落在 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 里面` : ""}</small>
+                ${tgtProf.lines.length ? `<details class="pa-explain"><summary>目标预设的写法（${tgtProf.lines.length} 条）</summary><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : ""}
                 <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝入时，角色和注入位置也跟随目标</label>
                 <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名后面加上「（来自 来源预设）」</label>
             </div>
@@ -3905,6 +3973,12 @@ function mountSuture(page, app) {
       art.outerHTML = renderItem(it, i);
     };
     box.innerHTML = items.map(renderItem).join("");
+    const grpSel = body.querySelector("[data-g=grp]");
+    const grpName = body.querySelector("[data-g=gname]");
+    grpSel?.addEventListener("change", () => {
+      grpName.hidden = grpSel.value !== "new";
+      if (!grpName.hidden) grpName.focus();
+    });
     body.querySelector("[data-g=from]").addEventListener("change", (e) => {
       settings().nameWithSource = e.target.checked;
       saveSettings();
@@ -3949,7 +4023,19 @@ function mountSuture(page, app) {
       it.manual = null;
       rerender(art, it);
     });
-    const ok = await sheet({ title: `缝 ${items.length} 条到「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "再想想", value: null }, { label: "缝进去", kind: "primary", value: (w) => ({ inj: w.querySelector("[data-g=inj]").checked }) }] });
+    const ok = await sheet({ title: `缝 ${items.length} 条到「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "再想想", value: null }, {
+      label: "缝进去",
+      kind: "primary",
+      validate: () => {
+        if (grpSel?.value === "new" && !grpName.value.trim()) {
+          grpName.focus();
+          toast("填一下新分组名");
+          return false;
+        }
+        return true;
+      },
+      value: (w) => ({ inj: w.querySelector("[data-g=inj]").checked, grp: grpSel?.value || "none", gname: grpName?.value.trim() || "" })
+    }] });
     if (!ok) return;
     settings().followTargetInjection = ok.inj;
     saveSettings();
@@ -3968,8 +4054,15 @@ function mountSuture(page, app) {
         }
         return { prompt, enabled: it.enabled };
       });
-      newIds = x.insertPrompts(prompts, where, newGroup ? null : gid);
-      if (newGroup) x.createGroup(newGroup, newIds);
+      newIds = x.insertPrompts(prompts, where, gid);
+      if (!gid && ok.grp === "new") x.createGroup(ok.gname, newIds);
+      if (!gid && ok.grp === "keep") {
+        // 整组选中的来源分组：在目标里照原名建组（它们已经排在一起了）
+        for (const g of groupKeys) {
+          const mem = newIds.filter((_, i) => items[i].srcGroup?.key === g.key);
+          if (mem.length) x.createGroup(g.name, mem);
+        }
+      }
       // 挂进思维链：同一个位置挂好几条时，按缝合顺序一条接一条往下排
       const chain = /* @__PURE__ */ new Map();
       items.forEach((it, i) => {
@@ -3991,9 +4084,10 @@ function mountSuture(page, app) {
       });
     });
     st.picked.clear();
-    st.newGroup = null;
-    st.marker = { after: newIds[newIds.length - 1] };
-    toast(`缝好了 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条挂进了思维链` : ""}${inits.length ? `，并在初始化条目里补了变量 ${inits.join("、")}` : ""}。会自动保存，不满意可以点「撤销」`, "success");
+    // 下次接着往后缝：落在新分组里就放在这组后面，否则接在最后一条后面
+    const lastNew = newIds[newIds.length - 1];
+    st.marker = !gid && d.groupOf(lastNew) ? fixPlace(d, { at: "block", id: lastNew }) : { at: "row", id: lastNew };
+    toast(`缝好了 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条挂进思维链` : ""}${inits.length ? `，初始化条目补了变量 ${inits.join("、")}` : ""}`, "success");
     if (gid) st.dstCollapsed.delete(gid);
     st.highlight = new Set(newIds);
     renderSrc();
@@ -4021,7 +4115,7 @@ function mountSuture(page, app) {
     }
     add("来源", srcD);
     add("目标", target());
-    await sheet({ title: "两边的写法", body: `<div>${parts.join("") || '<p class="pa-empty">先选来源预设</p>'}<p class="pa-hint">缝合时会按这里看出来的差异自动改写：变量怎么包、要不要挂进思维链、挂到哪里。</p></div>`, wide: true, actions: [{ label: "知道了", kind: "primary", value: true }] });
+    await sheet({ title: "两边的写法", body: `<div>${parts.join("") || '<p class="pa-empty">先选来源预设</p>'}</div>`, wide: true, actions: [{ label: "知道了", kind: "primary", value: true }] });
   }
   const off = onDraftChange(() => {
     if (page.isConnected && !page.hidden) renderDst();
@@ -4078,11 +4172,11 @@ async function repairAllVariables(d, manual = {}) {
     try { await saveDraft(d.name, '一键修复变量引用'); }
     catch(e) { saveError=e.message; saveErrors.set(d.name,e.message); checkpoint(d); notifyDraft(d.name); }
   }
-  const body=el(`<div><p class="pa-p">已整理 <b>${normalized.length}</b> 个冗余外层包裹，补齐 <b>${plans.length}</b> 个变量引用${saveError?'；写回失败，草稿已保留':'；'+(plans.length||normalized.length?'已自动保存':'没有修改预设')}。跳过 <b>${skipped.length}</b> 个。${plans.length||normalized.length?'本次修改可在顶部点「撤销」一起还原。':''}</p>
-    ${saveError?`<p class="pa-hint">保存失败：${esc(saveError)}。可点顶部保存重试。</p>`:''}
+  const body=el(`<div><p class="pa-p">已整理 <b>${normalized.length}</b> 个冗余外层包裹，补齐 <b>${plans.length}</b> 个变量引用${saveError?'；写回失败，草稿已保留':'；'+(plans.length||normalized.length?'已自动保存':'没有修改预设')}。跳过 <b>${skipped.length}</b> 个。</p>
+    ${saveError?`<p class="pa-hint">保存失败：${esc(saveError)}</p>`:''}
     ${plans.length?`<details><summary>已修复的变量</summary><p class="pa-p">${plans.map(p=>esc(p.key)).join('、')}</p></details>`:''}
     ${skipped.length?`<h3 class="pa-h">这些需要手动核对</h3>${skipped.map(x=>`<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join('')}`:''}
-    <p class="pa-hint">读取条目放在最后一个启用的写入条目之后，不改写现有思维链。仅整理带缝合来源、没有任何读取依赖、且只包着一个赋值宏的外层包裹；保留内层正文和原编号标签。这里只补齐能静态判断的引用；实际效果仍需在酒馆发送的提示词中核对。</p></div>`);
+    <p class="pa-hint">读取条目放在最后一个启用的写入条目之后，思维链不改。只整理带缝合来源、无读取依赖、只包一个赋值宏的外层包裹。</p></div>`);
   await sheet({title:'一键修复结果',body,wide:true,noFocus:true,actions:[{label:'完成',kind:'primary',value:true}]});
 }
 
@@ -4099,12 +4193,12 @@ async function hookExistingDialog(d, id) {
   const cotName = esc(d.prompt(plan0.cotId)?.name || "");
   let how;
   if (plan0.mode === "text") how = `<label class="pa-field"><span>在「${cotName}」里加这一行</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">${plan0.needle ? `加在提到 ${esc(plan0.needle)} 的那一行后面` : "加在这条思维链的末尾"}；「${esc(p.name)}」本身不用改。可以在顶部「撤销」。</p>`;
+      <p class="pa-hint">${plan0.needle ? `加在提到 ${esc(plan0.needle)} 的那一行后面` : "加在这条思维链的末尾"}。</p>`;
   else if (plan0.mode === "append") how = `<label class="pa-field"><span>追加的思维链片段</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">「${esc(p.name)}」末尾加 {{addvar::${esc(plan0.varName)}::片段}}；思维链本来就读这个变量，不用改。可以在顶部「撤销」。</p>`;
+      <p class="pa-hint">「${esc(p.name)}」末尾加 {{addvar::${esc(plan0.varName)}::片段}}；思维链已读这个变量。</p>`;
   else how = `<label class="pa-field"><span>问句变量</span><input class="pa-input" data-h="v" value="${esc(plan0.varName)}"></label>
       <label class="pa-field"><span>思维链里问什么</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">会做三件事：「${esc(p.name)}」末尾加 {{setvar::变量::问句}}；${initId ? `「${esc(d.prompt(initId)?.name)}」里加一行清空` : "（没找到初始化条目，跳过清空）"}；「${cotName}」里${plan0.anchorVar ? `紧跟 {{getvar::${esc(plan0.anchorVar)}}} ` : ""}加一行读取。${plan0.removeRange ? "条目里原来那句没人读的问句会沿用。" : ""}可以在顶部「撤销」。</p>`;
+      <p class="pa-hint">「${esc(p.name)}」末尾加 {{setvar::变量::问句}}；${initId ? `「${esc(d.prompt(initId)?.name)}」里加一行清空` : "（没找到初始化条目，跳过清空）"}；「${cotName}」里${plan0.anchorVar ? `紧跟 {{getvar::${esc(plan0.anchorVar)}}} ` : ""}加一行读取。${plan0.removeRange ? "沿用条目里原有的问句。" : ""}</p>`;
   const body = el(`<div class="pa-form"><p class="pa-p">${esc(plan0.text)}。</p>${how}</div>`);
   const ok = await sheet({ title: `把「${p.name}」挂进思维链`, body, wide: true, actions: [{ label: "取消", value: null }, { label: "挂上", kind: "primary", value: (w) => ({ v: (w.querySelector("[data-h=v]")?.value || "").replace(/[{}:：\s]/g, ""), q: (w.querySelector("[data-h=q]")?.value || "").trim() }) }] });
   if (!ok) return;
@@ -4116,7 +4210,7 @@ async function hookExistingDialog(d, id) {
     q.content = contentWithHook(q.content, plan);
     applyHook(x, plan);
   });
-  toast(`已挂进「${d.prompt(plan.cotId)?.name}」，会自动保存`, "success");
+  toast(`已挂进「${d.prompt(plan.cotId)?.name}」`, "success");
 }
 function mountCot(page, app) {
   const st = { filter: "none" };
@@ -4155,13 +4249,10 @@ function mountCot(page, app) {
     page.querySelector("[data-repair-all]").disabled = !dead.length;
     let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
             ${a.cotIds.length ? `<p>思维链 <b>${a.cotIds.length}</b> 条，${style}。</p>
-            <p>开启的普通条目 ${total} 条：读到 <b>${okN}</b>，文字提到 <b>${counts.mention}</b>，没提到 <b>${counts.none}</b>。</p>` : `<p>未识别到开启的思维链。名称不含"思维链/COT/思考"时，请在下方「手动指定思维链」。</p>`}
-            <p>${dead.length ? `<b>${dead.length}</b> 处变量写入后无人读取，内容不会发送，见下方修复。` : "变量读写一致 ✓"}</p>
-            ${counts.none ? `<p class="pa-hint">「没提到」的条目中，破限、规则类无需处理；文风、人设、小剧场等需要模型重点考虑的，可点「挂进思维链」。</p>` : ""}
+            <p>开启的普通条目 ${total} 条：读到 <b>${okN}</b>，文字提到 <b>${counts.mention}</b>，没提到 <b>${counts.none}</b>。</p>` : `<p>未识别到开启的思维链，可在下方手动指定。</p>`}
+            <p>${dead.length ? `<b>${dead.length}</b> 处变量写入后无人读取，内容不会发送。` : "变量读写一致 ✓"}</p>
         </div>
         <details class="pa-card pa-explain-card"><summary><b>说明</b></summary>
-            <p class="pa-p">思维链：模型输出正文前执行的思考步骤（通常为 &lt;thinking&gt; 部分）。</p>
-            <p class="pa-p">条目开启仅表示内容已发送；未被思维链引用的条目，可能在思考时被忽略。本页检查每条开启条目是否被思维链引用。</p>
             <ul class="pa-legend">
                 <li><span class="pa-lv pa-lv-ok">读到了</span>思维链通过 {{getvar}} 读取该条目写入的变量。</li>
                 <li><span class="pa-lv pa-lv-maybe">文字提到</span>思维链中出现该条目的名称或标签。</li>
@@ -4176,7 +4267,7 @@ function mountCot(page, app) {
             <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>处变量没人读</span></div>
         </div>`;
     if (dead.length) {
-      html += `<h3 class="pa-h">变量没人读</h3><p class="pa-hint">以下条目写入的变量无人读取。可开启读取它的条目，或点「查看修复方案」补充读取（应用前可预览）。含条件、脚本的预设以实际发送为准。</p><div class="pa-cards">`;
+      html += `<h3 class="pa-h">变量没人读</h3><div class="pa-cards">`;
       for (const i of dead) {
         html += `<div class="pa-card pa-card-warn"><p>${i.ids.map((id) => `「${nm(id)}」`).join("")}${esc(i.text)}</p>
                     <div class="pa-card-act">${i.readersOff?.length ? `<button class="pa-btn pa-btn-soft" data-fix="${esc(i.readersOff.join("|"))}">打开读取它的条目</button>` : ""}
@@ -4185,7 +4276,6 @@ function mountCot(page, app) {
       html += "</div>";
     }
     html += `<div class="pa-row-head"><h3 class="pa-h">每条思维链在读什么</h3><button class="pa-link" data-markpick="1">漏认了？手动指定思维链</button></div>`;
-    if (!a.cotIds.length) html += '<p class="pa-hint">未识别到开启的思维链条目，点右上「手动指定思维链」。</p>';
     html += '<div class="pa-cards">';
     for (const c2 of a.cot) {
       const reads = c2.reads.map((r) => `<li><span class="pa-chip">${esc(r.name)}</span>${r.suppliers.length ? r.suppliers.map((s) => `<span class="pa-sup">${nm(s)}</span>`).join("") : '<span class="pa-sup pa-dim">没开任何选项（空）</span>'}</li>`).join("");
@@ -4198,8 +4288,7 @@ function mountCot(page, app) {
     html += `<h3 class="pa-h">每个开着的条目，思维链有没有想到它</h3>
             <div class="pa-seg pa-seg-s" role="tablist">
                 ${[["none", `没提到 ${counts.none}`], ["mention", `文字提到 ${counts.mention}`], ["ok", `读到了 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
-            </div>
-            <p class="pa-hint">「挂进思维链」：让思维链引用这个条目（按本预设写法补变量读取或名称），可撤销。</p>`;
+            </div>`;
     const groupsOrder = [];
     const byGroup = /* @__PURE__ */ new Map();
     for (const [id, c2] of a.coverage) {
@@ -4222,10 +4311,9 @@ function mountCot(page, app) {
       }
       html += "</div>";
     }
-    if (!groupsOrder.length) html += '<p class="pa-hint">这一栏是空的。</p>';
+    if (!groupsOrder.length) html += '<p class="pa-hint">无</p>';
     if (a.optional.length) {
       html += `<details class="pa-card pa-optional"><summary>思维链里留了位置、但没开任何选项的变量（${a.optional.length}）</summary>
-                <p class="pa-hint">通常为可选功能，未开启时为空，无需处理。缝合的条目出现在此处，说明写入了其他变量名。</p>
                 <ul class="pa-reads">${a.optional.map((o) => `<li><span class="pa-chip">${esc(o.varName)}</span>${o.ids.map((id) => `<span class="pa-sup">${nm(id)}</span>`).join("")}</li>`).join("")}</ul></details>`;
     }
     box.innerHTML = html;
@@ -4247,7 +4335,7 @@ function mountCot(page, app) {
     if (fix) {
       const ids = fix.dataset.fix.split("|");
       mutate(d, "打开读取条目", (x) => { x.setEnabled(ids, true); for(const id of ids) { const gid=x.groupOf(id); if(gid) x.setGroupEnabled(gid,true); } });
-      toast(`已打开 ${ids.length} 条，会自动保存`, "success");
+      toast(`已打开 ${ids.length} 条`, "success");
       return;
     }
     const go = e.target.closest("[data-goto]");
@@ -4255,7 +4343,7 @@ function mountCot(page, app) {
     if (e.target.closest("[data-markpick]")) {
       const cot = new Set(a0(d).cotIds);
       const items = d.order.filter((o) => o.enabled !== false && !cot.has(o.identifier) && !d.isMarker(o.identifier)).map((o) => ({ label: d.prompt(o.identifier)?.name || o.identifier, value: o.identifier }));
-      const id = await pickBox("哪一条是思维链？", items, { hint: "选中的条目会被当作思维链来检查。" });
+      const id = await pickBox("哪一条是思维链？", items);
       if (!id) return;
       manualFor(d.name)[id] = true;
       saveSettings();
@@ -4330,7 +4418,7 @@ function mountSchemes(page) {
   page.innerHTML = `
         <div class="pa-toolbar"><div class="pa-picker-slot"></div>
             <button class="pa-btn pa-btn-primary" data-s="new">把现在的开关存成方案</button></div>
-        <p class="pa-hint pa-pad">方案记住的是「哪些条目开、哪些关」，比如同一个预设里今天玩狗男、明天玩年上。可以连人设一起换，也可以绑到某个聊天，进聊天自动换好。</p>
+        <p class="pa-hint pa-pad">方案＝一套条目开关，可带人设、可绑定聊天。</p>
         <div class="pa-scroll pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
@@ -4533,7 +4621,7 @@ function mountApi(page) {
             <label class="pa-field"><span>模型</span><input class="pa-input" data-f="model" value="${esc(s.model)}" list="pa-models" autocapitalize="off"><datalist id="pa-models">${(s.models || []).map((m) => `<option value="${esc(m)}">`).join("")}</datalist></label>
             <button class="pa-btn pa-btn-soft" data-f="fetch" type="button" data-show="custom">连上并拉取模型列表</button>
             <label class="pa-field"><span>备注</span><input class="pa-input" data-f="note" value="${esc(s.note || "")}" placeholder="比如：月卡到 11 月"></label>
-            <p class="pa-hint">${multiKeySupported() ? "Key 会存进酒馆自己的密钥库（和你在酒馆里填 key 一样安全），裁缝铺只记它的编号。" : "你的酒馆版本较旧，key 会存在酒馆的设置文件里。"}</p>
+            <p class="pa-hint">${multiKeySupported() ? "Key 存在酒馆密钥库，裁缝铺只记编号。" : "酒馆版本较旧，key 存在酒馆设置文件里。"}</p>
         </div>`);
     const sync = (w) => {
       const custom = w.querySelector("[data-f=source]").value === "custom";
@@ -4687,7 +4775,7 @@ function mountApi(page) {
       sites().push(s);
       settings().activeSiteId = s.id;
       saveSettings();
-      toast("存好了，可以点「编辑」改个好记的名字", "success");
+      toast("已保存", "success");
       render();
     }
   });
@@ -4762,7 +4850,7 @@ function bindThemeCards(box, after) {
   });
 }
 async function themeSheet() {
-  const body = el(`<div>${themeCards()}<p class="pa-hint">点一下就换，马上生效。也可以在「更多 → 外观」里换。</p></div>`);
+  const body = el(`<div>${themeCards()}</div>`);
   bindThemeCards(body);
   await sheet({ title: "换个颜色", body, wide: true, actions: [{ label: "好了", kind: "primary", value: true }] });
 }
@@ -4960,8 +5048,7 @@ function mountMore(page, app) {
     api: mountApi(sec("api"), app),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">颜色</h3><div class="pa-look"></div>
-        <p class="pa-hint">「跟随酒馆美化」会用酒馆主题的颜色，并自动补成不透明，免得背景透出来看不清字。想要固定的配色就选下面的莫兰迪色卡。</p></div>`;
+      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">颜色</h3><div class="pa-look"></div></div>`;
       const slot = box.querySelector(".pa-look");
       const render = () => { slot.innerHTML = themeCards(); };
       bindThemeCards(slot);
@@ -4985,7 +5072,7 @@ function mountMore(page, app) {
 }
 
 // src/ui/style.css
-var style_default = "/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用\"缝线\"虚线做标记。所有选择器都限定在 #pa-root 内。 */\n\n#pa-root {\n    --pa-text: var(--SmartThemeBodyColor, #e6e1d8);\n    --pa-tint: var(--SmartThemeBlurTintColor, rgba(28, 26, 30, 0.94));\n    --pa-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));\n    --pa-thread: var(--SmartThemeQuoteColor, #e0a24a);\n    --pa-em: var(--SmartThemeEmColor, #b9b3a8);\n    --pa-dim: rgba(128, 128, 128, 0.95);\n    --pa-card: rgba(127, 127, 127, 0.09);\n    --pa-card-2: rgba(127, 127, 127, 0.16);\n    --pa-sel: rgba(224, 162, 74, 0.16);\n    --pa-warn: #e0784a;\n    --pa-ok: #6fb38a;\n    --pa-on-accent: #1b1712;\n    --pa-input-bg: rgba(0, 0, 0, .18);\n    --pa-r: 10px;\n    --pa-row-h: 38px;\n    position: fixed;\n    inset: 0;\n    width: 100%; height: 100vh; height: 100dvh;\n    max-height: none; min-height: 0; margin: 0; padding: 0;\n    z-index: 10010;\n    color: var(--pa-text);\n    font-size: var(--mainFontSize, 15px);\n    line-height: 1.45;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #pa-root {\n        --pa-dim: color-mix(in srgb, var(--pa-text) 58%, transparent);\n        --pa-card: color-mix(in srgb, var(--pa-text) 7%, transparent);\n        --pa-card-2: color-mix(in srgb, var(--pa-text) 13%, transparent);\n        --pa-sel: color-mix(in srgb, var(--pa-thread) 20%, transparent);\n    }\n}\n@media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }\n#pa-root[hidden] { display: none; }\nhtml.pa-open body { overflow: hidden; }\n\n#pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }\n#pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }\n#pa-root [hidden] { display: none !important; }\n\n/* ---------- 外壳 ---------- */\n#pa-root .pa-shell {\n    position: absolute; inset: 0;\n    display: grid;\n    grid-template-rows: auto auto minmax(0, 1fr);\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-areas: \"top\" \"tabs\" \"main\";\n    width: 100%; overflow: hidden;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    height: 100vh; height: 100dvh;\n}\n#pa-root .pa-shell::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }\n#pa-root .pa-top {\n    grid-area: top;\n    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;\n    padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n}\n#pa-root .pa-brand { display: flex; align-items: center; gap: 8px; font-size: 1.05em; white-space: nowrap; }\n#pa-root .pa-logo { display: inline-flex; color: var(--pa-thread); }\n#pa-root .pa-logo svg { width: 20px; height: 20px; }\n#pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }\n#pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }\n#pa-root .pa-theme-btn { margin-left: auto; }\n#pa-root .pa-savebar:not([hidden]) + .pa-theme-btn { margin-left: 0; }\n\n#pa-root .pa-tabs {\n    grid-area: tabs;\n    display: flex; gap: 2px; padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n    overflow-x: auto; scrollbar-width: none;\n}\n#pa-root .pa-tabs::-webkit-scrollbar { display: none; }\n#pa-root .pa-tabs button {\n    flex: 1 0 auto; min-width: 64px;\n    padding: 10px 12px; border: 0; background: none; cursor: pointer;\n    color: var(--pa-dim); border-bottom: 2px solid transparent;\n}\n#pa-root .pa-tabs button[aria-selected=\"true\"] { color: var(--pa-text); border-bottom: 2px dashed var(--pa-thread); }\n\n#pa-root .pa-main { grid-area: main; min-height: 0; position: relative; }\n#pa-root .pa-page { height: 100%; display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }\n#pa-root .pa-scroll {\n    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;\n    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;\n    padding: 6px calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));\n    position: relative;\n}\n\n/* 手机：页签放到底部，拇指够得着 */\n@media (max-width: 759px) {\n    #pa-root .pa-shell { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: \"top\" \"main\" \"tabs\"; }\n    #pa-root .pa-tabs { border-bottom: 0; border-top: 1px solid var(--pa-line); padding-bottom: env(safe-area-inset-bottom); }\n    #pa-root .pa-tabs button { border-bottom: 0; border-top: 2px solid transparent; padding: 11px 6px; min-width: 0; flex: 1 1 0; }\n    #pa-root .pa-tabs button[aria-selected=\"true\"] { border-top: 2px dashed var(--pa-thread); border-bottom: 0; }\n    #pa-root .pa-top:has(.pa-savebar:not([hidden])) .pa-brand b { display: none; }\n    #pa-root .pa-dirty-text { max-width: 38vw; }\n}\n\n/* ---------- 基础控件 ---------- */\n#pa-root .pa-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: 36px; padding: 6px 12px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-card); cursor: pointer; white-space: nowrap;\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-btn:disabled { opacity: .45; cursor: default; }\n#pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }\n#pa-root .pa-btn-soft { background: transparent; border-style: dashed; }\n#pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }\n#pa-root .pa-btn-danger-soft { color: var(--pa-warn); border-color: currentColor; background: transparent; }\n#pa-root .pa-sq { min-width: 40px; padding: 6px; }\n#pa-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-style: dashed; }\n#pa-root .pa-mini { border: 1px dashed var(--pa-thread); color: var(--pa-thread); background: none; border-radius: 999px; padding: 2px 10px; font-size: .82em; cursor: pointer; white-space: nowrap; min-height: 28px; }\n#pa-root .pa-icon-btn {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 34px; height: 34px; flex: none;\n    border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }\n#pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-input, #pa-root .pa-select {\n    width: 100%; min-height: 38px; padding: 7px 10px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-input-bg); color: var(--pa-text);\n    font-size: max(16px, 1em); /* iOS 小于 16px 会自动放大页面 */\n}\n#pa-root .pa-select { appearance: auto; }\n#pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }\n#pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }\n#pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }\n#pa-root .pa-text-s { min-height: 26vh; }\n#pa-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }\n#pa-root .pa-pad { padding: 0 14px; }\n#pa-root .pa-p { margin: 0 0 8px; }\n#pa-root .pa-empty { color: var(--pa-dim); text-align: center; padding: 28px 12px; }\n#pa-root .pa-h { font-size: 1em; margin: 18px 2px 8px; font-weight: 600; }\n#pa-root .pa-inline-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: .92em; }\n#pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }\n#pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }\n#pa-root .pa-field > span { color: var(--pa-dim); }\n#pa-root .pa-form { display: grid; gap: 12px; }\n#pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }\n#pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-groups-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 24px; }\n#pa-root .pa-chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: .74em; line-height: 1.7; border: 1px solid var(--pa-line); color: var(--pa-em); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }\n#pa-root .pa-chip-dim { opacity: .7; }\n#pa-root .pa-chip-cot { border-color: var(--pa-thread); color: var(--pa-thread); }\n\n#pa-root .pa-seg { display: inline-flex; border: 1px solid var(--pa-line); border-radius: 999px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }\n#pa-root .pa-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; color: var(--pa-dim); white-space: nowrap; min-height: 32px; }\n#pa-root .pa-seg button.on { background: var(--pa-card-2); color: var(--pa-text); }\n#pa-root .pa-seg-s button { padding: 4px 10px; font-size: .9em; }\n\n/* 开关 */\n#pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }\n#pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }\n#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }\n#pa-root .pa-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }\n#pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }\n#pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-switch-s { width: 32px; height: 19px; }\n#pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }\n#pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }\n#pa-root .pa-switch-s i::after { width: 13px; height: 13px; }\n#pa-root .pa-switch-s input:checked + i::after { transform: translateX(13px); }\n\n/* ---------- 工具栏 ---------- */\n#pa-root .pa-toolbar {\n    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;\n    padding: 10px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n}\n#pa-root .pa-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }\n#pa-root .pa-picker > span { color: var(--pa-dim); font-size: .88em; white-space: nowrap; }\n#pa-root .pa-picker .pa-select { min-width: 0; }\n#pa-root .pa-search-row { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-search-row .pa-search { flex: 1 1 auto; width: auto; min-width: 0; }\n#pa-root .pa-toolbar > .pa-search { flex: 1 1 160px; width: auto; }\n#pa-root .pa-tools-more { display: none; }\n@media (max-width: 759px) {\n    #pa-root .pa-tools { display: none; }\n    #pa-root .pa-tools-more { display: inline-flex; }\n    #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }\n    #pa-root .pa-chip { max-width: 5em; }\n    #pa-root .pa-badges { max-width: 32%; }\n}\n#pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }\n#pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }\n\n/* ---------- 条目列表 ---------- */\n#pa-root .pa-loose { padding: 2px 0; }\n#pa-root .pa-row {\n    display: flex; align-items: center; gap: 6px;\n    min-height: var(--pa-row-h); padding: 3px 4px 3px 8px;\n    border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;\n    -webkit-tap-highlight-color: transparent; position: relative;\n}\n#pa-root .pa-row:hover { background: var(--pa-card); }\n#pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }\n#pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }\n#pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }\n#pa-root .pa-row.pa-sel { background: var(--pa-sel); }\n#pa-root .pa-row.pa-sel .pa-check { border: 2px dashed var(--pa-thread); background: radial-gradient(circle, var(--pa-thread) 0 4px, transparent 4.5px); }\n#pa-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }\n#pa-root .pa-peek { width: 30px; height: 30px; opacity: .6; }\n#pa-root .pa-handle {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none;\n    color: var(--pa-dim); cursor: grab; touch-action: none; border-radius: 8px;\n}\n#pa-root .pa-handle:active { cursor: grabbing; background: var(--pa-card-2); }\n#pa-root .pa-row.pa-dragging { opacity: .35; }\n#pa-root .pa-row.pa-flash { animation: pa-flash 1.4s ease-out; }\n@keyframes pa-flash { 0%, 30% { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); } 100% { background: transparent; box-shadow: none; } }\n\n/* 分组框：左边一道缝线 */\n#pa-root .pa-group { margin: 6px 0; border-radius: var(--pa-r); background: var(--pa-card); position: relative; }\n#pa-root .pa-group::before { content: \"\"; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed var(--pa-thread); opacity: .75; }\n#pa-root .pa-group.pa-goff { opacity: .6; }\n#pa-root .pa-group.pa-goff::before { border-left-color: var(--pa-dim); }\n#pa-root .pa-group.pa-gsel { box-shadow: inset 0 0 0 1px var(--pa-thread); }\n#pa-root .pa-ghead { display: flex; align-items: center; gap: 4px; min-height: 42px; padding: 4px 6px 4px 6px; cursor: pointer; }\n#pa-root .pa-caret svg { transition: transform .15s; transform: rotate(90deg); }\n#pa-root .pa-collapsed .pa-caret svg { transform: rotate(0deg); }\n#pa-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); font-size: .8em; margin-left: 6px; }\n#pa-root .pa-count { color: var(--pa-dim); font-size: .82em; font-variant-numeric: tabular-nums; margin-right: 4px; }\n#pa-root .pa-gbody { padding: 0 2px 6px 10px; }\n#pa-root .pa-collapsed .pa-gbody { display: none; }\n\n#pa-root .pa-drop-line { position: absolute; left: 6px; right: 6px; height: 0; border-top: 3px solid var(--pa-thread); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n#pa-root .pa-ghost {\n    position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none;\n    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px);\n    padding: 8px 12px; border-radius: 10px; background: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600;\n    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);\n}\n#pa-root .pa-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-insert-mark {\n    position: relative; margin: 2px 6px 6px; padding: 3px 10px; font-size: .82em; font-weight: 600;\n    color: var(--pa-on-accent); background: var(--pa-thread); border-radius: 6px; text-align: left;\n}\n#pa-root .pa-insert-mark::before { content: \"⬇ \"; }\n#pa-root .pa-row.pa-at { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-group.pa-has-at > .pa-ghead { box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-at-chip { flex: none; padding: 1px 8px; border-radius: 999px; font-size: .78em; font-weight: 600; background: var(--pa-thread); color: var(--pa-on-accent); }\n#pa-root .pa-moving .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }\n#pa-root .pa-moving .pa-row:not(.pa-sel):hover, #pa-root .pa-moving .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }\n\n/* ---------- 底部操作条 ---------- */\n#pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar {\n    flex: none; border-top: 1px solid var(--pa-line);\n    padding: 8px calc(10px + env(safe-area-inset-right)) 8px calc(10px + env(safe-area-inset-left));\n    background: var(--pa-card);\n}\n#pa-root .pa-selbar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }\n#pa-root .pa-selbar-btns { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }\n#pa-root .pa-selbar-btns::-webkit-scrollbar { display: none; }\n#pa-root .pa-movebar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--pa-thread); }\n#pa-root .pa-movebar span { flex: 1 1 200px; }\n#pa-root .pa-stitchbar { display: flex; align-items: center; gap: 10px; }\n#pa-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }\n#pa-root .pa-stitch-info span { color: var(--pa-dim); font-size: .86em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n@media (max-width: 759px) {\n    #pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar { padding-bottom: 8px; }\n}\n\n/* ---------- 缝合 ---------- */\n#pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }\n#pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }\n#pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }\n#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }\n#pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#pa-root .pa-src { border-right: 0; }\n#pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }\n#pa-root .pa-pane-head > b { white-space: nowrap; }\n#pa-root .pa-pane-head .pa-dst-picker { flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-src-pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 12px; }\n#pa-root .pa-src-pick .pa-select { flex: 1 1 55%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-search { flex: 1 1 35%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-file { flex: none; }\n#pa-root .pa-dst-hint { padding: 0 12px; margin: 0 0 4px; }\n#pa-root .pa-file { position: relative; overflow: hidden; }\n#pa-root .pa-paste { padding: 4px 2px; }\n@media (max-width: 759px) {\n    #pa-root .pa-suture { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(90px, var(--pa-split, 45%)) 18px minmax(90px, 1fr); }\n    #pa-root .pa-splitter { cursor: row-resize; border-top: 2px dashed var(--pa-thread); border-bottom: 1px solid var(--pa-line); background: var(--pa-card); }\n    #pa-root .pa-splitter span { width: 48px; height: 4px; }\n    #pa-root .pa-pane-head { padding: 6px 10px 2px; }\n    #pa-root .pa-dst-hint { font-size: .8em; }\n}\n\n#pa-root .pa-review { display: grid; gap: 12px; }\n#pa-root .pa-target-card { border: 1px dashed var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 6px; }\n#pa-root .pa-target-card small { color: var(--pa-dim); }\n#pa-root .pa-items { display: grid; gap: 12px; }\n#pa-root .pa-item { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; background: var(--pa-card); }\n#pa-root .pa-item header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }\n#pa-root .pa-item header .pa-input { flex: 1 1 180px; width: auto; }\n#pa-root .pa-from { color: var(--pa-dim); }\n#pa-root .pa-item-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: end; }\n#pa-root .pa-notes { margin: 0; padding-left: 18px; font-size: .88em; color: var(--pa-em); }\n#pa-root .pa-notes .pa-warn { color: var(--pa-warn); }\n#pa-root .pa-item details summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 4px 0; }\n#pa-root .pa-item .pa-text { min-height: 30vh; margin-top: 6px; }\n\n/* ---------- 卡片（思维链/方案/API） ---------- */\n#pa-root .pa-cards { display: grid; gap: 8px; }\n#pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }\n#pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }\n#pa-root .pa-card small { display: block; color: var(--pa-dim); }\n#pa-root .pa-card p { margin: 2px 0; }\n#pa-root .pa-card-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }\n#pa-root .pa-card-warn { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root details.pa-card > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; list-style: none; }\n#pa-root details.pa-card > summary::-webkit-details-marker { display: none; }\n#pa-root details.pa-card > summary::before { content: \"▸\"; color: var(--pa-thread); }\n#pa-root details.pa-card[open] > summary::before { content: \"▾\"; }\n#pa-root .pa-reads { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 6px; }\n#pa-root .pa-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .9em; }\n#pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }\n#pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }\n#pa-root .pa-cot { padding-top: 4px; }\n#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 6px 0 4px; }\n#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }\n#pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }\n#pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }\n@media (max-width: 459px) { #pa-root .pa-cot-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }\n#pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }\n#pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }\n#pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }\n#pa-root .pa-cov .pa-link { grid-row: 1; grid-column: 3; font-size: .8em; }\n#pa-root .pa-cov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-lv { font-size: .74em; padding: 1px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }\n#pa-root .pa-lv-ok { color: var(--pa-ok); }\n#pa-root .pa-lv-maybe { color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-lv-none { color: var(--pa-dim); }\n#pa-root .pa-optional { margin-top: 16px; }\n\n#pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }\n#pa-root .pa-live .pa-dot::before { content: \"●\"; margin-right: 4px; }\n#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }\n#pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\n#pa-root .pa-api, #pa-root .pa-schemes { padding-top: 10px; }\n#pa-root .pa-api .pa-card .pa-inline-check { display: flex; margin: 4px 0; }\n\n/* ---------- 弹层 ---------- */\n#pa-root .pa-sheet-mask {\n    position: absolute; inset: 0; z-index: 50;\n    background: rgba(0, 0, 0, .45);\n    display: flex; align-items: flex-end; justify-content: center;\n    animation: pa-fade .16s ease-out;\n}\n#pa-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }\n#pa-root .pa-sheet {\n    width: 100%; max-height: 90vh; max-height: 90dvh;\n    display: flex; flex-direction: column;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);\n    border: 1px solid var(--pa-line); border-bottom: 0;\n    border-radius: 16px 16px 0 0;\n    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);\n    animation: pa-up .2s ease-out;\n    position: relative;\n}\n#pa-root .pa-sheet::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); border-radius: inherit; z-index: -1; }\n#pa-root .pa-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; border-bottom: 1px dashed var(--pa-line); }\n#pa-root .pa-sheet-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-sheet-body { padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }\n#pa-root .pa-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--pa-line); }\n@media (min-width: 760px) {\n    #pa-root .pa-sheet-mask { align-items: center; padding: 24px; }\n    #pa-root .pa-sheet { max-width: 560px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: 86vh; }\n    #pa-root .pa-sheet-wide { max-width: 920px; }\n}\n@keyframes pa-fade { from { opacity: 0; } }\n@keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }\n#pa-root .pa-pick { display: grid; gap: 6px; }\n#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }\n#pa-root .pa-pick-item small { color: var(--pa-dim); }\n#pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }\n#pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }\n#pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }\n#pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n\n/* ---------- 缝合：紧凑控件 ---------- */\n#pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }\n#pa-root .pa-compact .pa-seg button { min-height: 28px; padding: 3px 10px; }\n#pa-root .pa-compact .pa-pane-head { padding: 6px 10px 2px; gap: 6px; }\n#pa-root .pa-compact .pa-src-pick { padding: 2px 10px 4px; }\n#pa-root .pa-compact .pa-row { min-height: 34px; }\n#pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 15px; height: 15px; border-width: 1.5px; }\n#pa-root .pa-compact .pa-ghead { min-height: 36px; }\n#pa-root .pa-compact .pa-mini { min-height: 26px; padding: 1px 9px; }\n#pa-root .pa-compact .pa-picker > span { font-size: .8em; }\n#pa-root .pa-stitchbar .pa-link { padding: 4px 4px; font-size: .9em; }\n\n/* ---------- 缝合预览 ---------- */\n#pa-root .pa-hook { border-left: 3px solid var(--pa-thread); padding: 6px 10px; display: grid; gap: 6px; border-radius: 4px; background: var(--pa-card); }\n#pa-root .pa-hook small { color: var(--pa-dim); line-height: 1.5; display: block; }\n#pa-root .pa-hook .pa-warn { margin: 0; font-size: .88em; }\n#pa-root .pa-hook-covered, #pa-root .pa-hook-mention, #pa-root .pa-hook-skip, #pa-root .pa-hook-cot { border-left-color: var(--pa-ok); }\n#pa-root .pa-hook-nocot { border-left-color: var(--pa-warn); }\n#pa-root .pa-field-wide { flex: 1 1 260px; min-width: 0; grid-column: 1 / -1; }\n#pa-root .pa-field-wide .pa-input { width: 100%; }\n#pa-root .pa-explain summary, #pa-root .pa-adv summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-explain .pa-notes { margin-top: 6px; color: var(--pa-text); }\n#pa-root .pa-was { display: grid; gap: 2px; font-size: .92em; }\n#pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }\n#pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }\n\n#pa-root .pa-modes { display: grid; gap: 8px; }\n#pa-root .pa-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); cursor: pointer; background: transparent; }\n#pa-root .pa-mode.on { border: 2px dashed var(--pa-thread); background: var(--pa-sel); padding: 7px 9px; }\n#pa-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }\n#pa-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }\n#pa-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }\n#pa-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }\n#pa-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n\n/* ---------- 思维链页 ---------- */\n#pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }\n#pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }\n#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }\n#pa-root .pa-verdict p { margin: 0; }\n#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }\n#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }\n#pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }\n#pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }\n#pa-root .pa-legend .pa-lv { flex: none; }\n#pa-root .pa-cot-sum span { line-height: 1.3; }\n\n/* ---------- 更多：方案 / API / 外观 ---------- */\n#pa-root .pa-more-head { display: flex; justify-content: center; padding: 8px 10px 2px; }\n#pa-root .pa-subpage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n#pa-root .pa-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }\n#pa-root .pa-theme { display: grid; gap: 8px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--pa-line); cursor: pointer; min-height: 72px; }\n#pa-root .pa-theme[aria-pressed=\"true\"] { outline: 2px dashed var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-theme-dots { display: flex; gap: 5px; }\n#pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }\n#pa-root .pa-theme b { font-size: .95em; }\n#pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }\n#pa-root .pa-theme-btn { color: var(--pa-dim); }\n\n/* ---------- 莫兰迪色卡（不透明） ---------- */\n#pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-shell, #pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }\n#pa-root[data-theme=\"mist\"]     { --pa-tint:#e9eef2; --pa-text:#34404c; --pa-thread:#5b7a93; --pa-em:#55636f; --pa-line:#cad4dc; --pa-input-bg:#f7f9fb; --pa-warn:#b4604a; --pa-ok:#4e8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"bean\"]     { --pa-tint:#f4e9e8; --pa-text:#4f3c3c; --pa-thread:#a0605d; --pa-em:#6c5655; --pa-line:#e2cfcd; --pa-input-bg:#fcf7f6; --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"matcha\"]   { --pa-tint:#e9efe6; --pa-text:#36443a; --pa-thread:#5d7d58; --pa-em:#55634f; --pa-line:#cdd9c9; --pa-input-bg:#f7faf5; --pa-warn:#b0603f; --pa-ok:#4c7d55; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"oat\"]      { --pa-tint:#f2ece4; --pa-text:#4a3f35; --pa-thread:#8a6a4c; --pa-em:#67594b; --pa-line:#e0d5c6; --pa-input-bg:#fbf8f3; --pa-warn:#b0563d; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"lavender\"] { --pa-tint:#edeaf3; --pa-text:#403a4f; --pa-thread:#72649a; --pa-em:#5d566c; --pa-line:#d7d1e3; --pa-input-bg:#f9f8fc; --pa-warn:#b0566a; --pa-ok:#567f6c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"seasalt\"]  { --pa-tint:#e6efef; --pa-text:#2f4344; --pa-thread:#4b7a7b; --pa-em:#4d6263; --pa-line:#c7d8d8; --pa-input-bg:#f6fafa; --pa-warn:#b25e48; --pa-ok:#4a7f5f; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"night\"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }\n#pa-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }\n\n@media (prefers-reduced-motion: reduce) {\n    #pa-root *, #pa-root *::before, #pa-root *::after { animation: none !important; transition: none !important; }\n}\n\n/* 1.3.4 加载体检 */\n#pa-root .pa-health-body { display: block; }\n#pa-root .pa-rank { display: grid; grid-template-columns: minmax(0, 1fr) 26% auto; gap: 7px 8px; align-items: center; font-size: .9em; margin-bottom: 6px; }\n#pa-root .pa-rank > div { display: contents; }\n#pa-root .pa-rank > p { grid-column: 1 / -1; }\n#pa-root .pa-rank span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-rank em { text-align: right; font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .92em; }\n#pa-root .pa-bar { display: block; height: 6px; border-radius: 3px; background: var(--pa-line); overflow: hidden; }\n#pa-root .pa-bar b { display: block; height: 100%; background: var(--pa-thread); border-radius: 3px; }\n#pa-root .pa-health .pa-card-act { margin: 10px 0 4px; }\n\n/* 1.3.4 扩展页设置框（在酒馆页面里，不在 #pa-root 里，用酒馆自己的颜色） */\n#pa-settings .pa-set-badge { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78em; font-weight: 500; line-height: 1.6; vertical-align: 1px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); opacity: .85; }\n#pa-settings .inline-drawer-content { padding: 4px 2px 6px; }\n#pa-settings .pa-set-intro { font-size: .9em; opacity: .75; margin: 2px 0 6px; }\n#pa-settings .pa-set-btns { display: flex; flex-wrap: wrap; gap: 6px; }\n#pa-settings .menu_button { width: auto; white-space: nowrap; padding: 4px 10px; margin: 2px 0; gap: 6px; }\n#pa-settings .menu_button span { font-size: inherit; }\n#pa-settings .pa-set-btns .menu_button { flex: 1 1 0; min-width: 7.5em; }\n#pa-settings .pa-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }\n#pa-settings .pa-set-k { opacity: .7; min-width: 2.5em; }\n#pa-settings .pa-set-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; }\n#pa-settings .pa-set-mini { font-size: .88em; padding: 2px 8px; }\n#pa-settings .pa-set-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9em; margin: 2px 0 6px; padding: 6px 8px; border-radius: 6px; border: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-status[hidden] { display: none; }\n#pa-settings .pa-set-status.new { border-style: solid; border-color: var(--SmartThemeQuoteColor, #e18a24); }\n#pa-settings .pa-set-status.bad { border-color: #d36b6b; }\n#pa-settings .pa-set-log { margin: 6px 0; }\n#pa-settings .pa-set-log > summary { cursor: pointer; opacity: .85; padding: 2px 0; }\n#pa-settings .pa-set-logs { max-height: 34vh; overflow: auto; margin-top: 4px; padding-right: 4px; }\n#pa-settings .pa-set-logv { font-size: .86em; line-height: 1.55; margin: 6px 0 8px; padding-left: 8px; border-left: 2px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-logv b { display: block; margin-bottom: 2px; }\n#pa-settings .pa-set-foot { font-size: .82em; opacity: .65; margin-top: 6px; }\n#pa-settings .pa-set-foot a { color: inherit; text-decoration: underline; margin-left: 4px; }\n#pa-settings code { font-size: .95em; padding: 0 3px; }\n\n/* 1.3.6 缝合目标：新分组入口、组开头、折叠箭头 */\n#pa-root .pa-ng-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: var(--pa-row-h); padding: 6px 12px; margin: 0 0 6px; border: 1px dashed var(--pa-line); border-radius: var(--pa-r); background: transparent; color: var(--pa-thread); text-align: left; cursor: pointer; font-weight: 600; }\n#pa-root .pa-ng-row.on { border-style: solid; border-color: var(--pa-thread); background: var(--pa-sel); color: var(--pa-text); cursor: default; }\n#pa-root .pa-ng-row.on span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-gstart { display: block; width: 100%; padding: 4px 14px; border: 0; background: transparent; color: var(--pa-dim); font-size: .85em; text-align: left; cursor: pointer; }\n#pa-root .pa-gstart:hover { color: var(--pa-thread); }\n#pa-root .pa-caret svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .15s; }\n#pa-root .pa-caret.open svg { transform: rotate(90deg); }\n\n/* 1.3.7 API 站点：点开看详情、直接换模型 */\n#pa-root .pa-field-row { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; }\n#pa-root .pa-field-row > span { flex: none; color: var(--pa-dim); }\n#pa-root .pa-select-s { min-width: 0; flex: 1 1 auto; max-width: 100%; padding: 4px 8px; }\n#pa-root .pa-site > header { cursor: pointer; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin: 0; }\n#pa-root .pa-site > header b { flex: none; }\n#pa-root .pa-site-caret { color: var(--pa-dim); width: 1em; flex: none; }\n#pa-root .pa-site-model { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pa-dim); }\n#pa-root .pa-btn-s { padding: 3px 12px; min-height: 0; }\n#pa-root .pa-site-dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 10px 0 4px; align-items: center; }\n#pa-root .pa-site-dl dt { color: var(--pa-dim); font-size: .9em; }\n#pa-root .pa-site-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n#pa-root .pa-dim { color: var(--pa-dim); }\n";
+var style_default = "/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用\"缝线\"虚线做标记。所有选择器都限定在 #pa-root 内。 */\n\n#pa-root {\n    --pa-text: var(--SmartThemeBodyColor, #e6e1d8);\n    --pa-tint: var(--SmartThemeBlurTintColor, rgba(28, 26, 30, 0.94));\n    --pa-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));\n    --pa-thread: var(--SmartThemeQuoteColor, #e0a24a);\n    --pa-em: var(--SmartThemeEmColor, #b9b3a8);\n    --pa-dim: rgba(128, 128, 128, 0.95);\n    --pa-card: rgba(127, 127, 127, 0.09);\n    --pa-card-2: rgba(127, 127, 127, 0.16);\n    --pa-sel: rgba(224, 162, 74, 0.16);\n    --pa-warn: #e0784a;\n    --pa-ok: #6fb38a;\n    --pa-on-accent: #1b1712;\n    --pa-input-bg: rgba(0, 0, 0, .18);\n    --pa-r: 10px;\n    --pa-row-h: 38px;\n    position: fixed;\n    inset: 0;\n    width: 100%; height: 100vh; height: 100dvh;\n    max-height: none; min-height: 0; margin: 0; padding: 0;\n    z-index: 10010;\n    color: var(--pa-text);\n    font-size: var(--mainFontSize, 15px);\n    line-height: 1.45;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #pa-root {\n        --pa-dim: color-mix(in srgb, var(--pa-text) 58%, transparent);\n        --pa-card: color-mix(in srgb, var(--pa-text) 7%, transparent);\n        --pa-card-2: color-mix(in srgb, var(--pa-text) 13%, transparent);\n        --pa-sel: color-mix(in srgb, var(--pa-thread) 20%, transparent);\n    }\n}\n@media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }\n#pa-root[hidden] { display: none; }\nhtml.pa-open body { overflow: hidden; }\n\n#pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }\n#pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }\n#pa-root [hidden] { display: none !important; }\n\n/* ---------- 外壳 ---------- */\n#pa-root .pa-shell {\n    position: absolute; inset: 0;\n    display: grid;\n    grid-template-rows: auto auto minmax(0, 1fr);\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-areas: \"top\" \"tabs\" \"main\";\n    width: 100%; overflow: hidden;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    height: 100vh; height: 100dvh;\n}\n#pa-root .pa-shell::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }\n#pa-root .pa-top {\n    grid-area: top;\n    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;\n    padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n}\n#pa-root .pa-brand { display: flex; align-items: center; gap: 8px; font-size: 1.05em; white-space: nowrap; }\n#pa-root .pa-logo { display: inline-flex; color: var(--pa-thread); }\n#pa-root .pa-logo svg { width: 20px; height: 20px; }\n#pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }\n#pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }\n#pa-root .pa-theme-btn { margin-left: auto; }\n#pa-root .pa-savebar:not([hidden]) + .pa-theme-btn { margin-left: 0; }\n\n#pa-root .pa-tabs {\n    grid-area: tabs;\n    display: flex; gap: 2px; padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n    overflow-x: auto; scrollbar-width: none;\n}\n#pa-root .pa-tabs::-webkit-scrollbar { display: none; }\n#pa-root .pa-tabs button {\n    flex: 1 0 auto; min-width: 64px;\n    padding: 10px 12px; border: 0; background: none; cursor: pointer;\n    color: var(--pa-dim); border-bottom: 2px solid transparent;\n}\n#pa-root .pa-tabs button[aria-selected=\"true\"] { color: var(--pa-text); border-bottom: 2px dashed var(--pa-thread); }\n\n#pa-root .pa-main { grid-area: main; min-height: 0; position: relative; }\n#pa-root .pa-page { height: 100%; display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }\n#pa-root .pa-scroll {\n    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;\n    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;\n    padding: 6px calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));\n    position: relative;\n}\n\n/* 手机：页签放到底部，拇指够得着 */\n@media (max-width: 759px) {\n    #pa-root .pa-shell { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: \"top\" \"main\" \"tabs\"; }\n    #pa-root .pa-tabs { border-bottom: 0; border-top: 1px solid var(--pa-line); padding-bottom: env(safe-area-inset-bottom); }\n    #pa-root .pa-tabs button { border-bottom: 0; border-top: 2px solid transparent; padding: 11px 6px; min-width: 0; flex: 1 1 0; }\n    #pa-root .pa-tabs button[aria-selected=\"true\"] { border-top: 2px dashed var(--pa-thread); border-bottom: 0; }\n    #pa-root .pa-top:has(.pa-savebar:not([hidden])) .pa-brand b { display: none; }\n    #pa-root .pa-dirty-text { max-width: 38vw; }\n}\n\n/* ---------- 基础控件 ---------- */\n#pa-root .pa-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: 36px; padding: 6px 12px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-card); cursor: pointer; white-space: nowrap;\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-btn:disabled { opacity: .45; cursor: default; }\n#pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }\n#pa-root .pa-btn-soft { background: transparent; border-style: dashed; }\n#pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }\n#pa-root .pa-btn-danger-soft { color: var(--pa-warn); border-color: currentColor; background: transparent; }\n#pa-root .pa-sq { min-width: 40px; padding: 6px; }\n#pa-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-style: dashed; }\n#pa-root .pa-mini { border: 1px dashed var(--pa-thread); color: var(--pa-thread); background: none; border-radius: 999px; padding: 2px 10px; font-size: .82em; cursor: pointer; white-space: nowrap; min-height: 28px; }\n#pa-root .pa-icon-btn {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 34px; height: 34px; flex: none;\n    border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }\n#pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-input, #pa-root .pa-select {\n    width: 100%; min-height: 38px; padding: 7px 10px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-input-bg); color: var(--pa-text);\n    font-size: max(16px, 1em); /* iOS 小于 16px 会自动放大页面 */\n}\n#pa-root .pa-select { appearance: auto; }\n#pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }\n#pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }\n#pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }\n#pa-root .pa-text-s { min-height: 26vh; }\n#pa-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }\n#pa-root .pa-pad { padding: 0 14px; }\n#pa-root .pa-p { margin: 0 0 8px; }\n#pa-root .pa-empty { color: var(--pa-dim); text-align: center; padding: 28px 12px; }\n#pa-root .pa-h { font-size: 1em; margin: 18px 2px 8px; font-weight: 600; }\n#pa-root .pa-inline-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: .92em; }\n#pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }\n#pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }\n#pa-root .pa-field > span { color: var(--pa-dim); }\n#pa-root .pa-form { display: grid; gap: 12px; }\n#pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }\n#pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-groups-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 24px; }\n#pa-root .pa-chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: .74em; line-height: 1.7; border: 1px solid var(--pa-line); color: var(--pa-em); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }\n#pa-root .pa-chip-dim { opacity: .7; }\n#pa-root .pa-chip-cot { border-color: var(--pa-thread); color: var(--pa-thread); }\n\n#pa-root .pa-seg { display: inline-flex; border: 1px solid var(--pa-line); border-radius: 999px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }\n#pa-root .pa-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; color: var(--pa-dim); white-space: nowrap; min-height: 32px; }\n#pa-root .pa-seg button.on { background: var(--pa-card-2); color: var(--pa-text); }\n#pa-root .pa-seg-s button { padding: 4px 10px; font-size: .9em; }\n\n/* 开关 */\n#pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }\n#pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }\n#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }\n#pa-root .pa-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }\n#pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }\n#pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-switch-s { width: 32px; height: 19px; }\n#pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }\n#pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }\n#pa-root .pa-switch-s i::after { width: 13px; height: 13px; }\n#pa-root .pa-switch-s input:checked + i::after { transform: translateX(13px); }\n\n/* ---------- 工具栏 ---------- */\n#pa-root .pa-toolbar {\n    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;\n    padding: 10px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n}\n#pa-root .pa-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }\n#pa-root .pa-picker > span { color: var(--pa-dim); font-size: .88em; white-space: nowrap; }\n#pa-root .pa-picker .pa-select { min-width: 0; }\n#pa-root .pa-search-row { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-search-row .pa-search { flex: 1 1 auto; width: auto; min-width: 0; }\n#pa-root .pa-toolbar > .pa-search { flex: 1 1 160px; width: auto; }\n#pa-root .pa-tools-more { display: none; }\n#pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }\n#pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }\n@media (max-width: 759px) {\n    #pa-root .pa-tools { display: none; }\n    #pa-root .pa-tools-more { display: inline-flex; }\n    #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }\n    #pa-root .pa-chip { max-width: 5em; }\n    #pa-root .pa-badges { max-width: 32%; }\n}\n\n/* ---------- 条目列表 ---------- */\n#pa-root .pa-loose { padding: 2px 0; }\n#pa-root .pa-row {\n    display: flex; align-items: center; gap: 6px;\n    min-height: var(--pa-row-h); padding: 3px 4px 3px 8px;\n    border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;\n    -webkit-tap-highlight-color: transparent; position: relative;\n}\n#pa-root .pa-row:hover { background: var(--pa-card); }\n#pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }\n#pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }\n#pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }\n#pa-root .pa-row.pa-sel { background: var(--pa-sel); }\n#pa-root .pa-row.pa-sel .pa-check { border: 2px dashed var(--pa-thread); background: radial-gradient(circle, var(--pa-thread) 0 4px, transparent 4.5px); }\n#pa-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }\n#pa-root .pa-peek { width: 30px; height: 30px; opacity: .6; }\n#pa-root .pa-handle {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none;\n    color: var(--pa-dim); cursor: grab; touch-action: none; border-radius: 8px;\n}\n#pa-root .pa-handle:active { cursor: grabbing; background: var(--pa-card-2); }\n#pa-root .pa-row.pa-dragging { opacity: .35; }\n#pa-root .pa-row.pa-flash { animation: pa-flash 1.4s ease-out; }\n@keyframes pa-flash { 0%, 30% { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); } 100% { background: transparent; box-shadow: none; } }\n\n/* 分组框：左边一道缝线 */\n#pa-root .pa-group { margin: 6px 0; border-radius: var(--pa-r); background: var(--pa-card); position: relative; }\n#pa-root .pa-group::before { content: \"\"; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed var(--pa-thread); opacity: .75; }\n#pa-root .pa-group.pa-goff { opacity: .6; }\n#pa-root .pa-group.pa-goff::before { border-left-color: var(--pa-dim); }\n#pa-root .pa-group.pa-gsel { box-shadow: inset 0 0 0 1px var(--pa-thread); }\n#pa-root .pa-ghead { display: flex; align-items: center; gap: 4px; min-height: 42px; padding: 4px 6px 4px 6px; cursor: pointer; }\n#pa-root .pa-caret svg { transition: transform .15s; transform: rotate(90deg); }\n#pa-root .pa-collapsed .pa-caret svg { transform: rotate(0deg); }\n#pa-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); font-size: .8em; margin-left: 6px; }\n#pa-root .pa-count { color: var(--pa-dim); font-size: .82em; font-variant-numeric: tabular-nums; margin-right: 4px; }\n#pa-root .pa-gbody { padding: 0 2px 6px 10px; }\n#pa-root .pa-collapsed .pa-gbody { display: none; }\n\n#pa-root .pa-drop-line { position: absolute; left: 6px; right: 6px; height: 0; border-top: 3px solid var(--pa-thread); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n#pa-root .pa-ghost {\n    position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none;\n    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px);\n    padding: 8px 12px; border-radius: 10px; background: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600;\n    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);\n}\n#pa-root .pa-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-insert-mark {\n    position: relative; margin: 2px 6px 6px; padding: 3px 10px; font-size: .82em; font-weight: 600;\n    color: var(--pa-on-accent); background: var(--pa-thread); border-radius: 6px; text-align: left;\n}\n#pa-root .pa-insert-mark::before { content: \"⬇ \"; }\n#pa-root .pa-row.pa-at { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-group.pa-has-at > .pa-ghead { box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-at-chip { flex: none; padding: 1px 8px; border-radius: 999px; font-size: .78em; font-weight: 600; background: var(--pa-thread); color: var(--pa-on-accent); }\n#pa-root .pa-placing .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }\n#pa-root .pa-placing .pa-row:not(.pa-sel):hover, #pa-root .pa-placing .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }\n/* 选位置：点组头＝放在组后面，所以按下组头时提示线画在整个组框的下沿 */\n#pa-root .pa-placing .pa-group:has(> .pa-ghead:hover:not(:has(.pa-caret:hover))), #pa-root .pa-placing .pa-group:has(> .pa-ghead:active:not(:has(.pa-caret:active))) { box-shadow: 0 3px 0 var(--pa-thread); }\n#pa-root .pa-group.pa-after-at { box-shadow: 0 0 0 1.5px var(--pa-thread); }\n#pa-root .pa-group.pa-after-at + .pa-insert-mark { margin-top: 4px; }\n#pa-root .pa-slot {\n    display: block; width: 100%; min-height: 30px; margin: 0 0 4px; padding: 3px 12px;\n    border: 1px dashed var(--pa-line); border-radius: 8px; background: transparent;\n    color: var(--pa-dim); font-size: .85em; text-align: left; cursor: pointer;\n}\n#pa-root .pa-slot:hover, #pa-root .pa-slot:active { color: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-slot-in { margin: 2px 0 2px; border-color: transparent; }\n@media (pointer: coarse) { #pa-root .pa-slot { min-height: 36px; } }\n\n/* ---------- 底部操作条 ---------- */\n#pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar {\n    flex: none; border-top: 1px solid var(--pa-line);\n    padding: 8px calc(10px + env(safe-area-inset-right)) 8px calc(10px + env(safe-area-inset-left));\n    background: var(--pa-card);\n}\n#pa-root .pa-selbar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }\n#pa-root .pa-selbar-btns { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }\n#pa-root .pa-selbar-btns::-webkit-scrollbar { display: none; }\n#pa-root .pa-movebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; }\n#pa-root .pa-movebar > b { flex: 1 1 auto; min-width: 0; color: var(--pa-thread); white-space: nowrap; }\n#pa-root .pa-movebar .pa-btn { min-height: 34px; padding: 3px 10px; }\n#pa-root .pa-movebar .pa-sq { width: 38px; padding: 0; }\n#pa-root .pa-movebar > small { flex: 1 0 100%; color: var(--pa-dim); font-size: .8em; }\n#pa-root .pa-stitchbar { display: flex; align-items: center; gap: 8px; }\n#pa-root .pa-stitchbar .pa-link, #pa-root .pa-stitchbar .pa-btn { flex: none; white-space: nowrap; }\n#pa-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }\n#pa-root .pa-stitch-info span { color: var(--pa-dim); font-size: .84em; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }\n@media (max-width: 759px) {\n    #pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar { padding-bottom: 8px; }\n}\n\n/* ---------- 缝合 ---------- */\n#pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }\n#pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }\n#pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }\n#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }\n#pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#pa-root .pa-src { border-right: 0; }\n#pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }\n#pa-root .pa-pane-head > b { white-space: nowrap; }\n#pa-root .pa-pane-head .pa-dst-picker { flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-src-pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 12px; }\n#pa-root .pa-src-pick .pa-select { flex: 1 1 55%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-search { flex: 1 1 35%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-file { flex: none; }\n#pa-root .pa-dst-hint { padding: 0 12px; margin: 0 0 4px; }\n#pa-root .pa-file { position: relative; overflow: hidden; }\n#pa-root .pa-paste { padding: 4px 2px; }\n@media (max-width: 759px) {\n    #pa-root .pa-suture { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(90px, var(--pa-split, 45%)) 18px minmax(90px, 1fr); }\n    #pa-root .pa-splitter { cursor: row-resize; border-top: 2px dashed var(--pa-thread); border-bottom: 1px solid var(--pa-line); background: var(--pa-card); }\n    #pa-root .pa-splitter span { width: 48px; height: 4px; }\n    #pa-root .pa-pane-head { padding: 6px 10px 2px; }\n    #pa-root .pa-dst-hint { font-size: .8em; }\n}\n\n#pa-root .pa-review { display: grid; gap: 12px; }\n#pa-root .pa-target-card { border: 1px dashed var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 6px; }\n#pa-root .pa-target-card small { color: var(--pa-dim); }\n#pa-root .pa-items { display: grid; gap: 12px; }\n#pa-root .pa-item { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; background: var(--pa-card); }\n#pa-root .pa-item header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }\n#pa-root .pa-item header .pa-input { flex: 1 1 180px; width: auto; }\n#pa-root .pa-from { color: var(--pa-dim); }\n#pa-root .pa-item-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: end; }\n#pa-root .pa-notes { margin: 0; padding-left: 18px; font-size: .88em; color: var(--pa-em); }\n#pa-root .pa-notes .pa-warn { color: var(--pa-warn); }\n#pa-root .pa-item details summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 4px 0; }\n#pa-root .pa-item .pa-text { min-height: 30vh; margin-top: 6px; }\n\n/* ---------- 卡片（思维链/方案/API） ---------- */\n#pa-root .pa-cards { display: grid; gap: 8px; }\n#pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }\n#pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }\n#pa-root .pa-card small { display: block; color: var(--pa-dim); }\n#pa-root .pa-card p { margin: 2px 0; }\n#pa-root .pa-card-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }\n#pa-root .pa-card-warn { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root details.pa-card > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; list-style: none; }\n#pa-root details.pa-card > summary::-webkit-details-marker { display: none; }\n#pa-root details.pa-card > summary::before { content: \"▸\"; color: var(--pa-thread); }\n#pa-root details.pa-card[open] > summary::before { content: \"▾\"; }\n#pa-root .pa-reads { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 6px; }\n#pa-root .pa-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .9em; }\n#pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }\n#pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }\n#pa-root .pa-cot { padding-top: 4px; }\n#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 6px 0 4px; }\n#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }\n#pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }\n#pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }\n@media (max-width: 459px) { #pa-root .pa-cot-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }\n#pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }\n#pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }\n#pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }\n#pa-root .pa-cov .pa-link { grid-row: 1; grid-column: 3; font-size: .8em; }\n#pa-root .pa-cov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-lv { font-size: .74em; padding: 1px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }\n#pa-root .pa-lv-ok { color: var(--pa-ok); }\n#pa-root .pa-lv-maybe { color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-lv-none { color: var(--pa-dim); }\n#pa-root .pa-optional { margin-top: 16px; }\n\n#pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }\n#pa-root .pa-live .pa-dot::before { content: \"●\"; margin-right: 4px; }\n#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }\n#pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\n#pa-root .pa-api, #pa-root .pa-schemes { padding-top: 10px; }\n#pa-root .pa-api .pa-card .pa-inline-check { display: flex; margin: 4px 0; }\n\n/* ---------- 弹层 ---------- */\n#pa-root .pa-sheet-mask {\n    position: absolute; inset: 0; z-index: 50;\n    background: rgba(0, 0, 0, .45);\n    display: flex; align-items: flex-end; justify-content: center;\n    animation: pa-fade .16s ease-out;\n}\n#pa-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }\n#pa-root .pa-sheet {\n    width: 100%; max-height: 90vh; max-height: 90dvh;\n    display: flex; flex-direction: column;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);\n    border: 1px solid var(--pa-line); border-bottom: 0;\n    border-radius: 16px 16px 0 0;\n    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);\n    animation: pa-up .2s ease-out;\n    position: relative;\n}\n#pa-root .pa-sheet::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); border-radius: inherit; z-index: -1; }\n#pa-root .pa-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; border-bottom: 1px dashed var(--pa-line); }\n#pa-root .pa-sheet-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-sheet-body { padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }\n#pa-root .pa-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--pa-line); }\n@media (min-width: 760px) {\n    #pa-root .pa-sheet-mask { align-items: center; padding: 24px; }\n    #pa-root .pa-sheet { max-width: 560px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: 86vh; }\n    #pa-root .pa-sheet-wide { max-width: 920px; }\n}\n@keyframes pa-fade { from { opacity: 0; } }\n@keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }\n#pa-root .pa-pick { display: grid; gap: 6px; }\n#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }\n#pa-root .pa-pick-item small { color: var(--pa-dim); }\n#pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }\n#pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }\n#pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }\n#pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n\n/* ---------- 缝合：紧凑控件 ---------- */\n#pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }\n#pa-root .pa-compact .pa-seg button { min-height: 28px; padding: 3px 10px; }\n#pa-root .pa-compact .pa-pane-head { padding: 6px 10px 2px; gap: 6px; }\n#pa-root .pa-compact .pa-src-pick { padding: 2px 10px 4px; }\n#pa-root .pa-compact .pa-row { min-height: 34px; }\n#pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 15px; height: 15px; border-width: 1.5px; }\n#pa-root .pa-compact .pa-ghead { min-height: 36px; }\n#pa-root .pa-compact .pa-mini { min-height: 26px; padding: 1px 9px; }\n#pa-root .pa-compact .pa-picker > span { font-size: .8em; }\n#pa-root .pa-stitchbar .pa-link { padding: 4px 4px; font-size: .9em; }\n\n/* ---------- 缝合预览 ---------- */\n#pa-root .pa-hook { border-left: 3px solid var(--pa-thread); padding: 6px 10px; display: grid; gap: 6px; border-radius: 4px; background: var(--pa-card); }\n#pa-root .pa-hook small { color: var(--pa-dim); line-height: 1.5; display: block; }\n#pa-root .pa-hook .pa-warn { margin: 0; font-size: .88em; }\n#pa-root .pa-hook-covered, #pa-root .pa-hook-mention, #pa-root .pa-hook-skip, #pa-root .pa-hook-cot { border-left-color: var(--pa-ok); }\n#pa-root .pa-hook-nocot { border-left-color: var(--pa-warn); }\n#pa-root .pa-field-wide { flex: 1 1 260px; min-width: 0; grid-column: 1 / -1; }\n#pa-root .pa-field-wide .pa-input { width: 100%; }\n#pa-root .pa-explain summary, #pa-root .pa-adv summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-explain .pa-notes { margin-top: 6px; color: var(--pa-text); }\n#pa-root .pa-was { display: grid; gap: 2px; font-size: .92em; }\n#pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }\n#pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }\n\n#pa-root .pa-modes { display: grid; gap: 8px; }\n#pa-root .pa-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); cursor: pointer; background: transparent; }\n#pa-root .pa-mode.on { border: 2px dashed var(--pa-thread); background: var(--pa-sel); padding: 7px 9px; }\n#pa-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }\n#pa-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }\n#pa-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }\n#pa-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }\n#pa-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n\n/* ---------- 思维链页 ---------- */\n#pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }\n#pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }\n#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }\n#pa-root .pa-verdict p { margin: 0; }\n#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }\n#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }\n#pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }\n#pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }\n#pa-root .pa-legend .pa-lv { flex: none; }\n#pa-root .pa-cot-sum span { line-height: 1.3; }\n\n/* ---------- 更多：方案 / API / 外观 ---------- */\n#pa-root .pa-more-head { display: flex; justify-content: center; padding: 8px 10px 2px; }\n#pa-root .pa-subpage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n#pa-root .pa-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }\n#pa-root .pa-theme { display: grid; gap: 8px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--pa-line); cursor: pointer; min-height: 72px; }\n#pa-root .pa-theme[aria-pressed=\"true\"] { outline: 2px dashed var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-theme-dots { display: flex; gap: 5px; }\n#pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }\n#pa-root .pa-theme b { font-size: .95em; }\n#pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }\n#pa-root .pa-theme-btn { color: var(--pa-dim); }\n\n/* ---------- 莫兰迪色卡（不透明） ---------- */\n#pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-shell, #pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }\n#pa-root[data-theme=\"mist\"]     { --pa-tint:#e9eef2; --pa-text:#34404c; --pa-thread:#5b7a93; --pa-em:#55636f; --pa-line:#cad4dc; --pa-input-bg:#f7f9fb; --pa-warn:#b4604a; --pa-ok:#4e8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"bean\"]     { --pa-tint:#f4e9e8; --pa-text:#4f3c3c; --pa-thread:#a0605d; --pa-em:#6c5655; --pa-line:#e2cfcd; --pa-input-bg:#fcf7f6; --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"matcha\"]   { --pa-tint:#e9efe6; --pa-text:#36443a; --pa-thread:#5d7d58; --pa-em:#55634f; --pa-line:#cdd9c9; --pa-input-bg:#f7faf5; --pa-warn:#b0603f; --pa-ok:#4c7d55; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"oat\"]      { --pa-tint:#f2ece4; --pa-text:#4a3f35; --pa-thread:#8a6a4c; --pa-em:#67594b; --pa-line:#e0d5c6; --pa-input-bg:#fbf8f3; --pa-warn:#b0563d; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"lavender\"] { --pa-tint:#edeaf3; --pa-text:#403a4f; --pa-thread:#72649a; --pa-em:#5d566c; --pa-line:#d7d1e3; --pa-input-bg:#f9f8fc; --pa-warn:#b0566a; --pa-ok:#567f6c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"seasalt\"]  { --pa-tint:#e6efef; --pa-text:#2f4344; --pa-thread:#4b7a7b; --pa-em:#4d6263; --pa-line:#c7d8d8; --pa-input-bg:#f6fafa; --pa-warn:#b25e48; --pa-ok:#4a7f5f; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"night\"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }\n#pa-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }\n\n@media (prefers-reduced-motion: reduce) {\n    #pa-root *, #pa-root *::before, #pa-root *::after { animation: none !important; transition: none !important; }\n}\n\n/* 1.3.4 加载体检 */\n#pa-root .pa-health-body { display: block; }\n#pa-root .pa-rank { display: grid; grid-template-columns: minmax(0, 1fr) 26% auto; gap: 7px 8px; align-items: center; font-size: .9em; margin-bottom: 6px; }\n#pa-root .pa-rank > div { display: contents; }\n#pa-root .pa-rank > p { grid-column: 1 / -1; }\n#pa-root .pa-rank span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-rank em { text-align: right; font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .92em; }\n#pa-root .pa-bar { display: block; height: 6px; border-radius: 3px; background: var(--pa-line); overflow: hidden; }\n#pa-root .pa-bar b { display: block; height: 100%; background: var(--pa-thread); border-radius: 3px; }\n#pa-root .pa-health .pa-card-act { margin: 10px 0 4px; }\n\n/* 1.3.4 扩展页设置框（在酒馆页面里，不在 #pa-root 里，用酒馆自己的颜色） */\n#pa-settings .pa-set-badge { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78em; font-weight: 500; line-height: 1.6; vertical-align: 1px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); opacity: .85; }\n#pa-settings .inline-drawer-content { padding: 4px 2px 6px; }\n#pa-settings .pa-set-intro { font-size: .9em; opacity: .75; margin: 2px 0 6px; }\n#pa-settings .pa-set-btns { display: flex; flex-wrap: wrap; gap: 6px; }\n#pa-settings .menu_button { width: auto; white-space: nowrap; padding: 4px 10px; margin: 2px 0; gap: 6px; }\n#pa-settings .menu_button span { font-size: inherit; }\n#pa-settings .pa-set-btns .menu_button { flex: 1 1 0; min-width: 7.5em; }\n#pa-settings .pa-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }\n#pa-settings .pa-set-k { opacity: .7; min-width: 2.5em; }\n#pa-settings .pa-set-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; }\n#pa-settings .pa-set-mini { font-size: .88em; padding: 2px 8px; }\n#pa-settings .pa-set-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9em; margin: 2px 0 6px; padding: 6px 8px; border-radius: 6px; border: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-status[hidden] { display: none; }\n#pa-settings .pa-set-status.new { border-style: solid; border-color: var(--SmartThemeQuoteColor, #e18a24); }\n#pa-settings .pa-set-status.bad { border-color: #d36b6b; }\n#pa-settings .pa-set-log { margin: 6px 0; }\n#pa-settings .pa-set-log > summary { cursor: pointer; opacity: .85; padding: 2px 0; }\n#pa-settings .pa-set-logs { max-height: 34vh; overflow: auto; margin-top: 4px; padding-right: 4px; }\n#pa-settings .pa-set-logv { font-size: .86em; line-height: 1.55; margin: 6px 0 8px; padding-left: 8px; border-left: 2px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-logv b { display: block; margin-bottom: 2px; }\n#pa-settings .pa-set-foot { font-size: .82em; opacity: .65; margin-top: 6px; }\n#pa-settings .pa-set-foot a { color: inherit; text-decoration: underline; margin-left: 4px; }\n#pa-settings code { font-size: .95em; padding: 0 3px; }\n\n/* 折叠箭头 */\n#pa-root .pa-caret svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .15s; }\n#pa-root .pa-caret.open svg { transform: rotate(90deg); }\n\n/* 1.3.7 API 站点：点开看详情、直接换模型 */\n#pa-root .pa-field-row { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; }\n#pa-root .pa-field-row > span { flex: none; color: var(--pa-dim); }\n#pa-root .pa-select-s { min-width: 0; flex: 1 1 auto; max-width: 100%; padding: 4px 8px; }\n#pa-root .pa-site > header { cursor: pointer; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin: 0; }\n#pa-root .pa-site > header b { flex: none; }\n#pa-root .pa-site-caret { color: var(--pa-dim); width: 1em; flex: none; }\n#pa-root .pa-site-model { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pa-dim); }\n#pa-root .pa-btn-s { padding: 3px 12px; min-height: 0; }\n#pa-root .pa-site-dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 10px 0 4px; align-items: center; }\n#pa-root .pa-site-dl dt { color: var(--pa-dim); font-size: .9em; }\n#pa-root .pa-site-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n#pa-root .pa-dim { color: var(--pa-dim); }\n";
 
 // src/ui/app.js
 var TABS = [
@@ -5067,7 +5154,7 @@ function buildRoot() {
       btn.textContent = "保存中…";
       try {
         await saveDraft(focusPreset(), "裁缝铺保存");
-        toast("保存好了，已自动备份旧版本", "success");
+        toast("已保存", "success");
       } catch (err) {
         toast("保存失败：" + err.message, "error");
       }

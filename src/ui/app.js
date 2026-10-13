@@ -77,7 +77,7 @@ function buildRoot() {
       btn.textContent = "保存中…";
       try {
         await saveDraft(focusPreset(), "裁缝铺保存");
-        toast("保存好了，已自动备份旧版本", "success");
+        toast("已保存", "success");
       } catch (err) {
         toast("保存失败：" + err.message, "error");
       }

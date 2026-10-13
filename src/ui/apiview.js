@@ -66,7 +66,7 @@ function mountApi(page) {
             <label class="pa-field"><span>模型</span><input class="pa-input" data-f="model" value="${esc(s.model)}" list="pa-models" autocapitalize="off"><datalist id="pa-models">${(s.models || []).map((m) => `<option value="${esc(m)}">`).join("")}</datalist></label>
             <button class="pa-btn pa-btn-soft" data-f="fetch" type="button" data-show="custom">连上并拉取模型列表</button>
             <label class="pa-field"><span>备注</span><input class="pa-input" data-f="note" value="${esc(s.note || "")}" placeholder="比如：月卡到 11 月"></label>
-            <p class="pa-hint">${multiKeySupported() ? "Key 会存进酒馆自己的密钥库（和你在酒馆里填 key 一样安全），裁缝铺只记它的编号。" : "你的酒馆版本较旧，key 会存在酒馆的设置文件里。"}</p>
+            <p class="pa-hint">${multiKeySupported() ? "Key 存在酒馆密钥库，裁缝铺只记编号。" : "酒馆版本较旧，key 存在酒馆设置文件里。"}</p>
         </div>`);
     const sync = (w) => {
       const custom = w.querySelector("[data-f=source]").value === "custom";
@@ -220,7 +220,7 @@ function mountApi(page) {
       sites().push(s);
       settings().activeSiteId = s.id;
       saveSettings();
-      toast("存好了，可以点「编辑」改个好记的名字", "success");
+      toast("已保存", "success");
       render();
     }
   });

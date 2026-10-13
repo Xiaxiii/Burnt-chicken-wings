@@ -5,12 +5,22 @@ var ICON = {
   caret: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
   needle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4 7 17"/><path d="M17 4h3v3"/><path d="M7 17c-2 2-4 2-4 2s0-2 2-4"/></svg>'
 };
+/**
+ * 列表渲染。o.place 为 true 时是"选位置"：
+ *   点组头＝放在这组后面（组外）；展开后点组内条目＝放进组里、它的后面；
+ *   顶部「最前面」、展开组的第一行「组内最前」。
+ * o.marker：{ at: "top" } | { at: "row", id } | { at: "block", id: 组块最后一条 } | { at: "gstart", gid }
+ */
 function renderList(draft, o) {
   const q = (o.query || "").trim().toLowerCase();
   const sel = o.selected || /* @__PURE__ */ new Set();
   const collapsed = o.collapsed || /* @__PURE__ */ new Set();
-  const showSwitch = o.mode === "organize";
-  const showHandle = o.mode === "organize";
+  const place = !!o.place;
+  const showSwitch = o.mode === "organize" && !place;
+  const showHandle = showSwitch;
+  const m = o.mode === "target-group" ? null : o.marker || null;
+  const verb = o.mode === "organize" ? "放" : "缝";
+  const mark = `<div class="pa-insert-mark">${verb}在这里</div>`;
   const matches = (id) => {
     if (!q) return true;
     const p = draft.prompt(id);
@@ -33,8 +43,7 @@ function renderList(draft, o) {
       if (isCotEntry(draft, id)) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
     }
     if (marker) badge = '<span class="pa-chip pa-chip-dim">酒馆位置</span>';
-    const at = o.marker && o.marker.after === id && o.mode !== "target-group";
-    const ins = at ? `<div class="pa-insert-mark">${o.markLabel || "缝在这里"}</div>` : "";
+    const at = m?.at === "row" && m.id === id;
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
     return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}">
             <span class="pa-check" aria-hidden="true"></span>
@@ -42,10 +51,10 @@ function renderList(draft, o) {
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="看内容">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" ${on ? "checked" : ""}><i></i></label>` : ""}
             ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="按住拖动">${ICON.grip}</span>` : ""}
-        </div>${ins}`;
+        </div>${at ? mark : ""}`;
   };
   let html = "";
-  if (o.marker && o.marker.index === 0) html += '<div class="pa-insert-mark">缝在这里</div>';
+  if (place) html += m?.at === "top" ? mark : `<button class="pa-slot" data-act="top">↑ 最前面</button>`;
   for (const b of draft.blocks()) {
     if (!b.groupId) {
       const inner = b.ids.map(row).join("");
@@ -58,26 +67,57 @@ function renderList(draft, o) {
     const isCol = !q && collapsed.has(b.groupId);
     const onCount = b.ids.filter((id) => enabledMap.get(id)).length;
     const allSel = b.ids.length && b.ids.every((id) => sel.has(id));
-    const verb = o.mode === "organize" ? "放" : "缝";
-    const startMark = o.mode !== "target-group" && o.marker && o.marker.groupStart === b.groupId && b.part === 1 ? `<div class="pa-insert-mark">${verb}在组开头</div>` : "";
-    const endMark = o.mode !== "target-group" && o.marker && o.marker.groupEnd === b.groupId && b.part === b.parts ? `<div class="pa-insert-mark">${verb}在组末尾</div>` : "";
-    const headAt = o.mode !== "target-group" && !!o.marker && (o.marker.groupEnd === b.groupId || o.marker.groupStart === b.groupId || !!o.marker.after && b.ids.includes(o.marker.after));
-    html += `<section class="pa-group${headAt ? " pa-has-at" : ""}${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
-            <header class="pa-ghead" data-gid="${esc(b.groupId)}">
-                ${o.mode === "target" ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开/折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="全选/取消本组" aria-pressed="${!!allSel}"><span class="pa-check"></span></button>`}
-                <span class="pa-gname" data-act="collapse">${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第${b.part}/${b.parts}段</em>` : ""}</span>
-                ${headAt && isCol ? `<span class="pa-at-chip">${verb}在这组</span>` : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
-                ${o.moveMode ? `<button class="pa-mini" data-act="into">放进这组</button>` : ""}
-                ${o.mode === "organize" && !o.moveMode ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
+    const first = b.ids[0];
+    const last = b.ids[b.ids.length - 1];
+    const afterHere = m?.at === "block" && m.id === last;
+    const atStart = m?.at === "gstart" && m.gid === b.groupId && b.part === 1;
+    const inside = atStart || m?.at === "row" && b.ids.includes(m.id);
+    const caret = place || o.mode === "target";
+    const startSlot = place && !isCol && b.part === 1 ? atStart ? mark : `<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(b.groupId)}">↑ 组内最前</button>` : "";
+    html += `<section class="pa-group${inside ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
+            <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}">
+                ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开/折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="全选/取消本组" aria-pressed="${!!allSel}"><span class="pa-check"></span></button>`}
+                <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第${b.part}/${b.parts}段</em>` : ""}</span>
+                ${inside && isCol ? `<span class="pa-at-chip">${verb}在组内</span>` : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
+                ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
-                ${o.mode === "target" ? `<button class="pa-mini" data-act="into">缝进这组</button>` : ""}
                 ${o.mode === "target-group" ? `<button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
             </header>
-            ${startMark}<div class="pa-gbody">${(o.mode === "target" || o.startRows) && !isCol && b.part === 1 && !(o.marker && o.marker.groupStart === b.groupId) ? `<button class="pa-gstart" data-act="gstart" data-gid="${esc(b.groupId)}">↑ ${verb}在组开头</button>` : ""}${visibleRows}</div>${endMark}
-        </section>`;
+            <div class="pa-gbody">${startSlot}${visibleRows}</div>
+        </section>${afterHere ? mark : ""}`;
   }
-  if (o.marker && o.marker.index !== void 0 && o.marker.index > 0) html += '<div class="pa-insert-mark">缝在最后</div>';
   return html || '<p class="pa-empty">没有匹配的条目</p>';
+}
+/** 选好的位置 → 插入点 + 归属分组（null＝组外） */
+function placeOf(d, m) {
+  if (!m) return null;
+  if (m.at === "top") return { where: { index: 0 }, gid: null };
+  if (m.at === "gstart") return { where: { groupStart: m.gid }, gid: m.gid };
+  if (m.at === "block") return { where: { after: m.id }, gid: null };
+  return { where: { after: m.id }, gid: d.groupOf(m.id) };
+}
+/** 位置还有效吗；组块标记总是指向那一块的最后一条（组被改过就跟着挪），失效返回 null */
+function fixPlace(d, m) {
+  if (!m) return null;
+  if (m.at === "top") return m;
+  if (m.at === "gstart") return d.group(m.gid) && d.order.some((o) => d.groupOf(o.identifier) === m.gid) ? m : null;
+  if (!d.order.some((o) => o.identifier === m.id)) return null;
+  if (m.at === "block") {
+    const b = d.blocks().find((x) => x.ids.includes(m.id));
+    if (!b?.groupId) return { at: "row", id: m.id };
+    const last = b.ids[b.ids.length - 1];
+    return last === m.id ? m : { at: "block", id: last };
+  }
+  return m;
+}
+function placeText(d, m) {
+  const nm = (id) => d.prompt(id)?.name || id;
+  const gn = (g) => d.group(g)?.name || "分组";
+  if (m.at === "top") return "最前面";
+  if (m.at === "gstart") return `「${gn(m.gid)}」组内最前`;
+  if (m.at === "block") return `「${gn(d.groupOf(m.id))}」组之后（组外）`;
+  const g = d.groupOf(m.id);
+  return g ? `「${gn(g)}」组内，「${nm(m.id)}」之后` : `「${nm(m.id)}」之后`;
 }
 
 function tagKey(d, id) {
@@ -120,7 +160,7 @@ async function sortTagsDialog(d, ids) {
     try { categories = await recommendTagCategories(d,ids,categories); }
     catch(e) { toast('AI 推荐失败：'+e.message+'；改用手动排序','warning'); }
   }
-  const body = el('<div><p class="pa-hint">仅排列选中的条目，放回原先选中位置；未选条目位置不变。上下箭头调整类别，类别内按数字升序，无数字排在数字前。</p><div class="pa-tag-order"></div><details><summary>排列预览</summary><div class="pa-tag-preview"></div></details></div>');
+  const body = el('<div><p class="pa-hint">只排选中的条目，未选的不动。类别内按编号升序。</p><div class="pa-tag-order"></div><details><summary>排列预览</summary><div class="pa-tag-preview"></div></details></div>');
   function paint() {
     body.querySelector('.pa-tag-order').innerHTML = categories.map((x,i) => `<div class="pa-card pa-row-head"><span>${i+1}. ${esc(x)}</span><span><button class="pa-btn" data-rank="${i}" data-dir="-1" ${i===0?'disabled':''}>↑</button><button class="pa-btn" data-rank="${i}" data-dir="1" ${i===categories.length-1?'disabled':''}>↓</button></span></div>`).join('');
     body.querySelector('.pa-tag-preview').innerHTML = sortTagIds(d,ids,categories).map(id => `<p>${esc(tagKey(d,id).label)} · ${esc(d.prompt(id)?.name)}</p>`).join('');
@@ -137,7 +177,7 @@ async function sortTagsDialog(d, ids) {
   const sorted=sortTagIds(d,ids,categories), selected=new Set(ids);
   const values=new Map(d.order.map(o=>[o.identifier,o])); let k=0;
   mutate(d,'按标签排序',x => { findOrderList(x.preset).order=x.order.map(o=>selected.has(o.identifier)?values.get(sorted[k++]):o); });
-  toast('已按标签排列，正在自动保存','success');
+  toast('已按标签排列','success');
 }
 function simpleValueMacros(text) {
   const input=String(text||''); const tops=scanTopMacros(input);
@@ -218,6 +258,6 @@ async function repairVariableDialog(d,key) {
   if(JSON.stringify(d.toPreset())!==version) return toast('预设已变化，请重新生成修复方案','warning');
   variableRepairPlan(d,key);
   mutate(d,'补充变量读取',x=>x.insertPrompts([{prompt:{identifier:uid(),name:'变量读取 · '+plan.name,content:plan.macro,role:'system',system_prompt:false,marker:false,injection_position:0,injection_depth:4,injection_order:100},enabled:true}],{after:plan.last},d.groupOf(plan.last)));
-  toast('已添加读取条目，正在自动保存','success');
+  toast('已添加读取条目','success');
 }
 

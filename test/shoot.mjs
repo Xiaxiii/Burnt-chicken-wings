@@ -21,8 +21,10 @@ await page.screenshot({ path: out("2-suture") });
 await page.evaluate(() => { for (const h of document.querySelectorAll(".pa-src-list .pa-ghead")) if (h.textContent.includes("USER塑造")) h.click(); });
 await page.waitForTimeout(200);
 await page.evaluate(() => { for (const r of document.querySelectorAll(".pa-src-list .pa-row")) if (/[嬷嬤]u·把玩|[嬷嬤]u·弱化u/.test(r.textContent)) r.click(); });
-// 目标：缝进「文风设定」组
-await page.evaluate(() => { for (const h of document.querySelectorAll(".pa-dst-list .pa-ghead")) if (h.textContent.includes("写作指导")) h.querySelector('[data-act="into"]')?.click(); });
+// 目标：缝进「写作指导」组末尾（展开后点组内最后一条）
+await page.evaluate(() => { for (const h of document.querySelectorAll(".pa-dst-list .pa-ghead")) if (h.textContent.includes("写作指导")) h.querySelector('[data-act="collapse"]')?.click(); });
+await page.waitForTimeout(200);
+await page.evaluate(() => { for (const s of document.querySelectorAll(".pa-dst-list .pa-group")) if (s.querySelector(".pa-gname").textContent.includes("写作指导")) [...s.querySelectorAll(".pa-row")].pop()?.click(); });
 await page.waitForTimeout(200);
 await page.screenshot({ path: out("3-suture-picked") });
 // 拖动分隔条

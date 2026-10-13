@@ -10,8 +10,7 @@ function mountMore(page, app) {
     api: mountApi(sec("api"), app),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">颜色</h3><div class="pa-look"></div>
-        <p class="pa-hint">「跟随酒馆美化」会用酒馆主题的颜色，并自动补成不透明，免得背景透出来看不清字。想要固定的配色就选下面的莫兰迪色卡。</p></div>`;
+      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">颜色</h3><div class="pa-look"></div></div>`;
       const slot = box.querySelector(".pa-look");
       const render = () => { slot.innerHTML = themeCards(); };
       bindThemeCards(slot);

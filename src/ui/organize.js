@@ -20,7 +20,7 @@ function mountOrganize(page) {
                 <button class="pa-btn pa-btn-soft" data-tool="backup">备份</button>
             </div>
         </div>
-        <div class="pa-movebar" hidden><span>点条目＝放到它后面；「放进这组」＝组末尾</span><button class="pa-btn pa-sq" data-mv="up" aria-label="上移一格">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一格">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">放到最后</button><button class="pa-btn pa-btn-primary" data-mv="cancel">完成</button></div>
+        <div class="pa-movebar" hidden><b class="pa-move-n"></b><button class="pa-btn pa-sq" data-mv="up" aria-label="上移一格">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一格">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">放到最后</button><button class="pa-btn pa-btn-primary" data-mv="cancel">完成</button><small>点组名＝放在组后；展开组再点条目＝放进组内</small></div>
         <div class="pa-scroll pa-list" role="list"></div>
         <div class="pa-selbar" hidden>
             <div class="pa-selbar-top"><b class="pa-selcount"></b>
@@ -59,13 +59,14 @@ function mountOrganize(page) {
     picker.set(d.name);
     for (const id of [...st.selected]) if (!d.order.some((o) => o.identifier === id)) st.selected.delete(id);
     const top = list.scrollTop;
-    list.innerHTML = renderList(d, { mode: "organize", moveMode: st.moveMode, startRows: st.moveMode, selected: st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
+    list.innerHTML = renderList(d, { mode: "organize", place: st.moveMode, selected: st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
     list.scrollTop = top;
-    list.classList.toggle("pa-moving", st.moveMode);
+    list.classList.toggle("pa-placing", st.moveMode);
     const n = st.selected.size;
     selbar.hidden = n === 0 || st.moveMode;
     movebar.hidden = !st.moveMode;
     page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
+    page.querySelector(".pa-move-n").textContent = `移动 ${n} 条到…`;
     if (st.highlight.size) {
       const first = list.querySelector(".pa-flash");
       first?.scrollIntoView({ block: "center" });
@@ -79,10 +80,11 @@ function mountOrganize(page) {
     const d = draft();
     return settings().keepClickOrder ? [...st.selected] : d.sortByOrder([...st.selected]);
   };
-  function doMove(where, label = "移动") {
+  // gid：放进哪个组；null＝放在组外（整组选中的分组会保持成组）
+  function doMove(where, gid, label = "移动") {
     const d = draft();
     const ids = ordered();
-    mutate(d, label, (x) => x.move(ids, where));
+    mutate(d, label, (x) => x.place(ids, where, gid));
     st.moveMode = false;
     toast(`已移动 ${ids.length} 条`, "success");
     flash(ids);
@@ -108,9 +110,14 @@ function mountOrganize(page) {
       e.stopPropagation();
       return peek(d, rowEl.dataset.id);
     }
+    if (st.moveMode && act === "top") return doMove({ index: 0 }, null, "移到最前");
     if (head) {
       const gid = head.dataset.gid;
-      if (st.moveMode && act === "into") return doMove({ groupEnd: gid }, "移到组末尾");
+      if (st.moveMode && act !== "collapse") {
+        const blockIds = d.blocks().find((b) => b.ids.includes(head.dataset.last))?.ids || [];
+        if (blockIds.every((i) => st.selected.has(i))) return toast("这组就是要移动的，点别处");
+        return doMove({ after: head.dataset.last }, null, "移到组后");
+      }
       if (act === "collapse" || !act) {
         st.collapsed.has(gid) ? st.collapsed.delete(gid) : st.collapsed.add(gid);
         return render();
@@ -129,14 +136,14 @@ function mountOrganize(page) {
       return;
     }
     if (act === "gstart") {
-      if (st.moveMode) return doMove({ groupStart: actEl.dataset.gid }, "移到组开头");
+      if (st.moveMode) return doMove({ groupStart: actEl.dataset.gid }, actEl.dataset.gid, "移到组内最前");
       return;
     }
     if (rowEl) {
       const id = rowEl.dataset.id;
       if (st.moveMode) {
-        if (st.selected.has(id)) return toast("不能放到自己后面，点别的条目");
-        return doMove({ after: id }, "移到条目后");
+        if (st.selected.has(id)) return toast("这条就是要移动的，点别处");
+        return doMove({ after: id }, d.groupOf(id), "移到条目后");
       }
       // 点整行＝选中/取消；看内容点右边的眼睛
       st.selected.has(id) ? st.selected.delete(id) : st.selected.add(id);
@@ -172,7 +179,7 @@ function mountOrganize(page) {
       st.moveMode = false;
       render();
     }
-    if (a === "end") doMove({ index: draft().order.length }, "移到最后");
+    if (a === "end") doMove({ index: draft().order.length }, null, "移到最后");
     if (a === "up" || a === "down") {
       const ids = ordered();
       mutate(draft(), "移动", (x) => x.moveStep(ids, a === "up" ? -1 : 1));
@@ -226,7 +233,7 @@ function mountOrganize(page) {
       mutate(d, "新建分组", (x) => x.createGroup(name, ids, { keepClickOrder: settings().keepClickOrder }));
       st.selected.clear();
       flash(ids);
-      toast(`已建分组「${name}」，${ids.length} 条已排在一起`, "success");
+      toast(`已建分组「${name}」`, "success");
       return render();
     }
     if (a === "intogroup") {
@@ -288,7 +295,7 @@ function mountOrganize(page) {
     }
     if (v === "gather") mutate(d, "收拢分组", (x) => x.gatherGroup(gid));
     if (v === "up" || v === "down") mutate(d, "整组移动", (x) => x.moveGroupBlock(gid, v === "up" ? -1 : 1));
-    if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？里面的条目不会删除，只是不再成组。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
+    if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
   }
   async function peek(d, id) {
     const p = d.prompt(id);
@@ -299,7 +306,7 @@ function mountOrganize(page) {
     const body = el(`<div class="pa-form">
             <label class="pa-field"><span>名字</span><input class="pa-input" data-f="name" value="${esc(p.name || "")}"></label>
             <p class="pa-hint">写法：${esc(info)}${p.injection_position === 1 ? ` \xB7 聊天内注入，深度 ${esc(p.injection_depth)}` : ""} \xB7 角色 ${esc(p.role || "system")}</p>
-            ${marker ? '<p class="pa-hint">这是酒馆自动填内容的位置条目，正文不用改。</p>' : `<textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
+            ${marker ? '<p class="pa-hint">酒馆位置条目，没有正文。</p>' : `<textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
         </div>`);
     body.addEventListener("input", (e) => {
       if (!e.target.matches("[data-f=name], [data-f=content]")) return;
@@ -318,8 +325,8 @@ function mountOrganize(page) {
   }
   async function smartGroups(d) {
     const sug = suggestGroups(d);
-    if (!sug.length) return toast("没找到可以自动分组的连续条目（已分组的条目不会动）");
-    const body = el(`<div><p class="pa-hint">只会把<b>本来就挨在一起</b>的条目框起来，不会打乱顺序。名字可以直接改，不想要的取消勾选。</p>
+    if (!sug.length) return toast("没有可自动分组的连续条目");
+    const body = el(`<div><p class="pa-hint">只框连续条目，不改顺序。</p>
             <div class="pa-sug">${sug.map((g, i) => `<div class="pa-sug-item">
                 <label class="pa-inline-check"><input type="checkbox" data-i="${i}" checked></label>
                 <div class="pa-sug-main"><input class="pa-input pa-input-s" data-n="${i}" value="${esc(g.name)}">
@@ -330,7 +337,7 @@ function mountOrganize(page) {
       for (const g of r) x.createGroup(g.name, g.ids);
     });
     r.forEach((g) => st.collapsed.add(x_last(d, g)));
-    toast(`建好了 ${r.length} 个分组，会自动保存`, "success");
+    toast(`已建 ${r.length} 个分组`, "success");
     render();
   }
   const x_last = (d, g) => d.groupOf(g.ids[0]);
@@ -341,9 +348,9 @@ function mountOrganize(page) {
     } catch (e) {
       return toast("读不到备份：" + e.message, "error");
     }
-    if (!list2.length) return toast("这个预设还没有备份。每次用裁缝铺保存前都会自动备份一份。");
+    if (!list2.length) return toast("这个预设还没有备份");
     const items = list2.map((b2) => ({ label: new Date(b2.time).toLocaleString(), sub: b2.reason, value: b2.id }));
-    const id = await pickBox(`「${name}」的备份`, items, { hint: "点一个备份：恢复并自动保存，或者下载" });
+    const id = await pickBox(`「${name}」的备份`, items);
     if (!id) return;
     const b = await backupGet(id);
     const how = await pickBox("这个备份要…", [{ label: "恢复到草稿", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
@@ -362,7 +369,7 @@ function mountOrganize(page) {
         x.preset = tmp.preset;
         x.groups = tmp.groups;
       });
-      toast("已恢复，正在自动保存", "success");
+      toast("已恢复", "success");
     }
   }
   let drag = null;
@@ -403,12 +410,24 @@ function mountOrganize(page) {
     if (row && list.contains(row) && !drag.ids.includes(row.dataset.id)) {
       const r = row.getBoundingClientRect();
       const after = y > r.top + r.height / 2;
-      target = after ? { after: row.dataset.id } : { before: row.dataset.id };
+      target = { where: after ? { after: row.dataset.id } : { before: row.dataset.id }, gid: draft().groupOf(row.dataset.id) };
       lineY = (after ? r.bottom : r.top) - lr.top + list.scrollTop;
     } else if (head && list.contains(head)) {
+      // 组头上半＝放在这组前面（组外）；下半：展开着＝组内最前，折叠着＝这组后面（组外）
       const r = head.getBoundingClientRect();
-      target = { groupStart: head.dataset.gid };
-      lineY = r.bottom - lr.top + list.scrollTop;
+      const box = head.closest(".pa-group").getBoundingClientRect();
+      const upper = y < r.top + r.height / 2;
+      const open = !head.closest(".pa-group").classList.contains("pa-collapsed");
+      if (upper) {
+        target = { where: { before: head.dataset.first }, gid: null };
+        lineY = box.top - lr.top + list.scrollTop - 3;
+      } else if (open) {
+        target = { where: { before: head.dataset.first }, gid: head.dataset.gid };
+        lineY = r.bottom - lr.top + list.scrollTop;
+      } else {
+        target = { where: { after: head.dataset.last }, gid: null };
+        lineY = box.bottom - lr.top + list.scrollTop + 3;
+      }
     }
     drag.target = target;
     if (lineY == null) drag.line.style.display = "none";
@@ -439,7 +458,7 @@ function mountOrganize(page) {
     drag = null;
     if (commit && target) {
       const d = draft();
-      mutate(d, "拖动", (x) => x.move(ids, target));
+      mutate(d, "拖动", (x) => x.place(ids, target.where, target.gid));
       flash(ids);
     } else render();
   };

@@ -49,7 +49,7 @@ function mountSchemes(page) {
   page.innerHTML = `
         <div class="pa-toolbar"><div class="pa-picker-slot"></div>
             <button class="pa-btn pa-btn-primary" data-s="new">把现在的开关存成方案</button></div>
-        <p class="pa-hint pa-pad">方案记住的是「哪些条目开、哪些关」，比如同一个预设里今天玩狗男、明天玩年上。可以连人设一起换，也可以绑到某个聊天，进聊天自动换好。</p>
+        <p class="pa-hint pa-pad">方案＝一套条目开关，可带人设、可绑定聊天。</p>
         <div class="pa-scroll pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));

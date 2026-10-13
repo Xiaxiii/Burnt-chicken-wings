@@ -172,6 +172,27 @@ var Draft = class {
     const g = groupId === void 0 ? autoGroup : groupId;
     for (const id of ids) this._setGroup(id, g);
   }
+  /**
+   * 按"选位置"的结果移动：groupId 为某组＝放进该组；为 null＝放在组外（顶层）。
+   * 放在组外时，整组都被选中的分组保持成组，跟着一起挪（相当于移动整个分组）。
+   * 只有一条的组不算：把那一条拖出来就是要它出组。
+   */
+  place(ids, where, groupId) {
+    if (groupId) return this.move(ids, where, groupId);
+    const set = new Set(ids);
+    const whole = /* @__PURE__ */ new Map();
+    const was = new Map(ids.map((id) => [id, this.groupOf(id)]));
+    for (const g of new Set(was.values())) {
+      if (!g) continue;
+      const mem = this.order.filter((o) => this.groupOf(o.identifier) === g);
+      whole.set(g, mem.length > 1 && mem.every((o) => set.has(o.identifier)));
+    }
+    this.move(ids, where, null);
+    for (const id of ids) {
+      const g = was.get(id);
+      if (g && whole.get(g)) this._setGroup(id, g);
+    }
+  }
   _groupAt(where) {
     if (where.groupStart) return where.groupStart;
     if (where.groupEnd) return where.groupEnd;

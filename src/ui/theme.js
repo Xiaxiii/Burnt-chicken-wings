@@ -64,7 +64,7 @@ function bindThemeCards(box, after) {
   });
 }
 async function themeSheet() {
-  const body = el(`<div>${themeCards()}<p class="pa-hint">点一下就换，马上生效。也可以在「更多 → 外观」里换。</p></div>`);
+  const body = el(`<div>${themeCards()}</div>`);
   bindThemeCards(body);
   await sheet({ title: "换个颜色", body, wide: true, actions: [{ label: "好了", kind: "primary", value: true }] });
 }

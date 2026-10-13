@@ -225,4 +225,22 @@ test("共用标签 <small_theater: 名字> 时用后面的名字称呼；由一�
   if (h.status === "hook") assert.equal(h.on, false);
 });
 
+test("选位置：放在组外时整组保持成组、部分条目出组、只有一条的组拖出来就出组", () => {
+  const G = (gs) => ({ extensions: { baibaiToolkit: { presetPromptGroups: { version: 1, groups: Object.keys(gs).map((id) => ({ id, name: id, enabled: true })), prompts: Object.fromEntries(Object.entries(gs).flatMap(([g, ids]) => ids.map((i) => [i, { groupId: g }]))) } } } });
+  const make = () => mk([["a1", "a1", "x"], ["a2", "a2", "x"], ["b1", "b1", "x"], ["b2", "b2", "x"], ["c1", "c1", "x"], ["l", "l", "x"]], G({ A: ["a1", "a2"], B: ["b1", "b2"], C: ["c1"] }));
+  const shape = (d) => d.order.map((o) => `${o.identifier}${d.groupOf(o.identifier) ? ":" + d.groupOf(o.identifier) : ""}`).join(" ");
+  let d = make();
+  d.place(["a1", "a2"], { after: "b2" }, null);
+  assert.equal(shape(d), "b1:B b2:B a1:A a2:A c1:C l");
+  d = make();
+  d.place(["a2"], { after: "b2" }, null);
+  assert.equal(shape(d), "a1:A b1:B b2:B a2 c1:C l");
+  d = make();
+  d.place(["l"], { after: "b1" }, "B");
+  assert.equal(shape(d), "a1:A a2:A b1:B l:B b2:B c1:C");
+  d = make();
+  d.place(["c1"], { before: "a1" }, null);
+  assert.equal(shape(d), "c1 a1:A a2:A b1:B b2:B l");
+});
+
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

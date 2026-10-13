@@ -40,11 +40,11 @@ console.log("live model now:", await page.evaluate(() => [document.getElementByI
 // 缝合位置标记
 await page.click('[data-tab="suture"]'); await page.waitForTimeout(300);
 await page.selectOption(".pa-dst-picker select", T); await page.waitForTimeout(300);
-await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-gname")[2].click()); await page.waitForTimeout(150);
+await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-caret")[2].click()); await page.waitForTimeout(150);
 await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-group")[2].querySelectorAll(".pa-row")[2].click()); await page.waitForTimeout(150);
-await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-gname")[2].click()); await page.waitForTimeout(150);
+await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-caret")[2].click()); await page.waitForTimeout(150);
 await page.screenshot({ path: "test/shots/u-4-marker-collapsed.png" });
-await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-gname")[2].click()); await page.waitForTimeout(150);
+await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-caret")[2].click()); await page.waitForTimeout(150);
 await page.screenshot({ path: "test/shots/u-5-marker.png" });
 console.log("where:", await page.evaluate(() => document.querySelector(".pa-where").textContent));
 console.log(errs.length ? errs : "no page errors");
