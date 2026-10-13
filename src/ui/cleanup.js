@@ -96,7 +96,9 @@ function mountCleanup(sec) {
       } catch {
         continue;
       }
-      list.push({ name: n, data: JSON.parse(text), size: new Blob([text]).size });
+      // 不再 JSON.parse 一份副本：77 个预设会多占几十 MB 内存，iOS 内存紧张时会直接刷新页面
+      // 文本只用来算大小和指纹，算完就丢
+      list.push({ name: n, data: n === cur ? JSON.parse(text) : presets[presetIndex(n)], full: hashStr(text), size: new Blob([text]).size });
       if (list.length % 10 === 0) await new Promise((r) => setTimeout(r, 0));
     }
     st.rows = scanPresets(list, { current: cur, inUse: presetUsers(), lastUse: settings().presetUse || {} });

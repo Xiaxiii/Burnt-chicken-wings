@@ -10,7 +10,8 @@ var DEFAULTS = {
   theme: "follow",
   sutureSplit: 45,
   moreTab: "schemes",
-  nameWithSource: false
+  nameWithSource: false,
+  noPullRefresh: true
 };
 function settings() {
   const all = ctx().extensionSettings;

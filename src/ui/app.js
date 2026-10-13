@@ -215,7 +215,7 @@ function addSettingsEntry() {
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
       </div>
       <div class="inline-drawer-content">
-        <div class="pa-set-intro">整理分组 · 跨预设缝合 · 思维链检查 · 开关方案 · API 站点 · 加载体检</div>
+        <div class="pa-set-intro">整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。</div>
         <div class="pa-set-btns">
           <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开<span class="pa-appname">${esc(appName())}</span></span></div>
           <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>加载体检</span></div>
@@ -232,8 +232,10 @@ function addSettingsEntry() {
           ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
         </div>
         <div class="pa-set-status" hidden></div>
-        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
-        <div class="pa-set-foot">也可从魔棒菜单打开，或发送 <code>/atelier</code>。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
+        <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="noPullRefresh" ${settings().noPullRefresh !== false ? "checked" : ""}><span>防止下拉误刷新（苹果设备）</span></label>
+        <div class="pa-set-note">在页面顶部往下拖时，Safari 会刷新整个酒馆。开启后阻止这种刷新；刷新按钮照常可用。</div>
+        ${log.length ? `<details class="pa-set-log"><summary>最近两次更新的内容</summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
+        <div class="pa-set-foot">打开方式：点上方按钮，或从魔棒菜单打开，或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>
   </div>`);
@@ -287,7 +289,26 @@ function addSettingsEntry() {
   };
   box.addEventListener("click", handler);
   box.addEventListener("keydown", handler);
+  box.addEventListener("change", (e) => {
+    const t = e.target.closest("[data-opt=noPullRefresh]");
+    if (!t) return;
+    settings().noPullRefresh = t.checked;
+    saveSettings();
+    applyPullGuard();
+  });
   host2.append(box);
+}
+// 1.5.1：iOS Safari 在页面顶部下拉会刷新整页（酒馆没有关掉这个行为），玩着玩着就被刷新了。
+// 给 html、body 加 overscroll-behavior-y: none 即可阻止（Safari 16 起支持）。只影响「拖到顶再往下拖」，不影响正常滚动。
+function applyPullGuard() {
+  let st = document.getElementById("pa-pull-guard");
+  const on = settings().noPullRefresh !== false;
+  if (on && !st) {
+    st = document.createElement("style");
+    st.id = "pa-pull-guard";
+    st.textContent = "html, body { overscroll-behavior-y: none; }";
+    document.head.append(st);
+  } else if (!on && st) st.remove();
 }
 function registerSlash() {
   try {
@@ -382,6 +403,8 @@ async function start() {
   document.addEventListener("visibilitychange", hiddenCheckpoint);
   cleanups.push(() => { checkpointAll(); window.removeEventListener("pagehide", checkpointAll); document.removeEventListener("visibilitychange", hiddenCheckpoint); for(const t of autoTimers.values()) clearTimeout(t); });
   injectStyle();
+  try { applyPullGuard(); } catch {}
+  cleanups.push(() => document.getElementById("pa-pull-guard")?.remove());
   addMenuEntry();
   addSettingsEntry();
   registerSlash();

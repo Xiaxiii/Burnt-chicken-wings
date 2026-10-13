@@ -57,7 +57,7 @@ function overlap(a, b) {
 // 「保留哪一个」：当前使用 > 方案在用 > 最近用过 > 更新的版本 > 名称在前的
 function scanPresets(list, opts = {}) {
   const { current = null, inUse = {}, lastUse = {} } = opts;
-  const rows = list.map((x) => ({ ...x, full: hashStr(JSON.stringify(x.data ?? null)), ...splitPresetName(x.name), prints: promptPrints(x.data), tags: [] }));
+  const rows = list.map((x) => ({ name: x.name, size: x.size, full: x.full ?? hashStr(JSON.stringify(x.data ?? null)), ...splitPresetName(x.name), prints: promptPrints(x.data), tags: [] }));
   const rank = (r) => [r.name === current ? 1 : 0, inUse[r.name]?.length ? 1 : 0, lastUse[r.name] || 0];
   const better = (a, b) => {
     const ra = rank(a), rb = rank(b);
