@@ -40,7 +40,8 @@ async function scanExtensionCode(exts, keys, onProgress) {
     const e = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return [k, new RegExp(`["'\`]${e}["'\`]|\\.${e}\\b`)];
   });
-  let partial = false;
+  // 没查完的扩展（文件太多或读取失败），它们有可能用到这些数据
+  const partial = [];
   for (const [i, x] of exts.entries()) {
     onProgress?.(i + 1, exts.length, x.manifest?.display_name || x.base);
     const entry = x.manifest?.js;
@@ -48,16 +49,22 @@ async function scanExtensionCode(exts, keys, onProgress) {
     const root = new URL(`scripts/extensions/${x.name}/`, document.baseURI);
     const queue = [new URL(entry, root).href];
     const seen = new Set();
-    while (queue.length && seen.size < 60) {
+    let failed = false;
+    while (queue.length && seen.size < 400) {
       const u = queue.shift();
       if (seen.has(u)) continue;
       seen.add(u);
       let text = "";
       try {
         const r = await fetch(u);
-        if (!r.ok) continue;
+        if (!r.ok) {
+          // 入口文件都读不到，这个扩展就算没查
+          if (seen.size === 1) failed = true;
+          continue;
+        }
         text = await r.text();
       } catch {
+        if (seen.size === 1) failed = true;
         continue;
       }
       for (const [k, re] of res) if (re.test(text) && !used[k].includes(x)) used[k].push(x);
@@ -67,7 +74,7 @@ async function scanExtensionCode(exts, keys, onProgress) {
         if (next.startsWith(root.href) && !seen.has(next)) queue.push(next);
       }
     }
-    if (queue.length) partial = true;
+    if (queue.length || failed) partial.push(x);
   }
   return { used, partial };
 }
@@ -112,7 +119,8 @@ function mountCleanKind(kind, box) {
         else if (owner?.builtin) [state, label] = ["used", `酒馆内置：${owner.builtin}`];
         else if (users?.length) [state, label] = ["used", `检测：${users.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}${users.some((x) => !x.enabled) ? "（已停用）" : ""}在用`];
         else if (scan && owner?.ext) [state, label] = ["maybe", `检测：未找到使用者，但名称像「${owner.ext.manifest?.display_name || owner.ext.base}」，请确认`];
-        else if (scan) [state, label] = ["orphan", scan.partial ? "检测：未找到使用者（检测不完整）" : "检测：没有已安装的扩展使用"];
+        else if (scan && scan.partial.length) [state, label] = ["maybe", `检测：未找到使用者，但「${scan.partial.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}」没有查完，请确认`];
+        else if (scan) [state, label] = ["orphan", "检测：没有已安装的扩展使用，可以删除"];
         else if (owner?.ext) [state, label] = ["used", `推测属于：${owner.ext.manifest?.display_name || owner.ext.base}${owner.ext.enabled ? "" : "（已停用）"}`];
         else [state, label] = ["maybe", "可能已卸载"];
         return { k, size, state, label };
@@ -123,10 +131,12 @@ function mountCleanKind(kind, box) {
       const total = list.reduce((n, r) => n + r.size, 0);
       const max = list[0]?.size || 1;
       const pick = list.filter((r) => S.sel.has(r.k));
+      const orphans = list.filter((r) => r.state === "orphan");
       box.innerHTML = `
         <div class="pa-verdict"><p>设置文件中各扩展的数据共 <b>${fmtSize(total)}</b>。设置文件每次打开酒馆都要下载，每次保存都要上传，删掉已卸载扩展的残留数据能减少这部分。</p>
           <p class="pa-hint">「可能已卸载」只是按名称推测。点「实际检测」会下载已安装扩展的脚本，逐个查找谁在使用这些数据，结果更准，但需要一些时间。</p>
-          <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${scan ? "重新检测" : "实际检测"}</button><span class="pa-hint pa-ck-prog"></span></div></div>
+          <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${scan ? "重新检测" : "实际检测"}</button>${orphans.length ? `<button class="pa-btn pa-btn-danger pa-btn-s" data-x="cleanall">一键清理 ${orphans.length} 项（${fmtSize(orphans.reduce((n, r) => n + r.size, 0))}）</button>` : ""}<span class="pa-hint pa-ck-prog"></span></div>
+          ${scan ? `<p class="pa-hint">${orphans.length ? "「一键清理」只删除检测确认没有扩展使用的数据，删除前先下载备份。" : "没有检测确认可删除的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」的文件太多或读取失败，没有查完，标为「请确认」的数据需要你自己判断。` : ""}</p>` : ""}</div>
         ${err ? `<p class="pa-warn">${esc(err)}</p>` : ""}
         <div class="pa-clist">${list.map((r) => `<label class="pa-crow${S.sel.has(r.k) ? " on" : ""}${r.state === "core" || r.state === "used" ? " pa-locked" : ""}">
           ${chk(r.k, S.sel.has(r.k), r.state === "core" || r.state === "used")}
@@ -160,14 +170,17 @@ function mountCleanKind(kind, box) {
         S.busy = false;
         return draw();
       }
-      if (x === "del") {
-        const keys = [...S.sel];
+      if (x === "del" || x === "cleanall") {
+        const keys = x === "cleanall" ? rows().filter((r) => r.state === "orphan").map((r) => r.k) : [...S.sel];
+        if (!keys.length) return;
         if (!await confirmBox("删除扩展数据", `将从设置文件中删除 ${keys.length} 项数据：${keys.slice(0, 5).join("、")}${keys.length > 5 ? " 等" : ""}。删除前会先下载备份。如果对应的扩展其实还在使用，它会恢复成默认设置。`, "下载备份并删除", true)) return;
         const es = ctx().extensionSettings;
         downloadBlob(new Blob([JSON.stringify(Object.fromEntries(keys.map((k) => [k, es[k]])), null, 2)], { type: "application/json" }), `extension-data-backup-${stamp()}.json`);
-        for (const k of keys) delete es[k];
+        for (const k of keys) {
+          delete es[k];
+          S.sel.delete(k);
+        }
         ctx().saveSettingsDebounced();
-        S.sel.clear();
         toast(`已删除 ${keys.length} 项扩展数据`, "success");
         return draw();
       }

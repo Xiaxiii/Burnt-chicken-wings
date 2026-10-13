@@ -1,7 +1,7 @@
-// 预设裁缝铺 1.7.1（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.7.2（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.7.1";
-var CHANGELOG = "预设裁缝铺（焦香鸡翅）1.7.1\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.7.1\n- 后台中断补救（扩展页设置框中可关闭，默认开启）：生成时切到别的 App，回复可能被手机中断；回来时在输入框上方提示，可一键「续写」或「重新生成」。如果页面在后台被整页重新加载、回复没有收到，重新打开后同样提示，可一键「生成回复」。自己点「停止」的不提示。\n\n1.7.0\n- 「清理」分为五栏：预设、扩展数据、角色卡、世界书、本地备份。\n- 扩展数据：列出设置文件中各扩展的数据量，按名称标出「酒馆内置」「推测属于某扩展」「可能已卸载」。「实际检测」会下载已安装扩展的脚本，逐个查找谁在使用这些数据。正在使用的不能勾选；删除前先下载备份。\n- 角色卡：找出同名的角色卡，标出内容是否相同、最近一次聊天时间和聊天记录大小。删除时保留聊天记录；正在聊天的角色卡不能勾选。\n- 世界书：「比对全部世界书」找出内容完全相同的和没有条目的世界书，标出全局启用、角色绑定、聊天绑定。删除前先下载 zip。\n- 本地备份：显示本扩展在本浏览器中保存的预设备份占用，可每个预设只留最近 3 份，或全部删除。\n- 新配色「日落海岸」：上方海蓝薄雾，中段珊瑚粉，下方橘黄余晖。\n";
+var VERSION = "1.7.2";
+var CHANGELOG = "预设裁缝铺（焦香鸡翅）1.7.2\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.7.2\n- 清理 → 扩展数据：检测后新增「一键清理」，一次删除所有确认没有扩展使用的数据（删除前先下载备份）。\n- 「检测不完整」改为逐个扩展判断：每个扩展最多查 400 个文件，没查完或读取失败的扩展会点名列出；只有这种情况下才标「请确认」，其余未找到使用者的数据直接标「可以删除」。\n\n1.7.1\n- 后台中断补救（扩展页设置框中可关闭，默认开启）：生成时切到别的 App，回复可能被手机中断；回来时在输入框上方提示，可一键「续写」或「重新生成」。如果页面在后台被整页重新加载、回复没有收到，重新打开后同样提示，可一键「生成回复」。自己点「停止」的不提示。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -6610,7 +6610,8 @@ async function scanExtensionCode(exts, keys, onProgress) {
     const e = k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     return [k, new RegExp(`["'\`]${e}["'\`]|\\.${e}\\b`)];
   });
-  let partial = false;
+  // 没查完的扩展（文件太多或读取失败），它们有可能用到这些数据
+  const partial = [];
   for (const [i, x] of exts.entries()) {
     onProgress?.(i + 1, exts.length, x.manifest?.display_name || x.base);
     const entry = x.manifest?.js;
@@ -6618,16 +6619,22 @@ async function scanExtensionCode(exts, keys, onProgress) {
     const root = new URL(`scripts/extensions/${x.name}/`, document.baseURI);
     const queue = [new URL(entry, root).href];
     const seen = new Set();
-    while (queue.length && seen.size < 60) {
+    let failed = false;
+    while (queue.length && seen.size < 400) {
       const u = queue.shift();
       if (seen.has(u)) continue;
       seen.add(u);
       let text = "";
       try {
         const r = await fetch(u);
-        if (!r.ok) continue;
+        if (!r.ok) {
+          // 入口文件都读不到，这个扩展就算没查
+          if (seen.size === 1) failed = true;
+          continue;
+        }
         text = await r.text();
       } catch {
+        if (seen.size === 1) failed = true;
         continue;
       }
       for (const [k, re] of res) if (re.test(text) && !used[k].includes(x)) used[k].push(x);
@@ -6637,7 +6644,7 @@ async function scanExtensionCode(exts, keys, onProgress) {
         if (next.startsWith(root.href) && !seen.has(next)) queue.push(next);
       }
     }
-    if (queue.length) partial = true;
+    if (queue.length || failed) partial.push(x);
   }
   return { used, partial };
 }
@@ -6682,7 +6689,8 @@ function mountCleanKind(kind, box) {
         else if (owner?.builtin) [state, label] = ["used", `酒馆内置：${owner.builtin}`];
         else if (users?.length) [state, label] = ["used", `检测：${users.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}${users.some((x) => !x.enabled) ? "（已停用）" : ""}在用`];
         else if (scan && owner?.ext) [state, label] = ["maybe", `检测：未找到使用者，但名称像「${owner.ext.manifest?.display_name || owner.ext.base}」，请确认`];
-        else if (scan) [state, label] = ["orphan", scan.partial ? "检测：未找到使用者（检测不完整）" : "检测：没有已安装的扩展使用"];
+        else if (scan && scan.partial.length) [state, label] = ["maybe", `检测：未找到使用者，但「${scan.partial.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}」没有查完，请确认`];
+        else if (scan) [state, label] = ["orphan", "检测：没有已安装的扩展使用，可以删除"];
         else if (owner?.ext) [state, label] = ["used", `推测属于：${owner.ext.manifest?.display_name || owner.ext.base}${owner.ext.enabled ? "" : "（已停用）"}`];
         else [state, label] = ["maybe", "可能已卸载"];
         return { k, size, state, label };
@@ -6693,10 +6701,12 @@ function mountCleanKind(kind, box) {
       const total = list.reduce((n, r) => n + r.size, 0);
       const max = list[0]?.size || 1;
       const pick = list.filter((r) => S.sel.has(r.k));
+      const orphans = list.filter((r) => r.state === "orphan");
       box.innerHTML = `
         <div class="pa-verdict"><p>设置文件中各扩展的数据共 <b>${fmtSize(total)}</b>。设置文件每次打开酒馆都要下载，每次保存都要上传，删掉已卸载扩展的残留数据能减少这部分。</p>
           <p class="pa-hint">「可能已卸载」只是按名称推测。点「实际检测」会下载已安装扩展的脚本，逐个查找谁在使用这些数据，结果更准，但需要一些时间。</p>
-          <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${scan ? "重新检测" : "实际检测"}</button><span class="pa-hint pa-ck-prog"></span></div></div>
+          <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${scan ? "重新检测" : "实际检测"}</button>${orphans.length ? `<button class="pa-btn pa-btn-danger pa-btn-s" data-x="cleanall">一键清理 ${orphans.length} 项（${fmtSize(orphans.reduce((n, r) => n + r.size, 0))}）</button>` : ""}<span class="pa-hint pa-ck-prog"></span></div>
+          ${scan ? `<p class="pa-hint">${orphans.length ? "「一键清理」只删除检测确认没有扩展使用的数据，删除前先下载备份。" : "没有检测确认可删除的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」的文件太多或读取失败，没有查完，标为「请确认」的数据需要你自己判断。` : ""}</p>` : ""}</div>
         ${err ? `<p class="pa-warn">${esc(err)}</p>` : ""}
         <div class="pa-clist">${list.map((r) => `<label class="pa-crow${S.sel.has(r.k) ? " on" : ""}${r.state === "core" || r.state === "used" ? " pa-locked" : ""}">
           ${chk(r.k, S.sel.has(r.k), r.state === "core" || r.state === "used")}
@@ -6730,14 +6740,17 @@ function mountCleanKind(kind, box) {
         S.busy = false;
         return draw();
       }
-      if (x === "del") {
-        const keys = [...S.sel];
+      if (x === "del" || x === "cleanall") {
+        const keys = x === "cleanall" ? rows().filter((r) => r.state === "orphan").map((r) => r.k) : [...S.sel];
+        if (!keys.length) return;
         if (!await confirmBox("删除扩展数据", `将从设置文件中删除 ${keys.length} 项数据：${keys.slice(0, 5).join("、")}${keys.length > 5 ? " 等" : ""}。删除前会先下载备份。如果对应的扩展其实还在使用，它会恢复成默认设置。`, "下载备份并删除", true)) return;
         const es = ctx().extensionSettings;
         downloadBlob(new Blob([JSON.stringify(Object.fromEntries(keys.map((k) => [k, es[k]])), null, 2)], { type: "application/json" }), `extension-data-backup-${stamp()}.json`);
-        for (const k of keys) delete es[k];
+        for (const k of keys) {
+          delete es[k];
+          S.sel.delete(k);
+        }
         ctx().saveSettingsDebounced();
-        S.sel.clear();
         toast(`已删除 ${keys.length} 项扩展数据`, "success");
         return draw();
       }
