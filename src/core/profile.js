@@ -93,9 +93,9 @@ function profilePreset(draft) {
   const regexPrompt = regex.filter((r) => r.promptOnly || !r.markdownOnly);
   // 用大白话总结
   const lines = [];
-  if (cotStyle === "none") lines.push("没认出开着的思维链（名字特别的话，可以在「思维链」页手动设为思维链）。");
+  if (cotStyle === "none") lines.push("未识别到开启的思维链。如名称特殊，可在「思维链」页手动指定。");
   else {
-    const how = cotStyle === "vars" ? "主要靠变量把条目读进来（{{getvar}}）" : cotStyle === "text" ? "靠文字点名——在思维链里写到条目的名字或标签，不读变量" : "一部分靠变量读，一部分靠文字点名";
+    const how = cotStyle === "vars" ? "主要通过变量读取条目（{{getvar}}）" : cotStyle === "text" ? "通过文字提及条目的名称或标签，不读取变量" : "部分通过变量读取，部分通过文字提及";
     lines.push(`思维链 ${a.cotIds.length} 条（${namesOf(draft, a.cotIds, 2)}），${how}。`);
   }
   // 包进变量的：按"由谁统一发出去"合并成一行（小冰块的一键开关）
@@ -111,32 +111,32 @@ function profilePreset(draft) {
   for (const g of [...wrapGroups.values()].sort((x, y) => y.n - x.n).slice(0, 4)) {
     const off = g.readers.length && g.readers.every((r) => !draft.isActive(r));
     const vars = g.vars.slice(0, 4).map((v) => `「${v}」`).join("") + (g.vars.length > 4 ? ` 等 ${g.vars.length} 个变量` : "");
-    if (!g.readers.length) lines.push(`${g.n} 条把正文包进 ${vars}，但预设里没有条目读这些变量，开了也不会发。`);
-    else lines.push(`${g.n} 条把正文包进 ${vars}，由 ${namesOf(draft, g.readers, 2)} 统一发出去${off ? "——它现在是关着的，这些条目开了也不会发" : ""}。`);
+    if (!g.readers.length) lines.push(`${g.n} 条将正文写入 ${vars}，但没有条目读取这些变量，开启后也不会发送。`);
+    else lines.push(`${g.n} 条将正文写入 ${vars}，由 ${namesOf(draft, g.readers, 2)} 统一发送${off ? "。该条目目前关闭，这些条目开启后也不会发送" : ""}。`);
   }
   for (const s of shared.filter((x) => x.slot).slice(0, 4)) {
-    lines.push(`${s.writers.length} 条都往「${s.name}」里登记一句问句（setvar：同时开几条只认最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读出——缝进来的同类条目会照样登记。`);
+    lines.push(`${s.writers.length} 条向「${s.name}」登记问句（setvar，同时开启多条时只保留最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读取。缝合的同类条目按此方式登记。`);
   }
   for (const s of shared.filter((x) => !x.slot && !x.wrap).slice(0, 3)) {
     const who = s.readers.length ? namesOf(draft, s.readers, 1) : "";
-    if (s.names) lines.push(`${s.writers.length} 条把自己的名字登记到「${s.name}」（${s.op === "set" ? "setvar，只认最后一条，相当于单选" : "addvar，开着的都列上"}）${who ? `，${who} 读这份名单` : ""}。`);
-    else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 往「${s.name}」里追加思维链片段，思维链统一读它。`);
-    else lines.push(`${s.writers.length} 条往同一个变量「${s.name}」里写（${s.op}var）${who ? `，${who} 读它` : ""}。`);
+    if (s.names) lines.push(`${s.writers.length} 条将名称登记到「${s.name}」（${s.op === "set" ? "setvar，只保留最后一条，相当于单选" : "addvar，列出全部开启的条目"}）${who ? `，由 ${who} 读取` : ""}。`);
+    else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 向「${s.name}」追加思维链内容，思维链统一读取。`);
+    else lines.push(`${s.writers.length} 条写入同一变量「${s.name}」（${s.op}var）${who ? `，由 ${who} 读取` : ""}。`);
   }
-  if (perEntry.length >= 2) lines.push(`另外有些条目各自登记一个问句变量，由思维链逐个读出（比如 ${perEntry.slice(0, 3).join("、")}）——缝进来的条目最好也照这样挂上。`);
-  if (usesGlobal) lines.push("用到了全局变量（setglobalvar），换聊天也会保留。");
-  if (initId) lines.push(`「${P(initId)?.name}」负责每轮把变量清空（初始化条目）。`);
+  if (perEntry.length >= 2) lines.push(`部分条目各自登记问句变量，由思维链逐个读取（如 ${perEntry.slice(0, 3).join("、")}）。缝合的条目宜采用相同方式接入。`);
+  if (usesGlobal) lines.push("使用全局变量（setglobalvar），切换聊天后仍保留。");
+  if (initId) lines.push(`「${P(initId)?.name}」为初始化条目，每轮清空变量。`);
   const mentioned = (w) => a.cotIds.some((c2) => mentionsTag(cotPlainText(P(c2)?.content), w.key)) || a.cotIds.some((c2) => CJK.test(w.name) && cotPlainText(P(c2)?.content).includes(w.name));
-  for (const w of wrappers.slice(0, 4)) lines.push(`${w.label} 由「${P(w.openId)?.name}」开始、「${P(w.closeId)?.name}」结束，中间的条目都算在它里面${a.cotIds.length ? mentioned(w) ? "（思维链提到了这个区段）" : "（思维链没提到这个区段）" : ""}。`);
+  for (const w of wrappers.slice(0, 4)) lines.push(`${w.label} 从「${P(w.openId)?.name}」开始，到「${P(w.closeId)?.name}」结束，其间条目均在其内${a.cotIds.length ? mentioned(w) ? "（思维链提及此区段）" : "（思维链未提及此区段）" : ""}。`);
   const trig = [];
-  if (depth.length) trig.push(`${depth.length} 条插在聊天记录里（深度注入）`);
-  if (gen.length) trig.push(`${gen.length} 条只在特定生成方式下发送`);
-  if (cond.length) trig.push(`${cond.length} 条带 {{if}} 条件`);
-  if (script.length) trig.push(`${script.length} 条带脚本（EJS 等，需要对应插件）`);
-  if (random.length) trig.push(`${random.length} 条带随机宏`);
-  if (regexPrompt.length) trig.push(`${regexPrompt.length} 条正则会改发出去的内容`);
-  if (trig.length) lines.push(`特殊的生效方式：${trig.join("，")}。`);
-  if (!lines.length) lines.push("条目都是直接写正文，开着就发送。");
+  if (depth.length) trig.push(`${depth.length} 条按深度插入聊天记录`);
+  if (gen.length) trig.push(`${gen.length} 条只在特定生成类型下发送`);
+  if (cond.length) trig.push(`${cond.length} 条含 {{if}} 条件`);
+  if (script.length) trig.push(`${script.length} 条含脚本（如 EJS，需相应插件）`);
+  if (random.length) trig.push(`${random.length} 条含随机宏`);
+  if (regexPrompt.length) trig.push(`${regexPrompt.length} 条正则会修改发送内容`);
+  if (trig.length) lines.push(`特殊生效方式：${trig.join("；")}。`);
+  if (!lines.length) lines.push("条目均为正文直写，开启即发送。");
   return { a, cotStyle, perEntry, shared, usesGlobal, initId, wrappers, depth, gen, cond, script, random, regex: regexPrompt, lines };
 }
 
@@ -152,28 +152,28 @@ function describeEntry(draft, id, prof = null) {
   const nm = (x) => draft.prompt(x)?.name || x;
   const readersOf = (name) => (a.vars.get(name)?.readers || []).filter((r) => r !== id);
   const vk = (s.scope === "global" ? "全局:" : "") + (s.varName || "");
-  if (!draft.isActive(id)) lines.push("在原预设里是关着的");
+  if (!draft.isActive(id)) lines.push("在原预设中处于关闭状态");
   if (s.shape === "wrap") {
     const rs = readersOf(vk);
-    lines.push(`整段正文包在变量「${s.varName}」里（${s.op}var），${rs.length ? `由「${nm(rs[0])}」读出来才会发送` : "原预设里没看到谁读它"}`);
+    lines.push(`正文写入变量「${s.varName}」（${s.op}var），${rs.length ? `由「${nm(rs[0])}」读取后发送` : "原预设中没有条目读取"}`);
   } else if (s.shape === "tagname") {
     const rs = readersOf(vk);
-    lines.push(`正文直接发送，末尾把名字登记到「${s.varName}」${rs.length ? `（「${nm(rs[0])}」会读）` : ""}`);
-  } else if (s.shape === "init") lines.push("这是变量初始化条目，只负责清空变量");
-  else lines.push("正文直接写，开着就发送");
+    lines.push(`正文直接发送，末尾将名称登记到「${s.varName}」${rs.length ? `（由「${nm(rs[0])}」读取）` : ""}`);
+  } else if (s.shape === "init") lines.push("变量初始化条目，用于清空变量");
+  else lines.push("正文直写，开启即发送");
   const extraWrites = listVarMacros(content).filter((m) => m.depth === 0 && (m.op === "set" || m.op === "add") && !isBlankValue(m.value) && m.name !== s.varName);
   for (const m of extraWrites.slice(0, 2)) {
     const rs = readersOf((m.scope === "global" ? "全局:" : "") + m.name);
-    lines.push(`另外登记了「${m.name}」${rs.length ? `，给「${nm(rs[0])}」读` : ""}`);
+    lines.push(`另登记变量「${m.name}」${rs.length ? `，由「${nm(rs[0])}」读取` : ""}`);
   }
-  if (p.injection_position === 1) lines.push(`插在聊天记录里：深度 ${p.injection_depth ?? 4}，以 ${p.role || "system"} 身份`);
-  if ((p.injection_trigger || []).length) lines.push(`只在 ${p.injection_trigger.map((t) => TRIGGER_NAMES[t] || t).join("、")} 时发送`);
-  if (hasConditional(content)) lines.push("带 {{if}} 条件，要满足条件才发送对应部分");
-  if (hasScript(content)) lines.push("带脚本（EJS 等），目标也要装同样的插件才会生效");
-  if (hasRandom(content)) lines.push("带随机宏，每次发送内容可能不同");
+  if (p.injection_position === 1) lines.push(`插入聊天记录：深度 ${p.injection_depth ?? 4}，角色 ${p.role || "system"}`);
+  if ((p.injection_trigger || []).length) lines.push(`只在${p.injection_trigger.map((t) => TRIGGER_NAMES[t] || t).join("、")}时发送`);
+  if (hasConditional(content)) lines.push("含 {{if}} 条件，满足条件时才发送相应部分");
+  if (hasScript(content)) lines.push("含脚本（如 EJS），需要安装相应插件才能生效");
+  if (hasRandom(content)) lines.push("含随机宏，每次发送的内容可能不同");
   const reads = [...new Set(listVarMacros(content).filter((m) => m.op === "get" && m.name).map((m) => (m.scope === "global" ? "全局:" : "") + m.name))];
   const needsVars = reads.filter((k) => (a.vars.get(k)?.writers || []).some((w) => w !== id));
-  if (needsVars.length) lines.push(`会读取变量 ${needsVars.slice(0, 4).map((k) => `「${k}」`).join("")}，这些是别的条目写的`);
+  if (needsVars.length) lines.push(`读取变量 ${needsVars.slice(0, 4).map((k) => `「${k}」`).join("")}，这些变量由其他条目写入`);
   let cov = a.coverage.get(id);
   if (!cov || cov.level === "none") {
     // 关着的条目不在分析范围里，单独看一下：它写的变量有没有思维链读、思维链里有没有提到它
@@ -196,9 +196,9 @@ function describeEntry(draft, id, prof = null) {
     }
   }
   let cot = null;
-  if (a.cotIds.includes(id) || isCotEntry(draft, id)) cot = { level: "self", text: "它本身就是思维链" };
-  else if (cov && cov.level !== "none") cot = { level: cov.level, text: cov.level === "mention" ? `思维链「${nm(cov.cot)}」里提到了它（${cov.via}）` : `思维链「${nm(cov.cot)}」通过「${cov.via}」读到它` };
-  else if (pr.cotStyle !== "none") cot = { level: "none", text: "原预设的思维链没有读到/提到它" };
+  if (a.cotIds.includes(id) || isCotEntry(draft, id)) cot = { level: "self", text: "本身是思维链条目" };
+  else if (cov && cov.level !== "none") cot = { level: cov.level, text: cov.level === "mention" ? `思维链「${nm(cov.cot)}」中提及（${cov.via}）` : `思维链「${nm(cov.cot)}」通过「${cov.via}」读取` };
+  else if (pr.cotStyle !== "none") cot = { level: "none", text: "原预设的思维链未读取或提及" };
   // 在原预设里位于哪个外层标签里
   const pos = draft.order.findIndex((o) => o.identifier === id);
   const inside = pr.wrappers.filter((w) => {
@@ -206,7 +206,7 @@ function describeEntry(draft, id, prof = null) {
     const i2 = draft.order.findIndex((o) => o.identifier === w.closeId);
     return i1 < pos && pos < i2;
   }).map((w) => w.name);
-  if (inside.length) lines.push(`在原预设里位于 ${inside.map((n) => pr.wrappers.find((w) => w.name === n)?.label || `<${n}>`).join(" / ")} 里面`);
+  if (inside.length) lines.push(`在原预设中位于 ${inside.map((n) => pr.wrappers.find((w) => w.name === n)?.label || `<${n}>`).join(" / ")} 之内`);
   return { lines, cot, needsVars, inside };
 }
 

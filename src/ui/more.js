@@ -1,4 +1,4 @@
-// 1.3.0：方案、API、外观合并成一个「更多」页，上面用小分段切换
+// 「更多」页：开关方案、API 站点、外观、加载体检，顶部分段切换
 function mountMore(page, app) {
   const SUBS = [["schemes", "开关方案"], ["api", "API 站点"], ["look", "外观"], ["health", "加载体检"]];
   page.innerHTML = `
@@ -10,10 +10,15 @@ function mountMore(page, app) {
     api: mountApi(sec("api"), app),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">颜色</h3><div class="pa-look"></div></div>`;
+      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
       const slot = box.querySelector(".pa-look");
-      const render = () => { slot.innerHTML = themeCards(); };
+      const bgSlot = box.querySelector(".pa-bgslot");
+      const render = () => {
+        slot.innerHTML = themeCards();
+        bgSlot.innerHTML = bgPanel();
+      };
       bindThemeCards(slot);
+      bindBgPanel(bgSlot, render);
       return { render };
     })(),
     health: mountHealth(sec("health"))

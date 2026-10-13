@@ -30,9 +30,8 @@ function buildRoot() {
                 <div class="pa-savebar" hidden>
                     <span class="pa-dirty-text"></span>
                     <button class="pa-btn" data-g="undo">撤销</button>
-                    <button class="pa-btn pa-btn-primary" data-g="save">保存</button>
+                    <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
                 </div>
-                <button class="pa-icon-btn pa-theme-btn" data-g="theme" aria-label="换颜色" title="换颜色"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.4 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7.3" r="1.2"/><circle cx="14.5" cy="7.3" r="1.2"/></svg></button>
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭">✕</button>
             </header>
             <nav class="pa-tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</nav>
@@ -62,12 +61,11 @@ function buildRoot() {
   rootEl2.querySelector(".pa-top").addEventListener("click", async (e) => {
     const g = e.target.closest("[data-g]")?.dataset.g;
     if (g === "close") return close();
-    if (g === "theme") return themeSheet();
     if (g === "undo") {
       const d = getDraft(focusPreset());
       const label = d.undo();
       if (label) {
-        toast(`撤销了：${label}`);
+        toast(`已撤销：${label}`);
         emitChange(d.name);
       }
     }
@@ -82,7 +80,7 @@ function buildRoot() {
         toast("保存失败：" + err.message, "error");
       }
       btn.disabled = false;
-      btn.textContent = "保存";
+      btn.textContent = "重试保存";
     }
   });
   cleanups.push(onDraftChange(updateSavebar));
@@ -97,7 +95,9 @@ function updateSavebar() {
   }
   const n = d?.dirty ? d.history.length : 0;
   bar.hidden = !d || (!d.dirty && !d.history.length);
-  rootEl2.querySelector(".pa-dirty-text").textContent = saveErrors.has(d?.name) ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)} · 点保存重试` : saveJobs.has(d?.name) ? "自动保存中…" : d?.dirty ? "草稿已即时备份 · 等待自动保存" : "已自动保存";
+  const err = saveErrors.has(d?.name);
+  rootEl2.querySelector(".pa-dirty-text").textContent = err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) ? "保存中…" : d?.dirty ? "待保存" : "已保存";
+  rootEl2.querySelector("[data-g=save]").hidden = !err;
 }
 function show(tab) {
   current = tab;
@@ -109,7 +109,7 @@ function show(tab) {
     pages[tab].render();
   } catch (e) {
     console.error(e);
-    toast("出错了：" + e.message, "error");
+    toast("出错：" + e.message, "error");
   }
   updateSavebar();
 }
@@ -127,16 +127,16 @@ async function close() {
   const dirty = dirtyDrafts();
   if (dirty.length) {
     const r = await sheet({
-      title: "还有改动没保存",
-      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有没保存的改动。</p>`,
-      actions: [{ label: "先留着（下次打开还在）", value: "keep" }, { label: "放弃改动", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
+      title: "有未保存的修改",
+      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有未保存的修改。</p>`,
+      actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃修改", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
     });
     if (!r) return;
     if (r === "drop") dirty.forEach((d) => dropDraft(d.name));
     if (r === "save") {
       try {
         for (const d of dirty) await saveDraft(d.name, "裁缝铺保存");
-        toast("都保存好了", "success");
+        toast("已全部保存", "success");
       } catch (e) {
         return toast("保存失败：" + e.message, "error");
       }
@@ -201,7 +201,7 @@ function addSettingsEntry() {
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
       </div>
       <div class="inline-drawer-content">
-        <div class="pa-set-intro">整理分组 · 跨预设缝合 · 思维链检查 · 开关方案 · API 站点</div>
+        <div class="pa-set-intro">整理分组 · 跨预设缝合 · 思维链检查 · 开关方案 · API 站点 · 加载体检</div>
         <div class="pa-set-btns">
           <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开裁缝铺</span></div>
           <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>加载体检</span></div>
@@ -213,8 +213,8 @@ function addSettingsEntry() {
           ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
         </div>
         <div class="pa-set-status" hidden></div>
-        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 3).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
-        <div class="pa-set-foot">也可以从魔棒菜单 →「预设裁缝铺」打开，或者发 <code>/atelier</code>。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
+        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
+        <div class="pa-set-foot">也可从魔棒菜单打开，或发送 <code>/atelier</code>。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>
   </div>`);
@@ -235,18 +235,18 @@ function addSettingsEntry() {
     icon?.classList.add("fa-spin");
     try {
       if (a === "check") {
-        say("正在问 GitHub 有没有新版本…");
+        say("正在检查更新…");
         const v = await extApi("version");
-        if (v.isUpToDate) say(`已经是最新版（${esc(VERSION)}）。`, "ok");
-        else say('有新版本。<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>现在更新</span></div>', "new");
+        if (v.isUpToDate) say(`已是最新版本（${esc(VERSION)}）。`, "ok");
+        else say('有新版本。<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>更新</span></div>', "new");
       } else if (a === "update") {
         say("正在更新…");
         const v = await extApi("update");
-        if (v.isUpToDate) say("已经是最新版了。", "ok");
-        else say('更新好了，刷新页面就能用上新版。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>', "ok");
+        if (v.isUpToDate) say("已是最新版本。", "ok");
+        else say('更新完成，刷新页面后生效。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>', "ok");
       }
     } catch (e) {
-      say(`没成功：${esc(e.message).slice(0, 200)}<br>也可以去「扩展管理」里点更新。`, "bad");
+      say(`更新失败：${esc(e.message).slice(0, 200)}<br>可在「扩展管理」中更新。`, "bad");
     } finally {
       icon?.classList.remove("fa-spin");
       busy = false;
@@ -298,7 +298,7 @@ var keepConnection = debounce(async () => {
   applying = true;
   try {
     await applyConnection(site);
-    toast(`换预设后已自动连回「${site.name}」`);
+    toast(`已恢复连接「${site.name}」`);
   } catch (e) {
     console.warn("[裁缝铺] 自动恢复连接失败", e);
   } finally {

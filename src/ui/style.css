@@ -67,8 +67,8 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-logo svg { width: 20px; height: 20px; }
 #pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
 #pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }
-#pa-root .pa-theme-btn { margin-left: auto; }
-#pa-root .pa-savebar:not([hidden]) + .pa-theme-btn { margin-left: 0; }
+#pa-root .pa-close { margin-left: auto; }
+#pa-root .pa-savebar:not([hidden]) + .pa-close { margin-left: 0; }
 
 #pa-root .pa-tabs {
     grid-area: tabs;
@@ -347,13 +347,12 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }
 #pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }
 #pa-root .pa-cot { padding-top: 4px; }
-#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 6px 0 4px; }
+#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin: 6px 0 4px; }
 #pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }
 #pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }
 #pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }
 #pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }
 #pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }
-@media (max-width: 459px) { #pa-root .pa-cot-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 #pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }
 #pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }
 #pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }
@@ -470,12 +469,11 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }
 #pa-root .pa-theme b { font-size: .95em; }
 #pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }
-#pa-root .pa-theme-btn { color: var(--pa-dim); }
 
 /* ---------- 莫兰迪色卡（不透明） ---------- */
 #pa-root[data-theme]:not([data-theme="follow"]) .pa-shell, #pa-root[data-theme]:not([data-theme="follow"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }
-#pa-root[data-theme="mist"]     { --pa-tint:#e9eef2; --pa-text:#34404c; --pa-thread:#5b7a93; --pa-em:#55636f; --pa-line:#cad4dc; --pa-input-bg:#f7f9fb; --pa-warn:#b4604a; --pa-ok:#4e8466; --pa-on-accent:#fff; }
-#pa-root[data-theme="bean"]     { --pa-tint:#f4e9e8; --pa-text:#4f3c3c; --pa-thread:#a0605d; --pa-em:#6c5655; --pa-line:#e2cfcd; --pa-input-bg:#fcf7f6; --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; }
+#pa-root[data-theme="mist"]     { --pa-tint:#f6f2e2; --pa-text:#2f3a46; --pa-thread:#4f74a3; --pa-em:#4f5d6a; --pa-line:#d3d9c6; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b25a3c; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); --pa-sel:rgba(79,116,163,.18); }
+#pa-root[data-theme="bean"]     { --pa-tint:#f7ece9; --pa-text:#45343f; --pa-thread:#b0607e; --pa-em:#6a5562; --pa-line:#e3d1d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(176,96,126,.16); }
 #pa-root[data-theme="matcha"]   { --pa-tint:#e9efe6; --pa-text:#36443a; --pa-thread:#5d7d58; --pa-em:#55634f; --pa-line:#cdd9c9; --pa-input-bg:#f7faf5; --pa-warn:#b0603f; --pa-ok:#4c7d55; --pa-on-accent:#fff; }
 #pa-root[data-theme="oat"]      { --pa-tint:#f2ece4; --pa-text:#4a3f35; --pa-thread:#8a6a4c; --pa-em:#67594b; --pa-line:#e0d5c6; --pa-input-bg:#fbf8f3; --pa-warn:#b0563d; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }
 #pa-root[data-theme="lavender"] { --pa-tint:#edeaf3; --pa-text:#403a4f; --pa-thread:#72649a; --pa-em:#5d566c; --pa-line:#d7d1e3; --pa-input-bg:#f9f8fc; --pa-warn:#b0566a; --pa-ok:#567f6c; --pa-on-accent:#fff; }
@@ -540,3 +538,55 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-site-dl dt { color: var(--pa-dim); font-size: .9em; }
 #pa-root .pa-site-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 #pa-root .pa-dim { color: var(--pa-dim); }
+
+/* 1.3.9 花田、晴野：油画感渐变背景。几层柔和色团叠在浅色底上，再加一层很淡的画布纹理 */
+#pa-root { --pa-canvas: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+#pa-root[data-theme="bean"] .pa-shell, #pa-root .pa-paint-bean {
+    background:
+        var(--pa-canvas),
+        radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),
+        radial-gradient(ellipse 55% 28% at 84% 86%, rgba(244, 178, 150, .46), transparent 70%),
+        radial-gradient(ellipse 48% 24% at 46% 72%, rgba(190, 170, 226, .42), transparent 72%),
+        radial-gradient(ellipse 70% 20% at 72% 36%, rgba(206, 190, 226, .50), transparent 70%),
+        radial-gradient(ellipse 50% 18% at 18% 40%, rgba(214, 198, 228, .46), transparent 70%),
+        radial-gradient(ellipse 90% 22% at 50% 56%, rgba(246, 212, 192, .40), transparent 70%),
+        radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),
+        linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%);
+}
+#pa-root[data-theme="mist"] .pa-shell, #pa-root .pa-paint-mist {
+    background:
+        var(--pa-canvas),
+        radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),
+        radial-gradient(ellipse 45% 16% at 12% 10%, rgba(104, 148, 138, .36), transparent 70%),
+        radial-gradient(ellipse 55% 26% at 30% 54%, rgba(246, 230, 146, .52), transparent 70%),
+        radial-gradient(ellipse 46% 24% at 78% 64%, rgba(212, 226, 164, .56), transparent 70%),
+        radial-gradient(ellipse 28% 14% at 70% 40%, rgba(240, 176, 186, .42), transparent 70%),
+        radial-gradient(ellipse 34% 16% at 22% 86%, rgba(198, 188, 236, .42), transparent 70%),
+        radial-gradient(ellipse 30% 14% at 86% 90%, rgba(244, 196, 160, .40), transparent 70%),
+        linear-gradient(180deg, #e2eaec 0%, #f6f1db 26%, #f3eecd 60%, #e2e9cf 100%);
+}
+#pa-root[data-theme="bean"] .pa-shell::before, #pa-root[data-theme="mist"] .pa-shell::before { background: none; }
+/* 渐变背景上的半透明面板 */
+#pa-root[data-theme="bean"] .pa-top, #pa-root[data-theme="mist"] .pa-top,
+#pa-root[data-theme="bean"] .pa-tabs, #pa-root[data-theme="mist"] .pa-tabs { background: rgba(255, 255, 255, .34); }
+#pa-root[data-theme="bean"] :is(.pa-selbar, .pa-movebar, .pa-stitchbar), #pa-root[data-theme="mist"] :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: rgba(255, 255, 255, .62); }
+#pa-root .pa-theme.pa-paint-bean, #pa-root .pa-theme.pa-paint-mist { background-size: auto, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%; }
+
+/* 1.3.9 自定义背景图：图片上盖一层主题底色 */
+#pa-root.pa-has-bg .pa-shell { background: linear-gradient(var(--pa-bg-veil), var(--pa-bg-veil)), var(--pa-bg-img) center / cover no-repeat; }
+#pa-root.pa-has-bg .pa-shell::before { background: none; }
+#pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }
+#pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }
+#pa-root.pa-has-bg { --pa-card: color-mix(in srgb, var(--pa-tint) 58%, transparent); --pa-card-2: color-mix(in srgb, var(--pa-tint) 78%, transparent); }
+#pa-root .pa-bgpanel input[type=range] { flex: 1 1 auto; accent-color: var(--pa-thread); }
+#pa-root .pa-bgpanel em { font-style: normal; color: var(--pa-dim); min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 1.3.9 空分组、分组拖动、新分组选位置、模型下拉 */
+#pa-root .pa-gempty { margin: 0; padding: 4px 14px 8px; color: var(--pa-dim); font-size: .85em; }
+#pa-root .pa-group.pa-gempty-box { border: 1px dashed var(--pa-line); }
+#pa-root .pa-group.pa-dragging { opacity: .4; }
+#pa-root .pa-ghead .pa-handle { height: 32px; width: 34px; }
+#pa-root .pa-movebar-ng > b { color: var(--pa-text); }
+#pa-root .pa-ngbar { border-top: 2px solid var(--pa-thread); }
+#pa-root .pa-model-slot { display: grid; gap: 6px; }
+#pa-root .pa-model-slot .pa-select { width: 100%; }

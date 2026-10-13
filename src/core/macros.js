@@ -123,9 +123,9 @@ function detectShape(content) {
   return { shape: "plain", body: text };
 }
 var SHAPE_LABEL = {
-  wrap: "整段包进变量",
-  tagname: "正文直写＋登记名字",
-  plain: "直接写正文",
+  wrap: "整段写入变量",
+  tagname: "正文直写并登记名称",
+  plain: "正文直写",
   init: "变量初始化",
   empty: "空条目"
 };

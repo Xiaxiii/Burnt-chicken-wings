@@ -21,7 +21,7 @@ function schemeMatches(d, scheme) {
 }
 async function applyScheme(scheme, { quiet = false } = {}) {
   if (!listPresets().includes(scheme.preset)) {
-    toast(`方案「${scheme.name}」对应的预设「${scheme.preset}」不在了`, "error");
+    toast(`方案「${scheme.name}」对应的预设「${scheme.preset}」已不存在`, "error");
     return false;
   }
   if (currentPresetName() !== scheme.preset) {
@@ -30,7 +30,7 @@ async function applyScheme(scheme, { quiet = false } = {}) {
   }
   const d = getDraft(scheme.preset);
   if (d.dirty && !quiet) {
-    if (!await confirmBox("有没保存的改动", `「${scheme.preset}」还有没保存的整理/缝合改动，套用方案会把它们一起保存。继续吗？`, "一起保存")) return false;
+    if (!await confirmBox("有未保存的修改", `「${scheme.preset}」有未保存的修改，套用方案时将一并保存。是否继续？`, "继续")) return false;
   }
   if (!schemeMatches(d, scheme)) {
     d.snapshot("套用方案");
@@ -39,7 +39,7 @@ async function applyScheme(scheme, { quiet = false } = {}) {
     await saveDraft(scheme.preset, `套用方案 ${scheme.name}`);
   }
   if (scheme.persona) await setPersona(scheme.persona);
-  toast(`已换成「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}`, "success");
+  toast(`已套用「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}`, "success");
   return true;
 }
 function boundSchemeId() {
@@ -48,23 +48,23 @@ function boundSchemeId() {
 function mountSchemes(page) {
   page.innerHTML = `
         <div class="pa-toolbar"><div class="pa-picker-slot"></div>
-            <button class="pa-btn pa-btn-primary" data-s="new">把现在的开关存成方案</button></div>
-        <p class="pa-hint pa-pad">方案＝一套条目开关，可带人设、可绑定聊天。</p>
+            <button class="pa-btn pa-btn-primary" data-s="new">保存当前开关为方案</button></div>
+        <p class="pa-hint pa-pad">方案记录一组条目的开关状态，可包含人设，可绑定聊天。</p>
         <div class="pa-scroll pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
   const all = () => settings().schemes;
   function card(s, d) {
     const bound = boundSchemeId() === s.id;
-    const scope = s.scope === "all" ? "全部条目" : `${s.scope.map((g) => d?.group(g)?.name).filter(Boolean).slice(0, 4).join("、")}${s.scope.length > 4 ? ` 等 ${s.scope.length} 组` : ""}`;
+    const scope = s.scope === "all" ? "全部条目" : `${s.scope.map((g) => d?.group(g)?.name).filter(Boolean).slice(0, 4).join("、")}${s.scope.length > 4 ? ` 等 ${s.scope.length} 个分组` : ""}`;
     const on = d && s.preset === d.name && schemeMatches(d, s);
     return `<article class="pa-card pa-scheme${on ? " pa-scheme-on" : ""}" data-id="${esc(s.id)}">
-            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">正在用</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">绑定本聊天</span>' : ""}</header>
-            <small>${esc(s.preset)} \xB7 ${esc(scope)} \xB7 ${Object.values(s.states).filter(Boolean).length} 条开${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}</small>
+            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">已绑定本聊天</span>' : ""}</header>
+            <small>${esc(s.preset)} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}</small>
             <div class="pa-card-act">
                 <button class="pa-btn pa-btn-primary" data-a="apply">套用</button>
-                <button class="pa-btn" data-a="update">更新成现在的开关</button>
-                <button class="pa-btn" data-a="bind">${bound ? "解除聊天绑定" : "绑定到这个聊天"}</button>
+                <button class="pa-btn" data-a="update">更新为当前开关</button>
+                <button class="pa-btn" data-a="bind">${bound ? "解除绑定" : "绑定本聊天"}</button>
                 <button class="pa-icon-btn" data-a="more" aria-label="更多">⋯</button>
             </div></article>`;
   }
@@ -77,7 +77,7 @@ function mountSchemes(page) {
     if (d) picker.set(d.name);
     const mine = all().filter((s) => d && s.preset === d.name);
     const others = all().filter((s) => !d || s.preset !== d.name);
-    box.innerHTML = (mine.length ? mine.map((s) => card(s, d)).join("") : `<p class="pa-empty">「${esc(d?.name || "")}」还没有方案。先在酒馆里（或整理页）把文风、人设条目开好，再点上面的按钮存起来。</p>`) + (others.length ? `<h3 class="pa-h">其他预设的方案（套用会切换预设）</h3>${others.map((s) => card(s, null)).join("")}` : "");
+    box.innerHTML = (mine.length ? mine.map((s) => card(s, d)).join("") : `<p class="pa-empty">「${esc(d?.name || "")}」暂无方案。先开启需要的条目，再点「保存当前开关为方案」。</p>`) + (others.length ? `<h3 class="pa-h">其他预设的方案（套用时将切换预设）</h3>${others.map((s) => card(s, null)).join("")}` : "");
   }
   page.querySelector("[data-s=new]").addEventListener("click", async () => {
     const d = getDraft(focusPreset());
@@ -85,24 +85,24 @@ function mountSchemes(page) {
     const personaName = listPersonas().find((p) => p.avatar === persona)?.name || "";
     const groups = d.groups.groups;
     const body = el(`<div class="pa-form">
-            <label class="pa-field"><span>方案名</span><input class="pa-input" data-f="name" placeholder="比如：狗男纯爱、年上Daddy"></label>
-            <fieldset class="pa-fieldset"><legend>记住哪些开关</legend>
-                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="groups" ${groups.length ? "checked" : ""} ${groups.length ? "" : "disabled"}> 只记下面勾的分组（推荐，别的条目不受影响）</label>
-                <div class="pa-groups-pick">${groups.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${LIKELY.test(g.name) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || '<p class="pa-hint">这个预设还没分组，可以先去整理页分组</p>'}</div>
-                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="all" ${groups.length ? "" : "checked"}> 记住全部条目</label>
+            <label class="pa-field"><span>方案名称</span><input class="pa-input" data-f="name" placeholder="例如：纯爱、年上"></label>
+            <fieldset class="pa-fieldset"><legend>记录范围</legend>
+                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="groups" ${groups.length ? "checked" : ""} ${groups.length ? "" : "disabled"}> 只记录勾选的分组（推荐，其他条目不受影响）</label>
+                <div class="pa-groups-pick">${groups.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${LIKELY.test(g.name) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || '<p class="pa-hint">此预设暂无分组，可在整理页新建</p>'}</div>
+                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="all" ${groups.length ? "" : "checked"}> 记录全部条目</label>
             </fieldset>
-            ${persona ? `<label class="pa-inline-check"><input type="checkbox" data-f="persona" checked> 连同人设一起记住（现在是「${esc(personaName || persona)}」）</label>` : ""}
+            ${persona ? `<label class="pa-inline-check"><input type="checkbox" data-f="persona" checked> 同时记录人设（当前为「${esc(personaName || persona)}」）</label>` : ""}
         </div>`);
     const r = await sheet({
-      title: "存成方案",
+      title: "保存为方案",
       body,
       wide: true,
       actions: [{ label: "取消", value: null }, {
-        label: "保存方案",
+        label: "保存",
         kind: "primary",
         validate: (w) => {
           if (!w.querySelector("[data-f=name]").value.trim()) {
-            toast("起个名字吧");
+            toast("请填写方案名称");
             return false;
           }
           return true;
@@ -115,12 +115,12 @@ function mountSchemes(page) {
       }]
     });
     if (!r) return;
-    if (Array.isArray(r.scope) && !r.scope.length) return toast('至少勾一个分组，或者选"记住全部条目"', "warning");
+    if (Array.isArray(r.scope) && !r.scope.length) return toast("请至少勾选一个分组，或选择记录全部条目", "warning");
     const s = { id: uid(), name: r.name, preset: d.name, scope: r.scope, persona: r.persona ? persona : null, personaName: r.persona ? personaName : "" };
     Object.assign(s, schemeStates(d, s));
     all().push(s);
     saveSettings();
-    toast(`存好了「${s.name}」`, "success");
+    toast(`已保存方案「${s.name}」`, "success");
     render();
   });
   box.addEventListener("click", async (e) => {
@@ -136,7 +136,7 @@ function mountSchemes(page) {
     }
     if (a === "update") {
       const d = getDraft(s.preset);
-      if (!await confirmBox("更新方案", `用「${s.preset}」现在的开关覆盖方案「${s.name}」？`, "更新")) return;
+      if (!await confirmBox("更新方案", `用「${s.preset}」当前的开关覆盖方案「${s.name}」？`, "更新")) return;
       Object.assign(s, schemeStates(d, s));
       const persona = currentPersona();
       if (s.persona && persona) {
@@ -148,25 +148,25 @@ function mountSchemes(page) {
       render();
     }
     if (a === "bind") {
-      if (!hasChat()) return toast("先打开一个聊天再绑定");
+      if (!hasChat()) return toast("请先打开一个聊天");
       const meta = chatMeta();
       if (meta[META_KEY] === s.id) delete meta[META_KEY];
       else meta[META_KEY] = s.id;
       await saveChatMeta();
-      toast(meta[META_KEY] ? `这个聊天以后会自动用「${s.name}」` : "已解除绑定", "success");
+      toast(meta[META_KEY] ? `已绑定：进入本聊天时自动套用「${s.name}」` : "已解除绑定", "success");
       render();
     }
     if (a === "more") {
-      const v = await pickBox(s.name, [{ label: "改名", value: "rename" }, { label: "删除方案", value: "del" }]);
+      const v = await pickBox(s.name, [{ label: "重命名", value: "rename" }, { label: "删除方案", value: "del" }]);
       if (v === "rename") {
-        const n = await promptBox("方案名", s.name);
+        const n = await promptBox("方案名称", s.name);
         if (n) {
           s.name = n;
           saveSettings();
           render();
         }
       }
-      if (v === "del" && await confirmBox("删除方案", `删除「${s.name}」？预设本身不受影响。`, "删除", true)) {
+      if (v === "del" && await confirmBox("删除方案", `删除「${s.name}」？预设不受影响。`, "删除", true)) {
         settings().schemes = all().filter((x) => x.id !== s.id);
         saveSettings();
         render();

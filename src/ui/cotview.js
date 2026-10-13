@@ -1,8 +1,8 @@
 var LEVEL = {
-  var: ["pa-lv-ok", "读到了"],
-  chain: ["pa-lv-ok", "间接读到"],
-  mention: ["pa-lv-maybe", "文字提到"],
-  none: ["pa-lv-none", "没提到"]
+  var: ["pa-lv-ok", "已读取"],
+  chain: ["pa-lv-ok", "间接读取"],
+  mention: ["pa-lv-maybe", "文字提及"],
+  none: ["pa-lv-none", "未提及"]
 };
 async function repairAllVariables(d, manual = {}) {
   const work = new Draft(d.name, d.toPreset());
@@ -14,14 +14,14 @@ async function repairAllVariables(d, manual = {}) {
     try { plans.push(variableRepairPlan(work, key)); }
     catch(e) { skipped.push({ key, reason:e.message }); }
   }
-  if (!keys.length && !normalized.length) return toast('没有需要修复的变量引用或冗余包裹');
+  if (!keys.length && !normalized.length) return toast('没有需要修复的变量问题');
   if (plans.length || normalized.length) {
     const byAnchor = new Map();
     for (const plan of plans) {
       if (!byAnchor.has(plan.last)) byAnchor.set(plan.last, []);
       byAnchor.get(plan.last).push(plan);
     }
-    mutate(d, '一键修复变量引用', x => {
+    mutate(d, '修复变量问题', x => {
       applyWrapperNormalization(x);
       for (const [last, list] of byAnchor) {
         x.insertPrompts([{prompt:{
@@ -34,15 +34,15 @@ async function repairAllVariables(d, manual = {}) {
   }
   let saveError = null;
   if (plans.length || normalized.length) {
-    try { await saveDraft(d.name, '一键修复变量引用'); }
+    try { await saveDraft(d.name, '修复变量问题'); }
     catch(e) { saveError=e.message; saveErrors.set(d.name,e.message); checkpoint(d); notifyDraft(d.name); }
   }
-  const body=el(`<div><p class="pa-p">已整理 <b>${normalized.length}</b> 个冗余外层包裹，补齐 <b>${plans.length}</b> 个变量引用${saveError?'；写回失败，草稿已保留':'；'+(plans.length||normalized.length?'已自动保存':'没有修改预设')}。跳过 <b>${skipped.length}</b> 个。</p>
+  const body=el(`<div><p class="pa-p">整理冗余外层包裹 <b>${normalized.length}</b> 个，补充变量读取 <b>${plans.length}</b> 个，跳过 <b>${skipped.length}</b> 个。${saveError?'写回失败，草稿已保留。':(plans.length||normalized.length?'已保存。':'预设未修改。')}</p>
     ${saveError?`<p class="pa-hint">保存失败：${esc(saveError)}</p>`:''}
     ${plans.length?`<details><summary>已修复的变量</summary><p class="pa-p">${plans.map(p=>esc(p.key)).join('、')}</p></details>`:''}
-    ${skipped.length?`<h3 class="pa-h">这些需要手动核对</h3>${skipped.map(x=>`<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join('')}`:''}
-    <p class="pa-hint">读取条目放在最后一个启用的写入条目之后，思维链不改。只整理带缝合来源、无读取依赖、只包一个赋值宏的外层包裹。</p></div>`);
-  await sheet({title:'一键修复结果',body,wide:true,noFocus:true,actions:[{label:'完成',kind:'primary',value:true}]});
+    ${skipped.length?`<h3 class="pa-h">需人工核对</h3>${skipped.map(x=>`<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join('')}`:''}
+    <p class="pa-hint">读取条目放在最后一个写入该变量的开启条目之后，思维链不改动。只整理来自缝合、无读取依赖、只包含一个赋值宏的外层包裹。</p></div>`);
+  await sheet({title:'修复结果',body,wide:true,noFocus:true,actions:[{label:'完成',kind:'primary',value:true}]});
 }
 
 async function hookExistingDialog(d, id) {
@@ -51,31 +51,31 @@ async function hookExistingDialog(d, id) {
   const gid = d.groupOf(id);
   const plan0 = planHook(d, { after: id }, gid, { content: p.content, name: p.name, selfId: id });
   if (plan0.status !== "hook") {
-    await sheet({ title: p.name, body: `<p class="pa-p">${esc(plan0.text)}</p>`, actions: [{ label: "知道了", value: true }] });
+    await sheet({ title: p.name, body: `<p class="pa-p">${esc(plan0.text)}</p>`, actions: [{ label: "确定", value: true }] });
     return;
   }
   const initId = findInitEntry(d);
   const cotName = esc(d.prompt(plan0.cotId)?.name || "");
   let how;
-  if (plan0.mode === "text") how = `<label class="pa-field"><span>在「${cotName}」里加这一行</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">${plan0.needle ? `加在提到 ${esc(plan0.needle)} 的那一行后面` : "加在这条思维链的末尾"}。</p>`;
-  else if (plan0.mode === "append") how = `<label class="pa-field"><span>追加的思维链片段</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">「${esc(p.name)}」末尾加 {{addvar::${esc(plan0.varName)}::片段}}；思维链已读这个变量。</p>`;
+  if (plan0.mode === "text") how = `<label class="pa-field"><span>在「${cotName}」中添加一行</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
+      <p class="pa-hint">${plan0.needle ? `添加在提到 ${esc(plan0.needle)} 的一行之后` : "添加在思维链末尾"}。条目正文不变。</p>`;
+  else if (plan0.mode === "append") how = `<label class="pa-field"><span>追加的内容</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
+      <p class="pa-hint">「${esc(p.name)}」末尾添加 {{addvar::${esc(plan0.varName)}::内容}}。思维链已读取该变量，不改动。</p>`;
   else how = `<label class="pa-field"><span>问句变量</span><input class="pa-input" data-h="v" value="${esc(plan0.varName)}"></label>
-      <label class="pa-field"><span>思维链里问什么</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">「${esc(p.name)}」末尾加 {{setvar::变量::问句}}；${initId ? `「${esc(d.prompt(initId)?.name)}」里加一行清空` : "（没找到初始化条目，跳过清空）"}；「${cotName}」里${plan0.anchorVar ? `紧跟 {{getvar::${esc(plan0.anchorVar)}}} ` : ""}加一行读取。${plan0.removeRange ? "沿用条目里原有的问句。" : ""}</p>`;
+      <label class="pa-field"><span>思维链中的问句</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
+      <p class="pa-hint">「${esc(p.name)}」末尾添加 {{setvar::变量::问句}}；${initId ? `「${esc(d.prompt(initId)?.name)}」中添加一行清空` : "未找到初始化条目，不添加清空"}；「${cotName}」中${plan0.anchorVar ? `在 {{getvar::${esc(plan0.anchorVar)}}} 之后` : ""}添加一行读取。${plan0.removeRange ? "沿用条目里原有的问句。" : ""}</p>`;
   const body = el(`<div class="pa-form"><p class="pa-p">${esc(plan0.text)}。</p>${how}</div>`);
-  const ok = await sheet({ title: `把「${p.name}」挂进思维链`, body, wide: true, actions: [{ label: "取消", value: null }, { label: "挂上", kind: "primary", value: (w) => ({ v: (w.querySelector("[data-h=v]")?.value || "").replace(/[{}:：\s]/g, ""), q: (w.querySelector("[data-h=q]")?.value || "").trim() }) }] });
+  const ok = await sheet({ title: `将「${p.name}」接入思维链`, body, wide: true, actions: [{ label: "取消", value: null }, { label: "接入", kind: "primary", value: (w) => ({ v: (w.querySelector("[data-h=v]")?.value || "").replace(/[{}:：\s]/g, ""), q: (w.querySelector("[data-h=q]")?.value || "").trim() }) }] });
   if (!ok) return;
   const plan = planHook(d, { after: id }, gid, { content: p.content, name: p.name, selfId: id }, { varName: ok.v && ok.v !== plan0.varName ? ok.v : void 0, question: ok.q || void 0 });
   if (plan.status !== "hook") return toast(plan.text);
-  if (plan.clash) return toast(`变量「${plan.varName}」在预设里已经有别的用处了，换个名字`, "warning");
-  mutate(d, `挂进思维链：${p.name}`, (x) => {
+  if (plan.clash) return toast(`变量「${plan.varName}」在预设中已有其他用途，请更换名称`, "warning");
+  mutate(d, `接入思维链：${p.name}`, (x) => {
     const q = x.prompt(id);
     q.content = contentWithHook(q.content, plan);
     applyHook(x, plan);
   });
-  toast(`已挂进「${d.prompt(plan.cotId)?.name}」`, "success");
+  toast(`已接入「${d.prompt(plan.cotId)?.name}」`, "success");
 }
 function mountCot(page, app) {
   const st = { filter: "none" };
@@ -86,7 +86,7 @@ function mountCot(page, app) {
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
   page.querySelector('[data-repair-all]').addEventListener('click', async () => {
     try { await repairAllVariables(getDraft(focusPreset()), manualFor(focusPreset())); }
-    catch(err) { toast('一键修复失败：'+err.message,'error'); }
+    catch(err) { toast('修复失败：'+err.message,'error'); }
   });
   const manualFor = (name) => {
     const s = settings();
@@ -109,50 +109,48 @@ function mountCot(page, app) {
     for (const c2 of a.coverage.values()) counts[c2.level]++;
     const cotVarReads = a.cot.reduce((n, c2) => n + c2.reads.length, 0);
     const okN = counts.var + counts.chain;
-    const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字点名并用" : "以文字点名为主，不读变量";
-    const total = okN + counts.mention + counts.none;
+    const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字提及并用" : "以文字提及为主，不读取变量";
     page.querySelector("[data-repair-all]").disabled = !dead.length;
     let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
-            ${a.cotIds.length ? `<p>思维链 <b>${a.cotIds.length}</b> 条，${style}。</p>
-            <p>开启的普通条目 ${total} 条：读到 <b>${okN}</b>，文字提到 <b>${counts.mention}</b>，没提到 <b>${counts.none}</b>。</p>` : `<p>未识别到开启的思维链，可在下方手动指定。</p>`}
-            <p>${dead.length ? `<b>${dead.length}</b> 处变量写入后无人读取，内容不会发送。` : "变量读写一致 ✓"}</p>
+            <p>${a.cotIds.length ? `思维链${style}。` : "未识别到开启的思维链，可在下方手动指定。"}${dead.length ? `有 <b>${dead.length}</b> 处变量写入后未被读取，相关内容不会发送。` : "变量读写一致。"}</p>
         </div>
         <details class="pa-card pa-explain-card"><summary><b>说明</b></summary>
             <ul class="pa-legend">
-                <li><span class="pa-lv pa-lv-ok">读到了</span>思维链通过 {{getvar}} 读取该条目写入的变量。</li>
-                <li><span class="pa-lv pa-lv-maybe">文字提到</span>思维链中出现该条目的名称或标签。</li>
-                <li><span class="pa-lv pa-lv-none">没提到</span>思维链中未出现。</li>
-                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量没人读</span>条目写入的变量没有被任何开启条目读取，内容不会发送。</li>
+                <li><span class="pa-lv pa-lv-ok">已读取</span>思维链通过 {{getvar}} 读取该条目写入的变量。</li>
+                <li><span class="pa-lv pa-lv-maybe">文字提及</span>思维链中出现该条目的名称或标签。</li>
+                <li><span class="pa-lv pa-lv-none">未提及</span>思维链中没有出现该条目。</li>
+                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量未被读取</span>条目写入的变量没有被任何开启条目读取，内容不会发送。</li>
             </ul>
         </details>
         <div class="pa-cot-sum">
             <div><b>${a.cotIds.length}</b><span>条思维链</span></div>
-            <div><b>${okN}</b><span>条读到</span></div>
-            <div><b>${counts.mention}</b><span>条文字提到</span></div>
-            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>处变量没人读</span></div>
+            <div><b>${okN}</b><span>条已读取</span></div>
+            <div><b>${counts.mention}</b><span>条文字提及</span></div>
+            <div><b>${counts.none}</b><span>条未提及</span></div>
+            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>处变量未被读取</span></div>
         </div>`;
     if (dead.length) {
-      html += `<h3 class="pa-h">变量没人读</h3><div class="pa-cards">`;
+      html += `<h3 class="pa-h">变量未被读取</h3><div class="pa-cards">`;
       for (const i of dead) {
         html += `<div class="pa-card pa-card-warn"><p>${i.ids.map((id) => `「${nm(id)}」`).join("")}${esc(i.text)}</p>
-                    <div class="pa-card-act">${i.readersOff?.length ? `<button class="pa-btn pa-btn-soft" data-fix="${esc(i.readersOff.join("|"))}">打开读取它的条目</button>` : ""}
-                    <button class="pa-btn" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理里看</button></div></div>`;
+                    <div class="pa-card-act">${i.readersOff?.length ? `<button class="pa-btn pa-btn-soft" data-fix="${esc(i.readersOff.join("|"))}">开启读取它的条目</button>` : ""}
+                    <button class="pa-btn" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></div>`;
       }
       html += "</div>";
     }
-    html += `<div class="pa-row-head"><h3 class="pa-h">每条思维链在读什么</h3><button class="pa-link" data-markpick="1">漏认了？手动指定思维链</button></div>`;
+    html += `<div class="pa-row-head"><h3 class="pa-h">思维链读取的变量</h3><button class="pa-link" data-markpick="1">手动指定思维链</button></div>`;
     html += '<div class="pa-cards">';
     for (const c2 of a.cot) {
-      const reads = c2.reads.map((r) => `<li><span class="pa-chip">${esc(r.name)}</span>${r.suppliers.length ? r.suppliers.map((s) => `<span class="pa-sup">${nm(s)}</span>`).join("") : '<span class="pa-sup pa-dim">没开任何选项（空）</span>'}</li>`).join("");
-      html += `<details class="pa-card"><summary><b>${nm(c2.id)}</b><small>${c2.reads.length ? `读了 ${c2.reads.length} 个变量` : "没读变量（靠文字点名）"}</small></summary>
+      const reads = c2.reads.map((r) => `<li><span class="pa-chip">${esc(r.name)}</span>${r.suppliers.length ? r.suppliers.map((s) => `<span class="pa-sup">${nm(s)}</span>`).join("") : '<span class="pa-sup pa-dim">无开启的选项（为空）</span>'}</li>`).join("");
+      html += `<details class="pa-card"><summary><b>${nm(c2.id)}</b><small>${c2.reads.length ? `读取 ${c2.reads.length} 个变量` : "不读取变量（文字提及）"}</small></summary>
                 ${reads ? `<ul class="pa-reads">${reads}</ul>` : ""}
-                ${c2.mentions.length ? `<p class="pa-hint">文字里出现的英文标签/词：${c2.mentions.slice(0, 12).map(esc).join("、")}</p>` : ""}
-                <button class="pa-link" data-mark="${esc(c2.id)}" data-v="0">这条不是思维链</button></details>`;
+                ${c2.mentions.length ? `<p class="pa-hint">文中出现的标签和英文词：${c2.mentions.slice(0, 12).map(esc).join("、")}</p>` : ""}
+                <button class="pa-link" data-mark="${esc(c2.id)}" data-v="0">不是思维链</button></details>`;
     }
     html += "</div>";
-    html += `<h3 class="pa-h">每个开着的条目，思维链有没有想到它</h3>
+    html += `<h3 class="pa-h">开启条目与思维链的关联</h3>
             <div class="pa-seg pa-seg-s" role="tablist">
-                ${[["none", `没提到 ${counts.none}`], ["mention", `文字提到 ${counts.mention}`], ["ok", `读到了 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
+                ${[["none", `未提及 ${counts.none}`], ["mention", `文字提及 ${counts.mention}`], ["ok", `已读取 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
             </div>`;
     const groupsOrder = [];
     const byGroup = /* @__PURE__ */ new Map();
@@ -172,13 +170,13 @@ function mountCot(page, app) {
       for (const [id, c2] of byGroup.get(gname)) {
         const [cls, label] = LEVEL[c2.level];
         const via = c2.level === "none" ? "" : `${esc(c2.via)} → ${nm(c2.cot)}`;
-        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">挂进思维链</button>` : ""}</div>`;
+        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">接入思维链</button>` : ""}</div>`;
       }
       html += "</div>";
     }
     if (!groupsOrder.length) html += '<p class="pa-hint">无</p>';
     if (a.optional.length) {
-      html += `<details class="pa-card pa-optional"><summary>思维链里留了位置、但没开任何选项的变量（${a.optional.length}）</summary>
+      html += `<details class="pa-card pa-optional"><summary>思维链已预留、但没有开启选项的变量（${a.optional.length}）</summary>
                 <ul class="pa-reads">${a.optional.map((o) => `<li><span class="pa-chip">${esc(o.varName)}</span>${o.ids.map((id) => `<span class="pa-sup">${nm(id)}</span>`).join("")}</li>`).join("")}</ul></details>`;
     }
     box.innerHTML = html;
@@ -186,11 +184,11 @@ function mountCot(page, app) {
   const a0 = (d) => analyze(d, manualFor(d.name));
   box.addEventListener("click", async (e) => {
     const d = getDraft(focusPreset());
-    if (e.target.closest("[data-repair-all]")) { try { await repairAllVariables(d, manualFor(d.name)); } catch(err) { toast("一键修复失败："+err.message,"error"); } return; }
+    if (e.target.closest("[data-repair-all]")) { try { await repairAllVariables(d, manualFor(d.name)); } catch(err) { toast("修复失败："+err.message,"error"); } return; }
     const repair = e.target.closest("[data-repair]");
     if (repair) { try { await repairVariableDialog(d, repair.dataset.repair); } catch(err) { toast(err.message, "error"); } return; }
     const hk = e.target.closest("[data-hook]");
-    if (hk) { try { await hookExistingDialog(d, hk.dataset.hook); } catch(err) { toast("挂进思维链失败：" + err.message, "error"); } return; }
+    if (hk) { try { await hookExistingDialog(d, hk.dataset.hook); } catch(err) { toast("接入思维链失败：" + err.message, "error"); } return; }
     const f = e.target.closest("[data-f]");
     if (f) {
       st.filter = f.dataset.f;
@@ -199,8 +197,8 @@ function mountCot(page, app) {
     const fix = e.target.closest("[data-fix]");
     if (fix) {
       const ids = fix.dataset.fix.split("|");
-      mutate(d, "打开读取条目", (x) => { x.setEnabled(ids, true); for(const id of ids) { const gid=x.groupOf(id); if(gid) x.setGroupEnabled(gid,true); } });
-      toast(`已打开 ${ids.length} 条`, "success");
+      mutate(d, "开启读取条目", (x) => { x.setEnabled(ids, true); for(const id of ids) { const gid=x.groupOf(id); if(gid) x.setGroupEnabled(gid,true); } });
+      toast(`已开启 ${ids.length} 条`, "success");
       return;
     }
     const go = e.target.closest("[data-goto]");
@@ -208,7 +206,7 @@ function mountCot(page, app) {
     if (e.target.closest("[data-markpick]")) {
       const cot = new Set(a0(d).cotIds);
       const items = d.order.filter((o) => o.enabled !== false && !cot.has(o.identifier) && !d.isMarker(o.identifier)).map((o) => ({ label: d.prompt(o.identifier)?.name || o.identifier, value: o.identifier }));
-      const id = await pickBox("哪一条是思维链？", items);
+      const id = await pickBox("选择思维链条目", items);
       if (!id) return;
       manualFor(d.name)[id] = true;
       saveSettings();

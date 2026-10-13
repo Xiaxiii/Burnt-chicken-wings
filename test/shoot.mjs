@@ -48,9 +48,6 @@ const check = await page.evaluate(() => {
 });
 console.log("E2E:", JSON.stringify(check));
 await page.screenshot({ path: out("7-after-stitch") });
-await page.click('[data-st="profile"]').catch(() => {});
-await page.waitForTimeout(300);
-await page.screenshot({ path: out("8-profiles") });
 await page.click(".pa-sheet-actions .pa-btn-primary").catch(() => {});
 await page.waitForTimeout(200);
 await page.click('[data-tab="cot"]');

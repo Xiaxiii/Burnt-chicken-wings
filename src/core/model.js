@@ -116,22 +116,59 @@ var Draft = class {
     return h.label;
   }
   // ---------- 显示用：按顺序切成"分组框 / 散条目"块 ----------
+  // 空分组（anchor＝它跟在哪一条后面，""＝最前面）在它的锚点之后显示；锚点在某个组中间时，等那个组结束再显示
   blocks() {
     const out = [];
     const seen = /* @__PURE__ */ new Map();
-    for (const o of this.order) {
+    const empties = this.emptyGroups();
+    const byAnchor = /* @__PURE__ */ new Map();
+    const ids = new Set(this.order.map((o) => o.identifier));
+    for (const g of empties) {
+      const k = g.anchor && ids.has(g.anchor) ? g.anchor : g.anchor === "" ? "" : "\u0000end";
+      if (!byAnchor.has(k)) byAnchor.set(k, []);
+      byAnchor.get(k).push(g);
+    }
+    const pending = [...byAnchor.get("") || []];
+    const flush = () => {
+      for (const g of pending.splice(0)) out.push({ groupId: g.id, ids: [], part: 1, parts: 1, empty: true });
+    };
+    flush();
+    this.order.forEach((o, i) => {
       const gid = this.groupOf(o.identifier);
       const last = out[out.length - 1];
-      if (last && last.groupId === gid) {
-        last.ids.push(o.identifier);
-        continue;
+      if (last && !last.empty && last.groupId === gid) last.ids.push(o.identifier);
+      else {
+        const part = gid ? (seen.get(gid) || 0) + 1 : 0;
+        if (gid) seen.set(gid, part);
+        out.push({ groupId: gid, ids: [o.identifier], part });
       }
-      const part = gid ? (seen.get(gid) || 0) + 1 : 0;
-      if (gid) seen.set(gid, part);
-      out.push({ groupId: gid, ids: [o.identifier], part });
-    }
-    for (const b of out) if (b.groupId) b.parts = seen.get(b.groupId);
+      pending.push(...byAnchor.get(o.identifier) || []);
+      const next = this.order[i + 1];
+      if (!gid || !next || this.groupOf(next.identifier) !== gid) flush();
+    });
+    pending.push(...byAnchor.get("\u0000end") || []);
+    flush();
+    for (const b of out) if (b.groupId && !b.empty) b.parts = seen.get(b.groupId);
     return out;
+  }
+  /** 没有成员、但要显示出来的分组（新建的空白分组，或成员都被移走的分组） */
+  emptyGroups() {
+    const used = new Set(Object.values(this.groups.prompts).map((v) => v.groupId));
+    return this.groups.groups.filter((g) => g.anchor !== void 0 && !used.has(g.id));
+  }
+  isEmptyGroup(gid) {
+    const g = this.group(gid);
+    return !!g && !this.order.some((o) => this.groupOf(o.identifier) === gid);
+  }
+  /** 空分组之后的插入点：紧跟它的锚点 */
+  afterEmpty(gid) {
+    const a = this.group(gid)?.anchor;
+    return a && this.order.some((o) => o.identifier === a) ? { after: a } : { index: 0 };
+  }
+  createEmptyGroup(name, anchor) {
+    const id = uid();
+    this.groups.groups.push({ id, name: name || "新分组", order: this.groups.groups.length, collapsed: false, enabled: true, anchor: anchor || "" });
+    return id;
   }
   // ---------- 基础移动 ----------
   _take(ids) {
@@ -166,18 +203,44 @@ var Draft = class {
       where = k < this.order.length ? { before: this.order[k].identifier } : { index: this.order.length };
     }
     const autoGroup = this._groupAt(where);
+    const before = this._anchorsBefore(ids);
     const taken = this._take(ids);
     const idx = this._resolveIndex(where);
     this.order.splice(idx, 0, ...taken);
     const g = groupId === void 0 ? autoGroup : groupId;
     for (const id of ids) this._setGroup(id, g);
+    // 原来跟在插入点后面的空分组，改跟在新放进来的最后一条后面，这样「放在 X 后面」就紧贴着 X
+    const key = where.after !== void 0 ? where.after : where.index === 0 ? "" : null;
+    if (key !== null && !where.behind) {
+      for (const eg of this.emptyGroups()) if (eg.anchor === key && eg.id !== g) eg.anchor = ids[ids.length - 1];
+    }
+    this._anchorEmptied(before);
+  }
+  /** 记下每个组前面那一条（不算要挪走的），组被挪空以后，空组就留在原处 */
+  _anchorsBefore(movingIds) {
+    const moving = new Set(movingIds);
+    const m = /* @__PURE__ */ new Map();
+    this.order.forEach((o, i) => {
+      const gid = this.groupOf(o.identifier);
+      if (!gid || m.has(gid)) return;
+      let k = i - 1;
+      while (k >= 0 && moving.has(this.order[k].identifier)) k--;
+      m.set(gid, k >= 0 ? this.order[k].identifier : "");
+    });
+    return m;
+  }
+  _anchorEmptied(before) {
+    for (const [gid, anchor] of before) {
+      const g = this.group(gid);
+      if (g && this.isEmptyGroup(gid)) g.anchor = anchor;
+    }
   }
   /**
    * 按"选位置"的结果移动：groupId 为某组＝放进该组；为 null＝放在组外（顶层）。
    * 放在组外时，整组都被选中的分组保持成组，跟着一起挪（相当于移动整个分组）。
    * 只有一条的组不算：把那一条拖出来就是要它出组。
    */
-  place(ids, where, groupId) {
+  place(ids, where, groupId, { keep = [] } = {}) {
     if (groupId) return this.move(ids, where, groupId);
     const set = new Set(ids);
     const whole = /* @__PURE__ */ new Map();
@@ -185,7 +248,7 @@ var Draft = class {
     for (const g of new Set(was.values())) {
       if (!g) continue;
       const mem = this.order.filter((o) => this.groupOf(o.identifier) === g);
-      whole.set(g, mem.length > 1 && mem.every((o) => set.has(o.identifier)));
+      whole.set(g, mem.every((o) => set.has(o.identifier)) && (mem.length > 1 || keep.includes(g)));
     }
     this.move(ids, where, null);
     for (const id of ids) {
@@ -211,16 +274,16 @@ var Draft = class {
       const i = pos(where.before);
       return i < 0 ? order.length : i;
     }
-    if (where.groupStart) {
-      const i = order.findIndex((o) => this.groupOf(o.identifier) === where.groupStart);
-      return i < 0 ? order.length : i;
-    }
-    if (where.groupEnd) {
-      let last = -1;
+    if (where.groupStart || where.groupEnd) {
+      const gid = where.groupStart || where.groupEnd;
+      let first = -1, last = -1;
       order.forEach((o, i) => {
-        if (this.groupOf(o.identifier) === where.groupEnd) last = i;
+        if (this.groupOf(o.identifier) !== gid) return;
+        if (first < 0) first = i;
+        last = i;
       });
-      return last < 0 ? order.length : last + 1;
+      if (first < 0) return this._resolveIndex(this.afterEmpty(gid));
+      return where.groupStart ? first : last + 1;
     }
     if (typeof where.index === "number") return Math.max(0, Math.min(order.length, where.index));
     return order.length;
@@ -257,7 +320,7 @@ var Draft = class {
     const list = keepClickOrder ? ids : this.sortByOrder(ids);
     const members = this.order.filter((o) => this.groupOf(o.identifier) === gid && !list.includes(o.identifier));
     if (!members.length) {
-      this.move(list, { index: this.order.length }, gid);
+      this.move(list, this.group(gid)?.anchor !== void 0 ? this.afterEmpty(gid) : { index: this.order.length }, gid);
     } else if (atStart) {
       this.move(list, { before: members[0].identifier }, gid);
     } else {
@@ -276,7 +339,12 @@ var Draft = class {
     for (const [g, mem] of byGroup) {
       const rest = this.order.filter((o) => this.groupOf(o.identifier) === g && !mem.includes(o.identifier));
       if (rest.length) this.move(mem, { after: rest[rest.length - 1].identifier }, null);
-      else for (const id of mem) this._setGroup(id, null);
+      else {
+        // 整组都移出：条目原地不动，分组变成空分组，留在这些条目后面
+        for (const id of mem) this._setGroup(id, null);
+        const gg = this.group(g);
+        if (gg) gg.anchor = mem[mem.length - 1];
+      }
     }
   }
   renameGroup(gid, name) {
@@ -299,7 +367,7 @@ var Draft = class {
   }
   /** 整组上移/下移一个"块" */
   moveGroupBlock(gid, dir) {
-    const blocks = this.blocks();
+    const blocks = this.blocks().filter((b) => !b.empty);
     const i = blocks.findIndex((b) => b.groupId === gid);
     if (i < 0) return;
     const ids = this.order.filter((o) => this.groupOf(o.identifier) === gid).map((o) => o.identifier);
@@ -351,11 +419,13 @@ var Draft = class {
     return ids;
   }
   deletePrompts(ids) {
+    const before = this._anchorsBefore(ids);
     const set = new Set(ids);
     findOrderList(this.preset).order = this.order.filter((o) => !set.has(o.identifier));
     for (const po of this.preset.prompt_order) po.order = (po.order || []).filter((o) => !set.has(o.identifier));
     this.preset.prompts = this.preset.prompts.filter((p) => !set.has(p.identifier));
     for (const id of ids) delete this.groups.prompts[id];
+    this._anchorEmptied(before);
   }
   // ---------- 写回 ----------
   /** 生成要保存的完整预设对象 */
@@ -369,6 +439,11 @@ var Draft = class {
       if (g && !firstIdx.has(g)) firstIdx.set(g, i);
     });
     const groups = clone(this.groups);
+    const pos0 = new Map(order.map((o, i) => [o.identifier, i]));
+    for (const g of groups.groups) {
+      if (firstIdx.has(g.id)) delete g.anchor;
+      else if (g.anchor !== void 0) firstIdx.set(g.id, g.anchor === "" ? -0.5 : (pos0.get(g.anchor) ?? 1e9) + 0.5);
+    }
     groups.groups.sort((a, b) => (firstIdx.get(a.id) ?? 1e9) - (firstIdx.get(b.id) ?? 1e9));
     groups.groups.forEach((g, i) => {
       g.order = i;

@@ -202,7 +202,7 @@ test("包进变量的单选（setvar 同一个变量）也要守卫；读它的�
   const p1 = A.planItem({ name: "状态栏（轻盈）", content: L("生成前置状态栏，三段式。") }, tIn, {});
   assert.ok(p1.content.startsWith("{{setvar::顶栏规范::"));
   assert.ok(p1.changes.some((c) => c.includes("加入单选「顶栏规范」")));
-  assert.ok(p1.warnings.some((w) => w.includes("关着")));
+  assert.ok(p1.warnings.some((w) => w.includes("未开启")));
   const tEnd = A.inferTarget(d, { after: "t3" }, null);
   const p2 = A.planItem({ name: "无关条目", content: L("这条和顶栏无关，是别的规则。") }, tEnd, {});
   assert.equal(p2.want.shape, "plain");
@@ -241,6 +241,31 @@ test("选位置：放在组外时整组保持成组、部分条目出组、只�
   d = make();
   d.place(["c1"], { before: "a1" }, null);
   assert.equal(shape(d), "c1 a1:A a2:A b1:B b2:B l");
+});
+
+test("空白分组——建在两个组之间、放条目进去、移空后留在原处、保存再读回来还在", () => {
+  const G = (gs) => ({ extensions: { baibaiToolkit: { presetPromptGroups: { version: 1, groups: Object.keys(gs).map((id) => ({ id, name: id, enabled: true })), prompts: Object.fromEntries(Object.entries(gs).flatMap(([g, ids]) => ids.map((i) => [i, { groupId: g }]))) } } } });
+  const d = mk([["a1", "a1", "x"], ["a2", "a2", "x"], ["b1", "b1", "x"], ["b2", "b2", "x"], ["l", "l", "x"]], G({ A: ["a1", "a2"], B: ["b1", "b2"] }));
+  const view = (x) => x.blocks().map((b) => b.groupId ? `[${x.group(b.groupId).name}:${b.ids.join(",")}]` : b.ids.join(",")).join(" ");
+  const e = d.createEmptyGroup("新组", "a2");
+  assert.equal(view(d), "[A:a1,a2] [新组:] [B:b1,b2] l");
+  const top = d.createEmptyGroup("顶上", "");
+  assert.equal(view(d), "[顶上:] [A:a1,a2] [新组:] [B:b1,b2] l");
+  // 放进空分组
+  d.place(["l"], d.afterEmpty(e), e);
+  assert.equal(view(d), "[顶上:] [A:a1,a2] [新组:l] [B:b1,b2]");
+  // 放在 A 后面（组外）：空分组之前的位置要紧贴 A
+  d.place(["b2"], { after: "a2" }, null);
+  assert.equal(view(d), "[顶上:] [A:a1,a2] b2 [新组:l] [B:b1]");
+  // A 整组挪走（keep）：A 还是组；把 B 唯一的一条挪走：B 变空分组留在原处
+  d.place(["b1"], { after: "l" }, e);
+  assert.equal(view(d), "[顶上:] [A:a1,a2] b2 [新组:l,b1] [B:]");
+  // 存一遍再读回来
+  const back = new A.Draft("p", d.toPreset());
+  assert.equal(view(back), view(d));
+  // 最前面：放进来的条目排在原来最前面的空分组前面
+  back.place(["b2"], { index: 0 }, null);
+  assert.equal(view(back), "b2 [顶上:] [A:a1,a2] [新组:l,b1] [B:]");
 });
 
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

@@ -22,22 +22,14 @@ await page.evaluate(() => document.querySelector('.pa-item[data-i="0"] input[val
 await page.evaluate(() => { const a = document.querySelector('.pa-item[data-i="0"]'); a.scrollIntoView(); });
 await page.screenshot({ path: "test/shots/m-3-raw.png" });
 await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
-// 整理分组
-await page.click('[data-gm="toggle"]'); await page.waitForTimeout(200);
-await page.evaluate(() => { const rows = [...document.querySelectorAll(".pa-dst-list .pa-row")].filter((x) => /笔法·(来点生活|近代白话|人物特稿)/.test(x.textContent)); rows.forEach((r) => r.click()); rows[0]?.scrollIntoView({ block: "center" }); });
-await page.waitForTimeout(200);
-await page.screenshot({ path: "test/shots/m-4-group.png" });
-await page.click('[data-gm="new"]'); await page.waitForTimeout(300);
-await page.fill(".pa-sheet input.pa-input", "我的笔法"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(500);
-await page.evaluate(() => { const h = [...document.querySelectorAll(".pa-dst-list .pa-ghead")].find((x) => x.textContent.includes("我的笔法")); h?.scrollIntoView({ block: "center" }); });
-await page.screenshot({ path: "test/shots/m-5-grouped.png" });
+// 新建空白分组：起名，再点一个位置
+await page.click('[data-st="newgroup"]'); await page.waitForTimeout(300);
+await page.fill(".pa-sheet input.pa-input", "我的笔法"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(300);
+await page.screenshot({ path: "test/shots/m-4-newgroup.png" });
+await page.locator(".pa-dst-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(800);
+await page.screenshot({ path: "test/shots/m-5-newgroup-done.png" });
 const g = await page.evaluate(() => { const i = window.__mock.names.indexOf("Ariadne_V1.3Beta"); const b = window.__mock.presets[i].extensions?.baibaiToolkit?.presetPromptGroups; return b ? b.groups.map((x) => x.name) : null; });
 console.log("saved groups:", JSON.stringify(g));
-// 解除分组
-await page.evaluate(() => { const h = [...document.querySelectorAll(".pa-dst-list .pa-ghead")].find((x) => x.textContent.includes("我的笔法")); h.querySelector('[data-act="gmenu"]').click(); });
-await page.waitForTimeout(300);
-await page.screenshot({ path: "test/shots/m-6-gmenu.png" });
-await page.evaluate(() => [...document.querySelectorAll(".pa-pick-item")].find((b) => b.textContent.includes("解除分组")).click()); await page.waitForTimeout(400);
 await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(600);
 const g2 = await page.evaluate(() => { const i = window.__mock.names.indexOf("Ariadne_V1.3Beta"); const b = window.__mock.presets[i].extensions?.baibaiToolkit?.presetPromptGroups; return b ? b.groups.map((x) => x.name) : null; });
 console.log("after dissolve:", JSON.stringify(g2));

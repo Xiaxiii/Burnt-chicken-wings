@@ -29,7 +29,7 @@ function sheet(opt) {
       document.removeEventListener("keydown", onKey, true);
       resolve(v);
     };
-    for (const a of opt.actions || [{ label: "好", kind: "primary", value: true }]) {
+    for (const a of opt.actions || [{ label: "确定", kind: "primary", value: true }]) {
       const b = el(`<button class="pa-btn ${a.kind ? "pa-btn-" + a.kind : ""}">${esc(a.label)}</button>`);
       b.addEventListener("click", async () => {
         if (a.validate) {
@@ -95,7 +95,7 @@ async function pickBox(title, items, { hint = "" } = {}) {
   resolveFn = (v) => {
     picked = v;
   };
-  list.innerHTML = items.map((it, i) => `<button class="pa-pick-item" data-v="${i}">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">没有可选的</p>';
+  list.innerHTML = items.map((it, i) => `<button class="pa-pick-item" data-v="${i}">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
   await p;
   return picked;
 }

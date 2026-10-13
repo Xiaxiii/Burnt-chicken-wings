@@ -1,7 +1,7 @@
-// 预设裁缝铺 1.3.8（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.3.9（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.3.8";
-var CHANGELOG = "预设裁缝铺 1.3.8\n\n整理分组（点选建组、只拖把手）、跨预设缝合（自动改变量写法、自动挂进思维链）、思维链检查、开关方案、API 站点。\n打开方式：魔棒菜单 →「预设裁缝铺」，或在输入框发 /atelier\n保存前会自动备份预设。扩展版和脚本版同时装时，只有扩展版会启动。\n\n1.3.8\n- 选位置改了：点组名＝放在这组后面（组外）；展开组再点组内条目＝放进组里。缝合「缝到哪儿」和整理页「移动」都是这样。去掉「缝进这组 / 放进这组」；列表顶上有「↑ 最前面」，展开的组里有「↑ 组内最前」。\n- 来源里整组选中、缝到组外时，默认在目标里照原名建组（缝合预览里可改成「放进新分组」或「不分组」）。原来的「＋ 缝成一个新分组」并到这里。\n- 整理页：整组选中后移到组外，分组跟着走，不再散开。拖到组头：上半＝组前面，下半＝组内最前（展开时）或组后面（折叠时）。\n- 手机上：整理页工具栏不再「工具」和四个按钮同时出现；移动条压成一行；缝合底栏的位置写全，按钮不折行。\n- 删掉一批多余的说明和提示语。\n\n1.3.7\n- 整理：点整行即选中，看内容点眼睛。选中后底栏只剩「移动 / 建分组 / 开 / 关 / 更多」。\n- 移动：点「移动」后，点条目＝放到它后面，「放进这组」＝组末尾，组内有「↑ 放在组开头」；顶部 ↑ ↓ 微调一格。\n- 分组菜单去掉与圆圈重复的「全选本组」。\n- 缝合位置标记更醒目：选中的条目高亮，下方出现「⬇ 缝在这里」；分组折叠时，组标题显示「缝在这组」。修正底栏显示「undefined」。\n- 思维链页：去掉每行的「设为思维链」，改为一个「手动指定思维链」入口。\n- API 站点：点站点展开详情，可直接选模型；「现在连着」里也能直接换模型。\n\n1.3.6\n- 缝合「缝到哪儿」：顶部新增「＋ 缝成一个新分组」，取名后点位置即可；点在组内时，新分组放在该组之后。\n- 分组左侧改为展开箭头；展开后点条目＝缝在它后面，组内第一行「↑ 缝在组开头」。\n- 思维链页说明文字精简。\n- 修正：预设较大时，浏览器本地草稿备份空间不足被误报为「保存失败」。现在会先清理其他预设的旧草稿；真的保存失败时显示具体原因。\n\n1.3.5\n- 修正：装了百宝箱时，在「当前预设」里建分组（缝合页的整理分组、整理页都一样），保存后会被百宝箱用它内存里的旧分组盖回去，看起来像没建成、只改了个名。现在每次保存都会让百宝箱重新读一遍分组。\n- 建新分组时，如果选中的正好是某个组的全部条目，会先问你是「给这个组改名」还是「还是建新分组」。\n- 建好的新分组会自动展开并滚到眼前；保存后要是又被别的插件改没了，会提醒你。\n\n1.3.4\n- 扩展页里的设置框重做：标题旁边显示版本号，按钮横排（不再竖着挤成一列），可以直接「检查更新 / 现在更新」，展开就能看更新说明。没有悬浮球。\n- 新增「加载体检」（更多 → 加载体检，或设置框里的按钮）：量一下酒馆打开时慢在哪——全部预设一共多大（酒馆每次打开都会整个下载一遍）、哪些扩展存了很多数据、角色卡和聊天多长、哪些请求最慢，并给出能做的事。只在你的浏览器里看，不上传任何东西。\n\n1.3.3（用【小冰块】v3.83 测）\n- 修正：宏里少写一个 }（比如 {{user}：…）时，后面的 {{getvar}} 会被漏掉，导致误报\"没人读这个变量\"。\n- 小冰块的写法：文风正文包在 <writing_style：名字> 里、只登记名字 {{addvar::文风::名字}}；缝进来会照样包标签、照样登记名字，不会把别的预设的问句当成名字登记进去。\n- 包进变量的单选（顶栏规范这类 setvar）也有\"别顶掉你选好的那项\"的保护；真的加入单选时，改动里会写明。\n- 读这个变量的条目（小剧场一键开关之类）全关着时会提醒：要打开它，缝进来的才会发出去。由一键开关统一发出去的条目，挂进思维链默认不勾。\n- 共用标签 <small_theater: 名字> 时，用后面的名字称呼这条。\n- 写法分析：按\"由谁统一发出去\"合并成一行，并标出关着的一键开关；分得清\"整段包进变量\"和\"只登记名字\"。\n\n1.3.2\n- 缝合预览改成两张卡片：「直接缝入」（不改写法，原样放进去）/「按目标写法缝入」（照目标预设的写法改好），各带内容预览和改动要点；选哪种，下面的完整正文跟着变。去掉了原来那个四选一的\"写法\"下拉。\n- 碰到单选槽位时多一张卡片「按目标写法缝入，并加入单选 X」，由你决定要不要顶掉同类。\n- 新勾选：条目名后面加上「（来自 来源预设）」。\n- 「缝到哪儿」加了「整理分组」：点选条目建新分组、移出分组；分组右边 ⋯ 可以改名、解除分组。\n- 思维链有好几个「选一」版本、都读同一组变量时（V2.61），挂进思维链会加到每个版本里，换版本也不会丢；编号变量接着编号（修复模式18）。\n- 登记的内容照邻居的格式写（[模式：名字]、文风选择 追加名字等）；方括号标题支持中文。\n\n1.3.1\n- 认得没有分组、名字也不带\"思维链\"的思维链：从「思维链始 / 思考开始 / 单独一行的 <thinking>」到「思维链终 / 思考结束 / </thinking>」之间都算（Ariadne）。\n- 认得注释分区 <!-- START: WRITING_STYLE --> … <!-- END: … -->（众生相），以及思维链里用 writing_style 这类名字点名整个分区。\n- 单选槽位：好几条都往同一个变量登记问句、只开一条的写法（Ariadne 的 叙事风格1/2/3、故事基调）。同类条目缝进来会照样登记、套上 [Writing Style: 名字] 这类标题；不是同一类的不会加入，免得顶掉你选好的那一项。\n- 思维链靠文字点名、又没提到某个分区时（众生相的 STORY_TONE），可以在思维链里加一步点名整个分区，按原来的 Phase 编号接着写。\n- 标题格式互换：# writing_style: 名字 ↔ [Writing Style: 名字]，不会叠两个标题。\n- 修正：英文普通单词碰巧出现在思维链里（narrative 之类）不再算\"提到\"；句子里提到 <thinking> 不再被当成思维链开头。\n- 写法分析会把关着的选项也算进去，能看出单选槽位。\n\n1.3.0\n- 缝合前先分析两边预设\"是怎么让条目生效的\"：变量包裹、问句变量、汇总变量、靠文字点名的思维链、初始化条目、外层标签、深度注入、条件宏/脚本、正则。缝合预览里写清楚\"它在原预设里怎么起作用 → 缝过去改了什么\"。\n- 挂进思维链支持三种写法：各自的问句变量 / 往汇总变量里追加 / 思维链靠文字点名时在思维链里加一行点名；来源里被思维链用到的条目默认挂上。\n- 修正：邻居各用各的标签时，不再把邻居的标签套给新条目。\n- 外观：默认跟随酒馆美化并自动补成不透明；新增 7 套莫兰迪色卡（雾霾蓝、豆沙粉、抹茶绿、燕麦奶茶、薰衣草、海盐、夜雾）。顶部调色板按钮可随时换。\n- 缝合页上下分区可以拖动调整大小；选择框和搜索框改小。\n- 思维链页改成大白话：一句话结论、\"思维链是什么\"说明、状态改名为 读到了 / 文字提到 / 没提到。\n- 方案、API、外观合并到「更多」页。\n- 新增扩展版（可在酒馆里一键安装和更新）。\n\n1.2.0\n- 缝合时自动「挂进思维链」；写法转换（纯文本 / 包进变量 / addvar↔setvar）改成大白话说明。\n- 修正：邻居各用各的变量时，不再误当成共用变量去覆盖邻居的问句。\n- 思维链页「没提到」的条目可一键挂进思维链。\n\n1.1.3\n- 分组只按原格式写回一种（百宝箱分组里不会再套一层同名分组，并清掉旧版镜像）；能读成员列表式分组。\n- 在酒馆里直接改过预设后，不再用旧草稿覆盖。\n- 思维链检查认得 <text_style> 这类外层标签。\n\n1.1.2 及更早\n- 识别缝合带来的冗余变量包裹；思维链页一键修复；即时草稿恢复及自动保存；标签自然排序；整批移动保留点选顺序。\n";
+var VERSION = "1.3.9";
+var CHANGELOG = "预设裁缝铺 1.3.9\n\n整理分组、跨预设缝合、思维链检查、开关方案、API 站点、加载体检。\n打开方式：魔棒菜单 →「预设裁缝铺」，或在输入框发送 /atelier。\n保存前自动备份预设。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.3.9\n- 新建空白分组：在整理页或缝合页点「＋ 新建分组」，填写名称，再点一个位置。之后可移入或缝入条目。分组中的条目全部移走后，分组保留在原处，可在分组菜单中删除。\n- 整理页：分组右侧增加拖动把手，可拖动整组；分组菜单增加「移动整组」。「全部折叠」「全部展开」合并为一个按钮。\n- API 站点：修复已连接时「获取模型列表」取不到模型的问题。现在直接向酒馆请求模型列表，获取后在下拉框中选择，也可手动输入。切换站点时等待连接完成再提示结果。\n- 去掉重复功能：顶栏换色按钮（在「更多 → 外观」中设置）；缝合页「整理分组」模式（由「＋ 新建分组」和整理页代替）；缝合底栏「两边写法」（并入缝合预览）；思维链页重复的统计文字。\n- 保存状态只显示「已保存 / 保存中 / 待保存」，保存失败时才显示重试按钮。编辑条目只保留一个「完成」按钮。\n- 新配色「花田」「晴野」（油画渐变），替换豆沙粉和雾霾蓝。外观中可设置自定义背景图，图片只保存在本浏览器，自动裁去截图的纯色边，遮罩浓度可调。\n- 全部界面文字和分析说明改为书面语。\n\n1.3.8\n- 选位置：点组名，放在该组之后（组外）；展开分组后点组内条目，放入组内。缝合目标和整理页移动均按此操作。列表顶部有「↑ 最前面」，展开的分组内有「↑ 组内最前」。\n- 来源中整组选中并缝到组外时，默认在目标中按原名建组；可在缝合预览中改为「放入新分组」或「不分组」。\n- 整理页：整组选中后移到组外，分组随之移动，不再拆散。拖到组头时：上半部分放在组前，下半部分放入组内最前（展开时）或放在组后（折叠时）。\n- 手机端：整理页工具栏不再同时显示「工具」和四个按钮；移动栏压缩为一行；缝合底栏完整显示位置，按钮不换行。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -35,7 +35,7 @@ function sheet(opt) {
       document.removeEventListener("keydown", onKey, true);
       resolve(v);
     };
-    for (const a of opt.actions || [{ label: "好", kind: "primary", value: true }]) {
+    for (const a of opt.actions || [{ label: "确定", kind: "primary", value: true }]) {
       const b = el(`<button class="pa-btn ${a.kind ? "pa-btn-" + a.kind : ""}">${esc(a.label)}</button>`);
       b.addEventListener("click", async () => {
         if (a.validate) {
@@ -101,7 +101,7 @@ async function pickBox(title, items, { hint = "" } = {}) {
   resolveFn = (v) => {
     picked = v;
   };
-  list.innerHTML = items.map((it, i) => `<button class="pa-pick-item" data-v="${i}">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">没有可选的</p>';
+  list.innerHTML = items.map((it, i) => `<button class="pa-pick-item" data-v="${i}">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
   await p;
   return picked;
 }
@@ -139,7 +139,7 @@ async function initHost() {
     load("wi", "scripts/world-info.js"),
     load("personas", "scripts/personas.js")
   ]);
-  if (!mods.openai) throw new Error("读不到酒馆的聊天补全模块，可能是酒馆版本过旧");
+  if (!mods.openai) throw new Error("无法读取酒馆的聊天补全模块，酒馆版本可能过旧");
 }
 function ctx() {
   return globalThis.SillyTavern.getContext();
@@ -163,7 +163,7 @@ function presetIndex(name) {
 function readPreset(name) {
   const { presets } = pm().getPresetList();
   const idx = presetIndex(name);
-  if (idx === void 0 || idx < 0 || !presets[idx]) throw new Error(`找不到预设「${name}」`);
+  if (idx === void 0 || idx < 0 || !presets[idx]) throw new Error(`未找到预设「${name}」`);
   const base = structuredClone(presets[idx]);
   if (name === currentPresetName() && mods.openai?.getChatCompletionPreset) {
     const live = mods.openai.getChatCompletionPreset(mods.openai.oai_settings);
@@ -201,7 +201,7 @@ async function writePreset(name, data, reason = "保存") {
 }
 async function selectPreset(name) {
   const value = pm().findPreset(name);
-  if (value === void 0) throw new Error(`找不到预设「${name}」`);
+  if (value === void 0) throw new Error(`未找到预设「${name}」`);
   await pm().selectPreset(value);
 }
 function listWorldbooks() {
@@ -269,7 +269,7 @@ function multiKeySupported() {
 }
 async function storeKey(source, key, label) {
   const secretKey = SOURCES[source]?.secret;
-  if (!secretKey) throw new Error("不支持的来源");
+  if (!secretKey) throw new Error("不支持的连接类型");
   const id = await mods.secrets.writeSecret(secretKey, key, label);
   return typeof id === "string" ? id : null;
 }
@@ -287,7 +287,7 @@ function setSelect(sel, value) {
 }
 async function applyConnection(site, { connect = true } = {}) {
   const src = SOURCES[site.source];
-  if (!src) throw new Error("不支持的来源");
+  if (!src) throw new Error("不支持的连接类型");
   if ($("#main_api").val() !== "openai") $("#main_api").val("openai").trigger("change");
   if ($("#chat_completion_source").val() !== site.source) {
     $("#chat_completion_source").val(site.source).trigger("change");
@@ -304,7 +304,7 @@ async function applyConnection(site, { connect = true } = {}) {
     } else if (site.legacyKey) {
       await mods.secrets.writeSecret(src.secret, site.legacyKey, site.name);
     } else {
-      throw new Error(`「${site.name}」保存的 key 在酒馆密钥库里找不到了，请重新填一次`);
+      throw new Error(`「${site.name}」的密钥在酒馆密钥库中已不存在，请重新填写`);
     }
   } else if (site.legacyKey) {
     await mods.secrets.writeSecret(src.secret, site.legacyKey);
@@ -319,7 +319,7 @@ async function applyConnection(site, { connect = true } = {}) {
   }
   if (connect) {
     $("#api_button_openai").trigger("click");
-    await waitOnline(12e3);
+    await waitConnect(15e3);
     if (site.model && site.source === "custom") {
       $("#custom_model_id").val(site.model).trigger("input");
       setSelect("#model_custom_select", site.model);
@@ -344,6 +344,58 @@ function setLiveModel(model) {
 }
 function customModelOptions() {
   return $("#model_custom_select option").map((_, o) => o.value).toArray().filter(Boolean);
+}
+// 1.3.9：已经连着的时候点「连接」，状态一开始就是在线，只看在线会抢在新请求回来之前返回。
+// 先等酒馆的连接按钮进入忙碌状态，再等它结束。
+async function waitConnect(ms) {
+  const busy = () => $("#api_button_openai").hasClass("disabled") || $("#api_loading_openai").is(":visible");
+  const t0 = Date.now();
+  while (Date.now() - t0 < 800 && !busy()) await sleep(50);
+  while (Date.now() - t0 < ms && busy()) await sleep(200);
+  return waitOnline(Math.max(0, ms - (Date.now() - t0)));
+}
+// 1.3.9：直接向酒馆后端要模型列表（酒馆自己连接时调用的也是这个接口），不等界面上的下拉框刷新
+async function fetchModelList(site) {
+  const s = mods.openai?.oai_settings || {};
+  const body = { chat_completion_source: site.source, reverse_proxy: s.reverse_proxy, proxy_password: s.proxy_password };
+  if (site.source === "custom") {
+    body.custom_url = site.url;
+    body.custom_include_headers = s.custom_include_headers;
+  }
+  const r = await fetch("/api/backends/chat-completions/status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
+    body: JSON.stringify(body),
+    cache: "no-cache"
+  });
+  if (!r.ok) throw new Error(`酒馆返回 ${r.status}`);
+  const data = await r.json().catch(() => ({}));
+  const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data?.data?.data) ? data.data.data : Array.isArray(data?.models) ? data.models : Array.isArray(data) ? data : [];
+  const list = [...new Set(raw.map((m) => typeof m === "string" ? m : m?.id || m?.name).filter(Boolean))];
+  if (data?.error && !list.length) throw new Error("站点未返回模型列表，请检查网址和密钥");
+  return list;
+}
+// 用这个站点保存的密钥做一件事，做完换回原来在用的密钥
+async function withSiteKey(site, fn) {
+  const src = SOURCES[site.source];
+  let restore = null;
+  if (site.secretId && mods.secrets?.rotateSecret && src) {
+    const list = (await readSecretState())[src.secret];
+    if (Array.isArray(list)) {
+      if (!list.some((x) => x.id === site.secretId)) throw new Error(`「${site.name || "站点"}」的密钥在酒馆密钥库中已不存在，请重新填写`);
+      const cur = list.find((x) => x.active)?.id || null;
+      if (cur !== site.secretId) {
+        await mods.secrets.rotateSecret(src.secret, site.secretId);
+        restore = cur;
+      }
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    if (restore) await mods.secrets.rotateSecret(src.secret, restore).catch(() => {
+    });
+  }
 }
 async function waitOnline(ms) {
   const t0 = Date.now();
@@ -370,13 +422,15 @@ var dbp = null;
 function db() {
   if (dbp) return dbp;
   dbp = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 1);
+    const req = indexedDB.open(DB, 2);
     req.onupgradeneeded = () => {
       const d = req.result;
       if (!d.objectStoreNames.contains("backups")) {
         const s = d.createObjectStore("backups", { keyPath: "id", autoIncrement: true });
         s.createIndex("preset", "preset");
       }
+      // 1.3.9：自定义背景图等本地文件，只存在这个浏览器里
+      if (!d.objectStoreNames.contains("assets")) d.createObjectStore("assets");
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -403,7 +457,15 @@ async function backupList(preset) {
 async function backupGet(id) {
   return tx("backups", "readonly", (s) => s.get(id));
 }
-
+async function assetPut(key, blob) {
+  await tx("assets", "readwrite", (s) => s.put(blob, key));
+}
+async function assetGet(key) {
+  return tx("assets", "readonly", (s) => s.get(key));
+}
+async function assetDel(key) {
+  await tx("assets", "readwrite", (s) => s.delete(key));
+}
 
 // src/core/model.js
 var GLOBAL_ORDER_ID = 100001;
@@ -524,22 +586,59 @@ var Draft = class {
     return h.label;
   }
   // ---------- 显示用：按顺序切成"分组框 / 散条目"块 ----------
+  // 空分组（anchor＝它跟在哪一条后面，""＝最前面）在它的锚点之后显示；锚点在某个组中间时，等那个组结束再显示
   blocks() {
     const out = [];
     const seen = /* @__PURE__ */ new Map();
-    for (const o of this.order) {
+    const empties = this.emptyGroups();
+    const byAnchor = /* @__PURE__ */ new Map();
+    const ids = new Set(this.order.map((o) => o.identifier));
+    for (const g of empties) {
+      const k = g.anchor && ids.has(g.anchor) ? g.anchor : g.anchor === "" ? "" : "\u0000end";
+      if (!byAnchor.has(k)) byAnchor.set(k, []);
+      byAnchor.get(k).push(g);
+    }
+    const pending = [...byAnchor.get("") || []];
+    const flush = () => {
+      for (const g of pending.splice(0)) out.push({ groupId: g.id, ids: [], part: 1, parts: 1, empty: true });
+    };
+    flush();
+    this.order.forEach((o, i) => {
       const gid = this.groupOf(o.identifier);
       const last = out[out.length - 1];
-      if (last && last.groupId === gid) {
-        last.ids.push(o.identifier);
-        continue;
+      if (last && !last.empty && last.groupId === gid) last.ids.push(o.identifier);
+      else {
+        const part = gid ? (seen.get(gid) || 0) + 1 : 0;
+        if (gid) seen.set(gid, part);
+        out.push({ groupId: gid, ids: [o.identifier], part });
       }
-      const part = gid ? (seen.get(gid) || 0) + 1 : 0;
-      if (gid) seen.set(gid, part);
-      out.push({ groupId: gid, ids: [o.identifier], part });
-    }
-    for (const b of out) if (b.groupId) b.parts = seen.get(b.groupId);
+      pending.push(...byAnchor.get(o.identifier) || []);
+      const next = this.order[i + 1];
+      if (!gid || !next || this.groupOf(next.identifier) !== gid) flush();
+    });
+    pending.push(...byAnchor.get("\u0000end") || []);
+    flush();
+    for (const b of out) if (b.groupId && !b.empty) b.parts = seen.get(b.groupId);
     return out;
+  }
+  /** 没有成员、但要显示出来的分组（新建的空白分组，或成员都被移走的分组） */
+  emptyGroups() {
+    const used = new Set(Object.values(this.groups.prompts).map((v) => v.groupId));
+    return this.groups.groups.filter((g) => g.anchor !== void 0 && !used.has(g.id));
+  }
+  isEmptyGroup(gid) {
+    const g = this.group(gid);
+    return !!g && !this.order.some((o) => this.groupOf(o.identifier) === gid);
+  }
+  /** 空分组之后的插入点：紧跟它的锚点 */
+  afterEmpty(gid) {
+    const a = this.group(gid)?.anchor;
+    return a && this.order.some((o) => o.identifier === a) ? { after: a } : { index: 0 };
+  }
+  createEmptyGroup(name, anchor) {
+    const id = uid();
+    this.groups.groups.push({ id, name: name || "新分组", order: this.groups.groups.length, collapsed: false, enabled: true, anchor: anchor || "" });
+    return id;
   }
   // ---------- 基础移动 ----------
   _take(ids) {
@@ -574,18 +673,44 @@ var Draft = class {
       where = k < this.order.length ? { before: this.order[k].identifier } : { index: this.order.length };
     }
     const autoGroup = this._groupAt(where);
+    const before = this._anchorsBefore(ids);
     const taken = this._take(ids);
     const idx = this._resolveIndex(where);
     this.order.splice(idx, 0, ...taken);
     const g = groupId === void 0 ? autoGroup : groupId;
     for (const id of ids) this._setGroup(id, g);
+    // 原来跟在插入点后面的空分组，改跟在新放进来的最后一条后面，这样「放在 X 后面」就紧贴着 X
+    const key = where.after !== void 0 ? where.after : where.index === 0 ? "" : null;
+    if (key !== null && !where.behind) {
+      for (const eg of this.emptyGroups()) if (eg.anchor === key && eg.id !== g) eg.anchor = ids[ids.length - 1];
+    }
+    this._anchorEmptied(before);
+  }
+  /** 记下每个组前面那一条（不算要挪走的），组被挪空以后，空组就留在原处 */
+  _anchorsBefore(movingIds) {
+    const moving = new Set(movingIds);
+    const m = /* @__PURE__ */ new Map();
+    this.order.forEach((o, i) => {
+      const gid = this.groupOf(o.identifier);
+      if (!gid || m.has(gid)) return;
+      let k = i - 1;
+      while (k >= 0 && moving.has(this.order[k].identifier)) k--;
+      m.set(gid, k >= 0 ? this.order[k].identifier : "");
+    });
+    return m;
+  }
+  _anchorEmptied(before) {
+    for (const [gid, anchor] of before) {
+      const g = this.group(gid);
+      if (g && this.isEmptyGroup(gid)) g.anchor = anchor;
+    }
   }
   /**
    * 按"选位置"的结果移动：groupId 为某组＝放进该组；为 null＝放在组外（顶层）。
    * 放在组外时，整组都被选中的分组保持成组，跟着一起挪（相当于移动整个分组）。
    * 只有一条的组不算：把那一条拖出来就是要它出组。
    */
-  place(ids, where, groupId) {
+  place(ids, where, groupId, { keep = [] } = {}) {
     if (groupId) return this.move(ids, where, groupId);
     const set = new Set(ids);
     const whole = /* @__PURE__ */ new Map();
@@ -593,7 +718,7 @@ var Draft = class {
     for (const g of new Set(was.values())) {
       if (!g) continue;
       const mem = this.order.filter((o) => this.groupOf(o.identifier) === g);
-      whole.set(g, mem.length > 1 && mem.every((o) => set.has(o.identifier)));
+      whole.set(g, mem.every((o) => set.has(o.identifier)) && (mem.length > 1 || keep.includes(g)));
     }
     this.move(ids, where, null);
     for (const id of ids) {
@@ -619,16 +744,16 @@ var Draft = class {
       const i = pos(where.before);
       return i < 0 ? order.length : i;
     }
-    if (where.groupStart) {
-      const i = order.findIndex((o) => this.groupOf(o.identifier) === where.groupStart);
-      return i < 0 ? order.length : i;
-    }
-    if (where.groupEnd) {
-      let last = -1;
+    if (where.groupStart || where.groupEnd) {
+      const gid = where.groupStart || where.groupEnd;
+      let first = -1, last = -1;
       order.forEach((o, i) => {
-        if (this.groupOf(o.identifier) === where.groupEnd) last = i;
+        if (this.groupOf(o.identifier) !== gid) return;
+        if (first < 0) first = i;
+        last = i;
       });
-      return last < 0 ? order.length : last + 1;
+      if (first < 0) return this._resolveIndex(this.afterEmpty(gid));
+      return where.groupStart ? first : last + 1;
     }
     if (typeof where.index === "number") return Math.max(0, Math.min(order.length, where.index));
     return order.length;
@@ -665,7 +790,7 @@ var Draft = class {
     const list = keepClickOrder ? ids : this.sortByOrder(ids);
     const members = this.order.filter((o) => this.groupOf(o.identifier) === gid && !list.includes(o.identifier));
     if (!members.length) {
-      this.move(list, { index: this.order.length }, gid);
+      this.move(list, this.group(gid)?.anchor !== void 0 ? this.afterEmpty(gid) : { index: this.order.length }, gid);
     } else if (atStart) {
       this.move(list, { before: members[0].identifier }, gid);
     } else {
@@ -684,7 +809,12 @@ var Draft = class {
     for (const [g, mem] of byGroup) {
       const rest = this.order.filter((o) => this.groupOf(o.identifier) === g && !mem.includes(o.identifier));
       if (rest.length) this.move(mem, { after: rest[rest.length - 1].identifier }, null);
-      else for (const id of mem) this._setGroup(id, null);
+      else {
+        // 整组都移出：条目原地不动，分组变成空分组，留在这些条目后面
+        for (const id of mem) this._setGroup(id, null);
+        const gg = this.group(g);
+        if (gg) gg.anchor = mem[mem.length - 1];
+      }
     }
   }
   renameGroup(gid, name) {
@@ -707,7 +837,7 @@ var Draft = class {
   }
   /** 整组上移/下移一个"块" */
   moveGroupBlock(gid, dir) {
-    const blocks = this.blocks();
+    const blocks = this.blocks().filter((b) => !b.empty);
     const i = blocks.findIndex((b) => b.groupId === gid);
     if (i < 0) return;
     const ids = this.order.filter((o) => this.groupOf(o.identifier) === gid).map((o) => o.identifier);
@@ -759,11 +889,13 @@ var Draft = class {
     return ids;
   }
   deletePrompts(ids) {
+    const before = this._anchorsBefore(ids);
     const set = new Set(ids);
     findOrderList(this.preset).order = this.order.filter((o) => !set.has(o.identifier));
     for (const po of this.preset.prompt_order) po.order = (po.order || []).filter((o) => !set.has(o.identifier));
     this.preset.prompts = this.preset.prompts.filter((p) => !set.has(p.identifier));
     for (const id of ids) delete this.groups.prompts[id];
+    this._anchorEmptied(before);
   }
   // ---------- 写回 ----------
   /** 生成要保存的完整预设对象 */
@@ -777,6 +909,11 @@ var Draft = class {
       if (g && !firstIdx.has(g)) firstIdx.set(g, i);
     });
     const groups = clone(this.groups);
+    const pos0 = new Map(order.map((o, i) => [o.identifier, i]));
+    for (const g of groups.groups) {
+      if (firstIdx.has(g.id)) delete g.anchor;
+      else if (g.anchor !== void 0) firstIdx.set(g.id, g.anchor === "" ? -0.5 : (pos0.get(g.anchor) ?? 1e9) + 0.5);
+    }
     groups.groups.sort((a, b) => (firstIdx.get(a.id) ?? 1e9) - (firstIdx.get(b.id) ?? 1e9));
     groups.groups.forEach((g, i) => {
       g.order = i;
@@ -876,7 +1013,7 @@ function queueAutoSave(name) {
   clearTimeout(autoTimers.get(name));
   autoTimers.set(name, setTimeout(() => {
     autoTimers.delete(name);
-    saveDraft(name, "自动保存").catch(e => { saveErrors.set(name, e.message); notifyDraft(name); toast("自动保存失败，草稿仍保留；点保存重试：" + e.message, "error"); });
+    saveDraft(name, "自动保存").catch(e => { saveErrors.set(name, e.message); notifyDraft(name); toast("自动保存失败，草稿已保留：" + e.message, "error"); });
   }, 350));
 }
 function notifyDraft(name) {
@@ -908,7 +1045,7 @@ function getDraft(name, { fresh = false } = {}) {
         const cached = JSON.parse(localStorage.getItem(recoveryKey(name)) || "null");
         if (cached?.preset?.prompts) {
           d = new Draft(name, cached.preset); d.history = cached.history || []; d.dirty = true;
-          toast(`已恢复「${name}」刷新前的草稿`); queueAutoSave(name);
+          toast(`已恢复「${name}」未保存的草稿`); queueAutoSave(name);
         }
       } catch(e) { console.warn("草稿恢复失败", e); }
     }
@@ -1099,9 +1236,9 @@ function detectShape(content) {
   return { shape: "plain", body: text };
 }
 var SHAPE_LABEL = {
-  wrap: "整段包进变量",
-  tagname: "正文直写＋登记名字",
-  plain: "直接写正文",
+  wrap: "整段写入变量",
+  tagname: "正文直写并登记名称",
+  plain: "正文直写",
   init: "变量初始化",
   empty: "空条目"
 };
@@ -1451,10 +1588,10 @@ function analyze(draft, manual = {}) {
   for (const [name, v] of vars) {
     if (v.writers.length && !v.readers.length && !/cot$/i.test(name)) {
       const off = [...allReaders.get(name) || []].map((x) => draft.prompt(x)?.name || x);
-      const why = off.length ? `；读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等" : ""}没开` : "；整个预设里没有任何条目读取它";
+      const why = off.length ? `。读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等条目" : ""}未开启` : "。预设中没有条目读取它";
       const registrationOnly = v.writers.every(id => detectShape(draft.prompt(id)?.content).shape === "tagname");
       if (registrationOnly) continue;
-      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], text: `写进了变量「${name}」，但没被读取，等于没生效${why}` });
+      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], text: `写入变量「${name}」，但未被读取，内容不会发送${why}` });
     }
     if (v.readers.length && !v.writers.length) {
       optional.push({ varName: name, ids: v.readers });
@@ -1462,7 +1599,7 @@ function analyze(draft, manual = {}) {
   }
   for (const [name, v] of vars) {
     if (/cot$/i.test(name) && v.writers.length && !v.readers.some((r) => cotSet.has(r))) {
-      issues.push({ kind: "cotfrag", varName: name, ids: v.writers, text: `这些条目自带思维链片段「${name}」，但开着的思维链里没有读取它` });
+      issues.push({ kind: "cotfrag", varName: name, ids: v.writers, text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
     }
   }
   return { cotIds, vars, cot, coverage, issues, optional, activeSet };
@@ -1480,19 +1617,19 @@ var ICON = {
 /**
  * 列表渲染。o.place 为 true 时是"选位置"：
  *   点组头＝放在这组后面（组外）；展开后点组内条目＝放进组里、它的后面；
- *   顶部「最前面」、展开组的第一行「组内最前」。
- * o.marker：{ at: "top" } | { at: "row", id } | { at: "block", id: 组块最后一条 } | { at: "gstart", gid }
+ *   顶部「最前面」、展开组的第一行「组内最前」。o.inside === false 时不能放进组里（给新分组选位置）。
+ * o.marker：{ at: "top" } | { at: "row", id } | { at: "block", id: 组块最后一条 } | { at: "block", gid }（空分组）| { at: "gstart", gid }
  */
 function renderList(draft, o) {
   const q = (o.query || "").trim().toLowerCase();
   const sel = o.selected || /* @__PURE__ */ new Set();
   const collapsed = o.collapsed || /* @__PURE__ */ new Set();
   const place = !!o.place;
+  const inside = place && o.inside !== false;
   const showSwitch = o.mode === "organize" && !place;
   const showHandle = showSwitch;
-  const m = o.mode === "target-group" ? null : o.marker || null;
-  const verb = o.mode === "organize" ? "放" : "缝";
-  const mark = `<div class="pa-insert-mark">${verb}在这里</div>`;
+  const m = o.marker || null;
+  const mark = `<div class="pa-insert-mark">${esc(o.markLabel || "插入位置")}</div>`;
   const matches = (id) => {
     if (!q) return true;
     const p = draft.prompt(id);
@@ -1514,20 +1651,21 @@ function renderList(draft, o) {
       else if (s.shape === "init") badge = '<span class="pa-chip pa-chip-dim">变量初始化</span>';
       if (isCotEntry(draft, id)) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
     }
-    if (marker) badge = '<span class="pa-chip pa-chip-dim">酒馆位置</span>';
+    if (marker) badge = '<span class="pa-chip pa-chip-dim">系统位置</span>';
     const at = m?.at === "row" && m.id === id;
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
     return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}">
             <span class="pa-check" aria-hidden="true"></span>
             <span class="pa-name">${esc(name)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}
-            <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="看内容">${ICON.eye}</button>
+            <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" ${on ? "checked" : ""}><i></i></label>` : ""}
-            ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="按住拖动">${ICON.grip}</span>` : ""}
+            ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="拖动">${ICON.grip}</span>` : ""}
         </div>${at ? mark : ""}`;
   };
   let html = "";
   if (place) html += m?.at === "top" ? mark : `<button class="pa-slot" data-act="top">↑ 最前面</button>`;
   for (const b of draft.blocks()) {
+    if (b.empty && (q || o.mode === "source")) continue;
     if (!b.groupId) {
       const inner = b.ids.map(row).join("");
       if (inner) html += `<div class="pa-loose">${inner}</div>`;
@@ -1539,23 +1677,24 @@ function renderList(draft, o) {
     const isCol = !q && collapsed.has(b.groupId);
     const onCount = b.ids.filter((id) => enabledMap.get(id)).length;
     const allSel = b.ids.length && b.ids.every((id) => sel.has(id));
-    const first = b.ids[0];
-    const last = b.ids[b.ids.length - 1];
-    const afterHere = m?.at === "block" && m.id === last;
+    const first = b.ids[0] || "";
+    const last = b.ids[b.ids.length - 1] || "";
+    const afterHere = m?.at === "block" && (b.empty ? !m.id && m.gid === b.groupId : m.id === last);
     const atStart = m?.at === "gstart" && m.gid === b.groupId && b.part === 1;
-    const inside = atStart || m?.at === "row" && b.ids.includes(m.id);
+    const hasAt = atStart || m?.at === "row" && b.ids.includes(m.id);
     const caret = place || o.mode === "target";
-    const startSlot = place && !isCol && b.part === 1 ? atStart ? mark : `<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(b.groupId)}">↑ 组内最前</button>` : "";
-    html += `<section class="pa-group${inside ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
+    const startSlot = inside && !isCol && b.part === 1 ? atStart ? mark : `<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(b.groupId)}">${b.empty ? "↓ 放入此组" : "↑ 组内最前"}</button>` : "";
+    const emptyNote = b.empty && !startSlot ? '<p class="pa-gempty">空分组</p>' : "";
+    html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}">
-                ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开/折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="全选/取消本组" aria-pressed="${!!allSel}"><span class="pa-check"></span></button>`}
-                <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第${b.part}/${b.parts}段</em>` : ""}</span>
-                ${inside && isCol ? `<span class="pa-at-chip">${verb}在组内</span>` : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
+                ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
+                <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>
+                ${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
                 ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
-                <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
-                ${o.mode === "target-group" ? `<button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
+                <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
+                <span class="pa-handle" data-act="gdrag" aria-label="拖动分组">${ICON.grip}</span>` : ""}
             </header>
-            <div class="pa-gbody">${startSlot}${visibleRows}</div>
+            <div class="pa-gbody">${startSlot}${emptyNote}${visibleRows}</div>
         </section>${afterHere ? mark : ""}`;
   }
   return html || '<p class="pa-empty">没有匹配的条目</p>';
@@ -1564,15 +1703,39 @@ function renderList(draft, o) {
 function placeOf(d, m) {
   if (!m) return null;
   if (m.at === "top") return { where: { index: 0 }, gid: null };
-  if (m.at === "gstart") return { where: { groupStart: m.gid }, gid: m.gid };
-  if (m.at === "block") return { where: { after: m.id }, gid: null };
+  if (m.at === "gstart") return d.isEmptyGroup(m.gid) ? { where: d.afterEmpty(m.gid), gid: m.gid } : { where: { groupStart: m.gid }, gid: m.gid };
+  if (m.at === "block") return m.id ? { where: { after: m.id }, gid: null } : { where: { ...d.afterEmpty(m.gid), behind: m.gid }, gid: null };
   return { where: { after: m.id }, gid: d.groupOf(m.id) };
+}
+/** 点了列表里的什么 → 位置。inside 为 false 时，点组里的条目也算放在这组后面 */
+function placeFromClick(d, e, inside = true) {
+  const t = e.target;
+  const act = t.closest("[data-act]")?.dataset.act;
+  if (act === "top") return { at: "top" };
+  if (act === "gstart") return { at: "gstart", gid: t.closest("[data-act]").dataset.gid };
+  const head = t.closest(".pa-ghead");
+  if (head) return head.dataset.last ? { at: "block", id: head.dataset.last } : { at: "block", gid: head.dataset.gid };
+  const row = t.closest(".pa-row");
+  if (!row) return null;
+  const id = row.dataset.id;
+  if (inside || !d.groupOf(id)) return { at: "row", id };
+  const b = d.blocks().find((x) => x.ids.includes(id));
+  return { at: "block", id: b.ids[b.ids.length - 1] };
 }
 /** 位置还有效吗；组块标记总是指向那一块的最后一条（组被改过就跟着挪），失效返回 null */
 function fixPlace(d, m) {
   if (!m) return null;
   if (m.at === "top") return m;
-  if (m.at === "gstart") return d.group(m.gid) && d.order.some((o) => d.groupOf(o.identifier) === m.gid) ? m : null;
+  if (m.at === "gstart") return d.group(m.gid) && (!d.isEmptyGroup(m.gid) || d.group(m.gid).anchor !== void 0) ? m : null;
+  if (m.at === "block" && !m.id) {
+    if (!d.group(m.gid)) return null;
+    if (!d.isEmptyGroup(m.gid)) {
+      const bs = d.blocks().filter((b) => b.groupId === m.gid);
+      const lb = bs[bs.length - 1];
+      return { at: "block", id: lb.ids[lb.ids.length - 1] };
+    }
+    return m;
+  }
   if (!d.order.some((o) => o.identifier === m.id)) return null;
   if (m.at === "block") {
     const b = d.blocks().find((x) => x.ids.includes(m.id));
@@ -1586,8 +1749,8 @@ function placeText(d, m) {
   const nm = (id) => d.prompt(id)?.name || id;
   const gn = (g) => d.group(g)?.name || "分组";
   if (m.at === "top") return "最前面";
-  if (m.at === "gstart") return `「${gn(m.gid)}」组内最前`;
-  if (m.at === "block") return `「${gn(d.groupOf(m.id))}」组之后（组外）`;
+  if (m.at === "gstart") return d.isEmptyGroup(m.gid) ? `「${gn(m.gid)}」组内` : `「${gn(m.gid)}」组内最前`;
+  if (m.at === "block") return `「${gn(m.id ? d.groupOf(m.id) : m.gid)}」组之后（组外）`;
   const g = d.groupOf(m.id);
   return g ? `「${gn(g)}」组内，「${nm(m.id)}」之后` : `「${nm(m.id)}」之后`;
 }
@@ -1606,7 +1769,7 @@ function sortTagIds(d, ids, categories) {
 async function recommendTagCategories(d, ids, categories) {
   // Uses the existing ST generation helper; no keys are extracted or stored.
   const api = await load('generation', 'script.js');
-  if (typeof api?.generateRaw !== 'function') throw new Error('当前酒馆没有可用的独立生成接口，请使用手动排序');
+  if (typeof api?.generateRaw !== 'function') throw new Error('当前酒馆版本不支持独立生成，请手动排序');
   const examples = categories.map(category => ({ category, examples: ids.filter(id => tagKey(d,id).category === category).slice(0,3).map(id => d.prompt(id)?.name) }));
   const raw = await api.generateRaw({
     prompt: '请推荐这些预设标签类别的排列顺序。只按功能依赖与使用流程安排类别，不改写条目。只返回 JSON 字符串数组，必须每个类别恰好一次。材料：' + JSON.stringify(examples),
@@ -1615,24 +1778,24 @@ async function recommendTagCategories(d, ids, categories) {
   });
   const text = String(raw).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
   const out = JSON.parse(text);
-  if (!Array.isArray(out) || out.length !== categories.length || new Set(out).size !== categories.length || out.some(x => !categories.includes(x))) throw new Error('AI 返回的类别不完整，未应用排序，请手动调整');
+  if (!Array.isArray(out) || out.length !== categories.length || new Set(out).size !== categories.length || out.some(x => !categories.includes(x))) throw new Error('AI 返回的类别不完整，未应用');
   return out;
 }
 async function sortTagsDialog(d, ids) {
-  if(ids.length < 2) return toast('至少选两条再排列');
-  const mode = await pickBox('标签类别怎么排？', [
-    {label:'手动排序', sub:'上下移动类别；类别内部按数字 1、2、3… 排列', value:'manual'},
-    {label:'AI 推荐排序', sub:'使用当前聊天连接，只发送类别和少量条目名；推荐后可手动调整', value:'ai'}
+  if(ids.length < 2) return toast('至少选择两条');
+  const mode = await pickBox('排序方式', [
+    {label:'手动排序', sub:'调整类别先后，类别内按编号排列', value:'manual'},
+    {label:'AI 推荐', sub:'用当前连接生成顺序，只发送类别和少量条目名，生成后可调整', value:'ai'}
   ]);
   if(!mode) return;
   let categories = [...new Set(ids.map(id => tagKey(d,id).category))];
   const originalPreset = JSON.stringify(d.toPreset());
   if(mode === 'ai') {
-    toast('正在推荐类别顺序…');
+    toast('正在生成推荐顺序…');
     try { categories = await recommendTagCategories(d,ids,categories); }
-    catch(e) { toast('AI 推荐失败：'+e.message+'；改用手动排序','warning'); }
+    catch(e) { toast('AI 推荐失败：'+e.message+'。已改为手动排序','warning'); }
   }
-  const body = el('<div><p class="pa-hint">只排选中的条目，未选的不动。类别内按编号升序。</p><div class="pa-tag-order"></div><details><summary>排列预览</summary><div class="pa-tag-preview"></div></details></div>');
+  const body = el('<div><p class="pa-hint">只调整选中的条目，其余条目不动。</p><div class="pa-tag-order"></div><details><summary>预览结果</summary><div class="pa-tag-preview"></div></details></div>');
   function paint() {
     body.querySelector('.pa-tag-order').innerHTML = categories.map((x,i) => `<div class="pa-card pa-row-head"><span>${i+1}. ${esc(x)}</span><span><button class="pa-btn" data-rank="${i}" data-dir="-1" ${i===0?'disabled':''}>↑</button><button class="pa-btn" data-rank="${i}" data-dir="1" ${i===categories.length-1?'disabled':''}>↓</button></span></div>`).join('');
     body.querySelector('.pa-tag-preview').innerHTML = sortTagIds(d,ids,categories).map(id => `<p>${esc(tagKey(d,id).label)} · ${esc(d.prompt(id)?.name)}</p>`).join('');
@@ -1644,12 +1807,12 @@ async function sortTagsDialog(d, ids) {
     [categories[i],categories[j]]=[categories[j],categories[i]]; paint();
   });
   paint();
-  if(!await sheet({title:'按标签顺序排列',body,wide:true,noFocus:true,actions:[{label:'取消',value:false},{label:'应用排列',kind:'primary',value:true}]})) return;
-  if (JSON.stringify(d.toPreset()) !== originalPreset) return toast('预设在预览期间发生变化，请重新排序','warning');
+  if(!await sheet({title:'按标签排序',body,wide:true,noFocus:true,actions:[{label:'取消',value:false},{label:'应用',kind:'primary',value:true}]})) return;
+  if (JSON.stringify(d.toPreset()) !== originalPreset) return toast('预设已变化，请重新排序','warning');
   const sorted=sortTagIds(d,ids,categories), selected=new Set(ids);
   const values=new Map(d.order.map(o=>[o.identifier,o])); let k=0;
   mutate(d,'按标签排序',x => { findOrderList(x.preset).order=x.order.map(o=>selected.has(o.identifier)?values.get(sorted[k++]):o); });
-  toast('已按标签排列','success');
+  toast('已排序','success');
 }
 function simpleValueMacros(text) {
   const input=String(text||''); const tops=scanTopMacros(input);
@@ -1701,33 +1864,33 @@ function variableRepairPlan(d,key) {
   const scope=key.startsWith('全局:')?'global':'local', name=scope==='global'?key.slice(3):key;
   const same=m=>m.name===name&&m.scope===scope;
   const touches=d.order.filter(o=>d.isActive(o.identifier)).filter(o=>listVarMacros(d.prompt(o.identifier)?.content).some(m=>same(m)&&['set','add','inc','dec'].includes(m.op)));
-  if(!touches.length) throw new Error('没有启用的变量写入条目');
+  if(!touches.length) throw new Error('没有开启的条目写入该变量');
   for(const o of touches) {
     const p=d.prompt(o.identifier);
-    if(p.injection_position===1) throw new Error('「'+(p.name||o.identifier)+'」使用聊天深度注入，需核对实际宏执行顺序');
-    if(p.injection_trigger?.length) throw new Error('「'+(p.name||o.identifier)+'」设有触发条件，需核对触发时机');
-    if(/\{\{(?:if|else|while|run|eval)|<%/i.test(p.content||'')) throw new Error('「'+(p.name||o.identifier)+'」包含条件或脚本，需手动检查');
+    if(p.injection_position===1) throw new Error('「'+(p.name||o.identifier)+'」按深度插入聊天记录，执行顺序需人工核对');
+    if(p.injection_trigger?.length) throw new Error('「'+(p.name||o.identifier)+'」设有触发条件，触发时机需人工核对');
+    if(/\{\{(?:if|else|while|run|eval)|<%/i.test(p.content||'')) throw new Error('「'+(p.name||o.identifier)+'」含条件或脚本，需人工核对');
     if(/\{\{[^{}]*\{\{/i.test(p.content||'') && !safeInterpolatedVariableText(p.content)) {
-      if(wrapperPlan(d,o.identifier)) throw new Error('检测到未被引用的外层变量包裹；点击顶部「一键修复」可先整理包裹，再补汇总变量读取');
-      throw new Error('「'+(p.name||o.identifier)+'」存在复杂嵌套或外层变量被引用，需要保留依赖；未自动改写');
+      if(wrapperPlan(d,o.identifier)) throw new Error('存在未被读取的外层变量包裹。请先点顶部「修复变量问题」整理包裹');
+      throw new Error('「'+(p.name||o.identifier)+'」嵌套复杂，或外层变量被其他条目读取，未自动修改');
     }
   }
   const last=touches[touches.length-1].identifier;
   const finalWrites=listVarMacros(d.prompt(last)?.content).filter(m=>same(m)&&['set','add','inc','dec'].includes(m.op));
-  if(finalWrites.some(m=>m.op==='inc'||m.op==='dec') || finalWrites.at(-1)?.op==='set'&&isBlankValue(finalWrites.at(-1).value)) throw new Error('最后是计数操作或空值重置，需先核对写入顺序，不能直接补读取');
+  if(finalWrites.some(m=>m.op==='inc'||m.op==='dec') || finalWrites.at(-1)?.op==='set'&&isBlankValue(finalWrites.at(-1).value)) throw new Error('最后一次写入是计数或清空，需先核对写入顺序');
   const allReaders=d.order.filter(o=>d.isActive(o.identifier)&&listVarMacros(d.prompt(o.identifier)?.content).some(m=>same(m)&&m.op==='get'));
-  if(allReaders.length) throw new Error('已有启用的读取条目；请先核对它的顺序和执行条件，不重复补读取');
+  if(allReaders.length) throw new Error('已有开启的条目读取该变量，请核对其位置和条件');
   return {last,macro:`{{${macroName('get',scope)}::${name}}}`,name,key};
 }
 async function repairVariableDialog(d,key) {
   let plan;
   try { plan=variableRepairPlan(d,key); }
-  catch(e) { await sheet({title:'需要手动核对',body:`<p class="pa-p">${esc(e.message)}</p>`,actions:[{label:'知道了',value:true}]});return; }
+  catch(e) { await sheet({title:'需人工核对',body:`<p class="pa-p">${esc(e.message)}</p>`,actions:[{label:'确定',value:true}]});return; }
   const version=JSON.stringify(d.toPreset());
   const p=d.prompt(plan.last);
-  const body=el(`<div><p class="pa-p">新增独立的「变量读取 · ${esc(plan.name)}」条目，放在最后一个启用的写入条目「${esc(p.name)}」之后。使用 system 角色、普通预设位置，正文如下：</p><pre class="pa-pre">${esc(plan.macro)}</pre><p class="pa-hint">不改写现有思维链。读取变量可让内容进入上下文，但不能保证模型遵守；请在酒馆实际发送的提示词中核对。</p></div>`);
-  if(!await sheet({title:'变量读取修复预览',body,wide:true,actions:[{label:'取消',value:false},{label:'添加读取条目',kind:'primary',value:true}]}))return;
-  if(JSON.stringify(d.toPreset())!==version) return toast('预设已变化，请重新生成修复方案','warning');
+  const body=el(`<div><p class="pa-p">新增条目「变量读取 · ${esc(plan.name)}」，放在「${esc(p.name)}」之后（最后一个写入该变量的开启条目），角色为 system，正文：</p><pre class="pa-pre">${esc(plan.macro)}</pre><p class="pa-hint">思维链不改动。内容会进入上下文，模型是否采用需在实际发送的提示词中核对。</p></div>`);
+  if(!await sheet({title:'补充变量读取',body,wide:true,actions:[{label:'取消',value:false},{label:'添加',kind:'primary',value:true}]}))return;
+  if(JSON.stringify(d.toPreset())!==version) return toast('预设已变化，请重新打开修复方案','warning');
   variableRepairPlan(d,key);
   mutate(d,'补充变量读取',x=>x.insertPrompts([{prompt:{identifier:uid(),name:'变量读取 · '+plan.name,content:plan.macro,role:'system',system_prompt:false,marker:false,injection_position:0,injection_depth:4,injection_order:100},enabled:true}],{after:plan.last},d.groupOf(plan.last)));
   toast('已添加读取条目','success');
@@ -1860,7 +2023,7 @@ function suggestGroups(draft, { minSize = 3, onlyUngrouped = true } = {}) {
   let runVar = null;
   const flushVar = () => {
     if (runVar && run.length >= minSize) {
-      out.push({ name: runVar, ids: [...run], reason: `都写入变量「${runVar}」` });
+      out.push({ name: runVar, ids: [...run], reason: `均写入变量「${runVar}」` });
       run.forEach((x) => used.add(x));
     }
     run = [];
@@ -1893,7 +2056,7 @@ function suggestGroups(draft, { minSize = 3, onlyUngrouped = true } = {}) {
   const flushSym = () => {
     if (sym && run.length >= minSize) {
       const names = run.map((x) => draft.prompt(x)?.name || "");
-      out.push({ name: guessName(sym, names), ids: [...run], reason: `都以「${sym}」开头` });
+      out.push({ name: guessName(sym, names), ids: [...run], reason: `均以「${sym}」开头` });
       run.forEach((x) => used.add(x));
     }
     run = [];
@@ -1934,13 +2097,13 @@ function guessName(sym, names) {
 
 // src/ui/picker.js
 function presetPicker(slot, onPick, { label = "预设" } = {}) {
-  slot.innerHTML = `<label class="pa-picker"><span>${esc(label)}</span><select class="pa-select" aria-label="${esc(label)}"></select></label>`;
+  slot.innerHTML = `<label class="pa-picker">${label ? `<span>${esc(label)}</span>` : ""}<select class="pa-select" aria-label="${esc(label || "预设")}"></select></label>`;
   const sel = slot.querySelector("select");
   let current2 = null;
   function fill() {
     const names = listPresets();
     const using = currentPresetName();
-    sel.innerHTML = names.map((n) => `<option value="${esc(n)}">${esc(n)}${n === using ? "（在用）" : ""}</option>`).join("");
+    sel.innerHTML = names.map((n) => `<option value="${esc(n)}">${esc(n)}${n === using ? "（使用中）" : ""}</option>`).join("");
     if (current2) sel.value = current2;
   }
   fill();
@@ -1967,32 +2130,36 @@ function mountOrganize(page) {
     collapsed: null,
     collapsedFor: null,
     query: "",
-    moveMode: false,
-    highlight: /* @__PURE__ */ new Set(),
-    expanded: new Set()
+    // null：普通；"move"：给选中的条目选位置；"newgroup"：给新分组选位置
+    mode: null,
+    newName: "",
+    keep: [],
+    highlight: /* @__PURE__ */ new Set()
   };
   page.innerHTML = `
         <div class="pa-toolbar">
             <div class="pa-picker-slot"></div>
-            <div class="pa-search-row"><input class="pa-input pa-search" type="search" placeholder="搜条目名" aria-label="搜索条目">
+            <div class="pa-search-row"><input class="pa-input pa-search" type="search" placeholder="搜索条目" aria-label="搜索条目">
+            <button class="pa-btn" data-tool="newgroup">＋ 新建分组</button>
             <button class="pa-btn pa-tools-more" data-tool="menu">工具</button></div>
             <div class="pa-tools">
                 <button class="pa-btn pa-btn-soft" data-tool="smart">智能分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="fold">全部折叠</button>
-                <button class="pa-btn pa-btn-soft" data-tool="unfold">全部展开</button>
                 <button class="pa-btn pa-btn-soft" data-tool="backup">备份</button>
             </div>
         </div>
-        <div class="pa-movebar" hidden><b class="pa-move-n"></b><button class="pa-btn pa-sq" data-mv="up" aria-label="上移一格">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一格">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">放到最后</button><button class="pa-btn pa-btn-primary" data-mv="cancel">完成</button><small>点组名＝放在组后；展开组再点条目＝放进组内</small></div>
+        <div class="pa-movebar" hidden><b class="pa-move-n"></b>
+            <button class="pa-btn pa-sq" data-mv="up" aria-label="上移一位">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一位">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">移到最后</button>
+            <button class="pa-btn pa-btn-primary" data-mv="cancel">完成</button><small class="pa-move-hint"></small></div>
         <div class="pa-scroll pa-list" role="list"></div>
         <div class="pa-selbar" hidden>
             <div class="pa-selbar-top"><b class="pa-selcount"></b>
-                <button class="pa-link" data-sel="all">全选可见</button><button class="pa-link" data-sel="none">取消选择</button></div>
+                <button class="pa-link" data-sel="all">全选</button><button class="pa-link" data-sel="none">取消选择</button></div>
             <div class="pa-selbar-btns">
                 <button class="pa-btn pa-btn-primary" data-sel="moveto">移动</button>
-                <button class="pa-btn" data-sel="newgroup">建分组</button>
-                <button class="pa-btn" data-sel="on">开</button>
-                <button class="pa-btn" data-sel="off">关</button>
+                <button class="pa-btn" data-sel="newgroup">建成分组</button>
+                <button class="pa-btn" data-sel="on">开启</button>
+                <button class="pa-btn" data-sel="off">关闭</button>
                 <button class="pa-btn" data-sel="more">更多</button>
             </div>
         </div>`;
@@ -2002,6 +2169,7 @@ function mountOrganize(page) {
   const search = page.querySelector(".pa-search");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (name) => {
     st.selected.clear();
+    st.mode = null;
     setFocusPreset(name);
   });
   const draft = () => getDraft(focusPreset());
@@ -2010,6 +2178,7 @@ function mountOrganize(page) {
     st.collapsedFor = d.name;
     st.collapsed = new Set(d.groups.groups.filter((g) => g.collapsed).map((g) => g.id));
   }
+  const allFolded = (d) => d.groups.groups.length > 0 && d.groups.groups.every((g) => st.collapsed.has(g.id));
   function render() {
     let d;
     try {
@@ -2021,15 +2190,21 @@ function mountOrganize(page) {
     ensureCollapsed(d);
     picker.set(d.name);
     for (const id of [...st.selected]) if (!d.order.some((o) => o.identifier === id)) st.selected.delete(id);
+    const placing = !!st.mode;
     const top = list.scrollTop;
-    list.innerHTML = renderList(d, { mode: "organize", place: st.moveMode, selected: st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
+    list.innerHTML = renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
     list.scrollTop = top;
-    list.classList.toggle("pa-placing", st.moveMode);
+    list.classList.toggle("pa-placing", placing);
     const n = st.selected.size;
-    selbar.hidden = n === 0 || st.moveMode;
-    movebar.hidden = !st.moveMode;
+    selbar.hidden = n === 0 || placing;
+    movebar.hidden = !placing;
+    movebar.classList.toggle("pa-movebar-ng", st.mode === "newgroup");
     page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
-    page.querySelector(".pa-move-n").textContent = `移动 ${n} 条到…`;
+    page.querySelector(".pa-move-n").textContent = st.mode === "newgroup" ? `新分组「${st.newName}」的位置` : `移动 ${n} 条`;
+    page.querySelector(".pa-move-hint").textContent = st.mode === "newgroup" ? "点组名：放在该组之后。点条目：放在该条目之后。" : "点组名：移到该组之后。展开分组后点条目：移入组内。";
+    movebar.querySelector("[data-mv=cancel]").textContent = st.mode === "newgroup" ? "取消" : "完成";
+    movebar.querySelectorAll("[data-mv=up], [data-mv=down], [data-mv=end]").forEach((b) => { b.hidden = st.mode === "newgroup"; });
+    page.querySelector("[data-tool=fold]").textContent = allFolded(d) ? "全部展开" : "全部折叠";
     if (st.highlight.size) {
       const first = list.querySelector(".pa-flash");
       first?.scrollIntoView({ block: "center" });
@@ -2043,12 +2218,14 @@ function mountOrganize(page) {
     const d = draft();
     return settings().keepClickOrder ? [...st.selected] : d.sortByOrder([...st.selected]);
   };
-  // gid：放进哪个组；null＝放在组外（整组选中的分组会保持成组）
+  // gid：放进哪个组；null＝放在组外（整组选中的分组保持成组）
   function doMove(where, gid, label = "移动") {
     const d = draft();
     const ids = ordered();
-    mutate(d, label, (x) => x.place(ids, where, gid));
-    st.moveMode = false;
+    mutate(d, label, (x) => x.place(ids, where, gid, { keep: st.keep }));
+    st.mode = null;
+    st.keep = [];
+    if (gid) st.collapsed.delete(gid);
     toast(`已移动 ${ids.length} 条`, "success");
     flash(ids);
     render();
@@ -2056,31 +2233,64 @@ function mountOrganize(page) {
   function flash(ids) {
     ids.forEach((i) => st.highlight.add(i));
   }
+  function showGroup(gid) {
+    st.collapsed.delete(gid);
+    render();
+    list.querySelector(`.pa-group[data-gid="${CSS.escape(gid)}"]`)?.scrollIntoView({ block: "center" });
+  }
+  // 新建空白分组：先起名，再点位置
+  async function startNewGroup() {
+    const name = await promptBox("新分组名称", "", "例如：文风");
+    if (!name) return;
+    st.newName = name;
+    st.mode = "newgroup";
+    render();
+  }
+  function placeNewGroup(m) {
+    const d = draft();
+    const p = placeOf(d, m);
+    const anchor = p.where.index === 0 ? "" : p.where.after;
+    let gid = null;
+    mutate(d, `新建分组「${st.newName}」`, (x) => { gid = x.createEmptyGroup(st.newName, anchor); });
+    toast(`已新建分组「${st.newName}」`, "success");
+    st.mode = null;
+    showGroup(gid);
+  }
   list.addEventListener("click", async (e) => {
     const d = draft();
     const actEl = e.target.closest("[data-act]");
     const act = actEl?.dataset.act;
     const rowEl = e.target.closest(".pa-row");
     const head = e.target.closest(".pa-ghead");
-    if (act === "drag") return;
+    if (act === "drag" || act === "gdrag") return;
     if (e.target.closest(".pa-switch") && act !== "toggle" && act !== "gtoggle") return;
     if (act === "toggle") {
-      const id = rowEl.dataset.id;
-      mutate(d, "开关", (x) => x.setEnabled([id], actEl.checked));
+      mutate(d, "开关", (x) => x.setEnabled([rowEl.dataset.id], actEl.checked));
       return;
     }
     if (act === "peek") {
       e.stopPropagation();
       return peek(d, rowEl.dataset.id);
     }
-    if (st.moveMode && act === "top") return doMove({ index: 0 }, null, "移到最前");
+    if (st.mode && act === "collapse" && head) {
+      const gid = head.dataset.gid;
+      st.collapsed.has(gid) ? st.collapsed.delete(gid) : st.collapsed.add(gid);
+      return render();
+    }
+    if (st.mode) {
+      const m = placeFromClick(d, e, st.mode !== "newgroup");
+      if (!m) return;
+      if (st.mode === "newgroup") return placeNewGroup(m);
+      if (m.at === "row" && st.selected.has(m.id)) return toast("不能移到自身之后");
+      if (m.at === "block" && m.id) {
+        const b = d.blocks().find((x) => x.ids.includes(m.id));
+        if (b?.ids.every((i) => st.selected.has(i))) return toast("不能移到自身之后");
+      }
+      const p = placeOf(d, m);
+      return doMove(p.where, p.gid, m.at === "block" ? "移到组后" : m.at === "gstart" ? "移入分组" : m.at === "top" ? "移到最前" : "移动");
+    }
     if (head) {
       const gid = head.dataset.gid;
-      if (st.moveMode && act !== "collapse") {
-        const blockIds = d.blocks().find((b) => b.ids.includes(head.dataset.last))?.ids || [];
-        if (blockIds.every((i) => st.selected.has(i))) return toast("这组就是要移动的，点别处");
-        return doMove({ after: head.dataset.last }, null, "移到组后");
-      }
       if (act === "collapse" || !act) {
         st.collapsed.has(gid) ? st.collapsed.delete(gid) : st.collapsed.add(gid);
         return render();
@@ -2098,17 +2308,8 @@ function mountOrganize(page) {
       }
       return;
     }
-    if (act === "gstart") {
-      if (st.moveMode) return doMove({ groupStart: actEl.dataset.gid }, actEl.dataset.gid, "移到组内最前");
-      return;
-    }
     if (rowEl) {
       const id = rowEl.dataset.id;
-      if (st.moveMode) {
-        if (st.selected.has(id)) return toast("这条就是要移动的，点别处");
-        return doMove({ after: id }, d.groupOf(id), "移到条目后");
-      }
-      // 点整行＝选中/取消；看内容点右边的眼睛
       st.selected.has(id) ? st.selected.delete(id) : st.selected.add(id);
       render();
     }
@@ -2120,17 +2321,19 @@ function mountOrganize(page) {
   page.querySelector(".pa-toolbar").addEventListener("click", async (e) => {
     let t = e.target.closest("[data-tool]")?.dataset.tool;
     if (!t) return;
+    const d = draft();
     if (t === "menu") {
-      t = await pickBox("工具", [{ label: "智能分组", sub: "把挨在一起的同类条目框起来", value: "smart" }, { label: "全部折叠", value: "fold" }, { label: "全部展开", value: "unfold" }, { label: "备份与恢复", value: "backup" }]);
+      t = await pickBox("工具", [
+        { label: "智能分组", sub: "把相邻的同类条目建成分组", value: "smart" },
+        { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
+        { label: "备份与恢复", value: "backup" }
+      ]);
       if (!t) return;
     }
-    const d = draft();
+    if (t === "newgroup") return startNewGroup();
     if (t === "fold") {
-      d.groups.groups.forEach((g) => st.collapsed.add(g.id));
-      render();
-    }
-    if (t === "unfold") {
-      st.collapsed.clear();
+      if (allFolded(d)) st.collapsed.clear();
+      else d.groups.groups.forEach((g) => st.collapsed.add(g.id));
       render();
     }
     if (t === "smart") smartGroups(d);
@@ -2139,9 +2342,11 @@ function mountOrganize(page) {
   movebar.addEventListener("click", (e) => {
     const a = e.target.closest("[data-mv]")?.dataset.mv;
     if (a === "cancel") {
-      st.moveMode = false;
+      st.mode = null;
+      st.keep = [];
       render();
     }
+    if (st.mode !== "move") return;
     if (a === "end") doMove({ index: draft().order.length }, null, "移到最后");
     if (a === "up" || a === "down") {
       const ids = ordered();
@@ -2150,16 +2355,9 @@ function mountOrganize(page) {
       render();
     }
   });
-  selbar.addEventListener("change", (e) => {
-    if (e.target.dataset.opt === "clickorder") {
-      settings().keepClickOrder = e.target.checked;
-      saveSettings();
-    }
-  });
   selbar.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-sel]")?.dataset.sel;
     if (!a) return;
-    const d = draft();
     const ids = ordered();
     if (a === "none") {
       st.selected.clear();
@@ -2170,18 +2368,19 @@ function mountOrganize(page) {
       return render();
     }
     if (a === "more") {
+      const keep = settings().keepClickOrder;
       const v = await pickBox(`已选 ${ids.length} 条`, [
-        { label: "移入已有分组…", value: "intogroup" },
+        { label: "移入分组…", value: "intogroup" },
         { label: "移出分组", value: "ungroup" },
-        { label: "按标签顺序排列…", value: "sorttags" },
-        { label: settings().keepClickOrder ? "✓ 移动/建组时按点选先后排" : "移动/建组时按点选先后排", sub: "不勾就保持原来的先后", value: "clickorder" },
+        { label: "按标签排序…", value: "sorttags" },
+        { label: `排列方式：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时条目的先后。点击切换", value: "clickorder" },
         { label: "删除", value: "delete" }
       ]);
       if (!v) return;
       if (v === "clickorder") {
-        settings().keepClickOrder = !settings().keepClickOrder;
+        settings().keepClickOrder = !keep;
         saveSettings();
-        return toast(settings().keepClickOrder ? "已改为按点选先后排" : "已改为保持原来的先后");
+        return toast(`排列方式：${!keep ? "按点选先后" : "保持原顺序"}`);
       }
       return selAction(v);
     }
@@ -2191,18 +2390,19 @@ function mountOrganize(page) {
     const d = draft();
     const ids = ordered();
     if (a === "newgroup") {
-      const name = await promptBox("新分组名字", "", "比如：文风、小剧场");
+      const name = await promptBox("新分组名称", "", "例如：文风");
       if (!name) return;
-      mutate(d, "新建分组", (x) => x.createGroup(name, ids, { keepClickOrder: settings().keepClickOrder }));
+      let gid = null;
+      mutate(d, "建成分组", (x) => { gid = x.createGroup(name, ids, { keepClickOrder: settings().keepClickOrder }); });
       st.selected.clear();
       flash(ids);
-      toast(`已建分组「${name}」`, "success");
-      return render();
+      toast(`已建成分组「${name}」`, "success");
+      return showGroup(gid);
     }
     if (a === "intogroup") {
-      const groups = d.groups.groups.map((g) => ({ label: g.name, sub: `${d.order.filter((o) => d.groupOf(o.identifier) === g.id).length} 条`, value: g.id }));
-      groups.push({ label: "＋ 新建一个分组…", value: "__new" });
-      const gid = await pickBox("移入哪个分组？", groups, { hint: "会排到这个组的最后面" });
+      const groups = d.groups.groups.filter((g) => !d.isEmptyGroup(g.id) || g.anchor !== void 0).map((g) => ({ label: g.name, sub: `${d.order.filter((o) => d.groupOf(o.identifier) === g.id).length} 条`, value: g.id }));
+      groups.push({ label: "＋ 新建分组…", value: "__new" });
+      const gid = await pickBox("移入分组", groups, { hint: "条目排在组内最后" });
       if (!gid) return;
       if (gid === "__new") return selAction("newgroup");
       mutate(d, "移入分组", (x) => x.moveIntoGroup(ids, gid, { keepClickOrder: settings().keepClickOrder }));
@@ -2211,17 +2411,17 @@ function mountOrganize(page) {
       st.collapsed.delete(gid);
       return render();
     }
-    if (a === "sorttags") { await sortTagsDialog(d, ids); return render(); }
-    if (a === "moveto") {
-      st.moveMode = true;
+    if (a === "sorttags") {
+      await sortTagsDialog(d, ids);
       return render();
     }
-    if (a === "up" || a === "down") {
-      mutate(d, "移动", (x) => x.moveStep(ids, a === "up" ? -1 : 1));
+    if (a === "moveto") {
+      st.mode = "move";
+      st.keep = [];
       return render();
     }
     if (a === "on" || a === "off") {
-      mutate(d, a === "on" ? "批量开" : "批量关", (x) => x.setEnabled(ids, a === "on"));
+      mutate(d, a === "on" ? "批量开启" : "批量关闭", (x) => x.setEnabled(ids, a === "on"));
       return;
     }
     if (a === "ungroup") {
@@ -2229,8 +2429,8 @@ function mountOrganize(page) {
       return;
     }
     if (a === "delete") {
-      if (ids.some((id) => d.isMarker(id))) return toast("选中的里面有酒馆位置条目（聊天记录、角色描述之类），这些不能删", "warning");
-      if (!await confirmBox("删除条目", `从预设里删掉选中的 ${ids.length} 条？可使用顶部撤销或备份恢复。`, "删除", true)) return;
+      if (ids.some((id) => d.isMarker(id))) return toast("选中的条目包含系统位置条目（如聊天记录、角色描述），不能删除", "warning");
+      if (!await confirmBox("删除条目", `删除选中的 ${ids.length} 条？可撤销，也可从备份恢复。`, "删除", true)) return;
       mutate(d, "删除", (x) => x.deletePrompts(ids));
       st.selected.clear();
       return render();
@@ -2238,27 +2438,39 @@ function mountOrganize(page) {
   }
   async function groupMenu(d, gid) {
     const g = d.group(gid);
+    if (d.isEmptyGroup(gid)) {
+      const v2 = await pickBox(`分组「${g?.name}」`, [{ label: "重命名", value: "rename" }, { label: "删除空分组", value: "dissolve" }]);
+      if (v2 === "rename") {
+        const name = await promptBox("分组名称", g.name);
+        if (name) mutate(d, "重命名分组", (x) => x.renameGroup(gid, name));
+      }
+      if (v2 === "dissolve") mutate(d, "删除空分组", (x) => x.dissolveGroup(gid));
+      return;
+    }
     const parts = d.blocks().filter((b) => b.groupId === gid).length;
     const items = [
       { label: "重命名", value: "rename" },
-      { label: "整组上移", value: "up" },
-      { label: "整组下移", value: "down" }
+      { label: "移动整组…", sub: "再点目标位置", value: "move" },
+      { label: "上移一位", value: "up" },
+      { label: "下移一位", value: "down" }
     ];
-    if (parts > 1) items.splice(2, 0, { label: `收拢（现在分散成 ${parts} 段）`, value: "gather" });
-    items.push({ label: "解散分组（条目保留）", value: "dissolve" });
+    if (parts > 1) items.push({ label: `合并分散的 ${parts} 段`, value: "gather" });
+    items.push({ label: "解散分组", sub: "条目保留在原位置", value: "dissolve" });
     const v = await pickBox(`分组「${g?.name}」`, items);
     if (!v) return;
     if (v === "rename") {
-      const name = await promptBox("分组名字", g.name);
+      const name = await promptBox("分组名称", g.name);
       if (name) mutate(d, "重命名分组", (x) => x.renameGroup(gid, name));
     }
-    if (v === "select") {
-      d.order.filter((o) => d.groupOf(o.identifier) === gid).forEach((o) => st.selected.add(o.identifier));
+    if (v === "move") {
+      st.selected = new Set(d.order.filter((o) => d.groupOf(o.identifier) === gid).map((o) => o.identifier));
+      st.keep = [gid];
+      st.mode = "move";
       render();
     }
-    if (v === "gather") mutate(d, "收拢分组", (x) => x.gatherGroup(gid));
-    if (v === "up" || v === "down") mutate(d, "整组移动", (x) => x.moveGroupBlock(gid, v === "up" ? -1 : 1));
-    if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
+    if (v === "gather") mutate(d, "合并分组", (x) => x.gatherGroup(gid));
+    if (v === "up" || v === "down") mutate(d, "移动分组", (x) => x.moveGroupBlock(gid, v === "up" ? -1 : 1));
+    if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留在原位置。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
   }
   async function peek(d, id) {
     const p = d.prompt(id);
@@ -2267,56 +2479,52 @@ function mountOrganize(page) {
     const info = s.shape === "wrap" || s.shape === "tagname" ? `${SHAPE_LABEL[s.shape]}「${s.varName}」` : SHAPE_LABEL[s.shape];
     const marker = d.isMarker(id);
     const body = el(`<div class="pa-form">
-            <label class="pa-field"><span>名字</span><input class="pa-input" data-f="name" value="${esc(p.name || "")}"></label>
-            <p class="pa-hint">写法：${esc(info)}${p.injection_position === 1 ? ` \xB7 聊天内注入，深度 ${esc(p.injection_depth)}` : ""} \xB7 角色 ${esc(p.role || "system")}</p>
-            ${marker ? '<p class="pa-hint">酒馆位置条目，没有正文。</p>' : `<textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
+            <label class="pa-field"><span>名称</span><input class="pa-input" data-f="name" value="${esc(p.name || "")}"></label>
+            <p class="pa-hint">写法：${esc(info)} \xB7 角色：${esc(p.role || "system")}${p.injection_position === 1 ? ` \xB7 插入聊天记录，深度 ${esc(p.injection_depth)}` : ""}</p>
+            ${marker ? '<p class="pa-hint">系统位置条目，无正文。</p>' : `<textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
         </div>`);
     body.addEventListener("input", (e) => {
       if (!e.target.matches("[data-f=name], [data-f=content]")) return;
-      if (!body._edited) { d.snapshot("编辑条目"); body._edited = true; }
+      if (!body._edited) {
+        d.snapshot("编辑条目");
+        body._edited = true;
+      }
       d.prompt(id)[e.target.dataset.f] = e.target.value;
-      d.dirty = true; emitChange(d.name);
+      d.dirty = true;
+      emitChange(d.name);
     });
-    const r = await sheet({ title: "条目内容（输入自动保存）", body, wide: true, noFocus: true, actions: [{ label: "关闭", value: null }, { label: "改好了", kind: "primary", value: (w) => ({ name: w.querySelector("[data-f=name]").value, content: w.querySelector("[data-f=content]")?.value }) }] });
-    if (!r) return;
-    if (r.name === p.name && (r.content === void 0 || r.content === p.content)) return;
-    mutate(d, "编辑条目", (x) => {
-      const q = x.prompt(id);
-      q.name = r.name;
-      if (r.content !== void 0) q.content = r.content;
-    });
+    await sheet({ title: "编辑条目", body, wide: true, noFocus: true, actions: [{ label: "完成", kind: "primary", value: true }] });
   }
   async function smartGroups(d) {
     const sug = suggestGroups(d);
-    if (!sug.length) return toast("没有可自动分组的连续条目");
-    const body = el(`<div><p class="pa-hint">只框连续条目，不改顺序。</p>
+    if (!sug.length) return toast("没有可自动分组的相邻条目");
+    const body = el(`<div><p class="pa-hint">只把相邻条目建成分组，不改变顺序。</p>
             <div class="pa-sug">${sug.map((g, i) => `<div class="pa-sug-item">
                 <label class="pa-inline-check"><input type="checkbox" data-i="${i}" checked></label>
                 <div class="pa-sug-main"><input class="pa-input pa-input-s" data-n="${i}" value="${esc(g.name)}">
                 <small>${g.ids.length} 条 \xB7 ${esc(g.reason)} \xB7 ${esc(d.prompt(g.ids[0])?.name)} … ${esc(d.prompt(g.ids[g.ids.length - 1])?.name)}</small></div></div>`).join("")}</div></div>`);
-    const r = await sheet({ title: `建议 ${sug.length} 个分组`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, { label: "建这些分组", kind: "primary", value: (w) => sug.map((g, i) => ({ ...g, on: w.querySelector(`[data-i="${i}"]`).checked, name: w.querySelector(`[data-n="${i}"]`).value.trim() || g.name })).filter((g) => g.on) }] });
+    const r = await sheet({ title: `建议新建 ${sug.length} 个分组`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, { label: "新建分组", kind: "primary", value: (w) => sug.map((g, i) => ({ ...g, on: w.querySelector(`[data-i="${i}"]`).checked, name: w.querySelector(`[data-n="${i}"]`).value.trim() || g.name })).filter((g) => g.on) }] });
     if (!r || !r.length) return;
     mutate(d, "智能分组", (x) => {
       for (const g of r) x.createGroup(g.name, g.ids);
     });
-    r.forEach((g) => st.collapsed.add(x_last(d, g)));
-    toast(`已建 ${r.length} 个分组`, "success");
+    r.forEach((g) => st.collapsed.add(d.groupOf(g.ids[0])));
+    toast(`已新建 ${r.length} 个分组`, "success");
     render();
   }
-  const x_last = (d, g) => d.groupOf(g.ids[0]);
   async function backups(name) {
     let list2 = [];
     try {
       list2 = await backupList(name);
     } catch (e) {
-      return toast("读不到备份：" + e.message, "error");
+      return toast("读取备份失败：" + e.message, "error");
     }
-    if (!list2.length) return toast("这个预设还没有备份");
+    if (!list2.length) return toast("此预设暂无备份");
     const items = list2.map((b2) => ({ label: new Date(b2.time).toLocaleString(), sub: b2.reason, value: b2.id }));
     const id = await pickBox(`「${name}」的备份`, items);
     if (!id) return;
     const b = await backupGet(id);
-    const how = await pickBox("这个备份要…", [{ label: "恢复到草稿", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
+    const how = await pickBox("选择操作", [{ label: "恢复", sub: "恢复后自动保存，可撤销", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
     if (how === "download") {
       const blob = new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" });
       const a = document.createElement("a");
@@ -2335,21 +2543,31 @@ function mountOrganize(page) {
       toast("已恢复", "success");
     }
   }
+  // ---- 拖动：条目右侧的把手拖条目；分组头右侧的把手拖整个分组
   let drag = null;
   list.addEventListener("pointerdown", (e) => {
     const h = e.target.closest(".pa-handle");
-    if (!h || st.moveMode) return;
+    if (!h || st.mode) return;
     e.preventDefault();
     const d = draft();
-    const rowEl = h.closest(".pa-row");
-    const id = rowEl.dataset.id;
-    const ids = st.selected.has(id) ? ordered() : [id];
-    const ghost = el(`<div class="pa-ghost">${ICON.grip}<span>${esc(d.prompt(id)?.name || id)}${ids.length > 1 ? ` 等 ${ids.length} 条` : ""}</span></div>`);
+    const head = h.closest(".pa-ghead");
+    let ids, label, group = null;
+    if (head) {
+      group = head.dataset.gid;
+      ids = d.order.filter((o) => d.groupOf(o.identifier) === group).map((o) => o.identifier);
+      label = `分组「${d.group(group)?.name || ""}」`;
+      head.closest(".pa-group").classList.add("pa-dragging");
+    } else {
+      const id = h.closest(".pa-row").dataset.id;
+      ids = st.selected.has(id) ? ordered() : [id];
+      label = `${d.prompt(id)?.name || id}${ids.length > 1 ? ` 等 ${ids.length} 条` : ""}`;
+      ids.forEach((i) => list.querySelector(`.pa-row[data-id="${CSS.escape(i)}"]`)?.classList.add("pa-dragging"));
+    }
+    const ghost = el(`<div class="pa-ghost">${ICON.grip}<span>${esc(label)}</span></div>`);
     page.append(ghost);
     const line = el('<div class="pa-drop-line"></div>');
     list.append(line);
-    ids.forEach((i) => list.querySelector(`.pa-row[data-id="${CSS.escape(i)}"]`)?.classList.add("pa-dragging"));
-    drag = { ids, ghost, line, target: null, y: e.clientY, x: e.clientX, raf: 0, pid: e.pointerId };
+    drag = { ids, group, ghost, line, target: null, y: e.clientY, x: e.clientX, raf: 0, pid: e.pointerId };
     try {
       h.setPointerCapture(e.pointerId);
     } catch {
@@ -2357,6 +2575,22 @@ function mountOrganize(page) {
     moveGhost(e.clientX, e.clientY);
     drag.raf = requestAnimationFrame(autoScroll);
   });
+  // 拖整个分组：只能落在分组之间或散条目之间
+  function groupTarget(under, y, lr) {
+    const d = draft();
+    const sec = under?.closest?.(".pa-group");
+    const loose = !sec && under?.closest?.(".pa-loose .pa-row");
+    const box = sec || loose;
+    if (!box || !list.contains(box) || sec?.dataset.gid === drag.group) return null;
+    const r = box.getBoundingClientRect();
+    const upper = y < r.top + r.height / 2;
+    const lineY = (upper ? r.top - 3 : r.bottom + 3) - lr.top + list.scrollTop;
+    if (loose) return { where: upper ? { before: loose.dataset.id } : { after: loose.dataset.id }, gid: null, lineY };
+    const hd = sec.querySelector(".pa-ghead");
+    const gid = hd.dataset.gid;
+    if (upper) return { where: hd.dataset.first ? { before: hd.dataset.first } : d.afterEmpty(gid), gid: null, lineY };
+    return { where: hd.dataset.last ? { after: hd.dataset.last } : { ...d.afterEmpty(gid), behind: gid }, gid: null, lineY };
+  }
   function moveGhost(x, y) {
     drag.x = x;
     drag.y = y;
@@ -2368,28 +2602,38 @@ function mountOrganize(page) {
     const lr = list.getBoundingClientRect();
     let target = null;
     let lineY = null;
-    const row = under?.closest?.(".pa-row");
-    const head = under?.closest?.(".pa-ghead");
-    if (row && list.contains(row) && !drag.ids.includes(row.dataset.id)) {
-      const r = row.getBoundingClientRect();
-      const after = y > r.top + r.height / 2;
-      target = { where: after ? { after: row.dataset.id } : { before: row.dataset.id }, gid: draft().groupOf(row.dataset.id) };
-      lineY = (after ? r.bottom : r.top) - lr.top + list.scrollTop;
-    } else if (head && list.contains(head)) {
-      // 组头上半＝放在这组前面（组外）；下半：展开着＝组内最前，折叠着＝这组后面（组外）
-      const r = head.getBoundingClientRect();
-      const box = head.closest(".pa-group").getBoundingClientRect();
-      const upper = y < r.top + r.height / 2;
-      const open = !head.closest(".pa-group").classList.contains("pa-collapsed");
-      if (upper) {
-        target = { where: { before: head.dataset.first }, gid: null };
-        lineY = box.top - lr.top + list.scrollTop - 3;
-      } else if (open) {
-        target = { where: { before: head.dataset.first }, gid: head.dataset.gid };
-        lineY = r.bottom - lr.top + list.scrollTop;
-      } else {
-        target = { where: { after: head.dataset.last }, gid: null };
-        lineY = box.bottom - lr.top + list.scrollTop + 3;
+    if (drag.group) {
+      target = groupTarget(under, y, lr);
+      lineY = target?.lineY ?? null;
+    } else {
+      const row = under?.closest?.(".pa-row");
+      const head = under?.closest?.(".pa-ghead");
+      if (row && list.contains(row) && !drag.ids.includes(row.dataset.id)) {
+        const r = row.getBoundingClientRect();
+        const after = y > r.top + r.height / 2;
+        target = { where: after ? { after: row.dataset.id } : { before: row.dataset.id }, gid: draft().groupOf(row.dataset.id) };
+        lineY = (after ? r.bottom : r.top) - lr.top + list.scrollTop;
+      } else if (head && list.contains(head)) {
+        // 组头上半＝放在这组前面（组外）；下半：展开着或空分组＝放进组内最前，折叠着＝这组后面（组外）
+        const r = head.getBoundingClientRect();
+        const box = head.closest(".pa-group").getBoundingClientRect();
+        const upper = y < r.top + r.height / 2;
+        const gid = head.dataset.gid;
+        const empty = !head.dataset.first;
+        const open = !head.closest(".pa-group").classList.contains("pa-collapsed");
+        if (empty) {
+          target = { where: draft().afterEmpty(gid), gid };
+          lineY = r.bottom - lr.top + list.scrollTop;
+        } else if (upper) {
+          target = { where: { before: head.dataset.first }, gid: null };
+          lineY = box.top - lr.top + list.scrollTop - 3;
+        } else if (open) {
+          target = { where: { before: head.dataset.first }, gid };
+          lineY = r.bottom - lr.top + list.scrollTop;
+        } else {
+          target = { where: { after: head.dataset.last }, gid: null };
+          lineY = box.bottom - lr.top + list.scrollTop + 3;
+        }
       }
     }
     drag.target = target;
@@ -2417,13 +2661,24 @@ function mountOrganize(page) {
     cancelAnimationFrame(drag.raf);
     drag.ghost.remove();
     drag.line.remove();
-    const { ids, target } = drag;
+    const { ids, target, group } = drag;
     drag = null;
-    if (commit && target) {
-      const d = draft();
-      mutate(d, "拖动", (x) => x.place(ids, target.where, target.gid));
-      flash(ids);
-    } else render();
+    if (!commit || !target) return render();
+    const d = draft();
+    if (group && !ids.length) {
+      // 空分组：只改它跟在哪一条后面
+      const w = target.where;
+      const anchor = w.index === 0 ? "" : w.after !== void 0 ? w.after : (() => {
+        const k = d.order.findIndex((o) => o.identifier === w.before);
+        return k > 0 ? d.order[k - 1].identifier : "";
+      })();
+      mutate(d, "移动分组", (x) => {
+        x.group(group).anchor = anchor;
+      });
+      return;
+    }
+    mutate(d, group ? "移动分组" : "拖动", (x) => x.place(ids, target.where, target.gid, { keep: group ? [group] : [] }));
+    flash(ids);
   };
   list.addEventListener("pointermove", (e) => {
     if (drag && e.pointerId === drag.pid) {
@@ -2448,7 +2703,6 @@ function mountOrganize(page) {
     render();
   } };
 }
-
 
 // src/core/suture.js
 function mostCommon(list) {
@@ -2628,9 +2882,9 @@ function findInitEntry(draft) {
   return best;
 }
 function describeTarget(t) {
-  if (t.shape === "wrap") return `整段包进变量「${t.varName}」（${t.op === "set" ? "setvar 单选覆盖" : "addvar 追加"}）`;
-  if (t.shape === "tagname") return `正文直写，末尾登记名字到变量「${t.varName}」`;
-  return "直接写正文，不用变量";
+  if (t.shape === "wrap") return `正文写入变量「${t.varName}」（${t.op === "set" ? "setvar 覆盖，单选" : "addvar 追加"}）`;
+  if (t.shape === "tagname") return `正文直写，末尾将名称登记到变量「${t.varName}」`;
+  return "正文直写，不使用变量";
 }
 /** 名字可能的几种写法（从短到长都试）：♥︎ 填充-激烈性爱 → 激烈性爱 / 填充-激烈性爱 */
 function nameParts(name) {
@@ -2675,26 +2929,26 @@ ${body}`;
 }
 // 1.2.0：用大白话说清楚"来源怎么写的 → 目标要怎么写 → 我改了什么"
 function opText(op) {
-  return op === "set" ? "setvar（同一个变量只认排在最后、开着的那一条，相当于单选）" : "addvar（开着的几条会接在一起，可以多选）";
+  return op === "set" ? "setvar（同一变量只保留排在最后的开启条目，相当于单选）" : "addvar（开启的条目依次拼接，可多选）";
 }
 function explainConversion(s, want) {
   const from = s.shape === "init" || s.shape === "empty" ? "plain" : s.shape;
   const to = want.shape;
   const out = [];
-  if (from === "plain" && to === "plain") out.push("来源和目标都是直接写正文：正文原样放进去，条目开着就会发给模型");
-  else if (from === "plain" && to === "wrap") out.push(`来源是直接写的正文；目标这里习惯把整段正文包进变量「${want.varName}」，用 ${opText(want.op)}。已经帮你包好了`);
-  else if (from === "plain" && to === "tagname") out.push(`来源是直接写的正文；目标这里习惯正文照常写、末尾把名字登记到变量「${want.varName}」。已经帮你加上登记`);
-  else if (from === "wrap" && to === "plain") out.push(`来源把正文包在变量「${s.varName}」里（包在变量里的正文，要有条目 getvar 读它才会发给模型）；目标这里是直接写正文，已经拆掉外层包裹，只留正文`);
+  if (from === "plain" && to === "plain") out.push("来源和目标均为正文直写，正文原样保留，开启即发送");
+  else if (from === "plain" && to === "wrap") out.push(`来源为正文直写，目标将正文写入变量「${want.varName}」，使用 ${opText(want.op)}。已按目标调整`);
+  else if (from === "plain" && to === "tagname") out.push(`来源为正文直写，目标在正文末尾将名称登记到变量「${want.varName}」。已添加登记`);
+  else if (from === "wrap" && to === "plain") out.push(`来源将正文写入变量「${s.varName}」（需有条目用 getvar 读取才会发送），目标为正文直写。已去掉外层包裹，只保留正文`);
   else if (from === "wrap" && to === "wrap") {
-    if (s.varName === want.varName && s.op === want.op) out.push(`来源和目标一样，都包在变量「${want.varName}」里，正文不动`);
-    else out.push(`来源包在「${s.varName}」里，用的是 ${s.op}var；目标这里包在「${want.varName}」里，用 ${opText(want.op)}。已经换成目标的变量和写法`);
-  } else if (from === "tagname" && to === "plain") out.push(`来源正文末尾把名字登记在「${s.varName}」里（这行只是给来源预设的思维链看的）；目标这里直接写正文，已经去掉这行登记`);
-  else if (from === "tagname" && to === "tagname") out.push(s.varName === want.varName ? `来源和目标写法一样，名字登记到「${want.varName}」` : `来源把名字登记到「${s.varName}」，目标这里登记到「${want.varName}」，已经改过来`);
-  else if (from === "tagname" && to === "wrap") out.push(`来源是正文＋登记名字；目标这里把整段正文包进变量「${want.varName}」，用 ${opText(want.op)}。已经改好`);
-  else if (from === "wrap" && to === "tagname") out.push(`来源把正文包在「${s.varName}」里；目标这里正文直接写、末尾登记名字到「${want.varName}」。已经改好`);
+    if (s.varName === want.varName && s.op === want.op) out.push(`来源与目标相同，均写入变量「${want.varName}」，正文不变`);
+    else out.push(`来源写入「${s.varName}」（${s.op}var），目标写入「${want.varName}」，使用 ${opText(want.op)}。已改为目标的变量和写法`);
+  } else if (from === "tagname" && to === "plain") out.push(`来源在正文末尾将名称登记到「${s.varName}」（供来源预设的思维链读取），目标为正文直写。已去掉这行登记`);
+  else if (from === "tagname" && to === "tagname") out.push(s.varName === want.varName ? `来源与目标写法相同，名称登记到「${want.varName}」` : `来源将名称登记到「${s.varName}」，目标登记到「${want.varName}」。已调整`);
+  else if (from === "tagname" && to === "wrap") out.push(`来源为正文直写并登记名称，目标将正文写入变量「${want.varName}」，使用 ${opText(want.op)}。已调整`);
+  else if (from === "wrap" && to === "tagname") out.push(`来源将正文写入「${s.varName}」，目标为正文直写，末尾将名称登记到「${want.varName}」。已调整`);
   else out.push(`写法：${SHAPE_LABEL[from] || from} → ${SHAPE_LABEL[to] || to}`);
   if ((to === "wrap" || to === "tagname") && s.op === "add" && want.op === "set") {
-    out.push("注意：来源用 addvar 可以和别的条目叠加；目标这里是 setvar 单选——同一组里如果同时开好几条，只有最后一条生效。想叠加，就把下面的「方式」改成 addvar");
+    out.push("注意：来源使用 addvar，可与其他条目叠加；目标使用 setvar，同时开启多条时只有最后一条生效。如需叠加，请在「高级」中将写入方式改为 addvar");
   }
   return out;
 }
@@ -2735,52 +2989,52 @@ function planItem(src, target, choice = {}) {
       body = `<${tagName}>
 ${String(body).trim()}
 </${tagName}>`;
-      notes.push(`目标这里每条正文都用自己名字的标签包着，已经给它套上 <${tagName}>`);
-      changes.push(`套上 <${tagName}>`);
+      notes.push(`目标的每条正文都用以自身名称命名的标签包裹，已添加 <${tagName}>`);
+      changes.push(`添加标签 <${tagName}>`);
     }
   } else if (useTag && target.tagTpl) {
     body = applyOuterTag(body, target.tagTpl, shortName);
-    notes.push(`外层套上目标用的 <${target.tagTpl.tag}${target.tagTpl.sep}${shortName}> 标签`);
-    changes.push(`套上 <${target.tagTpl.tag}${target.tagTpl.sep}${shortName}>`);
+    notes.push(`外层添加目标使用的标签 <${target.tagTpl.tag}${target.tagTpl.sep}${shortName}>`);
+    changes.push(`添加标签 <${target.tagTpl.tag}${target.tagTpl.sep}${shortName}>`);
   } else if (useTag && target.headerTpl?.kind === "bracket") {
     body = addHeader(body, target.headerTpl, shortName);
-    notes.push(`开头用目标同类条目的标题格式：「${target.headerTpl.prefix}${shortName}]」`);
+    notes.push(`开头采用目标同类条目的标题格式：「${target.headerTpl.prefix}${shortName}]」`);
     changes.push(`开头标题：${target.headerTpl.prefix}${shortName}]`);
   } else if (useTag && target.headerTpl) {
     body = addHeader(body, target.headerTpl, shortName);
-    notes.push(`开头用目标同类条目的标题格式：「${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}」`);
+    notes.push(`开头采用目标同类条目的标题格式：「${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}」`);
     changes.push(`开头标题：${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}`);
   }
   if (target.slot && want.varName === target.slot.varName && want.shape === target.slot.shape) {
-    changes.push(`加入单选「${target.slot.varName}」：开它会顶掉同类里开着的那条`);
+    changes.push(`加入单选「${target.slot.varName}」：开启后替换同类中已开启的一条`);
   }
   if (target.slot && !slotAllowed && !choice.shape) {
-    notes.push(`附近是单选槽位「${target.slot.varName}」（几条选一条，开了会顶掉同类里开着的那条）。这条看起来不是同一类，所以没有登记进去，免得顶掉你选好的那一项；确实是同类的话，在「高级」里把写法改成「正文直写＋登记名字」`);
+    notes.push(`附近是单选「${target.slot.varName}」（多条中只保留一条）。此条目与它们不属同类，未加入，以免替换已选项。如属同类，可在「高级」中调整写法`);
   }
   const keepExtras = choice.keepExtras ?? false;
   const extras = keepExtras ? s.extras || [] : [];
   if ((s.extras || []).length && !keepExtras) {
-    notes.push(`来源里附带的 ${s.extras.length} 个额外宏（比如它自己的思维链片段）没带过来`);
-    changes.push(`去掉来源附带的 ${s.extras.length} 个宏`);
+    notes.push(`未保留来源中的 ${s.extras.length} 个附加宏（如来源自带的思维链片段）`);
+    changes.push(`去掉 ${s.extras.length} 个附加宏`);
   }
   {
     const from = s.shape === "init" || s.shape === "empty" ? "plain" : s.shape;
     const to = want.shape;
     const short = (x) => (x = String(x || "").trim(), x.length > 26 ? x.slice(0, 26) + "…" : x);
-    if (from === "wrap" && (to !== "wrap" || s.varName !== want.varName || s.op !== want.op)) changes.unshift(`拆掉外层 {{${s.op}var::${s.varName}::…}}`);
+    if (from === "wrap" && (to !== "wrap" || s.varName !== want.varName || s.op !== want.op)) changes.unshift(`去掉外层 {{${s.op}var::${s.varName}::…}}`);
     if (from === "tagname" && (to !== "tagname" || s.varName !== want.varName)) changes.unshift(`去掉末尾 {{${s.op}var::${s.varName}::…}}`);
-    if (to === "wrap" && (from !== "wrap" || s.varName !== want.varName || s.op !== want.op)) changes.push(`整段包进 {{${want.op}var::${want.varName}::…}}`);
+    if (to === "wrap" && (from !== "wrap" || s.varName !== want.varName || s.op !== want.op)) changes.push(`写入 {{${want.op}var::${want.varName}::…}}`);
     if (to === "tagname" && (from !== "tagname" || s.varName !== want.varName || s.label !== label)) changes.push(`末尾登记 {{${want.op}var::${want.varName}::${short(label)}}}`);
   }
   const content = buildContent(body, want, { label, extras });
   if (want.shape === "tagname" && target.labelTpl) {
-    notes.unshift(`目标这里同类条目都往变量「${want.varName}」登记一句问句（${want.op === "set" ? "setvar：同时开几条只认最后一条，相当于单选" : "addvar：开着的会接在一起"}），思维链会读它。已经照样登记：${label}`);
+    notes.unshift(`目标的同类条目向变量「${want.varName}」登记问句（${want.op === "set" ? "setvar，同时开启多条时只保留最后一条，相当于单选" : "addvar，开启的条目依次拼接"}），由思维链读取。已按此登记：${label}`);
   } else notes.unshift(...explainConversion(s, want));
   const warnings = [];
   if (want.varName && (want.shape === "wrap" || want.shape === "tagname")) {
-    if (!target.readerIds.length && want.varName === target.varName) warnings.push(`目标预设里没有条目读取「${want.varName}」，缝进去可能不生效`);
-    if (want.varName !== target.varName) warnings.push(`你改成了新变量「${want.varName}」，记得让某个条目用 {{getvar::${want.varName}}} 读取它`);
-    if (want.varName === target.varName && target.readersOff) warnings.push(`读「${want.varName}」的「${target.readerIds.map((id) => draft0Name(target, id)).join("」「")}」现在是关着的，要把它打开，这条才会发出去`);
+    if (!target.readerIds.length && want.varName === target.varName) warnings.push(`目标中没有条目读取「${want.varName}」，缝合后可能不生效`);
+    if (want.varName !== target.varName) warnings.push(`已改用新变量「${want.varName}」，需有条目用 {{getvar::${want.varName}}} 读取`);
+    if (want.varName === target.varName && target.readersOff) warnings.push(`读取「${want.varName}」的「${target.readerIds.map((id) => draft0Name(target, id)).join("」「")}」未开启，开启后此条目才会发送`);
   }
   return { content, label: shortName, question: label, sourceShape: s, want, notes, changes, warnings, slotAllowed };
 }
@@ -2903,25 +3157,25 @@ function mainCotOf(draft, cotIds) {
 function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null, allowSlot = true, collector = null } = {}) {
   const content = String(item.content || "");
   const bodyText = String(detectShape(content).body || content).replace(/\{\{[^{}]*\}\}/g, "");
-  if (bodyText.trim().length < 20) return { status: "skip", on: false, text: "内容太短（像分隔条或开关），不用挂" };
-  if (COT_NAME.test(item.name || "") || /<thinking>|<think>|##\s*phase|##\s*step/i.test(content)) return { status: "cot", on: false, text: "这条本身就是思维链片段，不用再挂" };
+  if (bodyText.trim().length < 20) return { status: "skip", on: false, text: "内容过短（分隔或开关条目），无需接入" };
+  if (COT_NAME.test(item.name || "") || /<thinking>|<think>|##\s*phase|##\s*step/i.test(content)) return { status: "cot", on: false, text: "本身是思维链片段，无需接入" };
   const a = analyze(draft);
   const cotSet = new Set(a.cotIds);
   const cotIds = a.cotIds.filter((id) => id !== item.selfId);
-  if (!cotIds.length) return { status: "nocot", on: false, text: "目标预设里没认出开着的思维链。如果它的思维链名字比较特别，可以去「思维链」页把那条「设为思维链」，再回来缝" };
+  if (!cotIds.length) return { status: "nocot", on: false, text: "目标中未识别到开启的思维链。如名称特殊，可在「思维链」页手动指定后再缝合" };
   const varCots = cotIds.filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.op === "get" && m.name));
   const order = draft.order.map((o) => o.identifier);
   const idx = insertionIndex(draft, where);
   const before = order.slice(0, idx).filter((id) => id !== item.selfId && draft.isActive(id));
   const after = order.slice(idx).filter((id) => id !== item.selfId && draft.isActive(id));
   if (before.length && after.length && cotSet.has(before[before.length - 1]) && cotSet.has(after[0])) {
-    return { status: "cot", on: false, text: "放在思维链中间，本身就是思维链的一部分" };
+    return { status: "cot", on: false, text: "位于思维链之内，属于思维链的一部分" };
   }
   // ---- 已经能被读到/提到？
   const writes = listVarMacros(content).filter((m) => m.depth === 0 && m.name && (m.op === "set" || m.op === "add") && !isBlankValue(m.value));
   for (const m of writes) {
     const r = (a.vars.get(VAR_KEY(m))?.readers || []).find((x) => cotSet.has(x) && x !== item.selfId);
-    if (r) return { status: "covered", on: false, text: `已经通过变量「${m.name}」被「${draft.prompt(r)?.name}」读到，不用再挂` };
+    if (r) return { status: "covered", on: false, text: `已通过变量「${m.name}」由「${draft.prompt(r)?.name}」读取，无需接入` };
   }
   const mentions = /* @__PURE__ */ new Map();
   for (const c2 of a.cot) mentions.set(c2.id, new Set(c2.mentions));
@@ -2929,20 +3183,20 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   for (const [cid] of mentions) {
     if (cid === item.selfId) continue;
     const hit = tags.find((t) => mentionsTag(cotPlainText(draft.prompt(cid)?.content), t));
-    if (hit) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」里直接点到了 <${hit}>，会被想到` };
+    if (hit) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」已提及 <${hit}>` };
   }
   const myHandles = entryHandles({ name: item.name, content }).filter((h) => h.cjk);
   for (const cid of cotIds) {
     const t = cotPlainText(draft.prompt(cid)?.content);
     const h = myHandles.find((x) => t.includes(x.needle));
-    if (h) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」里直接写到了 ${h.ref}，会被想到` };
+    if (h) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」已提及 ${h.ref}` };
   }
   const outer = enclosingTagsAt(draft, idx, cotSet, item.selfId).filter((t) => !IGNORE_TAGS.has(t.key));
   const secLabel = (w) => w.comment ? `「${w.name}」分区` : `<${w.name}>`;
   for (let i = outer.length - 1; i >= 0; i--) {
     for (const [cid] of mentions) {
       if (cid === item.selfId) continue;
-      if (mentionsTag(cotPlainText(draft.prompt(cid)?.content), outer[i].key) || CJK.test(outer[i].name) && cotPlainText(draft.prompt(cid)?.content).includes(outer[i].name)) return { status: "mention", on: false, text: `会落在 ${secLabel(outer[i])} 里面，思维链「${draft.prompt(cid)?.name}」会照着这个区段想，不用再挂` };
+      if (mentionsTag(cotPlainText(draft.prompt(cid)?.content), outer[i].key) || CJK.test(outer[i].name) && cotPlainText(draft.prompt(cid)?.content).includes(outer[i].name)) return { status: "mention", on: false, text: `位于 ${secLabel(outer[i])} 之内，思维链「${draft.prompt(cid)?.name}」已提及此区段，无需接入` };
     }
   }
   // ---- 找挂的位置：离得最近、已经和思维链连上的邻居
@@ -2991,8 +3245,8 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   })();
   // 包进变量、由「一键开关」这类条目统一发出去的（小冰块的小剧场），思维链一般不用专门想它
   const wantOn = !collector && (neighborHooked || !!reuse || !!srcCot);
-  const why = srcCot ? "它在原预设里就是被思维链读到/提到的，" : "";
-  const offHint = wantOn ? "" : collector ? `它会由「${collector}」统一发出去，一般不用挂，默认不勾` : "附近条目都没和思维链连上，默认不勾；需要模型专门想到它再勾上";
+  const why = srcCot ? "在原预设中由思维链读取或提及。" : "";
+  const offHint = wantOn ? "" : collector ? `由「${collector}」统一发送，通常无需接入，默认不勾选` : "附近条目均未接入思维链，默认不勾选。需要模型重点考虑时再勾选";
   const common = { status: "hook", on: wantOn, neighborHooked, srcCot: !!srcCot, removeRange: reuse ? [reuse.start, reuse.end] : null, offHint };
   // ---- 目标思维链靠文字点名
   if (pick?.kind === "text" || !pick && !varCots.length) {
@@ -3003,7 +3257,7 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
     // 没有点到邻居、但落在一个思维链没提到的区段里（众生相的 STORY_TONE）：点名整个区段，以后这个区段里的条目都会被想到
     const sec = !pick ? outer[outer.length - 1] : null;
     const ref = sec ? sec.name : myRef;
-    const question = wantQ ?? (reuse ? reuse.value.trim() : sec ? `如何落实 ${sec.name} 里开着的内容？具体体现在哪里？` : `${myRef}：本段要怎么落实？具体体现在哪里？`);
+    const question = wantQ ?? (reuse ? reuse.value.trim() : sec ? `如何落实 ${sec.name} 中开启的内容？具体体现在哪里？` : `${myRef}：本段如何落实？具体体现在哪里？`);
     const step = info ? null : nextStep(cot);
     const prefix = info?.prefix ?? step?.prefix ?? "- ";
     const cotList = pick ? cotVersionsMentioning(draft, pick.needle, cotId) : [cotId];
@@ -3011,10 +3265,10 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
       ...common, mode: "text", cotId, cotIds: cotList, needle: pick?.needle || null, prefix, question, line: prefix + question.replace(/\n+/g, " "), varName: null, section: sec?.name || null,
       on: common.on || !!sec && !!srcCot,
       text: pick
-        ? `${why}目标的思维链靠文字点名、不读变量。「${cotName}」里提到了附近的 ${pick.ref}，就在那一行后面也点一下这条${cotList.length > 1 ? `（${cotList.length} 个思维链版本都会加上）` : ""}`
+        ? `${why}目标的思维链通过文字提及条目，不读取变量。「${cotName}」提及了附近的 ${pick.ref}，在该行之后同样提及此条目${cotList.length > 1 ? `（${cotList.length} 个思维链版本同时添加）` : ""}`
         : sec
-          ? `${why}目标的思维链靠文字点名，但没提到 ${secLabel(sec)}。可以在「${cotName}」里加一步点名整个区段——以后这个区段里开着的条目都会被想到`
-          : `${why}目标的思维链靠文字点名，附近条目也没被点到；可以在「${cotName}」末尾加一行点名`
+          ? `${why}目标的思维链通过文字提及条目，但未提及 ${secLabel(sec)}。可在「${cotName}」中添加一步提及整个区段，区段内开启的条目均会被考虑`
+          : `${why}目标的思维链通过文字提及条目，附近条目也未被提及。可在「${cotName}」末尾添加一行提及`
     };
   }
   // ---- 目标思维链读变量
@@ -3022,7 +3276,7 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
     const count = (id) => listVarMacros(draft.prompt(id)?.content || "").filter((m) => m.op === "get").length;
     pick = { kind: "var", cotId: [...varCots].sort((x, y) => count(y) - count(x))[0], anchorVar: null, neighbor: null, scope: "local" };
   }
-  const question = wantQ ?? (reuse ? reuse.value.trim() : `### 根据${myRef}，本段要怎么落实？具体体现在哪里？`);
+  const question = wantQ ?? (reuse ? reuse.value.trim() : `### 根据${myRef}，本段如何落实？具体体现在哪里？`);
   const cotName = draft.prompt(pick.cotId)?.name || pick.cotId;
   const anchorKey = (pick.scope === "global" ? "全局:" : "") + pick.anchorVar;
   const anchorWriters = pick.anchorVar ? [...new Set([...(a.vars.get(anchorKey)?.writers || []), ...draft.order.map((o) => o.identifier).filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.name === pick.anchorVar && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)))])] : [];
@@ -3032,7 +3286,7 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
     const q2 = wantQ ?? (reuse ? reuse.value.trim() : mim != null ? mim.trim() : question);
     return {
       ...common, clash: false, mode: "slot", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, question: q2,
-      text: `${why}附近 ${anchorWriters.length} 条都往变量「${pick.anchorVar}」里登记问句（setvar，同时开几条只认最后一条，相当于单选），由「${cotName}」读出，照样登记`
+      text: `${why}附近 ${anchorWriters.length} 条向变量「${pick.anchorVar}」登记问句（setvar，同时开启多条时只保留最后一条，相当于单选），由「${cotName}」读取。按此登记`
     };
   }
   if (pick.op === "add" && anchorWriters.length >= 2 && !wantVar) {
@@ -3040,7 +3294,7 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
     const mim = wantQ == null && !reuse ? mimicValue(raw, draft.prompt(pick.neighbor)?.name, item.name) : null;
     return {
       ...common, clash: false, mode: "append", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, lead: mim != null ? "" : pick.lead, question: mim != null ? mim : question,
-      text: `${why}附近 ${anchorWriters.length} 条都是用 addvar 往变量「${pick.anchorVar}」里追加思维链片段、由「${cotName}」统一读出，照样追加一句`
+      text: `${why}附近 ${anchorWriters.length} 条用 addvar 向变量「${pick.anchorVar}」追加思维链内容，由「${cotName}」统一读取。按此追加一句`
     };
   }
   // 邻居的变量是编号的（修复模式1…17），新变量接着编号
@@ -3062,8 +3316,8 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   return {
     ...common, clash, mode: "own", cotIds: cotList, scope: pick.anchorVar ? pick.scope : "local", cotId: pick.cotId, anchorVar: pick.anchorVar, varName, question: ownMim != null ? ownMim.trim() : question,
     text: pick.anchorVar
-      ? `${why}思维链读不到这条。附近的「${draft.prompt(pick.neighbor)?.name}」是靠变量「${pick.anchorVar}」被「${cotName}」读的，照同样的办法挂上${cotList.length > 1 ? `（${cotList.length} 个思维链版本都会加上）` : ""}`
-      : `${why}思维链读不到这条，附近条目也没有挂思维链；可以挂到读变量最多的「${cotName}」里`
+      ? `${why}思维链无法读取此条目。附近的「${draft.prompt(pick.neighbor)?.name}」通过变量「${pick.anchorVar}」由「${cotName}」读取，按相同方式接入${cotList.length > 1 ? `（${cotList.length} 个思维链版本同时添加）` : ""}`
+      : `${why}思维链无法读取此条目，附近条目也未接入思维链。可接入读取变量最多的「${cotName}」`
   };
 }
 /** 条目正文：拿掉来源自带的那句问句（避免重复），按挂法在末尾加问句 */
@@ -3240,9 +3494,9 @@ function profilePreset(draft) {
   const regexPrompt = regex.filter((r) => r.promptOnly || !r.markdownOnly);
   // 用大白话总结
   const lines = [];
-  if (cotStyle === "none") lines.push("没认出开着的思维链（名字特别的话，可以在「思维链」页手动设为思维链）。");
+  if (cotStyle === "none") lines.push("未识别到开启的思维链。如名称特殊，可在「思维链」页手动指定。");
   else {
-    const how = cotStyle === "vars" ? "主要靠变量把条目读进来（{{getvar}}）" : cotStyle === "text" ? "靠文字点名——在思维链里写到条目的名字或标签，不读变量" : "一部分靠变量读，一部分靠文字点名";
+    const how = cotStyle === "vars" ? "主要通过变量读取条目（{{getvar}}）" : cotStyle === "text" ? "通过文字提及条目的名称或标签，不读取变量" : "部分通过变量读取，部分通过文字提及";
     lines.push(`思维链 ${a.cotIds.length} 条（${namesOf(draft, a.cotIds, 2)}），${how}。`);
   }
   // 包进变量的：按"由谁统一发出去"合并成一行（小冰块的一键开关）
@@ -3258,32 +3512,32 @@ function profilePreset(draft) {
   for (const g of [...wrapGroups.values()].sort((x, y) => y.n - x.n).slice(0, 4)) {
     const off = g.readers.length && g.readers.every((r) => !draft.isActive(r));
     const vars = g.vars.slice(0, 4).map((v) => `「${v}」`).join("") + (g.vars.length > 4 ? ` 等 ${g.vars.length} 个变量` : "");
-    if (!g.readers.length) lines.push(`${g.n} 条把正文包进 ${vars}，但预设里没有条目读这些变量，开了也不会发。`);
-    else lines.push(`${g.n} 条把正文包进 ${vars}，由 ${namesOf(draft, g.readers, 2)} 统一发出去${off ? "——它现在是关着的，这些条目开了也不会发" : ""}。`);
+    if (!g.readers.length) lines.push(`${g.n} 条将正文写入 ${vars}，但没有条目读取这些变量，开启后也不会发送。`);
+    else lines.push(`${g.n} 条将正文写入 ${vars}，由 ${namesOf(draft, g.readers, 2)} 统一发送${off ? "。该条目目前关闭，这些条目开启后也不会发送" : ""}。`);
   }
   for (const s of shared.filter((x) => x.slot).slice(0, 4)) {
-    lines.push(`${s.writers.length} 条都往「${s.name}」里登记一句问句（setvar：同时开几条只认最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读出——缝进来的同类条目会照样登记。`);
+    lines.push(`${s.writers.length} 条向「${s.name}」登记问句（setvar，同时开启多条时只保留最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读取。缝合的同类条目按此方式登记。`);
   }
   for (const s of shared.filter((x) => !x.slot && !x.wrap).slice(0, 3)) {
     const who = s.readers.length ? namesOf(draft, s.readers, 1) : "";
-    if (s.names) lines.push(`${s.writers.length} 条把自己的名字登记到「${s.name}」（${s.op === "set" ? "setvar，只认最后一条，相当于单选" : "addvar，开着的都列上"}）${who ? `，${who} 读这份名单` : ""}。`);
-    else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 往「${s.name}」里追加思维链片段，思维链统一读它。`);
-    else lines.push(`${s.writers.length} 条往同一个变量「${s.name}」里写（${s.op}var）${who ? `，${who} 读它` : ""}。`);
+    if (s.names) lines.push(`${s.writers.length} 条将名称登记到「${s.name}」（${s.op === "set" ? "setvar，只保留最后一条，相当于单选" : "addvar，列出全部开启的条目"}）${who ? `，由 ${who} 读取` : ""}。`);
+    else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 向「${s.name}」追加思维链内容，思维链统一读取。`);
+    else lines.push(`${s.writers.length} 条写入同一变量「${s.name}」（${s.op}var）${who ? `，由 ${who} 读取` : ""}。`);
   }
-  if (perEntry.length >= 2) lines.push(`另外有些条目各自登记一个问句变量，由思维链逐个读出（比如 ${perEntry.slice(0, 3).join("、")}）——缝进来的条目最好也照这样挂上。`);
-  if (usesGlobal) lines.push("用到了全局变量（setglobalvar），换聊天也会保留。");
-  if (initId) lines.push(`「${P(initId)?.name}」负责每轮把变量清空（初始化条目）。`);
+  if (perEntry.length >= 2) lines.push(`部分条目各自登记问句变量，由思维链逐个读取（如 ${perEntry.slice(0, 3).join("、")}）。缝合的条目宜采用相同方式接入。`);
+  if (usesGlobal) lines.push("使用全局变量（setglobalvar），切换聊天后仍保留。");
+  if (initId) lines.push(`「${P(initId)?.name}」为初始化条目，每轮清空变量。`);
   const mentioned = (w) => a.cotIds.some((c2) => mentionsTag(cotPlainText(P(c2)?.content), w.key)) || a.cotIds.some((c2) => CJK.test(w.name) && cotPlainText(P(c2)?.content).includes(w.name));
-  for (const w of wrappers.slice(0, 4)) lines.push(`${w.label} 由「${P(w.openId)?.name}」开始、「${P(w.closeId)?.name}」结束，中间的条目都算在它里面${a.cotIds.length ? mentioned(w) ? "（思维链提到了这个区段）" : "（思维链没提到这个区段）" : ""}。`);
+  for (const w of wrappers.slice(0, 4)) lines.push(`${w.label} 从「${P(w.openId)?.name}」开始，到「${P(w.closeId)?.name}」结束，其间条目均在其内${a.cotIds.length ? mentioned(w) ? "（思维链提及此区段）" : "（思维链未提及此区段）" : ""}。`);
   const trig = [];
-  if (depth.length) trig.push(`${depth.length} 条插在聊天记录里（深度注入）`);
-  if (gen.length) trig.push(`${gen.length} 条只在特定生成方式下发送`);
-  if (cond.length) trig.push(`${cond.length} 条带 {{if}} 条件`);
-  if (script.length) trig.push(`${script.length} 条带脚本（EJS 等，需要对应插件）`);
-  if (random.length) trig.push(`${random.length} 条带随机宏`);
-  if (regexPrompt.length) trig.push(`${regexPrompt.length} 条正则会改发出去的内容`);
-  if (trig.length) lines.push(`特殊的生效方式：${trig.join("，")}。`);
-  if (!lines.length) lines.push("条目都是直接写正文，开着就发送。");
+  if (depth.length) trig.push(`${depth.length} 条按深度插入聊天记录`);
+  if (gen.length) trig.push(`${gen.length} 条只在特定生成类型下发送`);
+  if (cond.length) trig.push(`${cond.length} 条含 {{if}} 条件`);
+  if (script.length) trig.push(`${script.length} 条含脚本（如 EJS，需相应插件）`);
+  if (random.length) trig.push(`${random.length} 条含随机宏`);
+  if (regexPrompt.length) trig.push(`${regexPrompt.length} 条正则会修改发送内容`);
+  if (trig.length) lines.push(`特殊生效方式：${trig.join("；")}。`);
+  if (!lines.length) lines.push("条目均为正文直写，开启即发送。");
   return { a, cotStyle, perEntry, shared, usesGlobal, initId, wrappers, depth, gen, cond, script, random, regex: regexPrompt, lines };
 }
 
@@ -3299,28 +3553,28 @@ function describeEntry(draft, id, prof = null) {
   const nm = (x) => draft.prompt(x)?.name || x;
   const readersOf = (name) => (a.vars.get(name)?.readers || []).filter((r) => r !== id);
   const vk = (s.scope === "global" ? "全局:" : "") + (s.varName || "");
-  if (!draft.isActive(id)) lines.push("在原预设里是关着的");
+  if (!draft.isActive(id)) lines.push("在原预设中处于关闭状态");
   if (s.shape === "wrap") {
     const rs = readersOf(vk);
-    lines.push(`整段正文包在变量「${s.varName}」里（${s.op}var），${rs.length ? `由「${nm(rs[0])}」读出来才会发送` : "原预设里没看到谁读它"}`);
+    lines.push(`正文写入变量「${s.varName}」（${s.op}var），${rs.length ? `由「${nm(rs[0])}」读取后发送` : "原预设中没有条目读取"}`);
   } else if (s.shape === "tagname") {
     const rs = readersOf(vk);
-    lines.push(`正文直接发送，末尾把名字登记到「${s.varName}」${rs.length ? `（「${nm(rs[0])}」会读）` : ""}`);
-  } else if (s.shape === "init") lines.push("这是变量初始化条目，只负责清空变量");
-  else lines.push("正文直接写，开着就发送");
+    lines.push(`正文直接发送，末尾将名称登记到「${s.varName}」${rs.length ? `（由「${nm(rs[0])}」读取）` : ""}`);
+  } else if (s.shape === "init") lines.push("变量初始化条目，用于清空变量");
+  else lines.push("正文直写，开启即发送");
   const extraWrites = listVarMacros(content).filter((m) => m.depth === 0 && (m.op === "set" || m.op === "add") && !isBlankValue(m.value) && m.name !== s.varName);
   for (const m of extraWrites.slice(0, 2)) {
     const rs = readersOf((m.scope === "global" ? "全局:" : "") + m.name);
-    lines.push(`另外登记了「${m.name}」${rs.length ? `，给「${nm(rs[0])}」读` : ""}`);
+    lines.push(`另登记变量「${m.name}」${rs.length ? `，由「${nm(rs[0])}」读取` : ""}`);
   }
-  if (p.injection_position === 1) lines.push(`插在聊天记录里：深度 ${p.injection_depth ?? 4}，以 ${p.role || "system"} 身份`);
-  if ((p.injection_trigger || []).length) lines.push(`只在 ${p.injection_trigger.map((t) => TRIGGER_NAMES[t] || t).join("、")} 时发送`);
-  if (hasConditional(content)) lines.push("带 {{if}} 条件，要满足条件才发送对应部分");
-  if (hasScript(content)) lines.push("带脚本（EJS 等），目标也要装同样的插件才会生效");
-  if (hasRandom(content)) lines.push("带随机宏，每次发送内容可能不同");
+  if (p.injection_position === 1) lines.push(`插入聊天记录：深度 ${p.injection_depth ?? 4}，角色 ${p.role || "system"}`);
+  if ((p.injection_trigger || []).length) lines.push(`只在${p.injection_trigger.map((t) => TRIGGER_NAMES[t] || t).join("、")}时发送`);
+  if (hasConditional(content)) lines.push("含 {{if}} 条件，满足条件时才发送相应部分");
+  if (hasScript(content)) lines.push("含脚本（如 EJS），需要安装相应插件才能生效");
+  if (hasRandom(content)) lines.push("含随机宏，每次发送的内容可能不同");
   const reads = [...new Set(listVarMacros(content).filter((m) => m.op === "get" && m.name).map((m) => (m.scope === "global" ? "全局:" : "") + m.name))];
   const needsVars = reads.filter((k) => (a.vars.get(k)?.writers || []).some((w) => w !== id));
-  if (needsVars.length) lines.push(`会读取变量 ${needsVars.slice(0, 4).map((k) => `「${k}」`).join("")}，这些是别的条目写的`);
+  if (needsVars.length) lines.push(`读取变量 ${needsVars.slice(0, 4).map((k) => `「${k}」`).join("")}，这些变量由其他条目写入`);
   let cov = a.coverage.get(id);
   if (!cov || cov.level === "none") {
     // 关着的条目不在分析范围里，单独看一下：它写的变量有没有思维链读、思维链里有没有提到它
@@ -3343,9 +3597,9 @@ function describeEntry(draft, id, prof = null) {
     }
   }
   let cot = null;
-  if (a.cotIds.includes(id) || isCotEntry(draft, id)) cot = { level: "self", text: "它本身就是思维链" };
-  else if (cov && cov.level !== "none") cot = { level: cov.level, text: cov.level === "mention" ? `思维链「${nm(cov.cot)}」里提到了它（${cov.via}）` : `思维链「${nm(cov.cot)}」通过「${cov.via}」读到它` };
-  else if (pr.cotStyle !== "none") cot = { level: "none", text: "原预设的思维链没有读到/提到它" };
+  if (a.cotIds.includes(id) || isCotEntry(draft, id)) cot = { level: "self", text: "本身是思维链条目" };
+  else if (cov && cov.level !== "none") cot = { level: cov.level, text: cov.level === "mention" ? `思维链「${nm(cov.cot)}」中提及（${cov.via}）` : `思维链「${nm(cov.cot)}」通过「${cov.via}」读取` };
+  else if (pr.cotStyle !== "none") cot = { level: "none", text: "原预设的思维链未读取或提及" };
   // 在原预设里位于哪个外层标签里
   const pos = draft.order.findIndex((o) => o.identifier === id);
   const inside = pr.wrappers.filter((w) => {
@@ -3353,7 +3607,7 @@ function describeEntry(draft, id, prof = null) {
     const i2 = draft.order.findIndex((o) => o.identifier === w.closeId);
     return i1 < pos && pos < i2;
   }).map((w) => w.name);
-  if (inside.length) lines.push(`在原预设里位于 ${inside.map((n) => pr.wrappers.find((w) => w.name === n)?.label || `<${n}>`).join(" / ")} 里面`);
+  if (inside.length) lines.push(`在原预设中位于 ${inside.map((n) => pr.wrappers.find((w) => w.name === n)?.label || `<${n}>`).join(" / ")} 之内`);
   return { lines, cot, needsVars, inside };
 }
 
@@ -3380,13 +3634,14 @@ function mountSuture(page, app) {
     dstCollapsed: null,
     dstFor: null,
     marker: null,
+    newName: null,
     pasteN: 0,
     worldCache: /* @__PURE__ */ new Map()
   };
   page.innerHTML = `
     <div class="pa-suture pa-compact">
         <div class="pa-pane pa-src">
-            <div class="pa-pane-head"><b>从哪儿拿</b>
+            <div class="pa-pane-head"><b>来源</b>
                 <div class="pa-seg" role="tablist">
                     <button data-src="preset" class="on">预设</button><button data-src="world">世界书</button><button data-src="file">文件</button><button data-src="paste">粘贴</button>
                 </div>
@@ -3394,35 +3649,31 @@ function mountSuture(page, app) {
             <div class="pa-src-pick"></div>
             <div class="pa-scroll pa-src-list"></div>
         </div>
-        <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整上下大小" title="拖动调整大小"><span></span></div>
+        <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整两栏大小" title="拖动调整大小"><span></span></div>
         <div class="pa-pane pa-dst">
-            <div class="pa-pane-head"><b>缝到哪儿</b><div class="pa-dst-picker"></div><button class="pa-mini" data-gm="toggle">整理分组</button></div>
+            <div class="pa-pane-head"><b>目标</b><div class="pa-dst-picker"></div><button class="pa-mini" data-st="newgroup">＋ 新建分组</button></div>
             <p class="pa-hint pa-dst-hint"></p>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
     </div>
-    <div class="pa-stitchbar pa-groupbar" hidden>
-        <div class="pa-stitch-info"><b class="pa-gsel-n">点选条目</b></div>
-        <button class="pa-btn" data-gm="new">建新分组</button>
-        <button class="pa-btn" data-gm="out">移出分组</button>
-        <button class="pa-btn pa-btn-primary" data-gm="done">完成</button>
-    </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><b class="pa-picked-n">还没选材料</b><span class="pa-where">还没选位置</span></div>
-        <button class="pa-link" data-st="profile">两边写法</button>
+        <div class="pa-stitch-info"><b class="pa-picked-n">未选条目</b><span class="pa-where">未选位置</span></div>
         <button class="pa-link" data-st="clear">清空</button>
-        <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览缝合</button>
+        <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
+    </div>
+    <div class="pa-stitchbar pa-ngbar" hidden>
+        <div class="pa-stitch-info"><b class="pa-ng-n"></b><span>点组名：放在该组之后。点条目：放在该条目之后。</span></div>
+        <button class="pa-btn" data-st="ngcancel">取消</button>
     </div>`;
   const srcPick = page.querySelector(".pa-src-pick");
   const srcList = page.querySelector(".pa-src-list");
   const dstList = page.querySelector(".pa-dst-list");
   const bar = page.querySelector(".pa-sbar");
-  const gbar = page.querySelector(".pa-groupbar");
-  st.gsel = /* @__PURE__ */ new Set();
+  const ngbar = page.querySelector(".pa-ngbar");
   const dstPicker = presetPicker(page.querySelector(".pa-dst-picker"), (name) => {
     st.marker = null;
     setFocusPreset(name);
-  }, { label: "目标" });
+  }, { label: "" });
   const target = () => getDraft(focusPreset());
   // ---- 上下（宽屏是左右）分区可以拖动调大小，记住比例
   const sutureEl = page.querySelector(".pa-suture");
@@ -3478,16 +3729,16 @@ function mountSuture(page, app) {
       const names = listPresets();
       if (!st.srcPreset || !names.includes(st.srcPreset)) st.srcPreset = names.find((n) => n !== focusPreset()) || names[0];
       srcPick.innerHTML = `<select class="pa-select" aria-label="来源预设">${names.map((n) => `<option ${n === st.srcPreset ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
-                <input class="pa-input pa-search" type="search" placeholder="搜条目名" value="${esc(st.srcQuery)}">`;
+                <input class="pa-input pa-search" type="search" placeholder="搜索条目" value="${esc(st.srcQuery)}">`;
     } else if (st.srcType === "world") {
       const names = listWorldbooks();
       if (!st.srcWorld || !names.includes(st.srcWorld)) st.srcWorld = names[0] || null;
       srcPick.innerHTML = names.length ? `<select class="pa-select" aria-label="来源世界书">${names.map((n) => `<option ${n === st.srcWorld ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
-                <input class="pa-input pa-search" type="search" placeholder="搜条目名" value="${esc(st.srcQuery)}">` : '<p class="pa-hint">酒馆里还没有世界书</p>';
+                <input class="pa-input pa-search" type="search" placeholder="搜索条目" value="${esc(st.srcQuery)}">` : '<p class="pa-hint">没有世界书</p>';
     } else if (st.srcType === "file") {
-      srcPick.innerHTML = `<label class="pa-btn pa-btn-soft pa-file">选预设 JSON 文件<input type="file" accept=".json,application/json" hidden></label>
+      srcPick.innerHTML = `<label class="pa-btn pa-btn-soft pa-file">选择预设文件（JSON）<input type="file" accept=".json,application/json" hidden></label>
                 ${st.fileDraft ? `<span class="pa-hint">${esc(st.fileDraft.name)}</span>` : ""}
-                <input class="pa-input pa-search" type="search" placeholder="搜条目名" value="${esc(st.srcQuery)}">`;
+                <input class="pa-input pa-search" type="search" placeholder="搜索条目" value="${esc(st.srcQuery)}">`;
     } else {
       srcPick.innerHTML = "";
     }
@@ -3503,12 +3754,12 @@ function mountSuture(page, app) {
       if (!f) return;
       try {
         const data = JSON.parse(await f.text());
-        if (!Array.isArray(data.prompts)) throw new Error("这不是聊天补全预设（里面没有 prompts）");
+        if (!Array.isArray(data.prompts)) throw new Error("不是聊天补全预设（缺少 prompts）");
         st.fileDraft = new Draft(f.name.replace(/\.json$/i, ""), data);
         renderSrcPick();
         renderSrc();
       } catch (err) {
-        toast("读不了这个文件：" + err.message, "error");
+        toast("无法读取文件：" + err.message, "error");
       }
     }
   });
@@ -3529,7 +3780,7 @@ function mountSuture(page, app) {
         return;
       }
       if (!d) {
-        srcList.innerHTML = `<p class="pa-empty">${st.srcType === "file" ? "先选一个文件" : "没有预设"}</p>`;
+        srcList.innerHTML = `<p class="pa-empty">${st.srcType === "file" ? "请选择文件" : "没有预设"}</p>`;
         return;
       }
       const ck = `${st.srcType}:${d.name}`;
@@ -3552,21 +3803,21 @@ function mountSuture(page, app) {
           items = await readWorldbook(st.srcWorld);
           st.worldCache.set(st.srcWorld, items);
         } catch (e) {
-          srcList.innerHTML = `<p class="pa-empty">读不到：${esc(e.message)}</p>`;
+          srcList.innerHTML = `<p class="pa-empty">读取失败：${esc(e.message)}</p>`;
           return;
         }
       }
       const q = st.srcQuery.trim().toLowerCase();
       srcList.dataset.kind = "world";
       srcList._items = items;
-      srcList.innerHTML = `<div class="pa-loose">${items.filter((it) => !q || it.name.toLowerCase().includes(q)).map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}"><span class="pa-check"></span><span class="pa-name">${esc(it.name)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="看内容">${ICON.eye}</button></div>`).join("") || '<p class="pa-empty">没有条目</p>'}</div>`;
+      srcList.innerHTML = `<div class="pa-loose">${items.filter((it) => !q || it.name.toLowerCase().includes(q)).map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}"><span class="pa-check"></span><span class="pa-name">${esc(it.name)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button></div>`).join("") || '<p class="pa-empty">没有条目</p>'}</div>`;
     } else {
       srcList.dataset.kind = "paste";
       const pasted = [...st.picked.entries()].filter(([k]) => k.startsWith("paste:"));
       srcList.innerHTML = `<div class="pa-form pa-paste">
-                <input class="pa-input" data-p="name" placeholder="条目名，比如：\u{1F3B5}某某文风">
-                <textarea class="pa-input pa-text pa-text-s" data-p="content" placeholder="把正文粘进来。带不带 {{addvar}} 都行，会自动按目标改写"></textarea>
-                <button class="pa-btn pa-btn-soft" data-p="add">加入材料</button>
+                <input class="pa-input" data-p="name" placeholder="条目名称">
+                <textarea class="pa-input pa-text pa-text-s" data-p="content" placeholder="条目正文。变量写法会按目标预设自动调整"></textarea>
+                <button class="pa-btn pa-btn-soft" data-p="add">加入</button>
                 ${pasted.length ? `<p class="pa-hint">已加入：${pasted.map(([, v]) => esc(v.name)).join("、")}</p>` : ""}
             </div>`;
     }
@@ -3576,9 +3827,9 @@ function mountSuture(page, app) {
     const kind = srcList.dataset.kind;
     if (kind === "paste") {
       if (e.target.closest("[data-p=add]")) {
-        const name = srcList.querySelector("[data-p=name]").value.trim() || `粘贴材料${st.pasteN + 1}`;
+        const name = srcList.querySelector("[data-p=name]").value.trim() || `粘贴条目${st.pasteN + 1}`;
         const content = srcList.querySelector("[data-p=content]").value;
-        if (!content.trim()) return toast("正文是空的");
+        if (!content.trim()) return toast("正文为空");
         st.picked.set(`paste:${++st.pasteN}`, { name, content, prompt: null, from: "粘贴" });
         renderSrc();
       }
@@ -3618,7 +3869,7 @@ function mountSuture(page, app) {
     const id = row.dataset.id;
     const p = d.prompt(id);
     if (peekBtn) return showText(p.name, p.content);
-    if (d.isMarker(id)) return toast("酒馆位置条目，不能缝");
+    if (d.isMarker(id)) return toast("系统位置条目不能缝合");
     const k = srcList._keyOf(id);
     st.picked.has(k) ? st.picked.delete(k) : st.picked.set(k, { name: p.name, content: p.content, prompt: p, from: d.name, srcDraft: d, srcId: id });
     renderSrc();
@@ -3643,139 +3894,47 @@ function mountSuture(page, app) {
     // 位置指向的条目/分组已经不在了（换了预设、被撤销、被别的插件改过）就清掉
     st.marker = fixPlace(d, st.marker);
     const top = dstList.scrollTop;
-    dstList.classList.toggle("pa-placing", !st.groupEdit);
-    dstList.innerHTML = renderList(d, { mode: st.groupEdit ? "target-group" : "target", place: !st.groupEdit, selected: st.groupEdit ? st.gsel : void 0, collapsed: st.dstCollapsed, marker: st.marker, highlight: st.highlight || void 0 });
+    dstList.classList.add("pa-placing");
+    dstList.innerHTML = renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
     const hint = page.querySelector(".pa-dst-hint");
-    hint.textContent = st.groupEdit ? "点选条目，再点下面的按钮" : "点组名＝缝在组后；展开组再点条目＝缝进组内";
-    hint.hidden = !st.groupEdit && !!st.marker;
-    page.querySelector("[data-gm=toggle]").textContent = st.groupEdit ? "退出整理" : "整理分组";
-    bar.hidden = !!st.groupEdit;
-    gbar.hidden = !st.groupEdit;
-    gbar.querySelector(".pa-gsel-n").textContent = st.gsel.size ? `已选 ${st.gsel.size} 条` : "点选条目";
+    hint.textContent = "点组名：缝到该组之后。展开分组后点条目：缝入组内。";
+    hint.hidden = !!st.marker || !!st.newName;
+    bar.hidden = !!st.newName;
+    ngbar.hidden = !st.newName;
+    ngbar.querySelector(".pa-ng-n").textContent = st.newName ? `新分组「${st.newName}」的位置` : "";
     dstList.scrollTop = top;
     renderBar();
   }
-  // ---- 目标预设里建分组 / 解除分组
-  page.querySelector("[data-gm=toggle]").addEventListener("click", () => {
-    st.groupEdit = !st.groupEdit;
-    st.gsel.clear();
-    renderDst();
-  });
-  gbar.addEventListener("click", async (e) => {
-    const a = e.target.closest("[data-gm]")?.dataset.gm;
-    if (!a) return;
+  dstList.addEventListener("click", (e) => {
     const d = target();
-    if (a === "done") {
-      st.groupEdit = false;
-      st.gsel.clear();
-      return renderDst();
-    }
-    const ids = d.sortByOrder([...st.gsel]);
-    if (!ids.length) return toast("先点选条目");
-    if (a === "new") {
-      // 选中的正好是某个组的全部条目：建新组就等于给它改名，直接说清楚
-      const gids = new Set(ids.map((id) => d.groupOf(id)));
-      const only = gids.size === 1 ? [...gids][0] : null;
-      if (only && d.order.filter((o) => d.groupOf(o.identifier) === only).length === ids.length) {
-        const g = d.group(only);
-        const v = await pickBox(`选中的就是「${g?.name}」整组`, [
-          { label: "给这个组改名", value: "rename" },
-          { label: "还是建新分组", sub: `条目都会挪进新组，「${g?.name}」会变成空的`, value: "new" }
-        ]);
-        if (!v) return;
-        if (v === "rename") {
-          const n = await promptBox("分组名", g?.name || "");
-          if (n) mutate(d, "分组改名", (x) => x.renameGroup(only, n));
-          st.gsel.clear();
-          return renderDst();
-        }
-      }
-      const name = await promptBox(`把选中的 ${ids.length} 条建成新分组，叫什么？`, "", "比如：缝进来的文风");
-      if (!name) return;
-      let newId = null;
-      mutate(d, `建分组「${name}」`, (x) => { newId = x.createGroup(name, ids); });
-      st.dstCollapsed.delete(newId);
-      st.gsel.clear();
-      renderDst();
-      dstList.querySelector(`.pa-ghead[data-gid="${newId}"]`)?.scrollIntoView({ block: "center" });
-      toast(`已建分组「${name}」`, "success");
-      // 保存后再看一眼：要是被别的插件盖回去了，要告诉用户
-      setTimeout(() => {
-        try {
-          const back = new Draft(d.name, readPreset(d.name));
-          if (!back.groups.groups.some((g) => g.name === name)) toast(`「${name}」保存后又不见了，可能被别的插件（比如百宝箱的分组）改回去了。刷新页面后再试一次；还不行告诉我。`, "error");
-        } catch {
-        }
-      }, 3e3);
-      return;
-    }
-    if (a === "out") {
-      if (!ids.some((id) => d.groupOf(id))) return toast("选中的条目本来就不在分组里");
-      mutate(d, "移出分组", (x) => x.removeFromGroup(ids));
-      toast("已移出分组", "success");
-    }
-    st.gsel.clear();
-    renderDst();
-  });
-  dstList.addEventListener("click", async (e) => {
-    const d = target();
-    const head = e.target.closest(".pa-ghead");
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "peek") {
       const p = d.prompt(e.target.closest(".pa-row").dataset.id);
       return showText(p.name, p.content);
     }
-    if (st.groupEdit) {
-      if (head) {
-        const gid2 = head.dataset.gid;
-        const g = d.group(gid2);
-        if (act === "gselect") {
-          const ids = d.order.filter((o) => d.groupOf(o.identifier) === gid2).map((o) => o.identifier);
-          const all = ids.every((id) => st.gsel.has(id));
-          ids.forEach((id) => all ? st.gsel.delete(id) : st.gsel.add(id));
-        } else if (act === "gmenu") {
-          const v = await pickBox(g?.name || "分组", [{ label: "改名", value: "rename" }, { label: "解除分组", sub: "条目留在原处，只是不再归这个组", value: "dissolve" }]);
-          if (v === "rename") {
-            const n = await promptBox("分组名", g?.name || "");
-            if (n) mutate(d, "分组改名", (x) => x.renameGroup(gid2, n));
-          }
-          if (v === "dissolve" && await confirmBox("解除分组", `解除「${g?.name}」？里面的条目不会删除，也不会挪位置。`, "解除")) {
-            mutate(d, `解除分组「${g?.name}」`, (x) => x.dissolveGroup(gid2));
-            toast("已解除分组", "success");
-          }
-        } else {
-          st.dstCollapsed.has(gid2) ? st.dstCollapsed.delete(gid2) : st.dstCollapsed.add(gid2);
-        }
-        return renderDst();
-      }
-      const row = e.target.closest(".pa-row");
-      if (row) {
-        const id = row.dataset.id;
-        st.gsel.has(id) ? st.gsel.delete(id) : st.gsel.add(id);
-        renderDst();
-      }
+    const head = e.target.closest(".pa-ghead");
+    if (head && act === "collapse") {
+      const gid = head.dataset.gid;
+      st.dstCollapsed.has(gid) ? st.dstCollapsed.delete(gid) : st.dstCollapsed.add(gid);
+      return renderDst();
+    }
+    const m = placeFromClick(d, e, !st.newName);
+    if (!m) return;
+    if (st.newName) {
+      // 新建空白分组：放好以后，缝合位置就定在这个新组里
+      const p = placeOf(d, m);
+      let gid = null;
+      mutate(d, `新建分组「${st.newName}」`, (x) => { gid = x.createEmptyGroup(st.newName, p.where.index === 0 ? "" : p.where.after); });
+      toast(`已新建分组「${st.newName}」`, "success");
+      st.newName = null;
+      st.dstCollapsed.delete(gid);
+      st.marker = { at: "gstart", gid };
+      renderDst();
+      dstList.querySelector(`.pa-group[data-gid="${CSS.escape(gid)}"]`)?.scrollIntoView({ block: "center" });
       return;
     }
-    if (act === "top") {
-      st.marker = { at: "top" };
-      return renderDst();
-    }
-    if (act === "gstart") {
-      st.marker = { at: "gstart", gid: e.target.closest("[data-act]").dataset.gid };
-      return renderDst();
-    }
-    if (head) {
-      if (act === "collapse") {
-        const gid = head.dataset.gid;
-        st.dstCollapsed.has(gid) ? st.dstCollapsed.delete(gid) : st.dstCollapsed.add(gid);
-      } else st.marker = { at: "block", id: head.dataset.last };
-      return renderDst();
-    }
-    const row = e.target.closest(".pa-row");
-    if (row) {
-      st.marker = { at: "row", id: row.dataset.id };
-      renderDst();
-    }
+    st.marker = m;
+    renderDst();
   });
   function renderBar() {
     const n = st.picked.size;
@@ -3784,18 +3943,28 @@ function mountSuture(page, app) {
       d = target();
     } catch {
     }
-    bar.querySelector(".pa-picked-n").textContent = n ? `已选 ${n} 条材料` : "还没选材料";
-    bar.querySelector(".pa-where").textContent = d && st.marker ? `缝到：${placeText(d, st.marker)}` : "还没选位置";
+    bar.querySelector(".pa-picked-n").textContent = n ? `已选 ${n} 条` : "未选条目";
+    bar.querySelector(".pa-where").textContent = d && st.marker ? `位置：${placeText(d, st.marker)}` : "未选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && st.marker);
   }
-  bar.addEventListener("click", (e) => {
+  page.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-st]")?.dataset.st;
+    if (!a) return;
     if (a === "clear") {
       st.picked.clear();
       renderSrc();
     }
     if (a === "go") review();
-    if (a === "profile") showProfiles();
+    if (a === "newgroup") {
+      const n = await promptBox("新分组名称", "", "例如：文风");
+      if (!n) return;
+      st.newName = n;
+      renderDst();
+    }
+    if (a === "ngcancel") {
+      st.newName = null;
+      renderDst();
+    }
   });
   // 这条材料所在的来源分组是不是整组都选了（酒馆位置条目不算）
   function wholeGroupOf(src) {
@@ -3840,11 +4009,11 @@ function mountSuture(page, app) {
     const grpDefault = groupKeys.length ? "keep" : "none";
     const grpRow = gid ? "" : `<div class="pa-field-row"><span>分组</span>
                 <select class="pa-select pa-select-s" data-g="grp">
-                    ${groupKeys.length ? `<option value="keep">保持原分组（${esc(groupKeys.map((g) => g.name).join("、"))}）</option>` : ""}
+                    ${groupKeys.length ? `<option value="keep">保留原分组（${esc(groupKeys.map((g) => g.name).join("、"))}）</option>` : ""}
                     <option value="none" ${grpDefault === "none" ? "selected" : ""}>不分组</option>
-                    <option value="new">放进新分组</option>
+                    <option value="new">放入新分组</option>
                 </select>
-                <input class="pa-input pa-input-s" data-g="gname" placeholder="新分组名" hidden></div>`;
+                <input class="pa-input pa-input-s" data-g="gname" placeholder="新分组名称" hidden></div>`;
     const fromLabel = (it) => {
       const f = String(it.src.from || "").replace(/^世界书\s*/, "");
       return f && f !== "粘贴" ? f : "";
@@ -3854,10 +4023,11 @@ function mountSuture(page, app) {
             <div class="pa-target-card">
                 <div><b>位置：${esc(placeText(d, marker))}</b></div>
                 ${grpRow}
-                <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `；落在 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 里面` : ""}</small>
+                <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `。位于 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 之内` : ""}</small>
                 ${tgtProf.lines.length ? `<details class="pa-explain"><summary>目标预设的写法（${tgtProf.lines.length} 条）</summary><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : ""}
-                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝入时，角色和注入位置也跟随目标</label>
-                <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名后面加上「（来自 来源预设）」</label>
+                ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<details class="pa-explain"><summary>来源「${esc(sd.name)}」的写法（${pr.lines.length} 条）</summary><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : "").join("")}
+                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝合时，角色和插入位置与目标一致</label>
+                <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名称后加「（来自来源预设）」</label>
             </div>
             <div class="pa-items"></div>
         </div>`);
@@ -3880,20 +4050,20 @@ function mountSuture(page, app) {
       const more = (h.cotIds || []).length > 1 ? `（共 ${h.cotIds.length} 个思维链版本）` : "";
       let detail = "";
       if (it.hookOn && h.mode === "text") {
-        detail = `<label class="pa-field pa-field-wide"><span>在「${cotName}」里加这一行${more}</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label>
-            <small>${h.needle ? `加在提到 ${esc(h.needle)} 的那一行后面` : "加在这条思维链的末尾"}。条目正文不用改。</small>`;
+        detail = `<label class="pa-field pa-field-wide"><span>在「${cotName}」中添加一行${more}</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label>
+            <small>${h.needle ? `添加在提到 ${esc(h.needle)} 的一行之后` : "添加在思维链末尾"}。条目正文不变。</small>`;
       } else if (it.hookOn && (h.mode === "append" || h.mode === "slot")) {
         detail = `<label class="pa-field pa-field-wide"><span>${h.mode === "slot" ? "登记的问句" : "追加的内容"}</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label>
-            <small>条目末尾加 {{${h.mode === "slot" ? "setvar" : "addvar"}::${esc(h.varName)}::…}}。「${cotName}」本来就读「${esc(h.varName)}」，思维链不用改。</small>`;
+            <small>条目末尾添加 {{${h.mode === "slot" ? "setvar" : "addvar"}::${esc(h.varName)}::…}}。「${cotName}」已读取「${esc(h.varName)}」，思维链不变。</small>`;
       } else if (it.hookOn) {
         detail = `<div class="pa-item-ctl">
                 <label class="pa-field"><span>问句变量</span><input class="pa-input pa-input-s" data-c="hv" value="${esc(h.varName)}"></label>
-                <label class="pa-field pa-field-wide"><span>思维链里问什么</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label></div>
-            ${h.clash ? `<p class="pa-warn">目标里已经有变量「${esc(h.varName)}」了，用这个名字会和原来的内容互相覆盖，建议换一个</p>` : ""}
-            <small>条目末尾加 {{setvar::${esc(h.varName)}::…}}；${initName ? `「${esc(initName)}」里加一行清空` : "没找到初始化条目，跳过清空"}；「${cotName}」${more}里${h.anchorVar ? `紧跟 {{getvar::${esc(h.anchorVar)}}} ` : ""}加 {{getvar::${esc(h.varName)}}}。</small>`;
+                <label class="pa-field pa-field-wide"><span>思维链中的问句</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label></div>
+            ${h.clash ? `<p class="pa-warn">目标中已有变量「${esc(h.varName)}」，同名会互相覆盖，请更换名称</p>` : ""}
+            <small>条目末尾添加 {{setvar::${esc(h.varName)}::…}}；${initName ? `「${esc(initName)}」中添加一行清空` : "未找到初始化条目，不添加清空"}；「${cotName}」${more}中${h.anchorVar ? `在 {{getvar::${esc(h.anchorVar)}}} 之后` : ""}添加 {{getvar::${esc(h.varName)}}}。</small>`;
       }
       return `<div class="pa-hook">
-            <label class="pa-inline-check"><input type="checkbox" data-c="hook" ${it.hookOn ? "checked" : ""}> <b>挂进思维链</b></label>
+            <label class="pa-inline-check"><input type="checkbox" data-c="hook" ${it.hookOn ? "checked" : ""}> <b>接入思维链</b></label>
             <small>${esc(h.text)}${it.hookOn || h.on ? "" : "。" + esc(h.offHint || "")}</small>${detail}</div>`;
     };
     const renderItem = (it, i) => {
@@ -3916,54 +4086,54 @@ function mountSuture(page, app) {
         it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null });
       } catch (e) {
         console.warn("[裁缝铺] 思维链检查失败", e);
-        it.hook = { status: "skip", on: false, text: "思维链检查出错，跳过" };
+        it.hook = { status: "skip", on: false, text: "思维链检查出错，已跳过" };
       }
       it.hookOn = it.hook.status === "hook" && (it.choice.hook ?? (mode === "raw" ? false : it.hook.on));
       it.finalContent = it.hookOn ? contentWithHook(chosen.content, it.hook) : chosen.content;
       // 两边差异提醒（不管哪种缝法都要知道的）
       const warns = [];
       const sp = it.src.prompt;
-      if (sp?.injection_position === 1) warns.push(`来源里它插在聊天记录里（深度 ${sp.injection_depth ?? 4}）。直接缝入会保留；按目标写法缝入时${settings().followTargetInjection ? "放到普通位置" : "也保留"}`);
-      if ((sp?.injection_trigger || []).length) warns.push("来源里它只在特定生成方式下发送，这个设置会一起带过去");
-      if (hasScript(it.src.content || "")) warns.push("带脚本（EJS 等），目标这边也要装同样的插件才会生效");
-      if (hasConditional(it.src.content || "")) warns.push("带 {{if}} 条件，用到的变量目标里也要有");
+      if (sp?.injection_position === 1) warns.push(`来源中此条目插入聊天记录（深度 ${sp.injection_depth ?? 4}）。原样缝合时保留；按目标写法缝合时${settings().followTargetInjection ? "改为普通位置" : "同样保留"}`);
+      if ((sp?.injection_trigger || []).length) warns.push("来源中此条目只在特定生成类型下发送，此设置一并保留");
+      if (hasScript(it.src.content || "")) warns.push("含脚本（如 EJS），需要安装相应插件才能生效");
+      if (hasConditional(it.src.content || "")) warns.push("含 {{if}} 条件，条件中的变量需在目标中存在");
       for (const k of it.desc?.needsVars || []) {
         const nm2 = k.replace(/^全局:/, "");
         const has = d.preset.prompts.some((p) => listVarMacros(p.content || "").some((m) => m.name === nm2 && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)));
-        if (!has) warns.push(`它会读取变量「${nm2}」，但目标里没有条目写这个变量，这部分会是空的`);
+        if (!has) warns.push(`读取变量「${nm2}」，目标中没有条目写入此变量，该部分将为空`);
       }
       for (const w of it.desc?.inside || []) {
         const tw = tgtProf.wrappers.find((x) => x.name === w);
         if (!tw || tgtWr.includes(w)) continue;
-        warns.push(`来源里它在 ${tw.label} 里面；目标的 ${tw.label} 在「${d.prompt(tw.openId)?.name}」和「${d.prompt(tw.closeId)?.name}」之间，现在选的位置不在里面`);
+        warns.push(`来源中此条目位于 ${tw.label} 之内。目标的 ${tw.label} 在「${d.prompt(tw.openId)?.name}」与「${d.prompt(tw.closeId)?.name}」之间，当前位置不在其中`);
       }
       const card = (value, title, sub, content, notes = []) => `<label class="pa-mode${mode === value ? " on" : ""}">
             <span class="pa-mode-head"><input type="radio" name="pa-mode-${i}" data-c="mode" value="${value}" ${mode === value ? "checked" : ""}><b>${esc(title)}</b><small>${esc(sub)}</small></span>
             <pre class="pa-snip">${snip(content)}</pre>
             ${notes.length && mode === value ? `<ul class="pa-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
-      const modes = same && !planSlot ? card("raw", "直接缝入", "目标写法和来源一样，不用改", rawContent) : [
-        card("raw", "直接缝入", "不改写法，原样放进去", rawContent),
-        card("fix", "按目标写法缝入", `照「${d.name}」的写法改好`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["内容不用改，只是位置、角色跟随目标"]), ...planFix.warnings.map((w) => "⚠ " + w)]),
-        planSlot ? card("slot", `按目标写法缝入，并加入单选「${t.slot.varName}」`, "开它会顶掉同类里开着的那条", planSlot.content, planSlot.changes) : ""
+      const modes = same && !planSlot ? card("raw", "原样缝合", "两边写法相同，无需调整", rawContent) : [
+        card("raw", "原样缝合", "不调整写法", rawContent),
+        card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["正文不变，位置和角色与目标一致"]), ...planFix.warnings.map((w) => "⚠ " + w)]),
+        planSlot ? card("slot", `按目标写法缝合，并加入单选「${t.slot.varName}」`, "开启后，同类中已开启的一条会被替换", planSlot.content, planSlot.changes) : ""
       ].join("");
       const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);
       return `<article class="pa-item" data-i="${i}">
-                <header><label class="pa-inline-check"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}> 缝进来后开启</label>
-                <input class="pa-input pa-input-s" data-c="name" value="${esc(nameOf(it))}" aria-label="条目名"></header>
-                ${it.desc ? `<details class="pa-was"><summary>在「${esc(it.src.from || "")}」里是怎么用的</summary><ul class="pa-notes">${it.desc.lines.map((l) => `<li>${esc(l)}</li>`).join("")}${it.desc.cot ? `<li>${esc(it.desc.cot.text)}</li>` : ""}</ul></details>` : `<small class="pa-from">来自 ${esc(it.src.from || "")}</small>`}
+                <header><label class="pa-inline-check"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}> 缝合后开启</label>
+                <input class="pa-input pa-input-s" data-c="name" value="${esc(nameOf(it))}" aria-label="条目名称"></header>
+                ${it.desc ? `<details class="pa-was"><summary>在「${esc(it.src.from || "")}」中的作用</summary><ul class="pa-notes">${it.desc.lines.map((l) => `<li>${esc(l)}</li>`).join("")}${it.desc.cot ? `<li>${esc(it.desc.cot.text)}</li>` : ""}</ul></details>` : `<small class="pa-from">来自 ${esc(it.src.from || "")}</small>`}
                 <div class="pa-modes" role="radiogroup">${modes}</div>
                 ${warns.length ? `<ul class="pa-notes">${warns.map((w) => `<li class="pa-warn">${esc(w)}</li>`).join("")}</ul>` : ""}
                 ${hookBlock(it)}
                 ${showAdv ? `<details class="pa-adv" ${it.choice.adv ? "open" : ""}><summary>高级</summary>
                 <div class="pa-item-ctl">
-                    <label class="pa-field"><span>标题/标签里用的名字</span><input class="pa-input pa-input-s" data-c="label" value="${esc(planFix.label)}"></label>
+                    <label class="pa-field"><span>标题或标签中的名称</span><input class="pa-input pa-input-s" data-c="label" value="${esc(planFix.label)}"></label>
                     ${chosen.want?.varName && (chosen.want.shape === "wrap" || chosen.want.shape === "tagname") ? `<label class="pa-field"><span>变量</span><input class="pa-input pa-input-s" data-c="var" value="${esc(chosen.want.varName)}"></label>
-                    <label class="pa-field"><span>方式</span><select class="pa-select" data-c="op"><option value="add" ${chosen.want.op !== "set" ? "selected" : ""}>addvar 追加（可多选）</option><option value="set" ${chosen.want.op === "set" ? "selected" : ""}>setvar 覆盖（单选）</option></select></label>` : ""}
-                    ${planFix.sourceShape.extras?.length ? `<label class="pa-inline-check"><input type="checkbox" data-c="extras" ${it.choice.keepExtras ? "checked" : ""}> 带上来源附带的 ${planFix.sourceShape.extras.length} 个额外宏</label>` : ""}
+                    <label class="pa-field"><span>写入方式</span><select class="pa-select" data-c="op"><option value="add" ${chosen.want.op !== "set" ? "selected" : ""}>addvar 追加（可多选）</option><option value="set" ${chosen.want.op === "set" ? "selected" : ""}>setvar 覆盖（单选）</option></select></label>` : ""}
+                    ${planFix.sourceShape.extras?.length ? `<label class="pa-inline-check"><input type="checkbox" data-c="extras" ${it.choice.keepExtras ? "checked" : ""}> 保留来源中的 ${planFix.sourceShape.extras.length} 个附加宏</label>` : ""}
                 </div></details>` : ""}
-                <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝进去的完整正文${it.manual != null ? "（你手动改过）" : ""}</summary>
+                <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</summary>
                 <textarea class="pa-input pa-text" data-c="content" spellcheck="false">${esc(it.manual ?? it.finalContent)}</textarea>
-                ${it.manual != null ? '<button class="pa-link" data-c="reset">撤销手动修改，按上面的选项重新生成</button>' : ""}</details>
+                ${it.manual != null ? '<button class="pa-link" data-c="reset">撤销手动修改，按上方选项重新生成</button>' : ""}</details>
             </article>`;
     };
     const rerender = (art, it) => {
@@ -4023,13 +4193,13 @@ function mountSuture(page, app) {
       it.manual = null;
       rerender(art, it);
     });
-    const ok = await sheet({ title: `缝 ${items.length} 条到「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "再想想", value: null }, {
-      label: "缝进去",
+    const ok = await sheet({ title: `缝合 ${items.length} 条到「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, {
+      label: "确认缝合",
       kind: "primary",
       validate: () => {
         if (grpSel?.value === "new" && !grpName.value.trim()) {
           grpName.focus();
-          toast("填一下新分组名");
+          toast("请填写新分组名称");
           return false;
         }
         return true;
@@ -4087,7 +4257,7 @@ function mountSuture(page, app) {
     // 下次接着往后缝：落在新分组里就放在这组后面，否则接在最后一条后面
     const lastNew = newIds[newIds.length - 1];
     st.marker = !gid && d.groupOf(lastNew) ? fixPlace(d, { at: "block", id: lastNew }) : { at: "row", id: lastNew };
-    toast(`缝好了 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条挂进思维链` : ""}${inits.length ? `，初始化条目补了变量 ${inits.join("、")}` : ""}`, "success");
+    toast(`已缝合 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条接入思维链` : ""}${inits.length ? `，初始化条目已添加变量 ${inits.join("、")}` : ""}`, "success");
     if (gid) st.dstCollapsed.delete(gid);
     st.highlight = new Set(newIds);
     renderSrc();
@@ -4096,26 +4266,6 @@ function mountSuture(page, app) {
     setTimeout(() => {
       st.highlight = null;
     }, 1500);
-  }
-  async function showProfiles() {
-    const parts = [];
-    const add = (title, d2) => {
-      if (!d2) return;
-      try {
-        const pr = profilePreset(d2);
-        parts.push(`<section class="pa-card"><header><b>${esc(title)}「${esc(d2.name)}」</b></header><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></section>`);
-      } catch (e) {
-        parts.push(`<p class="pa-warn">${esc(title)}分析失败：${esc(e.message)}</p>`);
-      }
-    };
-    let srcD = null;
-    try {
-      srcD = st.srcType === "preset" ? st.srcPreset ? getDraft(st.srcPreset) : null : st.srcType === "file" ? st.fileDraft : null;
-    } catch {
-    }
-    add("来源", srcD);
-    add("目标", target());
-    await sheet({ title: "两边的写法", body: `<div>${parts.join("") || '<p class="pa-empty">先选来源预设</p>'}</div>`, wide: true, actions: [{ label: "知道了", kind: "primary", value: true }] });
   }
   const off = onDraftChange(() => {
     if (page.isConnected && !page.hidden) renderDst();
@@ -4134,10 +4284,10 @@ function mountSuture(page, app) {
 
 // src/ui/cotview.js
 var LEVEL = {
-  var: ["pa-lv-ok", "读到了"],
-  chain: ["pa-lv-ok", "间接读到"],
-  mention: ["pa-lv-maybe", "文字提到"],
-  none: ["pa-lv-none", "没提到"]
+  var: ["pa-lv-ok", "已读取"],
+  chain: ["pa-lv-ok", "间接读取"],
+  mention: ["pa-lv-maybe", "文字提及"],
+  none: ["pa-lv-none", "未提及"]
 };
 async function repairAllVariables(d, manual = {}) {
   const work = new Draft(d.name, d.toPreset());
@@ -4149,14 +4299,14 @@ async function repairAllVariables(d, manual = {}) {
     try { plans.push(variableRepairPlan(work, key)); }
     catch(e) { skipped.push({ key, reason:e.message }); }
   }
-  if (!keys.length && !normalized.length) return toast('没有需要修复的变量引用或冗余包裹');
+  if (!keys.length && !normalized.length) return toast('没有需要修复的变量问题');
   if (plans.length || normalized.length) {
     const byAnchor = new Map();
     for (const plan of plans) {
       if (!byAnchor.has(plan.last)) byAnchor.set(plan.last, []);
       byAnchor.get(plan.last).push(plan);
     }
-    mutate(d, '一键修复变量引用', x => {
+    mutate(d, '修复变量问题', x => {
       applyWrapperNormalization(x);
       for (const [last, list] of byAnchor) {
         x.insertPrompts([{prompt:{
@@ -4169,15 +4319,15 @@ async function repairAllVariables(d, manual = {}) {
   }
   let saveError = null;
   if (plans.length || normalized.length) {
-    try { await saveDraft(d.name, '一键修复变量引用'); }
+    try { await saveDraft(d.name, '修复变量问题'); }
     catch(e) { saveError=e.message; saveErrors.set(d.name,e.message); checkpoint(d); notifyDraft(d.name); }
   }
-  const body=el(`<div><p class="pa-p">已整理 <b>${normalized.length}</b> 个冗余外层包裹，补齐 <b>${plans.length}</b> 个变量引用${saveError?'；写回失败，草稿已保留':'；'+(plans.length||normalized.length?'已自动保存':'没有修改预设')}。跳过 <b>${skipped.length}</b> 个。</p>
+  const body=el(`<div><p class="pa-p">整理冗余外层包裹 <b>${normalized.length}</b> 个，补充变量读取 <b>${plans.length}</b> 个，跳过 <b>${skipped.length}</b> 个。${saveError?'写回失败，草稿已保留。':(plans.length||normalized.length?'已保存。':'预设未修改。')}</p>
     ${saveError?`<p class="pa-hint">保存失败：${esc(saveError)}</p>`:''}
     ${plans.length?`<details><summary>已修复的变量</summary><p class="pa-p">${plans.map(p=>esc(p.key)).join('、')}</p></details>`:''}
-    ${skipped.length?`<h3 class="pa-h">这些需要手动核对</h3>${skipped.map(x=>`<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join('')}`:''}
-    <p class="pa-hint">读取条目放在最后一个启用的写入条目之后，思维链不改。只整理带缝合来源、无读取依赖、只包一个赋值宏的外层包裹。</p></div>`);
-  await sheet({title:'一键修复结果',body,wide:true,noFocus:true,actions:[{label:'完成',kind:'primary',value:true}]});
+    ${skipped.length?`<h3 class="pa-h">需人工核对</h3>${skipped.map(x=>`<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join('')}`:''}
+    <p class="pa-hint">读取条目放在最后一个写入该变量的开启条目之后，思维链不改动。只整理来自缝合、无读取依赖、只包含一个赋值宏的外层包裹。</p></div>`);
+  await sheet({title:'修复结果',body,wide:true,noFocus:true,actions:[{label:'完成',kind:'primary',value:true}]});
 }
 
 async function hookExistingDialog(d, id) {
@@ -4186,31 +4336,31 @@ async function hookExistingDialog(d, id) {
   const gid = d.groupOf(id);
   const plan0 = planHook(d, { after: id }, gid, { content: p.content, name: p.name, selfId: id });
   if (plan0.status !== "hook") {
-    await sheet({ title: p.name, body: `<p class="pa-p">${esc(plan0.text)}</p>`, actions: [{ label: "知道了", value: true }] });
+    await sheet({ title: p.name, body: `<p class="pa-p">${esc(plan0.text)}</p>`, actions: [{ label: "确定", value: true }] });
     return;
   }
   const initId = findInitEntry(d);
   const cotName = esc(d.prompt(plan0.cotId)?.name || "");
   let how;
-  if (plan0.mode === "text") how = `<label class="pa-field"><span>在「${cotName}」里加这一行</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">${plan0.needle ? `加在提到 ${esc(plan0.needle)} 的那一行后面` : "加在这条思维链的末尾"}。</p>`;
-  else if (plan0.mode === "append") how = `<label class="pa-field"><span>追加的思维链片段</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">「${esc(p.name)}」末尾加 {{addvar::${esc(plan0.varName)}::片段}}；思维链已读这个变量。</p>`;
+  if (plan0.mode === "text") how = `<label class="pa-field"><span>在「${cotName}」中添加一行</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
+      <p class="pa-hint">${plan0.needle ? `添加在提到 ${esc(plan0.needle)} 的一行之后` : "添加在思维链末尾"}。条目正文不变。</p>`;
+  else if (plan0.mode === "append") how = `<label class="pa-field"><span>追加的内容</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
+      <p class="pa-hint">「${esc(p.name)}」末尾添加 {{addvar::${esc(plan0.varName)}::内容}}。思维链已读取该变量，不改动。</p>`;
   else how = `<label class="pa-field"><span>问句变量</span><input class="pa-input" data-h="v" value="${esc(plan0.varName)}"></label>
-      <label class="pa-field"><span>思维链里问什么</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
-      <p class="pa-hint">「${esc(p.name)}」末尾加 {{setvar::变量::问句}}；${initId ? `「${esc(d.prompt(initId)?.name)}」里加一行清空` : "（没找到初始化条目，跳过清空）"}；「${cotName}」里${plan0.anchorVar ? `紧跟 {{getvar::${esc(plan0.anchorVar)}}} ` : ""}加一行读取。${plan0.removeRange ? "沿用条目里原有的问句。" : ""}</p>`;
+      <label class="pa-field"><span>思维链中的问句</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
+      <p class="pa-hint">「${esc(p.name)}」末尾添加 {{setvar::变量::问句}}；${initId ? `「${esc(d.prompt(initId)?.name)}」中添加一行清空` : "未找到初始化条目，不添加清空"}；「${cotName}」中${plan0.anchorVar ? `在 {{getvar::${esc(plan0.anchorVar)}}} 之后` : ""}添加一行读取。${plan0.removeRange ? "沿用条目里原有的问句。" : ""}</p>`;
   const body = el(`<div class="pa-form"><p class="pa-p">${esc(plan0.text)}。</p>${how}</div>`);
-  const ok = await sheet({ title: `把「${p.name}」挂进思维链`, body, wide: true, actions: [{ label: "取消", value: null }, { label: "挂上", kind: "primary", value: (w) => ({ v: (w.querySelector("[data-h=v]")?.value || "").replace(/[{}:：\s]/g, ""), q: (w.querySelector("[data-h=q]")?.value || "").trim() }) }] });
+  const ok = await sheet({ title: `将「${p.name}」接入思维链`, body, wide: true, actions: [{ label: "取消", value: null }, { label: "接入", kind: "primary", value: (w) => ({ v: (w.querySelector("[data-h=v]")?.value || "").replace(/[{}:：\s]/g, ""), q: (w.querySelector("[data-h=q]")?.value || "").trim() }) }] });
   if (!ok) return;
   const plan = planHook(d, { after: id }, gid, { content: p.content, name: p.name, selfId: id }, { varName: ok.v && ok.v !== plan0.varName ? ok.v : void 0, question: ok.q || void 0 });
   if (plan.status !== "hook") return toast(plan.text);
-  if (plan.clash) return toast(`变量「${plan.varName}」在预设里已经有别的用处了，换个名字`, "warning");
-  mutate(d, `挂进思维链：${p.name}`, (x) => {
+  if (plan.clash) return toast(`变量「${plan.varName}」在预设中已有其他用途，请更换名称`, "warning");
+  mutate(d, `接入思维链：${p.name}`, (x) => {
     const q = x.prompt(id);
     q.content = contentWithHook(q.content, plan);
     applyHook(x, plan);
   });
-  toast(`已挂进「${d.prompt(plan.cotId)?.name}」`, "success");
+  toast(`已接入「${d.prompt(plan.cotId)?.name}」`, "success");
 }
 function mountCot(page, app) {
   const st = { filter: "none" };
@@ -4221,7 +4371,7 @@ function mountCot(page, app) {
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
   page.querySelector('[data-repair-all]').addEventListener('click', async () => {
     try { await repairAllVariables(getDraft(focusPreset()), manualFor(focusPreset())); }
-    catch(err) { toast('一键修复失败：'+err.message,'error'); }
+    catch(err) { toast('修复失败：'+err.message,'error'); }
   });
   const manualFor = (name) => {
     const s = settings();
@@ -4244,50 +4394,48 @@ function mountCot(page, app) {
     for (const c2 of a.coverage.values()) counts[c2.level]++;
     const cotVarReads = a.cot.reduce((n, c2) => n + c2.reads.length, 0);
     const okN = counts.var + counts.chain;
-    const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字点名并用" : "以文字点名为主，不读变量";
-    const total = okN + counts.mention + counts.none;
+    const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字提及并用" : "以文字提及为主，不读取变量";
     page.querySelector("[data-repair-all]").disabled = !dead.length;
     let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
-            ${a.cotIds.length ? `<p>思维链 <b>${a.cotIds.length}</b> 条，${style}。</p>
-            <p>开启的普通条目 ${total} 条：读到 <b>${okN}</b>，文字提到 <b>${counts.mention}</b>，没提到 <b>${counts.none}</b>。</p>` : `<p>未识别到开启的思维链，可在下方手动指定。</p>`}
-            <p>${dead.length ? `<b>${dead.length}</b> 处变量写入后无人读取，内容不会发送。` : "变量读写一致 ✓"}</p>
+            <p>${a.cotIds.length ? `思维链${style}。` : "未识别到开启的思维链，可在下方手动指定。"}${dead.length ? `有 <b>${dead.length}</b> 处变量写入后未被读取，相关内容不会发送。` : "变量读写一致。"}</p>
         </div>
         <details class="pa-card pa-explain-card"><summary><b>说明</b></summary>
             <ul class="pa-legend">
-                <li><span class="pa-lv pa-lv-ok">读到了</span>思维链通过 {{getvar}} 读取该条目写入的变量。</li>
-                <li><span class="pa-lv pa-lv-maybe">文字提到</span>思维链中出现该条目的名称或标签。</li>
-                <li><span class="pa-lv pa-lv-none">没提到</span>思维链中未出现。</li>
-                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量没人读</span>条目写入的变量没有被任何开启条目读取，内容不会发送。</li>
+                <li><span class="pa-lv pa-lv-ok">已读取</span>思维链通过 {{getvar}} 读取该条目写入的变量。</li>
+                <li><span class="pa-lv pa-lv-maybe">文字提及</span>思维链中出现该条目的名称或标签。</li>
+                <li><span class="pa-lv pa-lv-none">未提及</span>思维链中没有出现该条目。</li>
+                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量未被读取</span>条目写入的变量没有被任何开启条目读取，内容不会发送。</li>
             </ul>
         </details>
         <div class="pa-cot-sum">
             <div><b>${a.cotIds.length}</b><span>条思维链</span></div>
-            <div><b>${okN}</b><span>条读到</span></div>
-            <div><b>${counts.mention}</b><span>条文字提到</span></div>
-            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>处变量没人读</span></div>
+            <div><b>${okN}</b><span>条已读取</span></div>
+            <div><b>${counts.mention}</b><span>条文字提及</span></div>
+            <div><b>${counts.none}</b><span>条未提及</span></div>
+            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>处变量未被读取</span></div>
         </div>`;
     if (dead.length) {
-      html += `<h3 class="pa-h">变量没人读</h3><div class="pa-cards">`;
+      html += `<h3 class="pa-h">变量未被读取</h3><div class="pa-cards">`;
       for (const i of dead) {
         html += `<div class="pa-card pa-card-warn"><p>${i.ids.map((id) => `「${nm(id)}」`).join("")}${esc(i.text)}</p>
-                    <div class="pa-card-act">${i.readersOff?.length ? `<button class="pa-btn pa-btn-soft" data-fix="${esc(i.readersOff.join("|"))}">打开读取它的条目</button>` : ""}
-                    <button class="pa-btn" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理里看</button></div></div>`;
+                    <div class="pa-card-act">${i.readersOff?.length ? `<button class="pa-btn pa-btn-soft" data-fix="${esc(i.readersOff.join("|"))}">开启读取它的条目</button>` : ""}
+                    <button class="pa-btn" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></div>`;
       }
       html += "</div>";
     }
-    html += `<div class="pa-row-head"><h3 class="pa-h">每条思维链在读什么</h3><button class="pa-link" data-markpick="1">漏认了？手动指定思维链</button></div>`;
+    html += `<div class="pa-row-head"><h3 class="pa-h">思维链读取的变量</h3><button class="pa-link" data-markpick="1">手动指定思维链</button></div>`;
     html += '<div class="pa-cards">';
     for (const c2 of a.cot) {
-      const reads = c2.reads.map((r) => `<li><span class="pa-chip">${esc(r.name)}</span>${r.suppliers.length ? r.suppliers.map((s) => `<span class="pa-sup">${nm(s)}</span>`).join("") : '<span class="pa-sup pa-dim">没开任何选项（空）</span>'}</li>`).join("");
-      html += `<details class="pa-card"><summary><b>${nm(c2.id)}</b><small>${c2.reads.length ? `读了 ${c2.reads.length} 个变量` : "没读变量（靠文字点名）"}</small></summary>
+      const reads = c2.reads.map((r) => `<li><span class="pa-chip">${esc(r.name)}</span>${r.suppliers.length ? r.suppliers.map((s) => `<span class="pa-sup">${nm(s)}</span>`).join("") : '<span class="pa-sup pa-dim">无开启的选项（为空）</span>'}</li>`).join("");
+      html += `<details class="pa-card"><summary><b>${nm(c2.id)}</b><small>${c2.reads.length ? `读取 ${c2.reads.length} 个变量` : "不读取变量（文字提及）"}</small></summary>
                 ${reads ? `<ul class="pa-reads">${reads}</ul>` : ""}
-                ${c2.mentions.length ? `<p class="pa-hint">文字里出现的英文标签/词：${c2.mentions.slice(0, 12).map(esc).join("、")}</p>` : ""}
-                <button class="pa-link" data-mark="${esc(c2.id)}" data-v="0">这条不是思维链</button></details>`;
+                ${c2.mentions.length ? `<p class="pa-hint">文中出现的标签和英文词：${c2.mentions.slice(0, 12).map(esc).join("、")}</p>` : ""}
+                <button class="pa-link" data-mark="${esc(c2.id)}" data-v="0">不是思维链</button></details>`;
     }
     html += "</div>";
-    html += `<h3 class="pa-h">每个开着的条目，思维链有没有想到它</h3>
+    html += `<h3 class="pa-h">开启条目与思维链的关联</h3>
             <div class="pa-seg pa-seg-s" role="tablist">
-                ${[["none", `没提到 ${counts.none}`], ["mention", `文字提到 ${counts.mention}`], ["ok", `读到了 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
+                ${[["none", `未提及 ${counts.none}`], ["mention", `文字提及 ${counts.mention}`], ["ok", `已读取 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
             </div>`;
     const groupsOrder = [];
     const byGroup = /* @__PURE__ */ new Map();
@@ -4307,13 +4455,13 @@ function mountCot(page, app) {
       for (const [id, c2] of byGroup.get(gname)) {
         const [cls, label] = LEVEL[c2.level];
         const via = c2.level === "none" ? "" : `${esc(c2.via)} → ${nm(c2.cot)}`;
-        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">挂进思维链</button>` : ""}</div>`;
+        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">接入思维链</button>` : ""}</div>`;
       }
       html += "</div>";
     }
     if (!groupsOrder.length) html += '<p class="pa-hint">无</p>';
     if (a.optional.length) {
-      html += `<details class="pa-card pa-optional"><summary>思维链里留了位置、但没开任何选项的变量（${a.optional.length}）</summary>
+      html += `<details class="pa-card pa-optional"><summary>思维链已预留、但没有开启选项的变量（${a.optional.length}）</summary>
                 <ul class="pa-reads">${a.optional.map((o) => `<li><span class="pa-chip">${esc(o.varName)}</span>${o.ids.map((id) => `<span class="pa-sup">${nm(id)}</span>`).join("")}</li>`).join("")}</ul></details>`;
     }
     box.innerHTML = html;
@@ -4321,11 +4469,11 @@ function mountCot(page, app) {
   const a0 = (d) => analyze(d, manualFor(d.name));
   box.addEventListener("click", async (e) => {
     const d = getDraft(focusPreset());
-    if (e.target.closest("[data-repair-all]")) { try { await repairAllVariables(d, manualFor(d.name)); } catch(err) { toast("一键修复失败："+err.message,"error"); } return; }
+    if (e.target.closest("[data-repair-all]")) { try { await repairAllVariables(d, manualFor(d.name)); } catch(err) { toast("修复失败："+err.message,"error"); } return; }
     const repair = e.target.closest("[data-repair]");
     if (repair) { try { await repairVariableDialog(d, repair.dataset.repair); } catch(err) { toast(err.message, "error"); } return; }
     const hk = e.target.closest("[data-hook]");
-    if (hk) { try { await hookExistingDialog(d, hk.dataset.hook); } catch(err) { toast("挂进思维链失败：" + err.message, "error"); } return; }
+    if (hk) { try { await hookExistingDialog(d, hk.dataset.hook); } catch(err) { toast("接入思维链失败：" + err.message, "error"); } return; }
     const f = e.target.closest("[data-f]");
     if (f) {
       st.filter = f.dataset.f;
@@ -4334,8 +4482,8 @@ function mountCot(page, app) {
     const fix = e.target.closest("[data-fix]");
     if (fix) {
       const ids = fix.dataset.fix.split("|");
-      mutate(d, "打开读取条目", (x) => { x.setEnabled(ids, true); for(const id of ids) { const gid=x.groupOf(id); if(gid) x.setGroupEnabled(gid,true); } });
-      toast(`已打开 ${ids.length} 条`, "success");
+      mutate(d, "开启读取条目", (x) => { x.setEnabled(ids, true); for(const id of ids) { const gid=x.groupOf(id); if(gid) x.setGroupEnabled(gid,true); } });
+      toast(`已开启 ${ids.length} 条`, "success");
       return;
     }
     const go = e.target.closest("[data-goto]");
@@ -4343,7 +4491,7 @@ function mountCot(page, app) {
     if (e.target.closest("[data-markpick]")) {
       const cot = new Set(a0(d).cotIds);
       const items = d.order.filter((o) => o.enabled !== false && !cot.has(o.identifier) && !d.isMarker(o.identifier)).map((o) => ({ label: d.prompt(o.identifier)?.name || o.identifier, value: o.identifier }));
-      const id = await pickBox("哪一条是思维链？", items);
+      const id = await pickBox("选择思维链条目", items);
       if (!id) return;
       manualFor(d.name)[id] = true;
       saveSettings();
@@ -4390,7 +4538,7 @@ function schemeMatches(d, scheme) {
 }
 async function applyScheme(scheme, { quiet = false } = {}) {
   if (!listPresets().includes(scheme.preset)) {
-    toast(`方案「${scheme.name}」对应的预设「${scheme.preset}」不在了`, "error");
+    toast(`方案「${scheme.name}」对应的预设「${scheme.preset}」已不存在`, "error");
     return false;
   }
   if (currentPresetName() !== scheme.preset) {
@@ -4399,7 +4547,7 @@ async function applyScheme(scheme, { quiet = false } = {}) {
   }
   const d = getDraft(scheme.preset);
   if (d.dirty && !quiet) {
-    if (!await confirmBox("有没保存的改动", `「${scheme.preset}」还有没保存的整理/缝合改动，套用方案会把它们一起保存。继续吗？`, "一起保存")) return false;
+    if (!await confirmBox("有未保存的修改", `「${scheme.preset}」有未保存的修改，套用方案时将一并保存。是否继续？`, "继续")) return false;
   }
   if (!schemeMatches(d, scheme)) {
     d.snapshot("套用方案");
@@ -4408,7 +4556,7 @@ async function applyScheme(scheme, { quiet = false } = {}) {
     await saveDraft(scheme.preset, `套用方案 ${scheme.name}`);
   }
   if (scheme.persona) await setPersona(scheme.persona);
-  toast(`已换成「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}`, "success");
+  toast(`已套用「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}`, "success");
   return true;
 }
 function boundSchemeId() {
@@ -4417,23 +4565,23 @@ function boundSchemeId() {
 function mountSchemes(page) {
   page.innerHTML = `
         <div class="pa-toolbar"><div class="pa-picker-slot"></div>
-            <button class="pa-btn pa-btn-primary" data-s="new">把现在的开关存成方案</button></div>
-        <p class="pa-hint pa-pad">方案＝一套条目开关，可带人设、可绑定聊天。</p>
+            <button class="pa-btn pa-btn-primary" data-s="new">保存当前开关为方案</button></div>
+        <p class="pa-hint pa-pad">方案记录一组条目的开关状态，可包含人设，可绑定聊天。</p>
         <div class="pa-scroll pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
   const all = () => settings().schemes;
   function card(s, d) {
     const bound = boundSchemeId() === s.id;
-    const scope = s.scope === "all" ? "全部条目" : `${s.scope.map((g) => d?.group(g)?.name).filter(Boolean).slice(0, 4).join("、")}${s.scope.length > 4 ? ` 等 ${s.scope.length} 组` : ""}`;
+    const scope = s.scope === "all" ? "全部条目" : `${s.scope.map((g) => d?.group(g)?.name).filter(Boolean).slice(0, 4).join("、")}${s.scope.length > 4 ? ` 等 ${s.scope.length} 个分组` : ""}`;
     const on = d && s.preset === d.name && schemeMatches(d, s);
     return `<article class="pa-card pa-scheme${on ? " pa-scheme-on" : ""}" data-id="${esc(s.id)}">
-            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">正在用</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">绑定本聊天</span>' : ""}</header>
-            <small>${esc(s.preset)} \xB7 ${esc(scope)} \xB7 ${Object.values(s.states).filter(Boolean).length} 条开${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}</small>
+            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">已绑定本聊天</span>' : ""}</header>
+            <small>${esc(s.preset)} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}</small>
             <div class="pa-card-act">
                 <button class="pa-btn pa-btn-primary" data-a="apply">套用</button>
-                <button class="pa-btn" data-a="update">更新成现在的开关</button>
-                <button class="pa-btn" data-a="bind">${bound ? "解除聊天绑定" : "绑定到这个聊天"}</button>
+                <button class="pa-btn" data-a="update">更新为当前开关</button>
+                <button class="pa-btn" data-a="bind">${bound ? "解除绑定" : "绑定本聊天"}</button>
                 <button class="pa-icon-btn" data-a="more" aria-label="更多">⋯</button>
             </div></article>`;
   }
@@ -4446,7 +4594,7 @@ function mountSchemes(page) {
     if (d) picker.set(d.name);
     const mine = all().filter((s) => d && s.preset === d.name);
     const others = all().filter((s) => !d || s.preset !== d.name);
-    box.innerHTML = (mine.length ? mine.map((s) => card(s, d)).join("") : `<p class="pa-empty">「${esc(d?.name || "")}」还没有方案。先在酒馆里（或整理页）把文风、人设条目开好，再点上面的按钮存起来。</p>`) + (others.length ? `<h3 class="pa-h">其他预设的方案（套用会切换预设）</h3>${others.map((s) => card(s, null)).join("")}` : "");
+    box.innerHTML = (mine.length ? mine.map((s) => card(s, d)).join("") : `<p class="pa-empty">「${esc(d?.name || "")}」暂无方案。先开启需要的条目，再点「保存当前开关为方案」。</p>`) + (others.length ? `<h3 class="pa-h">其他预设的方案（套用时将切换预设）</h3>${others.map((s) => card(s, null)).join("")}` : "");
   }
   page.querySelector("[data-s=new]").addEventListener("click", async () => {
     const d = getDraft(focusPreset());
@@ -4454,24 +4602,24 @@ function mountSchemes(page) {
     const personaName = listPersonas().find((p) => p.avatar === persona)?.name || "";
     const groups = d.groups.groups;
     const body = el(`<div class="pa-form">
-            <label class="pa-field"><span>方案名</span><input class="pa-input" data-f="name" placeholder="比如：狗男纯爱、年上Daddy"></label>
-            <fieldset class="pa-fieldset"><legend>记住哪些开关</legend>
-                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="groups" ${groups.length ? "checked" : ""} ${groups.length ? "" : "disabled"}> 只记下面勾的分组（推荐，别的条目不受影响）</label>
-                <div class="pa-groups-pick">${groups.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${LIKELY.test(g.name) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || '<p class="pa-hint">这个预设还没分组，可以先去整理页分组</p>'}</div>
-                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="all" ${groups.length ? "" : "checked"}> 记住全部条目</label>
+            <label class="pa-field"><span>方案名称</span><input class="pa-input" data-f="name" placeholder="例如：纯爱、年上"></label>
+            <fieldset class="pa-fieldset"><legend>记录范围</legend>
+                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="groups" ${groups.length ? "checked" : ""} ${groups.length ? "" : "disabled"}> 只记录勾选的分组（推荐，其他条目不受影响）</label>
+                <div class="pa-groups-pick">${groups.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${LIKELY.test(g.name) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || '<p class="pa-hint">此预设暂无分组，可在整理页新建</p>'}</div>
+                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="all" ${groups.length ? "" : "checked"}> 记录全部条目</label>
             </fieldset>
-            ${persona ? `<label class="pa-inline-check"><input type="checkbox" data-f="persona" checked> 连同人设一起记住（现在是「${esc(personaName || persona)}」）</label>` : ""}
+            ${persona ? `<label class="pa-inline-check"><input type="checkbox" data-f="persona" checked> 同时记录人设（当前为「${esc(personaName || persona)}」）</label>` : ""}
         </div>`);
     const r = await sheet({
-      title: "存成方案",
+      title: "保存为方案",
       body,
       wide: true,
       actions: [{ label: "取消", value: null }, {
-        label: "保存方案",
+        label: "保存",
         kind: "primary",
         validate: (w) => {
           if (!w.querySelector("[data-f=name]").value.trim()) {
-            toast("起个名字吧");
+            toast("请填写方案名称");
             return false;
           }
           return true;
@@ -4484,12 +4632,12 @@ function mountSchemes(page) {
       }]
     });
     if (!r) return;
-    if (Array.isArray(r.scope) && !r.scope.length) return toast('至少勾一个分组，或者选"记住全部条目"', "warning");
+    if (Array.isArray(r.scope) && !r.scope.length) return toast("请至少勾选一个分组，或选择记录全部条目", "warning");
     const s = { id: uid(), name: r.name, preset: d.name, scope: r.scope, persona: r.persona ? persona : null, personaName: r.persona ? personaName : "" };
     Object.assign(s, schemeStates(d, s));
     all().push(s);
     saveSettings();
-    toast(`存好了「${s.name}」`, "success");
+    toast(`已保存方案「${s.name}」`, "success");
     render();
   });
   box.addEventListener("click", async (e) => {
@@ -4505,7 +4653,7 @@ function mountSchemes(page) {
     }
     if (a === "update") {
       const d = getDraft(s.preset);
-      if (!await confirmBox("更新方案", `用「${s.preset}」现在的开关覆盖方案「${s.name}」？`, "更新")) return;
+      if (!await confirmBox("更新方案", `用「${s.preset}」当前的开关覆盖方案「${s.name}」？`, "更新")) return;
       Object.assign(s, schemeStates(d, s));
       const persona = currentPersona();
       if (s.persona && persona) {
@@ -4517,25 +4665,25 @@ function mountSchemes(page) {
       render();
     }
     if (a === "bind") {
-      if (!hasChat()) return toast("先打开一个聊天再绑定");
+      if (!hasChat()) return toast("请先打开一个聊天");
       const meta = chatMeta();
       if (meta[META_KEY] === s.id) delete meta[META_KEY];
       else meta[META_KEY] = s.id;
       await saveChatMeta();
-      toast(meta[META_KEY] ? `这个聊天以后会自动用「${s.name}」` : "已解除绑定", "success");
+      toast(meta[META_KEY] ? `已绑定：进入本聊天时自动套用「${s.name}」` : "已解除绑定", "success");
       render();
     }
     if (a === "more") {
-      const v = await pickBox(s.name, [{ label: "改名", value: "rename" }, { label: "删除方案", value: "del" }]);
+      const v = await pickBox(s.name, [{ label: "重命名", value: "rename" }, { label: "删除方案", value: "del" }]);
       if (v === "rename") {
-        const n = await promptBox("方案名", s.name);
+        const n = await promptBox("方案名称", s.name);
         if (n) {
           s.name = n;
           saveSettings();
           render();
         }
       }
-      if (v === "del" && await confirmBox("删除方案", `删除「${s.name}」？预设本身不受影响。`, "删除", true)) {
+      if (v === "del" && await confirmBox("删除方案", `删除「${s.name}」？预设不受影响。`, "删除", true)) {
         settings().schemes = all().filter((x) => x.id !== s.id);
         saveSettings();
         render();
@@ -4576,52 +4724,63 @@ function mountApi(page) {
     const active = sites().find((x) => x.id === s.activeSiteId);
     const src = SOURCES[live.source];
     const liveModels = liveModelOptions();
-    // 在用的站点顺手记下它的模型列表，展开别的站点时也能选
+    // 使用中的站点顺带记下模型列表，展开其他站点时也能选
     if (active && active.source === live.source && liveModels.length && JSON.stringify(active.models || []) !== JSON.stringify(liveModels)) {
       active.models = liveModels;
       saveSettings();
     }
     box.innerHTML = `
         <div class="pa-card pa-live">
-            <header><b>现在连着</b><span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span></header>
-            <p>${esc(active?.name || src?.label || live.source || "—")}${live.url ? ` \xB7 ${esc(hostOf(live.url))}` : ""}${live.secretMask ? ` \xB7 key ${esc(live.secretMask)}` : ""}</p>
+            <header><b>当前连接</b><span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span></header>
+            <p>${esc(active?.name || src?.label || live.source || "—")}${live.url ? ` \xB7 ${esc(hostOf(live.url))}` : ""}${live.secretMask ? ` \xB7 密钥 ${esc(live.secretMask)}` : ""}</p>
             <label class="pa-field pa-field-row"><span>模型</span>${modelSelect(live.model, liveModels, 'data-a="livemodel"')}</label>
-            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button><button class="pa-btn pa-btn-soft" data-a="capture">存成站点</button></div>
+            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button><button class="pa-btn pa-btn-soft" data-a="capture">保存为站点</button></div>
         </div>
         <div class="pa-card">
-            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 换预设后自动恢复到当前站点</label>
-            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 换预设时不改连接设置</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后恢复当前站点</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时不改变连接设置</label>
         </div>
-        <div class="pa-row-head"><h3 class="pa-h">我的站点</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 新站点</button></div>
+        <div class="pa-row-head"><h3 class="pa-h">站点</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 添加站点</button></div>
         ${sites().length ? sites().map((x) => {
       const on = x.id === s.activeSiteId;
       const isOpen = open.has(x.id);
       return `<article class="pa-card pa-site${on ? " pa-site-on" : ""}${isOpen ? " pa-open" : ""}" data-id="${esc(x.id)}">
-            <header data-a="toggle"><span class="pa-site-caret">${isOpen ? "▾" : "▸"}</span><b>${esc(x.name)}</b>${on ? '<span class="pa-chip">在用</span>' : ""}<small class="pa-site-model">${esc(x.model || "")}</small>
+            <header data-a="toggle"><span class="pa-site-caret">${isOpen ? "▾" : "▸"}</span><b>${esc(x.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}<small class="pa-site-model">${esc(x.model || "")}</small>
               ${on ? "" : '<button class="pa-btn pa-btn-primary pa-btn-s" data-a="use">切换</button>'}</header>
             ${isOpen ? `<dl class="pa-site-dl">
               <dt>类型</dt><dd>${esc(SOURCES[x.source]?.label || x.source)}</dd>
               ${x.url ? `<dt>网址</dt><dd>${esc(x.url)}</dd>` : ""}
-              <dt>Key</dt><dd>${esc(x.keyMask || (x.secretId ? "已存" : "沿用当前"))}</dd>
-              <dt>模型</dt><dd>${modelSelect(x.model, x.models || [], 'data-a="sitemodel"')}${(x.models || []).length ? "" : '<small class="pa-dim">（切换到这个站点后能拉到模型列表）</small>'}</dd>
+              <dt>密钥</dt><dd>${esc(x.keyMask || (x.secretId ? "已保存" : "使用当前密钥"))}</dd>
+              <dt>模型</dt><dd>${modelSelect(x.model, x.models || [], 'data-a="sitemodel"')}${(x.models || []).length || x.source !== "custom" ? "" : '<button class="pa-link" data-a="fetch">获取模型列表</button>'}</dd>
               ${x.note ? `<dt>备注</dt><dd>${esc(x.note)}</dd>` : ""}
             </dl>
             <div class="pa-card-act"><button class="pa-btn" data-a="edit">编辑</button><button class="pa-btn pa-btn-danger-soft" data-a="del">删除</button></div>` : ""}
         </article>`;
-    }).join("") : '<p class="pa-empty">还没有站点。点「＋ 新站点」，或者先在酒馆里连好再点「存成站点」。</p>'}`;
+    }).join("") : '<p class="pa-empty">暂无站点。可点「＋ 添加站点」，或在酒馆中连接后点「保存为站点」。</p>'}`;
+  }
+  // 模型栏：有列表时下拉选择，最后一项「手动输入」；没有列表时直接输入
+  const MANUAL = "\0manual";
+  function modelField(cur, list) {
+    const all = [...new Set([...list, cur].filter(Boolean))];
+    if (!all.length) return `<input class="pa-input" data-f="model" value="${esc(cur || "")}" placeholder="模型名称" autocapitalize="off">`;
+    return `<select class="pa-select" data-f="modelsel">${all.map((m) => `<option value="${esc(m)}" ${m === cur ? "selected" : ""}>${esc(m)}</option>`).join("")}<option value="${MANUAL}">手动输入…</option></select>
+            <input class="pa-input" data-f="model" value="${esc(cur || "")}" placeholder="模型名称" autocapitalize="off" hidden>`;
+  }
+  async function getModels(site) {
+    return withSiteKey(site, () => fetchModelList(site));
   }
   async function editSite(site) {
     const isNew = !site;
     const s = site ? { ...site } : { id: uid(), name: "", source: "custom", url: "", model: "", models: [], secretId: null, keyMask: "", note: "" };
     const body = el(`<div class="pa-form">
-            <label class="pa-field"><span>名字</span><input class="pa-input" data-f="name" value="${esc(s.name)}" placeholder="比如：某某中转站-克劳德"></label>
+            <label class="pa-field"><span>名称</span><input class="pa-input" data-f="name" value="${esc(s.name)}" placeholder="例如：某中转站"></label>
             <label class="pa-field"><span>类型</span><select class="pa-select" data-f="source">${Object.entries(SOURCES).map(([k, v]) => `<option value="${k}" ${k === s.source ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</select></label>
             <label class="pa-field" data-show="custom"><span>网址</span><input class="pa-input" data-f="url" value="${esc(s.url)}" placeholder="https://…/v1" inputmode="url" autocapitalize="off"></label>
-            <label class="pa-field"><span>Key</span><input class="pa-input" data-f="key" type="password" autocomplete="off" placeholder="${s.secretId || s.legacyKey ? "不改就留空" : "留空就沿用酒馆里当前的 key"}"></label>
-            <label class="pa-field"><span>模型</span><input class="pa-input" data-f="model" value="${esc(s.model)}" list="pa-models" autocapitalize="off"><datalist id="pa-models">${(s.models || []).map((m) => `<option value="${esc(m)}">`).join("")}</datalist></label>
-            <button class="pa-btn pa-btn-soft" data-f="fetch" type="button" data-show="custom">连上并拉取模型列表</button>
-            <label class="pa-field"><span>备注</span><input class="pa-input" data-f="note" value="${esc(s.note || "")}" placeholder="比如：月卡到 11 月"></label>
-            <p class="pa-hint">${multiKeySupported() ? "Key 存在酒馆密钥库，裁缝铺只记编号。" : "酒馆版本较旧，key 存在酒馆设置文件里。"}</p>
+            <label class="pa-field"><span>密钥</span><input class="pa-input" data-f="key" type="password" autocomplete="off" placeholder="${s.secretId || s.legacyKey ? "不修改请留空" : "留空则使用酒馆当前密钥"}"></label>
+            <div class="pa-field"><span>模型</span><div class="pa-model-slot">${modelField(s.model, s.models || [])}</div></div>
+            <button class="pa-btn pa-btn-soft" data-f="fetch" type="button" data-show="custom">获取模型列表</button>
+            <label class="pa-field"><span>备注</span><input class="pa-input" data-f="note" value="${esc(s.note || "")}" placeholder="例如：月卡至 11 月"></label>
+            <p class="pa-hint">${multiKeySupported() ? "密钥存入酒馆密钥库，本扩展只记录编号。" : "酒馆版本较旧，密钥存入酒馆设置文件。"}</p>
         </div>`);
     const sync = (w) => {
       const custom = w.querySelector("[data-f=source]").value === "custom";
@@ -4629,12 +4788,24 @@ function mountApi(page) {
         x.hidden = !custom;
       });
     };
+    const bindModel = (w) => {
+      const sel = w.querySelector("[data-f=modelsel]");
+      sel?.addEventListener("change", () => {
+        const inp = w.querySelector("[data-f=model]");
+        inp.hidden = sel.value !== MANUAL;
+        if (!inp.hidden) inp.focus();
+      });
+    };
+    const readModel = (w) => {
+      const sel = w.querySelector("[data-f=modelsel]");
+      return (sel && sel.value !== MANUAL ? sel.value : w.querySelector("[data-f=model]").value).trim();
+    };
     const read = (w) => ({
       name: w.querySelector("[data-f=name]").value.trim(),
       source: w.querySelector("[data-f=source]").value,
       url: w.querySelector("[data-f=url]").value.trim(),
       key: w.querySelector("[data-f=key]").value.trim(),
-      model: w.querySelector("[data-f=model]").value.trim(),
+      model: readModel(w),
       note: w.querySelector("[data-f=note]").value.trim()
     });
     const persistKey = async (v) => {
@@ -4646,36 +4817,39 @@ function mountApi(page) {
       } else {
         s.legacyKey = v.key;
       }
-      s.keyMask = v.key.length > 8 ? `${v.key.slice(0, 3)}…${v.key.slice(-4)}` : "已存";
+      s.keyMask = v.key.length > 8 ? `${v.key.slice(0, 3)}…${v.key.slice(-4)}` : "已保存";
       v.key = "";
     };
     const r = await sheet({
-      title: isNew ? "新站点" : `编辑「${s.name}」`,
+      title: isNew ? "添加站点" : `编辑「${s.name}」`,
       body,
       wide: true,
       noFocus: !isNew,
       onMount: (w) => {
         sync(w);
+        bindModel(w);
         w.querySelector("[data-f=source]").addEventListener("change", () => sync(w));
         w.querySelector("[data-f=fetch]").addEventListener("click", async (ev) => {
           const v = read(w);
-          if (!v.url) return toast("先填网址");
-          ev.target.disabled = true;
-          ev.target.textContent = "连接中…";
+          if (!v.url) return toast("请填写网址");
+          const btn = ev.target;
+          btn.disabled = true;
+          btn.textContent = "获取中…";
           try {
             await persistKey(v);
             w.querySelector("[data-f=key]").value = "";
-            Object.assign(s, { source: v.source, url: v.url });
-            await applyConnection({ ...s, model: "" });
-            const models = customModelOptions();
+            Object.assign(s, { source: v.source, url: v.url, name: v.name || s.name });
+            const models = await getModels(s);
             s.models = models;
-            w.querySelector("#pa-models").innerHTML = models.map((m) => `<option value="${esc(m)}">`).join("");
-            toast(models.length ? `拉到 ${models.length} 个模型，在"模型"里选` : "连上了，但没拿到模型列表，手填模型名就行", models.length ? "success" : "warning");
+            w.querySelector(".pa-model-slot").innerHTML = modelField(v.model, models);
+            bindModel(w);
+            if (models.length) toast(`已获取 ${models.length} 个模型`, "success");
+            else toast("站点未返回模型，可手动输入模型名称", "warning");
           } catch (err) {
-            toast("连接失败：" + err.message, "error");
+            toast("获取失败：" + err.message, "error");
           }
-          ev.target.disabled = false;
-          ev.target.textContent = "连上并拉取模型列表";
+          btn.disabled = false;
+          btn.textContent = "获取模型列表";
         });
       },
       actions: [{ label: "取消", value: null }, {
@@ -4684,11 +4858,11 @@ function mountApi(page) {
         validate: (w) => {
           const v = read(w);
           if (!v.name) {
-            toast("起个名字");
+            toast("请填写名称");
             return false;
           }
           if (v.source === "custom" && !v.url) {
-            toast("自定义类型要填网址");
+            toast("自定义类型需填写网址");
             return false;
           }
           return true;
@@ -4700,7 +4874,7 @@ function mountApi(page) {
     try {
       await persistKey(r);
     } catch (e) {
-      return toast("key 没存进去：" + e.message, "error");
+      return toast("密钥保存失败：" + e.message, "error");
     }
     Object.assign(s, { name: r.name, source: r.source, url: r.source === "custom" ? r.url : "", model: r.model, note: r.note });
     const list = sites();
@@ -4718,7 +4892,7 @@ function mountApi(page) {
       if (site) site.model = m;
       if (a === "livemodel" || site?.id === settings().activeSiteId) setLiveModel(m);
       saveSettings();
-      toast(`模型改成 ${m}`, "success");
+      toast(`模型已切换为 ${m}`, "success");
       return render();
     }
     const o = e.target.dataset.o;
@@ -4739,8 +4913,21 @@ function mountApi(page) {
     }
     if (a === "new") return editSite(null);
     if (a === "edit") return editSite(site);
+    if (a === "fetch") {
+      const btn = e.target.closest("button");
+      btn.disabled = true;
+      btn.textContent = "获取中…";
+      try {
+        site.models = await getModels(site);
+        saveSettings();
+        toast(site.models.length ? `已获取 ${site.models.length} 个模型` : "站点未返回模型", site.models.length ? "success" : "warning");
+      } catch (err) {
+        toast("获取失败：" + err.message, "error");
+      }
+      return render();
+    }
     if (a === "del") {
-      if (!await confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库里的 key 不会删，可以在酒馆的 API 设置里管理。`, "删除", true)) return;
+      if (!await confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库中的密钥不会删除。`, "删除", true)) return;
       settings().sites = sites().filter((x) => x.id !== site.id);
       if (settings().activeSiteId === site.id) settings().activeSiteId = null;
       saveSettings();
@@ -4758,10 +4945,10 @@ function mountApi(page) {
           saveSettings();
         } else {
           globalThis.jQuery("#api_button_openai").trigger("click");
-          await sleep(2500);
+          await waitConnect(15e3);
         }
         const live = liveConnection();
-        toast(live.online ? `已连上${target ? `「${target.name}」` : ""}` : "已切换，但还没连上，看看网址和 key 对不对", live.online ? "success" : "warning");
+        toast(live.online ? `已连接${target ? `「${target.name}」` : ""}` : "已切换，未连接成功，请检查网址和密钥", live.online ? "success" : "warning");
       } catch (err) {
         toast("切换失败：" + err.message, "error");
       }
@@ -4770,30 +4957,31 @@ function mountApi(page) {
     if (a === "capture") {
       await readSecretState();
       const live = liveConnection();
-      if (!SOURCES[live.source]) return toast("现在的连接类型裁缝铺还不支持保存", "warning");
+      if (!SOURCES[live.source]) return toast("暂不支持保存当前连接类型", "warning");
       const s = { id: uid(), name: `${SOURCES[live.source].label.split("（")[0]}${live.url ? " " + hostOf(live.url) : ""}`, source: live.source, url: live.url || "", model: live.model || "", models: customModelOptions(), secretId: live.secretId, keyMask: live.secretMask, note: "" };
       sites().push(s);
       settings().activeSiteId = s.id;
       saveSettings();
-      toast("已保存", "success");
+      toast("已保存为站点", "success");
       render();
     }
   });
   return { render };
 }
 
-
 // src/ui/theme.js
-// 1.3.0：外观。默认跟随酒馆美化（自动补成不透明，免得背景透出来看不清），也可以换内置的莫兰迪色卡
+// 外观。默认跟随酒馆主题（自动改为不透明，避免背景透出影响阅读），也可选用内置配色。
+// 1.3.9：「花田」「晴野」为油画感渐变背景，替换原来的豆沙粉、雾霾蓝（沿用原 id，已选的设置不受影响）。
+// 自定义背景图存在本浏览器的 IndexedDB，不写进酒馆设置文件，不影响酒馆加载速度。
 var THEMES = [
-  { id: "follow", name: "跟随酒馆美化", sub: "颜色跟酒馆走，自动变成不透明" },
-  { id: "mist", name: "雾霾蓝", sub: "安静、清透", dots: ["#e9eef2", "#5b7a93", "#34404c"] },
-  { id: "bean", name: "豆沙粉", sub: "温柔、软乎乎", dots: ["#f4e9e8", "#a0605d", "#4f3c3c"] },
-  { id: "matcha", name: "抹茶绿", sub: "清新、护眼", dots: ["#e9efe6", "#5d7d58", "#36443a"] },
-  { id: "oat", name: "燕麦奶茶", sub: "暖暖的米色", dots: ["#f2ece4", "#8a6a4c", "#4a3f35"] },
-  { id: "lavender", name: "薰衣草", sub: "淡紫、梦幻", dots: ["#edeaf3", "#72649a", "#403a4f"] },
-  { id: "seasalt", name: "海盐", sub: "蓝绿、凉凉的", dots: ["#e6efef", "#4b7a7b", "#2f4344"] },
-  { id: "night", name: "夜雾", sub: "深色，晚上用", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
+  { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
+  { id: "bean", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
+  { id: "mist", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
+  { id: "matcha", name: "抹茶绿", sub: "浅绿", dots: ["#e9efe6", "#5d7d58", "#36443a"] },
+  { id: "oat", name: "燕麦", sub: "米色", dots: ["#f2ece4", "#8a6a4c", "#4a3f35"] },
+  { id: "lavender", name: "薰衣草", sub: "浅紫", dots: ["#edeaf3", "#72649a", "#403a4f"] },
+  { id: "seasalt", name: "海盐", sub: "蓝绿", dots: ["#e6efef", "#4b7a7b", "#2f4344"] },
+  { id: "night", name: "夜雾", sub: "深色", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
 ];
 function readColor(value) {
   if (!value) return null;
@@ -4808,6 +4996,7 @@ function readColor(value) {
   const [r, g, b, a = 1] = m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
   return { r, g, b, a };
 }
+var bgUrl = null;
 function applyTheme(root) {
   if (!root) return;
   const id = THEMES.some((t) => t.id === settings().theme) ? settings().theme : "follow";
@@ -4816,24 +5005,103 @@ function applyTheme(root) {
     root.style.removeProperty("--pa-tint");
     root.style.removeProperty("--pa-input-bg");
     root.style.removeProperty("--pa-on-accent");
+  } else {
+    const cs = getComputedStyle(document.body);
+    const tint = readColor(cs.getPropertyValue("--SmartThemeBlurTintColor").trim()) || { r: 28, g: 26, b: 30, a: 0.94 };
+    root.style.setProperty("--pa-tint", `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${Math.max(tint.a, 0.97)})`);
+    const light = (0.2126 * tint.r + 0.7152 * tint.g + 0.0722 * tint.b) / 255 > 0.6;
+    root.style.setProperty("--pa-input-bg", light ? "rgba(255, 255, 255, .72)" : "rgba(0, 0, 0, .2)");
+    // 主按钮文字：强调色深用白字，浅用深字
+    const acc = readColor(cs.getPropertyValue("--SmartThemeQuoteColor").trim()) || { r: 224, g: 162, b: 74 };
+    const accL = (0.2126 * acc.r + 0.7152 * acc.g + 0.0722 * acc.b) / 255;
+    root.style.setProperty("--pa-on-accent", accL < 0.55 ? "#fff" : "#1b1712");
+  }
+  applyBackground(root);
+}
+// 自定义背景图：图片上盖一层主题底色，浓度可调，保证文字清楚
+async function applyBackground(root) {
+  const bg = settings().bg || {};
+  if (!bg.on) {
+    root.classList.remove("pa-has-bg");
     return;
   }
-  const cs = getComputedStyle(document.body);
-  const tint = readColor(cs.getPropertyValue("--SmartThemeBlurTintColor").trim()) || { r: 28, g: 26, b: 30, a: 0.94 };
-  root.style.setProperty("--pa-tint", `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${Math.max(tint.a, 0.97)})`);
-  const light = (0.2126 * tint.r + 0.7152 * tint.g + 0.0722 * tint.b) / 255 > 0.6;
-  root.style.setProperty("--pa-input-bg", light ? "rgba(255, 255, 255, .72)" : "rgba(0, 0, 0, .2)");
-  // 主按钮的字：强调色深就用白字，浅就用深字
-  const acc = readColor(cs.getPropertyValue("--SmartThemeQuoteColor").trim()) || { r: 224, g: 162, b: 74 };
-  const accL = (0.2126 * acc.r + 0.7152 * acc.g + 0.0722 * acc.b) / 255;
-  root.style.setProperty("--pa-on-accent", accL < 0.55 ? "#fff" : "#1b1712");
+  try {
+    if (!bgUrl) {
+      const blob = await assetGet("bg");
+      if (!blob) {
+        root.classList.remove("pa-has-bg");
+        return;
+      }
+      bgUrl = URL.createObjectURL(blob);
+    }
+    const tint = readColor(getComputedStyle(root).getPropertyValue("--pa-tint").trim()) || { r: 240, g: 240, b: 240 };
+    const veil = Math.min(0.9, Math.max(0, bg.veil ?? 0.55));
+    root.style.setProperty("--pa-bg-img", `url("${bgUrl}")`);
+    root.style.setProperty("--pa-bg-veil", `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${veil})`);
+    root.classList.add("pa-has-bg");
+  } catch (e) {
+    console.warn("[裁缝铺] 背景图读取失败", e);
+    root.classList.remove("pa-has-bg");
+  }
+}
+// 选图后先缩小再存（最长边 1600 像素，JPEG），避免占用过多空间、拖慢打开
+async function shrinkImage(file) {
+  const bmp = await createImageBitmap(file);
+  // 手机截图常带纯黑或纯白的边，先裁掉
+  const box = trimBorders(bmp);
+  const k = Math.min(1, 1600 / Math.max(box.w, box.h));
+  const cv = document.createElement("canvas");
+  cv.width = Math.round(box.w * k);
+  cv.height = Math.round(box.h * k);
+  cv.getContext("2d").drawImage(bmp, box.x, box.y, box.w, box.h, 0, 0, cv.width, cv.height);
+  bmp.close?.();
+  return new Promise((resolve, reject) => cv.toBlob((b) => b ? resolve(b) : reject(new Error("图片处理失败")), "image/jpeg", 0.85));
+}
+// 找出四周整行/整列几乎同色（接近纯黑或纯白）的边，返回去掉这些边之后的区域
+function trimBorders(bmp) {
+  const W = 200;
+  const k = W / bmp.width;
+  const H = Math.max(1, Math.round(bmp.height * k));
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d", { willReadFrequently: true });
+  g.drawImage(bmp, 0, 0, W, H);
+  const px = g.getImageData(0, 0, W, H).data;
+  const lum = (i) => 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
+  const flat = (cells) => {
+    let dark = 0, light = 0;
+    for (const i of cells) {
+      const l = lum(i);
+      if (l < 28) dark++;
+      else if (l > 238) light++;
+    }
+    return dark / cells.length > 0.94 || light / cells.length > 0.94;
+  };
+  const row = (y) => Array.from({ length: W }, (_, x) => (y * W + x) * 4);
+  const col = (x) => Array.from({ length: H }, (_, y) => (y * W + x) * 4);
+  let top = 0, bottom = H - 1, left = 0, right = W - 1;
+  while (top < bottom && flat(row(top))) top++;
+  while (bottom > top && flat(row(bottom))) bottom--;
+  while (left < right && flat(col(left))) left++;
+  while (right > left && flat(col(right))) right--;
+  // 缩小时边界会有一行过渡色，多裁一行
+  if (top > 0) top++;
+  if (bottom < H - 1) bottom--;
+  if (left > 0) left++;
+  if (right < W - 1) right--;
+  // 裁掉太多（整张图本来就很暗或很亮）就不裁
+  if ((bottom - top + 1) < H * 0.3 || (right - left + 1) < W * 0.3) return { x: 0, y: 0, w: bmp.width, h: bmp.height };
+  const s = bmp.width / W;
+  const x = Math.floor(left * s), y = Math.floor(top * s);
+  return { x, y, w: Math.min(bmp.width - x, Math.ceil((right - left + 1) * s)), h: Math.min(bmp.height - y, Math.ceil((bottom - top + 1) * s)) };
 }
 function themeCards() {
   const cur = settings().theme || "follow";
   return `<div class="pa-themes">${THEMES.map((t) => {
     const dots = t.dots || ["var(--SmartThemeBlurTintColor, #333)", "var(--SmartThemeQuoteColor, #e0a24a)", "var(--SmartThemeBodyColor, #ddd)"];
-    const style = t.dots ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : "";
-    return `<button class="pa-theme" data-theme-id="${t.id}" aria-pressed="${t.id === cur}" style="${style}">
+    const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.dots[2]};border-color:${t.dots[1]}55` : "";
+    return `<button class="pa-theme${t.paint ? ` pa-paint-${t.id}` : ""}" data-theme-id="${t.id}" aria-pressed="${t.id === cur}" style="${style}">
         <span class="pa-theme-dots">${dots.map((c2) => `<i style="background:${c2}"></i>`).join("")}</span>
         <b>${esc(t.name)}</b><small>${esc(t.sub)}</small></button>`;
   }).join("")}</div>`;
@@ -4849,10 +5117,61 @@ function bindThemeCards(box, after) {
     after?.();
   });
 }
-async function themeSheet() {
-  const body = el(`<div>${themeCards()}</div>`);
-  bindThemeCards(body);
-  await sheet({ title: "换个颜色", body, wide: true, actions: [{ label: "好了", kind: "primary", value: true }] });
+function bgPanel() {
+  const bg = settings().bg || {};
+  return `<div class="pa-card pa-bgpanel">
+      <div class="pa-card-act">
+        <label class="pa-btn pa-btn-soft pa-file">${bg.on ? "更换图片" : "选择图片"}<input type="file" accept="image/*" data-bg="file" hidden></label>
+        ${bg.on ? '<button class="pa-btn" data-bg="off">移除</button>' : ""}
+      </div>
+      ${bg.on ? `<label class="pa-field pa-field-row"><span>遮罩</span><input type="range" min="0" max="90" step="5" value="${Math.round((bg.veil ?? 0.55) * 100)}" data-bg="veil"><em class="pa-bg-veil-n">${Math.round((bg.veil ?? 0.55) * 100)}%</em></label>` : ""}
+      <p class="pa-hint">图片只保存在本浏览器，不上传。遮罩越高，文字越清楚。</p>
+    </div>`;
+}
+function bindBgPanel(box, rerender) {
+  const root = () => document.getElementById("pa-root");
+  box.addEventListener("change", async (e) => {
+    const t = e.target.closest("[data-bg]");
+    if (!t) return;
+    if (t.dataset.bg === "file") {
+      const f = t.files?.[0];
+      if (!f) return;
+      try {
+        const blob = await shrinkImage(f);
+        await assetPut("bg", blob);
+        if (bgUrl) URL.revokeObjectURL(bgUrl);
+        bgUrl = null;
+        settings().bg = { ...settings().bg || {}, on: true, veil: settings().bg?.veil ?? 0.55 };
+        saveSettings();
+        await applyBackground(root());
+        toast("背景图已设置", "success");
+      } catch (err) {
+        toast("背景图设置失败：" + err.message, "error");
+      }
+      return rerender();
+    }
+  });
+  box.addEventListener("input", (e) => {
+    const t = e.target.closest("[data-bg=veil]");
+    if (!t) return;
+    settings().bg = { ...settings().bg, veil: Number(t.value) / 100 };
+    box.querySelector(".pa-bg-veil-n").textContent = `${t.value}%`;
+    applyBackground(root());
+  });
+  box.addEventListener("change", (e) => {
+    if (e.target.closest("[data-bg=veil]")) saveSettings();
+  });
+  box.addEventListener("click", async (e) => {
+    if (!e.target.closest("[data-bg=off]")) return;
+    settings().bg = { ...settings().bg, on: false };
+    saveSettings();
+    await assetDel("bg").catch(() => {
+    });
+    if (bgUrl) URL.revokeObjectURL(bgUrl);
+    bgUrl = null;
+    applyBackground(root());
+    rerender();
+  });
 }
 
 // src/ui/health.js
@@ -4893,7 +5212,7 @@ function categorize(url) {
   if (u.origin !== location.origin) return { cat: `外部：${u.host}`, key: `ext:${u.host}` };
   let m = /\/scripts\/extensions\/third-party\/([^/]+)\//.exec(p);
   if (m) return { cat: `扩展「${m[1]}」`, key: `tp:${m[1]}`, ext: m[1] };
-  if (/\/api\/settings\/get/.test(p)) return { cat: "设置 + 全部预设", key: "settings" };
+  if (/\/api\/settings\/get/.test(p)) return { cat: "设置与全部预设", key: "settings" };
   if (/\/api\/characters\/(all|get)/.test(p)) return { cat: "角色卡", key: "chars" };
   if (/\/api\/chats\//.test(p)) return { cat: "聊天记录", key: "chats" };
   if (/\/api\/worldinfo\//.test(p)) return { cat: "世界书", key: "wi" };
@@ -4901,7 +5220,7 @@ function categorize(url) {
   if (/\/backgrounds\//.test(p) || /\/api\/backgrounds/.test(p)) return { cat: "背景图", key: "bg" };
   if (/\/api\/extensions\//.test(p)) return { cat: "扩展管理（检查/更新）", key: "extapi" };
   if (/\/api\//.test(p)) return { cat: `接口 ${p.replace(/^.*\/api\//, "")}`, key: `api:${p}` };
-  return { cat: "酒馆本体文件", key: "core" };
+  return { cat: "酒馆程序文件", key: "core" };
 }
 async function collectHealth() {
   const c2 = ctx();
@@ -4976,31 +5295,31 @@ async function collectHealth() {
   out.slow = res.filter((r) => r.duration > 300).sort((a, b) => b.duration - a.duration).slice(0, 8).map((r) => ({ ...categorize(r.name), dur: r.duration, size: r.transferSize || r.encodedBodySize || 0, url: r.name }));
   // ---- 建议
   const MB = 1024 * 1024;
-  if (out.presetTotal > 5 * MB) out.warn.push({ t: `全部预设一共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个）。酒馆每次打开都会把它们整个下载一遍，这是云酒馆慢的头号原因。`, d: "把不用的预设先导出备份到手机/电脑，再在酒馆里删掉。下面列了最大的几个。" });
-  else if (out.presetTotal > 2 * MB) out.tips.push({ t: `预设一共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个），每次打开都会下载。`, d: "不常用的可以导出备份后删掉。" });
+  if (out.presetTotal > 5 * MB) out.warn.push({ t: `全部预设共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个）。酒馆每次打开都会完整下载，这是云端酒馆加载慢的主要原因。`, d: "建议将不用的预设导出备份后，在酒馆中删除。最大的几个见下方列表。" });
+  else if (out.presetTotal > 2 * MB) out.tips.push({ t: `预设共 ${fmtSize(out.presetTotal)}（${out.presets.length} 个），每次打开都会下载。`, d: "不常用的预设可导出备份后删除。" });
   const bigExt = out.extData.filter((x) => x.size > 512 * 1024);
-  if (bigExt.length) out.warn.push({ t: `有扩展在设置文件里存了很多数据：${bigExt.slice(0, 3).map((x) => `「${x.key}」${fmtSize(x.size)}`).join("、")}。`, d: "设置文件每次打开都要下载，每次改设置都要整个上传。看看这些扩展有没有清理/导出旧数据的选项，或者不用的直接停用。" });
-  if (out.charCount > 150 && !out.lazyChars) out.tips.push({ t: `角色卡有 ${out.charCount} 张，打开时会全部读一遍。`, d: "能改云酒馆的 config.yaml 的话，把 performance 下面的 lazyLoadCharacters 改成 true（按需加载角色卡），重启酒馆。" });
-  if (out.autoLoadChat && out.chatLen > 300) out.tips.push({ t: `打开时会自动进上次的聊天，这个聊天有 ${out.chatLen} 楼（${fmtSize(out.chatSize)}）。`, d: "可以在「用户设置」里关掉「自动加载上次聊天」，或者长聊天开个新档/总结后隐藏旧楼层。" });
-  if (out.chatTruncation && out.chatTruncation > 100) out.tips.push({ t: `「一次加载的消息数」设成了 ${out.chatTruncation}。`, d: "在「用户设置」里改小一点（比如 30～50），进聊天会快很多，往上翻时还能再加载。" });
-  if (out.extEnabled != null && out.extEnabled > 15) out.tips.push({ t: `开着 ${out.extEnabled} 个第三方扩展。`, d: "每个扩展都要在打开时加载自己的脚本和设置。「加速」类扩展本身也是多一个要加载的扩展；不常用的在扩展管理里停用就行，不用卸载。" });
+  if (bigExt.length) out.warn.push({ t: `以下扩展在设置文件中存有大量数据：${bigExt.slice(0, 3).map((x) => `「${x.key}」${fmtSize(x.size)}`).join("、")}。`, d: "设置文件每次打开都要下载，每次修改设置都要完整上传。可查看这些扩展是否提供清理或导出旧数据的功能，不用的扩展可停用。" });
+  if (out.charCount > 150 && !out.lazyChars) out.tips.push({ t: `角色卡共 ${out.charCount} 张，打开时全部读取。`, d: "如能修改服务器上的 config.yaml，可将 performance 下的 lazyLoadCharacters 设为 true（按需加载角色卡），然后重启酒馆。" });
+  if (out.autoLoadChat && out.chatLen > 300) out.tips.push({ t: `打开时自动进入上次的聊天，该聊天共 ${out.chatLen} 楼（${fmtSize(out.chatSize)}）。`, d: "可在「用户设置」中关闭「自动加载上次聊天」；长聊天可新开存档，或总结后隐藏旧楼层。" });
+  if (out.chatTruncation && out.chatTruncation > 100) out.tips.push({ t: `「一次加载的消息数」为 ${out.chatTruncation}。`, d: "可在「用户设置」中调小（如 30～50），进入聊天会明显加快，向上翻阅时可继续加载。" });
+  if (out.extEnabled != null && out.extEnabled > 15) out.tips.push({ t: `已开启 ${out.extEnabled} 个第三方扩展。`, d: "每个扩展在打开时都要加载脚本和设置，「加速」类扩展本身也会增加加载量。不常用的扩展可在扩展管理中停用，无需卸载。" });
   const slowExt = out.groups.filter((g) => g.cat.startsWith("扩展「") && g.max > 1500);
-  if (slowExt.length) out.tips.push({ t: `加载比较慢的扩展：${slowExt.slice(0, 4).map((g) => `${g.cat.replace(/^扩展/, "")}（最慢 ${fmtMs(g.max)}）`).join("、")}。`, d: "可以先停用试试，看打开是不是变快。" });
+  if (slowExt.length) out.tips.push({ t: `加载较慢的扩展：${slowExt.slice(0, 4).map((g) => `${g.cat.replace(/^扩展/, "")}（最长 ${fmtMs(g.max)}）`).join("、")}。`, d: "可先停用，比较打开速度是否改善。" });
   const ext = out.groups.filter((g) => g.cat.startsWith("外部：") && g.max > 1500);
-  if (ext.length) out.tips.push({ t: `有扩展从外部网站加载东西：${ext.slice(0, 3).map((g) => `${g.cat.replace(/^外部：/, "")}（最慢 ${fmtMs(g.max)}）`).join("、")}。`, d: "这些网站在国内可能很慢或连不上，会拖住整个打开过程。" });
+  if (ext.length) out.tips.push({ t: `有扩展从外部网站加载资源：${ext.slice(0, 3).map((g) => `${g.cat.replace(/^外部：/, "")}（最长 ${fmtMs(g.max)}）`).join("、")}。`, d: "这些网站在国内可能访问缓慢或无法访问，会拖慢整个打开过程。" });
   return out;
 }
 function mountHealth(sec) {
-  sec.innerHTML = `<div class="pa-scroll pa-health"><div class="pa-health-body"><p class="pa-hint">正在看…</p></div>
-    <div class="pa-card-act"><button class="pa-btn" data-h="run">重新体检</button></div></div>`;
+  sec.innerHTML = `<div class="pa-scroll pa-health"><div class="pa-health-body"><p class="pa-hint">正在检查…</p></div>
+    <div class="pa-card-act"><button class="pa-btn" data-h="run">重新检查</button></div></div>`;
   const box = sec.querySelector(".pa-health-body");
   async function run() {
-    box.innerHTML = '<p class="pa-hint">正在看…</p>';
+    box.innerHTML = '<p class="pa-hint">正在检查…</p>';
     let r;
     try {
       r = await collectHealth();
     } catch (e) {
-      box.innerHTML = `<p class="pa-warn">体检出错：${esc(e.message)}</p>`;
+      box.innerHTML = `<p class="pa-warn">检查出错：${esc(e.message)}</p>`;
       return;
     }
     const bar = (v, max) => `<i class="pa-bar"><b style="width:${Math.max(2, Math.round(v / (max || 1) * 100))}%"></b></i>`;
@@ -5008,21 +5327,21 @@ function mountHealth(sec) {
     const maxE = r.extData[0]?.size || 1;
     box.innerHTML = `
       <div class="pa-verdict ${r.warn.length ? "pa-bad" : "pa-good"}">
-        <p>${r.readyAt ? `这次打开到能用花了 <b>${fmtMs(r.readyAt)}</b>（页面本身 ${fmtMs(r.domReady)}）。` : `页面本身加载花了 <b>${fmtMs(r.domReady)}</b>。`}</p>
-        <p>每次打开都要下载：全部预设 <b>${fmtSize(r.presetTotal)}</b>，扩展存的数据 <b>${fmtSize(r.extDataTotal)}</b>，角色卡 ${r.charCount} 张${r.lazyChars ? "（按需加载）" : ""}。</p>
-        ${r.settingsReq ? `<p>其中「设置 + 全部预设」这一个请求用了 <b>${fmtMs(r.settingsReq.max)}</b>${r.settingsReq.size ? `（实际传了 ${fmtSize(r.settingsReq.size)}）` : ""}。</p>` : ""}
+        <p>${r.readyAt ? `本次打开到可用耗时 <b>${fmtMs(r.readyAt)}</b>（页面本身 ${fmtMs(r.domReady)}）。` : `页面本身加载耗时 <b>${fmtMs(r.domReady)}</b>。`}</p>
+        <p>每次打开需下载：全部预设 <b>${fmtSize(r.presetTotal)}</b>，扩展数据 <b>${fmtSize(r.extDataTotal)}</b>，角色卡 ${r.charCount} 张${r.lazyChars ? "（按需加载）" : ""}。</p>
+        ${r.settingsReq ? `<p>其中「设置与全部预设」请求耗时 <b>${fmtMs(r.settingsReq.max)}</b>${r.settingsReq.size ? `（传输 ${fmtSize(r.settingsReq.size)}）` : ""}。</p>` : ""}
       </div>
       ${r.warn.map((w) => `<div class="pa-card pa-card-warn"><p><b>${esc(w.t)}</b></p><small>${esc(w.d)}</small></div>`).join("")}
       ${r.tips.map((w) => `<div class="pa-card"><p>${esc(w.t)}</p><small>${esc(w.d)}</small></div>`).join("")}
       <h3 class="pa-h">最大的预设</h3>
-      <div class="pa-rank">${r.presets.slice(0, 8).map((p) => `<div><span>${esc(p.name)}</span>${bar(p.size, maxP)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">没读到</p>'}</div>
-      <h3 class="pa-h">扩展在设置文件里存的数据</h3>
-      <div class="pa-rank">${r.extData.filter((p) => p.size >= 1024).slice(0, 8).map((p) => `<div><span>${esc(p.key)}</span>${bar(p.size, maxE)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">都不到 1 KB，不碍事。</p>'}</div>
-      <h3 class="pa-h">这次打开时最慢的请求</h3>
-      ${r.slow.length ? `<div class="pa-rank">${r.slow.map((s) => `<div title="${esc(s.url)}"><span>${esc(s.cat)}</span>${bar(s.dur, r.slow[0].dur)}<em>${fmtMs(s.dur)}${s.size ? ` · ${fmtSize(s.size)}` : ""}</em></div>`).join("")}</div>` : '<p class="pa-hint">没有超过 0.3 秒的请求（或者没记录到）。</p>'}
-      ${r.bufferFull ? '<p class="pa-hint">浏览器只记录了前 250 个请求，更早或更晚的可能没算进去。</p>' : ""}
-      <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：开着 ${r.extEnabled} 个，一共装了 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。体检只在你的浏览器里看，不会上传任何东西。</p>
-      <p class="pa-hint">如果只是「隔了一阵第一次打开」特别慢、之后就正常，多半是云服务器休眠后在重新启动，这跟预设和扩展无关，要换不休眠的套餐或者设置保活。</p>`;
+      <div class="pa-rank">${r.presets.slice(0, 8).map((p) => `<div><span>${esc(p.name)}</span>${bar(p.size, maxP)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">未读取到</p>'}</div>
+      <h3 class="pa-h">扩展在设置文件中的数据</h3>
+      <div class="pa-rank">${r.extData.filter((p) => p.size >= 1024).slice(0, 8).map((p) => `<div><span>${esc(p.key)}</span>${bar(p.size, maxE)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">均小于 1 KB。</p>'}</div>
+      <h3 class="pa-h">本次打开时最慢的请求</h3>
+      ${r.slow.length ? `<div class="pa-rank">${r.slow.map((s) => `<div title="${esc(s.url)}"><span>${esc(s.cat)}</span>${bar(s.dur, r.slow[0].dur)}<em>${fmtMs(s.dur)}${s.size ? ` · ${fmtSize(s.size)}` : ""}</em></div>`).join("")}</div>` : '<p class="pa-hint">没有超过 0.3 秒的请求，或未记录到。</p>'}
+      ${r.bufferFull ? '<p class="pa-hint">浏览器只记录前 250 个请求，其余请求未计入。</p>' : ""}
+      <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：已开启 ${r.extEnabled} 个，共安装 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。检查只在本浏览器中进行，不上传任何数据。</p>
+      <p class="pa-hint">如仅在长时间未使用后首次打开较慢，通常是云服务器休眠后重新启动，与预设和扩展无关，需更换不休眠的套餐或设置保活。</p>`;
   }
   sec.querySelector("[data-h=run]").addEventListener("click", run);
   let ran = false;
@@ -5036,7 +5355,7 @@ function mountHealth(sec) {
 }
 
 // src/ui/more.js
-// 1.3.0：方案、API、外观合并成一个「更多」页，上面用小分段切换
+// 「更多」页：开关方案、API 站点、外观、加载体检，顶部分段切换
 function mountMore(page, app) {
   const SUBS = [["schemes", "开关方案"], ["api", "API 站点"], ["look", "外观"], ["health", "加载体检"]];
   page.innerHTML = `
@@ -5048,10 +5367,15 @@ function mountMore(page, app) {
     api: mountApi(sec("api"), app),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">颜色</h3><div class="pa-look"></div></div>`;
+      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
       const slot = box.querySelector(".pa-look");
-      const render = () => { slot.innerHTML = themeCards(); };
+      const bgSlot = box.querySelector(".pa-bgslot");
+      const render = () => {
+        slot.innerHTML = themeCards();
+        bgSlot.innerHTML = bgPanel();
+      };
       bindThemeCards(slot);
+      bindBgPanel(bgSlot, render);
       return { render };
     })(),
     health: mountHealth(sec("health"))
@@ -5072,7 +5396,7 @@ function mountMore(page, app) {
 }
 
 // src/ui/style.css
-var style_default = "/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用\"缝线\"虚线做标记。所有选择器都限定在 #pa-root 内。 */\n\n#pa-root {\n    --pa-text: var(--SmartThemeBodyColor, #e6e1d8);\n    --pa-tint: var(--SmartThemeBlurTintColor, rgba(28, 26, 30, 0.94));\n    --pa-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));\n    --pa-thread: var(--SmartThemeQuoteColor, #e0a24a);\n    --pa-em: var(--SmartThemeEmColor, #b9b3a8);\n    --pa-dim: rgba(128, 128, 128, 0.95);\n    --pa-card: rgba(127, 127, 127, 0.09);\n    --pa-card-2: rgba(127, 127, 127, 0.16);\n    --pa-sel: rgba(224, 162, 74, 0.16);\n    --pa-warn: #e0784a;\n    --pa-ok: #6fb38a;\n    --pa-on-accent: #1b1712;\n    --pa-input-bg: rgba(0, 0, 0, .18);\n    --pa-r: 10px;\n    --pa-row-h: 38px;\n    position: fixed;\n    inset: 0;\n    width: 100%; height: 100vh; height: 100dvh;\n    max-height: none; min-height: 0; margin: 0; padding: 0;\n    z-index: 10010;\n    color: var(--pa-text);\n    font-size: var(--mainFontSize, 15px);\n    line-height: 1.45;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #pa-root {\n        --pa-dim: color-mix(in srgb, var(--pa-text) 58%, transparent);\n        --pa-card: color-mix(in srgb, var(--pa-text) 7%, transparent);\n        --pa-card-2: color-mix(in srgb, var(--pa-text) 13%, transparent);\n        --pa-sel: color-mix(in srgb, var(--pa-thread) 20%, transparent);\n    }\n}\n@media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }\n#pa-root[hidden] { display: none; }\nhtml.pa-open body { overflow: hidden; }\n\n#pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }\n#pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }\n#pa-root [hidden] { display: none !important; }\n\n/* ---------- 外壳 ---------- */\n#pa-root .pa-shell {\n    position: absolute; inset: 0;\n    display: grid;\n    grid-template-rows: auto auto minmax(0, 1fr);\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-areas: \"top\" \"tabs\" \"main\";\n    width: 100%; overflow: hidden;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    height: 100vh; height: 100dvh;\n}\n#pa-root .pa-shell::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }\n#pa-root .pa-top {\n    grid-area: top;\n    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;\n    padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n}\n#pa-root .pa-brand { display: flex; align-items: center; gap: 8px; font-size: 1.05em; white-space: nowrap; }\n#pa-root .pa-logo { display: inline-flex; color: var(--pa-thread); }\n#pa-root .pa-logo svg { width: 20px; height: 20px; }\n#pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }\n#pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }\n#pa-root .pa-theme-btn { margin-left: auto; }\n#pa-root .pa-savebar:not([hidden]) + .pa-theme-btn { margin-left: 0; }\n\n#pa-root .pa-tabs {\n    grid-area: tabs;\n    display: flex; gap: 2px; padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n    overflow-x: auto; scrollbar-width: none;\n}\n#pa-root .pa-tabs::-webkit-scrollbar { display: none; }\n#pa-root .pa-tabs button {\n    flex: 1 0 auto; min-width: 64px;\n    padding: 10px 12px; border: 0; background: none; cursor: pointer;\n    color: var(--pa-dim); border-bottom: 2px solid transparent;\n}\n#pa-root .pa-tabs button[aria-selected=\"true\"] { color: var(--pa-text); border-bottom: 2px dashed var(--pa-thread); }\n\n#pa-root .pa-main { grid-area: main; min-height: 0; position: relative; }\n#pa-root .pa-page { height: 100%; display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }\n#pa-root .pa-scroll {\n    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;\n    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;\n    padding: 6px calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));\n    position: relative;\n}\n\n/* 手机：页签放到底部，拇指够得着 */\n@media (max-width: 759px) {\n    #pa-root .pa-shell { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: \"top\" \"main\" \"tabs\"; }\n    #pa-root .pa-tabs { border-bottom: 0; border-top: 1px solid var(--pa-line); padding-bottom: env(safe-area-inset-bottom); }\n    #pa-root .pa-tabs button { border-bottom: 0; border-top: 2px solid transparent; padding: 11px 6px; min-width: 0; flex: 1 1 0; }\n    #pa-root .pa-tabs button[aria-selected=\"true\"] { border-top: 2px dashed var(--pa-thread); border-bottom: 0; }\n    #pa-root .pa-top:has(.pa-savebar:not([hidden])) .pa-brand b { display: none; }\n    #pa-root .pa-dirty-text { max-width: 38vw; }\n}\n\n/* ---------- 基础控件 ---------- */\n#pa-root .pa-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: 36px; padding: 6px 12px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-card); cursor: pointer; white-space: nowrap;\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-btn:disabled { opacity: .45; cursor: default; }\n#pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }\n#pa-root .pa-btn-soft { background: transparent; border-style: dashed; }\n#pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }\n#pa-root .pa-btn-danger-soft { color: var(--pa-warn); border-color: currentColor; background: transparent; }\n#pa-root .pa-sq { min-width: 40px; padding: 6px; }\n#pa-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-style: dashed; }\n#pa-root .pa-mini { border: 1px dashed var(--pa-thread); color: var(--pa-thread); background: none; border-radius: 999px; padding: 2px 10px; font-size: .82em; cursor: pointer; white-space: nowrap; min-height: 28px; }\n#pa-root .pa-icon-btn {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 34px; height: 34px; flex: none;\n    border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }\n#pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-input, #pa-root .pa-select {\n    width: 100%; min-height: 38px; padding: 7px 10px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-input-bg); color: var(--pa-text);\n    font-size: max(16px, 1em); /* iOS 小于 16px 会自动放大页面 */\n}\n#pa-root .pa-select { appearance: auto; }\n#pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }\n#pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }\n#pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }\n#pa-root .pa-text-s { min-height: 26vh; }\n#pa-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }\n#pa-root .pa-pad { padding: 0 14px; }\n#pa-root .pa-p { margin: 0 0 8px; }\n#pa-root .pa-empty { color: var(--pa-dim); text-align: center; padding: 28px 12px; }\n#pa-root .pa-h { font-size: 1em; margin: 18px 2px 8px; font-weight: 600; }\n#pa-root .pa-inline-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: .92em; }\n#pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }\n#pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }\n#pa-root .pa-field > span { color: var(--pa-dim); }\n#pa-root .pa-form { display: grid; gap: 12px; }\n#pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }\n#pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-groups-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 24px; }\n#pa-root .pa-chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: .74em; line-height: 1.7; border: 1px solid var(--pa-line); color: var(--pa-em); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }\n#pa-root .pa-chip-dim { opacity: .7; }\n#pa-root .pa-chip-cot { border-color: var(--pa-thread); color: var(--pa-thread); }\n\n#pa-root .pa-seg { display: inline-flex; border: 1px solid var(--pa-line); border-radius: 999px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }\n#pa-root .pa-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; color: var(--pa-dim); white-space: nowrap; min-height: 32px; }\n#pa-root .pa-seg button.on { background: var(--pa-card-2); color: var(--pa-text); }\n#pa-root .pa-seg-s button { padding: 4px 10px; font-size: .9em; }\n\n/* 开关 */\n#pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }\n#pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }\n#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }\n#pa-root .pa-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }\n#pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }\n#pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-switch-s { width: 32px; height: 19px; }\n#pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }\n#pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }\n#pa-root .pa-switch-s i::after { width: 13px; height: 13px; }\n#pa-root .pa-switch-s input:checked + i::after { transform: translateX(13px); }\n\n/* ---------- 工具栏 ---------- */\n#pa-root .pa-toolbar {\n    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;\n    padding: 10px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n}\n#pa-root .pa-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }\n#pa-root .pa-picker > span { color: var(--pa-dim); font-size: .88em; white-space: nowrap; }\n#pa-root .pa-picker .pa-select { min-width: 0; }\n#pa-root .pa-search-row { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-search-row .pa-search { flex: 1 1 auto; width: auto; min-width: 0; }\n#pa-root .pa-toolbar > .pa-search { flex: 1 1 160px; width: auto; }\n#pa-root .pa-tools-more { display: none; }\n#pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }\n#pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }\n@media (max-width: 759px) {\n    #pa-root .pa-tools { display: none; }\n    #pa-root .pa-tools-more { display: inline-flex; }\n    #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }\n    #pa-root .pa-chip { max-width: 5em; }\n    #pa-root .pa-badges { max-width: 32%; }\n}\n\n/* ---------- 条目列表 ---------- */\n#pa-root .pa-loose { padding: 2px 0; }\n#pa-root .pa-row {\n    display: flex; align-items: center; gap: 6px;\n    min-height: var(--pa-row-h); padding: 3px 4px 3px 8px;\n    border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;\n    -webkit-tap-highlight-color: transparent; position: relative;\n}\n#pa-root .pa-row:hover { background: var(--pa-card); }\n#pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }\n#pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }\n#pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }\n#pa-root .pa-row.pa-sel { background: var(--pa-sel); }\n#pa-root .pa-row.pa-sel .pa-check { border: 2px dashed var(--pa-thread); background: radial-gradient(circle, var(--pa-thread) 0 4px, transparent 4.5px); }\n#pa-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }\n#pa-root .pa-peek { width: 30px; height: 30px; opacity: .6; }\n#pa-root .pa-handle {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none;\n    color: var(--pa-dim); cursor: grab; touch-action: none; border-radius: 8px;\n}\n#pa-root .pa-handle:active { cursor: grabbing; background: var(--pa-card-2); }\n#pa-root .pa-row.pa-dragging { opacity: .35; }\n#pa-root .pa-row.pa-flash { animation: pa-flash 1.4s ease-out; }\n@keyframes pa-flash { 0%, 30% { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); } 100% { background: transparent; box-shadow: none; } }\n\n/* 分组框：左边一道缝线 */\n#pa-root .pa-group { margin: 6px 0; border-radius: var(--pa-r); background: var(--pa-card); position: relative; }\n#pa-root .pa-group::before { content: \"\"; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed var(--pa-thread); opacity: .75; }\n#pa-root .pa-group.pa-goff { opacity: .6; }\n#pa-root .pa-group.pa-goff::before { border-left-color: var(--pa-dim); }\n#pa-root .pa-group.pa-gsel { box-shadow: inset 0 0 0 1px var(--pa-thread); }\n#pa-root .pa-ghead { display: flex; align-items: center; gap: 4px; min-height: 42px; padding: 4px 6px 4px 6px; cursor: pointer; }\n#pa-root .pa-caret svg { transition: transform .15s; transform: rotate(90deg); }\n#pa-root .pa-collapsed .pa-caret svg { transform: rotate(0deg); }\n#pa-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); font-size: .8em; margin-left: 6px; }\n#pa-root .pa-count { color: var(--pa-dim); font-size: .82em; font-variant-numeric: tabular-nums; margin-right: 4px; }\n#pa-root .pa-gbody { padding: 0 2px 6px 10px; }\n#pa-root .pa-collapsed .pa-gbody { display: none; }\n\n#pa-root .pa-drop-line { position: absolute; left: 6px; right: 6px; height: 0; border-top: 3px solid var(--pa-thread); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n#pa-root .pa-ghost {\n    position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none;\n    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px);\n    padding: 8px 12px; border-radius: 10px; background: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600;\n    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);\n}\n#pa-root .pa-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-insert-mark {\n    position: relative; margin: 2px 6px 6px; padding: 3px 10px; font-size: .82em; font-weight: 600;\n    color: var(--pa-on-accent); background: var(--pa-thread); border-radius: 6px; text-align: left;\n}\n#pa-root .pa-insert-mark::before { content: \"⬇ \"; }\n#pa-root .pa-row.pa-at { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-group.pa-has-at > .pa-ghead { box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-at-chip { flex: none; padding: 1px 8px; border-radius: 999px; font-size: .78em; font-weight: 600; background: var(--pa-thread); color: var(--pa-on-accent); }\n#pa-root .pa-placing .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }\n#pa-root .pa-placing .pa-row:not(.pa-sel):hover, #pa-root .pa-placing .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }\n/* 选位置：点组头＝放在组后面，所以按下组头时提示线画在整个组框的下沿 */\n#pa-root .pa-placing .pa-group:has(> .pa-ghead:hover:not(:has(.pa-caret:hover))), #pa-root .pa-placing .pa-group:has(> .pa-ghead:active:not(:has(.pa-caret:active))) { box-shadow: 0 3px 0 var(--pa-thread); }\n#pa-root .pa-group.pa-after-at { box-shadow: 0 0 0 1.5px var(--pa-thread); }\n#pa-root .pa-group.pa-after-at + .pa-insert-mark { margin-top: 4px; }\n#pa-root .pa-slot {\n    display: block; width: 100%; min-height: 30px; margin: 0 0 4px; padding: 3px 12px;\n    border: 1px dashed var(--pa-line); border-radius: 8px; background: transparent;\n    color: var(--pa-dim); font-size: .85em; text-align: left; cursor: pointer;\n}\n#pa-root .pa-slot:hover, #pa-root .pa-slot:active { color: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-slot-in { margin: 2px 0 2px; border-color: transparent; }\n@media (pointer: coarse) { #pa-root .pa-slot { min-height: 36px; } }\n\n/* ---------- 底部操作条 ---------- */\n#pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar {\n    flex: none; border-top: 1px solid var(--pa-line);\n    padding: 8px calc(10px + env(safe-area-inset-right)) 8px calc(10px + env(safe-area-inset-left));\n    background: var(--pa-card);\n}\n#pa-root .pa-selbar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }\n#pa-root .pa-selbar-btns { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }\n#pa-root .pa-selbar-btns::-webkit-scrollbar { display: none; }\n#pa-root .pa-movebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; }\n#pa-root .pa-movebar > b { flex: 1 1 auto; min-width: 0; color: var(--pa-thread); white-space: nowrap; }\n#pa-root .pa-movebar .pa-btn { min-height: 34px; padding: 3px 10px; }\n#pa-root .pa-movebar .pa-sq { width: 38px; padding: 0; }\n#pa-root .pa-movebar > small { flex: 1 0 100%; color: var(--pa-dim); font-size: .8em; }\n#pa-root .pa-stitchbar { display: flex; align-items: center; gap: 8px; }\n#pa-root .pa-stitchbar .pa-link, #pa-root .pa-stitchbar .pa-btn { flex: none; white-space: nowrap; }\n#pa-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }\n#pa-root .pa-stitch-info span { color: var(--pa-dim); font-size: .84em; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }\n@media (max-width: 759px) {\n    #pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar { padding-bottom: 8px; }\n}\n\n/* ---------- 缝合 ---------- */\n#pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }\n#pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }\n#pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }\n#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }\n#pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#pa-root .pa-src { border-right: 0; }\n#pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }\n#pa-root .pa-pane-head > b { white-space: nowrap; }\n#pa-root .pa-pane-head .pa-dst-picker { flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-src-pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 12px; }\n#pa-root .pa-src-pick .pa-select { flex: 1 1 55%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-search { flex: 1 1 35%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-file { flex: none; }\n#pa-root .pa-dst-hint { padding: 0 12px; margin: 0 0 4px; }\n#pa-root .pa-file { position: relative; overflow: hidden; }\n#pa-root .pa-paste { padding: 4px 2px; }\n@media (max-width: 759px) {\n    #pa-root .pa-suture { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(90px, var(--pa-split, 45%)) 18px minmax(90px, 1fr); }\n    #pa-root .pa-splitter { cursor: row-resize; border-top: 2px dashed var(--pa-thread); border-bottom: 1px solid var(--pa-line); background: var(--pa-card); }\n    #pa-root .pa-splitter span { width: 48px; height: 4px; }\n    #pa-root .pa-pane-head { padding: 6px 10px 2px; }\n    #pa-root .pa-dst-hint { font-size: .8em; }\n}\n\n#pa-root .pa-review { display: grid; gap: 12px; }\n#pa-root .pa-target-card { border: 1px dashed var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 6px; }\n#pa-root .pa-target-card small { color: var(--pa-dim); }\n#pa-root .pa-items { display: grid; gap: 12px; }\n#pa-root .pa-item { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; background: var(--pa-card); }\n#pa-root .pa-item header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }\n#pa-root .pa-item header .pa-input { flex: 1 1 180px; width: auto; }\n#pa-root .pa-from { color: var(--pa-dim); }\n#pa-root .pa-item-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: end; }\n#pa-root .pa-notes { margin: 0; padding-left: 18px; font-size: .88em; color: var(--pa-em); }\n#pa-root .pa-notes .pa-warn { color: var(--pa-warn); }\n#pa-root .pa-item details summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 4px 0; }\n#pa-root .pa-item .pa-text { min-height: 30vh; margin-top: 6px; }\n\n/* ---------- 卡片（思维链/方案/API） ---------- */\n#pa-root .pa-cards { display: grid; gap: 8px; }\n#pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }\n#pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }\n#pa-root .pa-card small { display: block; color: var(--pa-dim); }\n#pa-root .pa-card p { margin: 2px 0; }\n#pa-root .pa-card-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }\n#pa-root .pa-card-warn { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root details.pa-card > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; list-style: none; }\n#pa-root details.pa-card > summary::-webkit-details-marker { display: none; }\n#pa-root details.pa-card > summary::before { content: \"▸\"; color: var(--pa-thread); }\n#pa-root details.pa-card[open] > summary::before { content: \"▾\"; }\n#pa-root .pa-reads { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 6px; }\n#pa-root .pa-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .9em; }\n#pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }\n#pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }\n#pa-root .pa-cot { padding-top: 4px; }\n#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 6px 0 4px; }\n#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }\n#pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }\n#pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }\n@media (max-width: 459px) { #pa-root .pa-cot-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }\n#pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }\n#pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }\n#pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }\n#pa-root .pa-cov .pa-link { grid-row: 1; grid-column: 3; font-size: .8em; }\n#pa-root .pa-cov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-lv { font-size: .74em; padding: 1px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }\n#pa-root .pa-lv-ok { color: var(--pa-ok); }\n#pa-root .pa-lv-maybe { color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-lv-none { color: var(--pa-dim); }\n#pa-root .pa-optional { margin-top: 16px; }\n\n#pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }\n#pa-root .pa-live .pa-dot::before { content: \"●\"; margin-right: 4px; }\n#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }\n#pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\n#pa-root .pa-api, #pa-root .pa-schemes { padding-top: 10px; }\n#pa-root .pa-api .pa-card .pa-inline-check { display: flex; margin: 4px 0; }\n\n/* ---------- 弹层 ---------- */\n#pa-root .pa-sheet-mask {\n    position: absolute; inset: 0; z-index: 50;\n    background: rgba(0, 0, 0, .45);\n    display: flex; align-items: flex-end; justify-content: center;\n    animation: pa-fade .16s ease-out;\n}\n#pa-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }\n#pa-root .pa-sheet {\n    width: 100%; max-height: 90vh; max-height: 90dvh;\n    display: flex; flex-direction: column;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);\n    border: 1px solid var(--pa-line); border-bottom: 0;\n    border-radius: 16px 16px 0 0;\n    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);\n    animation: pa-up .2s ease-out;\n    position: relative;\n}\n#pa-root .pa-sheet::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); border-radius: inherit; z-index: -1; }\n#pa-root .pa-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; border-bottom: 1px dashed var(--pa-line); }\n#pa-root .pa-sheet-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-sheet-body { padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }\n#pa-root .pa-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--pa-line); }\n@media (min-width: 760px) {\n    #pa-root .pa-sheet-mask { align-items: center; padding: 24px; }\n    #pa-root .pa-sheet { max-width: 560px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: 86vh; }\n    #pa-root .pa-sheet-wide { max-width: 920px; }\n}\n@keyframes pa-fade { from { opacity: 0; } }\n@keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }\n#pa-root .pa-pick { display: grid; gap: 6px; }\n#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }\n#pa-root .pa-pick-item small { color: var(--pa-dim); }\n#pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }\n#pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }\n#pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }\n#pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n\n/* ---------- 缝合：紧凑控件 ---------- */\n#pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }\n#pa-root .pa-compact .pa-seg button { min-height: 28px; padding: 3px 10px; }\n#pa-root .pa-compact .pa-pane-head { padding: 6px 10px 2px; gap: 6px; }\n#pa-root .pa-compact .pa-src-pick { padding: 2px 10px 4px; }\n#pa-root .pa-compact .pa-row { min-height: 34px; }\n#pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 15px; height: 15px; border-width: 1.5px; }\n#pa-root .pa-compact .pa-ghead { min-height: 36px; }\n#pa-root .pa-compact .pa-mini { min-height: 26px; padding: 1px 9px; }\n#pa-root .pa-compact .pa-picker > span { font-size: .8em; }\n#pa-root .pa-stitchbar .pa-link { padding: 4px 4px; font-size: .9em; }\n\n/* ---------- 缝合预览 ---------- */\n#pa-root .pa-hook { border-left: 3px solid var(--pa-thread); padding: 6px 10px; display: grid; gap: 6px; border-radius: 4px; background: var(--pa-card); }\n#pa-root .pa-hook small { color: var(--pa-dim); line-height: 1.5; display: block; }\n#pa-root .pa-hook .pa-warn { margin: 0; font-size: .88em; }\n#pa-root .pa-hook-covered, #pa-root .pa-hook-mention, #pa-root .pa-hook-skip, #pa-root .pa-hook-cot { border-left-color: var(--pa-ok); }\n#pa-root .pa-hook-nocot { border-left-color: var(--pa-warn); }\n#pa-root .pa-field-wide { flex: 1 1 260px; min-width: 0; grid-column: 1 / -1; }\n#pa-root .pa-field-wide .pa-input { width: 100%; }\n#pa-root .pa-explain summary, #pa-root .pa-adv summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-explain .pa-notes { margin-top: 6px; color: var(--pa-text); }\n#pa-root .pa-was { display: grid; gap: 2px; font-size: .92em; }\n#pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }\n#pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }\n\n#pa-root .pa-modes { display: grid; gap: 8px; }\n#pa-root .pa-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); cursor: pointer; background: transparent; }\n#pa-root .pa-mode.on { border: 2px dashed var(--pa-thread); background: var(--pa-sel); padding: 7px 9px; }\n#pa-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }\n#pa-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }\n#pa-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }\n#pa-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }\n#pa-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n\n/* ---------- 思维链页 ---------- */\n#pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }\n#pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }\n#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }\n#pa-root .pa-verdict p { margin: 0; }\n#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }\n#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }\n#pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }\n#pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }\n#pa-root .pa-legend .pa-lv { flex: none; }\n#pa-root .pa-cot-sum span { line-height: 1.3; }\n\n/* ---------- 更多：方案 / API / 外观 ---------- */\n#pa-root .pa-more-head { display: flex; justify-content: center; padding: 8px 10px 2px; }\n#pa-root .pa-subpage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n#pa-root .pa-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }\n#pa-root .pa-theme { display: grid; gap: 8px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--pa-line); cursor: pointer; min-height: 72px; }\n#pa-root .pa-theme[aria-pressed=\"true\"] { outline: 2px dashed var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-theme-dots { display: flex; gap: 5px; }\n#pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }\n#pa-root .pa-theme b { font-size: .95em; }\n#pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }\n#pa-root .pa-theme-btn { color: var(--pa-dim); }\n\n/* ---------- 莫兰迪色卡（不透明） ---------- */\n#pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-shell, #pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }\n#pa-root[data-theme=\"mist\"]     { --pa-tint:#e9eef2; --pa-text:#34404c; --pa-thread:#5b7a93; --pa-em:#55636f; --pa-line:#cad4dc; --pa-input-bg:#f7f9fb; --pa-warn:#b4604a; --pa-ok:#4e8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"bean\"]     { --pa-tint:#f4e9e8; --pa-text:#4f3c3c; --pa-thread:#a0605d; --pa-em:#6c5655; --pa-line:#e2cfcd; --pa-input-bg:#fcf7f6; --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"matcha\"]   { --pa-tint:#e9efe6; --pa-text:#36443a; --pa-thread:#5d7d58; --pa-em:#55634f; --pa-line:#cdd9c9; --pa-input-bg:#f7faf5; --pa-warn:#b0603f; --pa-ok:#4c7d55; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"oat\"]      { --pa-tint:#f2ece4; --pa-text:#4a3f35; --pa-thread:#8a6a4c; --pa-em:#67594b; --pa-line:#e0d5c6; --pa-input-bg:#fbf8f3; --pa-warn:#b0563d; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"lavender\"] { --pa-tint:#edeaf3; --pa-text:#403a4f; --pa-thread:#72649a; --pa-em:#5d566c; --pa-line:#d7d1e3; --pa-input-bg:#f9f8fc; --pa-warn:#b0566a; --pa-ok:#567f6c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"seasalt\"]  { --pa-tint:#e6efef; --pa-text:#2f4344; --pa-thread:#4b7a7b; --pa-em:#4d6263; --pa-line:#c7d8d8; --pa-input-bg:#f6fafa; --pa-warn:#b25e48; --pa-ok:#4a7f5f; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"night\"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }\n#pa-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }\n\n@media (prefers-reduced-motion: reduce) {\n    #pa-root *, #pa-root *::before, #pa-root *::after { animation: none !important; transition: none !important; }\n}\n\n/* 1.3.4 加载体检 */\n#pa-root .pa-health-body { display: block; }\n#pa-root .pa-rank { display: grid; grid-template-columns: minmax(0, 1fr) 26% auto; gap: 7px 8px; align-items: center; font-size: .9em; margin-bottom: 6px; }\n#pa-root .pa-rank > div { display: contents; }\n#pa-root .pa-rank > p { grid-column: 1 / -1; }\n#pa-root .pa-rank span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-rank em { text-align: right; font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .92em; }\n#pa-root .pa-bar { display: block; height: 6px; border-radius: 3px; background: var(--pa-line); overflow: hidden; }\n#pa-root .pa-bar b { display: block; height: 100%; background: var(--pa-thread); border-radius: 3px; }\n#pa-root .pa-health .pa-card-act { margin: 10px 0 4px; }\n\n/* 1.3.4 扩展页设置框（在酒馆页面里，不在 #pa-root 里，用酒馆自己的颜色） */\n#pa-settings .pa-set-badge { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78em; font-weight: 500; line-height: 1.6; vertical-align: 1px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); opacity: .85; }\n#pa-settings .inline-drawer-content { padding: 4px 2px 6px; }\n#pa-settings .pa-set-intro { font-size: .9em; opacity: .75; margin: 2px 0 6px; }\n#pa-settings .pa-set-btns { display: flex; flex-wrap: wrap; gap: 6px; }\n#pa-settings .menu_button { width: auto; white-space: nowrap; padding: 4px 10px; margin: 2px 0; gap: 6px; }\n#pa-settings .menu_button span { font-size: inherit; }\n#pa-settings .pa-set-btns .menu_button { flex: 1 1 0; min-width: 7.5em; }\n#pa-settings .pa-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }\n#pa-settings .pa-set-k { opacity: .7; min-width: 2.5em; }\n#pa-settings .pa-set-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; }\n#pa-settings .pa-set-mini { font-size: .88em; padding: 2px 8px; }\n#pa-settings .pa-set-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9em; margin: 2px 0 6px; padding: 6px 8px; border-radius: 6px; border: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-status[hidden] { display: none; }\n#pa-settings .pa-set-status.new { border-style: solid; border-color: var(--SmartThemeQuoteColor, #e18a24); }\n#pa-settings .pa-set-status.bad { border-color: #d36b6b; }\n#pa-settings .pa-set-log { margin: 6px 0; }\n#pa-settings .pa-set-log > summary { cursor: pointer; opacity: .85; padding: 2px 0; }\n#pa-settings .pa-set-logs { max-height: 34vh; overflow: auto; margin-top: 4px; padding-right: 4px; }\n#pa-settings .pa-set-logv { font-size: .86em; line-height: 1.55; margin: 6px 0 8px; padding-left: 8px; border-left: 2px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-logv b { display: block; margin-bottom: 2px; }\n#pa-settings .pa-set-foot { font-size: .82em; opacity: .65; margin-top: 6px; }\n#pa-settings .pa-set-foot a { color: inherit; text-decoration: underline; margin-left: 4px; }\n#pa-settings code { font-size: .95em; padding: 0 3px; }\n\n/* 折叠箭头 */\n#pa-root .pa-caret svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .15s; }\n#pa-root .pa-caret.open svg { transform: rotate(90deg); }\n\n/* 1.3.7 API 站点：点开看详情、直接换模型 */\n#pa-root .pa-field-row { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; }\n#pa-root .pa-field-row > span { flex: none; color: var(--pa-dim); }\n#pa-root .pa-select-s { min-width: 0; flex: 1 1 auto; max-width: 100%; padding: 4px 8px; }\n#pa-root .pa-site > header { cursor: pointer; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin: 0; }\n#pa-root .pa-site > header b { flex: none; }\n#pa-root .pa-site-caret { color: var(--pa-dim); width: 1em; flex: none; }\n#pa-root .pa-site-model { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pa-dim); }\n#pa-root .pa-btn-s { padding: 3px 12px; min-height: 0; }\n#pa-root .pa-site-dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 10px 0 4px; align-items: center; }\n#pa-root .pa-site-dl dt { color: var(--pa-dim); font-size: .9em; }\n#pa-root .pa-site-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n#pa-root .pa-dim { color: var(--pa-dim); }\n";
+var style_default = "/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用\"缝线\"虚线做标记。所有选择器都限定在 #pa-root 内。 */\n\n#pa-root {\n    --pa-text: var(--SmartThemeBodyColor, #e6e1d8);\n    --pa-tint: var(--SmartThemeBlurTintColor, rgba(28, 26, 30, 0.94));\n    --pa-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));\n    --pa-thread: var(--SmartThemeQuoteColor, #e0a24a);\n    --pa-em: var(--SmartThemeEmColor, #b9b3a8);\n    --pa-dim: rgba(128, 128, 128, 0.95);\n    --pa-card: rgba(127, 127, 127, 0.09);\n    --pa-card-2: rgba(127, 127, 127, 0.16);\n    --pa-sel: rgba(224, 162, 74, 0.16);\n    --pa-warn: #e0784a;\n    --pa-ok: #6fb38a;\n    --pa-on-accent: #1b1712;\n    --pa-input-bg: rgba(0, 0, 0, .18);\n    --pa-r: 10px;\n    --pa-row-h: 38px;\n    position: fixed;\n    inset: 0;\n    width: 100%; height: 100vh; height: 100dvh;\n    max-height: none; min-height: 0; margin: 0; padding: 0;\n    z-index: 10010;\n    color: var(--pa-text);\n    font-size: var(--mainFontSize, 15px);\n    line-height: 1.45;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #pa-root {\n        --pa-dim: color-mix(in srgb, var(--pa-text) 58%, transparent);\n        --pa-card: color-mix(in srgb, var(--pa-text) 7%, transparent);\n        --pa-card-2: color-mix(in srgb, var(--pa-text) 13%, transparent);\n        --pa-sel: color-mix(in srgb, var(--pa-thread) 20%, transparent);\n    }\n}\n@media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }\n#pa-root[hidden] { display: none; }\nhtml.pa-open body { overflow: hidden; }\n\n#pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }\n#pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }\n#pa-root [hidden] { display: none !important; }\n\n/* ---------- 外壳 ---------- */\n#pa-root .pa-shell {\n    position: absolute; inset: 0;\n    display: grid;\n    grid-template-rows: auto auto minmax(0, 1fr);\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-areas: \"top\" \"tabs\" \"main\";\n    width: 100%; overflow: hidden;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    height: 100vh; height: 100dvh;\n}\n#pa-root .pa-shell::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }\n#pa-root .pa-top {\n    grid-area: top;\n    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;\n    padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n}\n#pa-root .pa-brand { display: flex; align-items: center; gap: 8px; font-size: 1.05em; white-space: nowrap; }\n#pa-root .pa-logo { display: inline-flex; color: var(--pa-thread); }\n#pa-root .pa-logo svg { width: 20px; height: 20px; }\n#pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }\n#pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }\n#pa-root .pa-close { margin-left: auto; }\n#pa-root .pa-savebar:not([hidden]) + .pa-close { margin-left: 0; }\n\n#pa-root .pa-tabs {\n    grid-area: tabs;\n    display: flex; gap: 2px; padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n    overflow-x: auto; scrollbar-width: none;\n}\n#pa-root .pa-tabs::-webkit-scrollbar { display: none; }\n#pa-root .pa-tabs button {\n    flex: 1 0 auto; min-width: 64px;\n    padding: 10px 12px; border: 0; background: none; cursor: pointer;\n    color: var(--pa-dim); border-bottom: 2px solid transparent;\n}\n#pa-root .pa-tabs button[aria-selected=\"true\"] { color: var(--pa-text); border-bottom: 2px dashed var(--pa-thread); }\n\n#pa-root .pa-main { grid-area: main; min-height: 0; position: relative; }\n#pa-root .pa-page { height: 100%; display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }\n#pa-root .pa-scroll {\n    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;\n    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;\n    padding: 6px calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));\n    position: relative;\n}\n\n/* 手机：页签放到底部，拇指够得着 */\n@media (max-width: 759px) {\n    #pa-root .pa-shell { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: \"top\" \"main\" \"tabs\"; }\n    #pa-root .pa-tabs { border-bottom: 0; border-top: 1px solid var(--pa-line); padding-bottom: env(safe-area-inset-bottom); }\n    #pa-root .pa-tabs button { border-bottom: 0; border-top: 2px solid transparent; padding: 11px 6px; min-width: 0; flex: 1 1 0; }\n    #pa-root .pa-tabs button[aria-selected=\"true\"] { border-top: 2px dashed var(--pa-thread); border-bottom: 0; }\n    #pa-root .pa-top:has(.pa-savebar:not([hidden])) .pa-brand b { display: none; }\n    #pa-root .pa-dirty-text { max-width: 38vw; }\n}\n\n/* ---------- 基础控件 ---------- */\n#pa-root .pa-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: 36px; padding: 6px 12px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-card); cursor: pointer; white-space: nowrap;\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-btn:disabled { opacity: .45; cursor: default; }\n#pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }\n#pa-root .pa-btn-soft { background: transparent; border-style: dashed; }\n#pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }\n#pa-root .pa-btn-danger-soft { color: var(--pa-warn); border-color: currentColor; background: transparent; }\n#pa-root .pa-sq { min-width: 40px; padding: 6px; }\n#pa-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-style: dashed; }\n#pa-root .pa-mini { border: 1px dashed var(--pa-thread); color: var(--pa-thread); background: none; border-radius: 999px; padding: 2px 10px; font-size: .82em; cursor: pointer; white-space: nowrap; min-height: 28px; }\n#pa-root .pa-icon-btn {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 34px; height: 34px; flex: none;\n    border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }\n#pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-input, #pa-root .pa-select {\n    width: 100%; min-height: 38px; padding: 7px 10px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-input-bg); color: var(--pa-text);\n    font-size: max(16px, 1em); /* iOS 小于 16px 会自动放大页面 */\n}\n#pa-root .pa-select { appearance: auto; }\n#pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }\n#pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }\n#pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }\n#pa-root .pa-text-s { min-height: 26vh; }\n#pa-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }\n#pa-root .pa-pad { padding: 0 14px; }\n#pa-root .pa-p { margin: 0 0 8px; }\n#pa-root .pa-empty { color: var(--pa-dim); text-align: center; padding: 28px 12px; }\n#pa-root .pa-h { font-size: 1em; margin: 18px 2px 8px; font-weight: 600; }\n#pa-root .pa-inline-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: .92em; }\n#pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }\n#pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }\n#pa-root .pa-field > span { color: var(--pa-dim); }\n#pa-root .pa-form { display: grid; gap: 12px; }\n#pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }\n#pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-groups-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 24px; }\n#pa-root .pa-chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: .74em; line-height: 1.7; border: 1px solid var(--pa-line); color: var(--pa-em); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }\n#pa-root .pa-chip-dim { opacity: .7; }\n#pa-root .pa-chip-cot { border-color: var(--pa-thread); color: var(--pa-thread); }\n\n#pa-root .pa-seg { display: inline-flex; border: 1px solid var(--pa-line); border-radius: 999px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }\n#pa-root .pa-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; color: var(--pa-dim); white-space: nowrap; min-height: 32px; }\n#pa-root .pa-seg button.on { background: var(--pa-card-2); color: var(--pa-text); }\n#pa-root .pa-seg-s button { padding: 4px 10px; font-size: .9em; }\n\n/* 开关 */\n#pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }\n#pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }\n#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }\n#pa-root .pa-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }\n#pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }\n#pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-switch-s { width: 32px; height: 19px; }\n#pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }\n#pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }\n#pa-root .pa-switch-s i::after { width: 13px; height: 13px; }\n#pa-root .pa-switch-s input:checked + i::after { transform: translateX(13px); }\n\n/* ---------- 工具栏 ---------- */\n#pa-root .pa-toolbar {\n    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;\n    padding: 10px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n}\n#pa-root .pa-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }\n#pa-root .pa-picker > span { color: var(--pa-dim); font-size: .88em; white-space: nowrap; }\n#pa-root .pa-picker .pa-select { min-width: 0; }\n#pa-root .pa-search-row { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-search-row .pa-search { flex: 1 1 auto; width: auto; min-width: 0; }\n#pa-root .pa-toolbar > .pa-search { flex: 1 1 160px; width: auto; }\n#pa-root .pa-tools-more { display: none; }\n#pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }\n#pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }\n@media (max-width: 759px) {\n    #pa-root .pa-tools { display: none; }\n    #pa-root .pa-tools-more { display: inline-flex; }\n    #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }\n    #pa-root .pa-chip { max-width: 5em; }\n    #pa-root .pa-badges { max-width: 32%; }\n}\n\n/* ---------- 条目列表 ---------- */\n#pa-root .pa-loose { padding: 2px 0; }\n#pa-root .pa-row {\n    display: flex; align-items: center; gap: 6px;\n    min-height: var(--pa-row-h); padding: 3px 4px 3px 8px;\n    border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;\n    -webkit-tap-highlight-color: transparent; position: relative;\n}\n#pa-root .pa-row:hover { background: var(--pa-card); }\n#pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }\n#pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }\n#pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }\n#pa-root .pa-row.pa-sel { background: var(--pa-sel); }\n#pa-root .pa-row.pa-sel .pa-check { border: 2px dashed var(--pa-thread); background: radial-gradient(circle, var(--pa-thread) 0 4px, transparent 4.5px); }\n#pa-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }\n#pa-root .pa-peek { width: 30px; height: 30px; opacity: .6; }\n#pa-root .pa-handle {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none;\n    color: var(--pa-dim); cursor: grab; touch-action: none; border-radius: 8px;\n}\n#pa-root .pa-handle:active { cursor: grabbing; background: var(--pa-card-2); }\n#pa-root .pa-row.pa-dragging { opacity: .35; }\n#pa-root .pa-row.pa-flash { animation: pa-flash 1.4s ease-out; }\n@keyframes pa-flash { 0%, 30% { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); } 100% { background: transparent; box-shadow: none; } }\n\n/* 分组框：左边一道缝线 */\n#pa-root .pa-group { margin: 6px 0; border-radius: var(--pa-r); background: var(--pa-card); position: relative; }\n#pa-root .pa-group::before { content: \"\"; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed var(--pa-thread); opacity: .75; }\n#pa-root .pa-group.pa-goff { opacity: .6; }\n#pa-root .pa-group.pa-goff::before { border-left-color: var(--pa-dim); }\n#pa-root .pa-group.pa-gsel { box-shadow: inset 0 0 0 1px var(--pa-thread); }\n#pa-root .pa-ghead { display: flex; align-items: center; gap: 4px; min-height: 42px; padding: 4px 6px 4px 6px; cursor: pointer; }\n#pa-root .pa-caret svg { transition: transform .15s; transform: rotate(90deg); }\n#pa-root .pa-collapsed .pa-caret svg { transform: rotate(0deg); }\n#pa-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); font-size: .8em; margin-left: 6px; }\n#pa-root .pa-count { color: var(--pa-dim); font-size: .82em; font-variant-numeric: tabular-nums; margin-right: 4px; }\n#pa-root .pa-gbody { padding: 0 2px 6px 10px; }\n#pa-root .pa-collapsed .pa-gbody { display: none; }\n\n#pa-root .pa-drop-line { position: absolute; left: 6px; right: 6px; height: 0; border-top: 3px solid var(--pa-thread); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n#pa-root .pa-ghost {\n    position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none;\n    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px);\n    padding: 8px 12px; border-radius: 10px; background: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600;\n    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);\n}\n#pa-root .pa-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-insert-mark {\n    position: relative; margin: 2px 6px 6px; padding: 3px 10px; font-size: .82em; font-weight: 600;\n    color: var(--pa-on-accent); background: var(--pa-thread); border-radius: 6px; text-align: left;\n}\n#pa-root .pa-insert-mark::before { content: \"⬇ \"; }\n#pa-root .pa-row.pa-at { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-group.pa-has-at > .pa-ghead { box-shadow: inset 3px 0 0 var(--pa-thread); }\n#pa-root .pa-at-chip { flex: none; padding: 1px 8px; border-radius: 999px; font-size: .78em; font-weight: 600; background: var(--pa-thread); color: var(--pa-on-accent); }\n#pa-root .pa-placing .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }\n#pa-root .pa-placing .pa-row:not(.pa-sel):hover, #pa-root .pa-placing .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }\n/* 选位置：点组头＝放在组后面，所以按下组头时提示线画在整个组框的下沿 */\n#pa-root .pa-placing .pa-group:has(> .pa-ghead:hover:not(:has(.pa-caret:hover))), #pa-root .pa-placing .pa-group:has(> .pa-ghead:active:not(:has(.pa-caret:active))) { box-shadow: 0 3px 0 var(--pa-thread); }\n#pa-root .pa-group.pa-after-at { box-shadow: 0 0 0 1.5px var(--pa-thread); }\n#pa-root .pa-group.pa-after-at + .pa-insert-mark { margin-top: 4px; }\n#pa-root .pa-slot {\n    display: block; width: 100%; min-height: 30px; margin: 0 0 4px; padding: 3px 12px;\n    border: 1px dashed var(--pa-line); border-radius: 8px; background: transparent;\n    color: var(--pa-dim); font-size: .85em; text-align: left; cursor: pointer;\n}\n#pa-root .pa-slot:hover, #pa-root .pa-slot:active { color: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-slot-in { margin: 2px 0 2px; border-color: transparent; }\n@media (pointer: coarse) { #pa-root .pa-slot { min-height: 36px; } }\n\n/* ---------- 底部操作条 ---------- */\n#pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar {\n    flex: none; border-top: 1px solid var(--pa-line);\n    padding: 8px calc(10px + env(safe-area-inset-right)) 8px calc(10px + env(safe-area-inset-left));\n    background: var(--pa-card);\n}\n#pa-root .pa-selbar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }\n#pa-root .pa-selbar-btns { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }\n#pa-root .pa-selbar-btns::-webkit-scrollbar { display: none; }\n#pa-root .pa-movebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 6px; padding-bottom: 6px; }\n#pa-root .pa-movebar > b { flex: 1 1 auto; min-width: 0; color: var(--pa-thread); white-space: nowrap; }\n#pa-root .pa-movebar .pa-btn { min-height: 34px; padding: 3px 10px; }\n#pa-root .pa-movebar .pa-sq { width: 38px; padding: 0; }\n#pa-root .pa-movebar > small { flex: 1 0 100%; color: var(--pa-dim); font-size: .8em; }\n#pa-root .pa-stitchbar { display: flex; align-items: center; gap: 8px; }\n#pa-root .pa-stitchbar .pa-link, #pa-root .pa-stitchbar .pa-btn { flex: none; white-space: nowrap; }\n#pa-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }\n#pa-root .pa-stitch-info span { color: var(--pa-dim); font-size: .84em; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }\n@media (max-width: 759px) {\n    #pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar { padding-bottom: 8px; }\n}\n\n/* ---------- 缝合 ---------- */\n#pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }\n#pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }\n#pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }\n#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }\n#pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#pa-root .pa-src { border-right: 0; }\n#pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }\n#pa-root .pa-pane-head > b { white-space: nowrap; }\n#pa-root .pa-pane-head .pa-dst-picker { flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-src-pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 12px; }\n#pa-root .pa-src-pick .pa-select { flex: 1 1 55%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-search { flex: 1 1 35%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-file { flex: none; }\n#pa-root .pa-dst-hint { padding: 0 12px; margin: 0 0 4px; }\n#pa-root .pa-file { position: relative; overflow: hidden; }\n#pa-root .pa-paste { padding: 4px 2px; }\n@media (max-width: 759px) {\n    #pa-root .pa-suture { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(90px, var(--pa-split, 45%)) 18px minmax(90px, 1fr); }\n    #pa-root .pa-splitter { cursor: row-resize; border-top: 2px dashed var(--pa-thread); border-bottom: 1px solid var(--pa-line); background: var(--pa-card); }\n    #pa-root .pa-splitter span { width: 48px; height: 4px; }\n    #pa-root .pa-pane-head { padding: 6px 10px 2px; }\n    #pa-root .pa-dst-hint { font-size: .8em; }\n}\n\n#pa-root .pa-review { display: grid; gap: 12px; }\n#pa-root .pa-target-card { border: 1px dashed var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 6px; }\n#pa-root .pa-target-card small { color: var(--pa-dim); }\n#pa-root .pa-items { display: grid; gap: 12px; }\n#pa-root .pa-item { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; background: var(--pa-card); }\n#pa-root .pa-item header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }\n#pa-root .pa-item header .pa-input { flex: 1 1 180px; width: auto; }\n#pa-root .pa-from { color: var(--pa-dim); }\n#pa-root .pa-item-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: end; }\n#pa-root .pa-notes { margin: 0; padding-left: 18px; font-size: .88em; color: var(--pa-em); }\n#pa-root .pa-notes .pa-warn { color: var(--pa-warn); }\n#pa-root .pa-item details summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 4px 0; }\n#pa-root .pa-item .pa-text { min-height: 30vh; margin-top: 6px; }\n\n/* ---------- 卡片（思维链/方案/API） ---------- */\n#pa-root .pa-cards { display: grid; gap: 8px; }\n#pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }\n#pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }\n#pa-root .pa-card small { display: block; color: var(--pa-dim); }\n#pa-root .pa-card p { margin: 2px 0; }\n#pa-root .pa-card-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }\n#pa-root .pa-card-warn { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root details.pa-card > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; list-style: none; }\n#pa-root details.pa-card > summary::-webkit-details-marker { display: none; }\n#pa-root details.pa-card > summary::before { content: \"▸\"; color: var(--pa-thread); }\n#pa-root details.pa-card[open] > summary::before { content: \"▾\"; }\n#pa-root .pa-reads { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 6px; }\n#pa-root .pa-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .9em; }\n#pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }\n#pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }\n#pa-root .pa-cot { padding-top: 4px; }\n#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin: 6px 0 4px; }\n#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }\n#pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }\n#pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }\n#pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }\n#pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }\n#pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }\n#pa-root .pa-cov .pa-link { grid-row: 1; grid-column: 3; font-size: .8em; }\n#pa-root .pa-cov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-lv { font-size: .74em; padding: 1px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }\n#pa-root .pa-lv-ok { color: var(--pa-ok); }\n#pa-root .pa-lv-maybe { color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-lv-none { color: var(--pa-dim); }\n#pa-root .pa-optional { margin-top: 16px; }\n\n#pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }\n#pa-root .pa-live .pa-dot::before { content: \"●\"; margin-right: 4px; }\n#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }\n#pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\n#pa-root .pa-api, #pa-root .pa-schemes { padding-top: 10px; }\n#pa-root .pa-api .pa-card .pa-inline-check { display: flex; margin: 4px 0; }\n\n/* ---------- 弹层 ---------- */\n#pa-root .pa-sheet-mask {\n    position: absolute; inset: 0; z-index: 50;\n    background: rgba(0, 0, 0, .45);\n    display: flex; align-items: flex-end; justify-content: center;\n    animation: pa-fade .16s ease-out;\n}\n#pa-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }\n#pa-root .pa-sheet {\n    width: 100%; max-height: 90vh; max-height: 90dvh;\n    display: flex; flex-direction: column;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);\n    border: 1px solid var(--pa-line); border-bottom: 0;\n    border-radius: 16px 16px 0 0;\n    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);\n    animation: pa-up .2s ease-out;\n    position: relative;\n}\n#pa-root .pa-sheet::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); border-radius: inherit; z-index: -1; }\n#pa-root .pa-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; border-bottom: 1px dashed var(--pa-line); }\n#pa-root .pa-sheet-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-sheet-body { padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }\n#pa-root .pa-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--pa-line); }\n@media (min-width: 760px) {\n    #pa-root .pa-sheet-mask { align-items: center; padding: 24px; }\n    #pa-root .pa-sheet { max-width: 560px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: 86vh; }\n    #pa-root .pa-sheet-wide { max-width: 920px; }\n}\n@keyframes pa-fade { from { opacity: 0; } }\n@keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }\n#pa-root .pa-pick { display: grid; gap: 6px; }\n#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }\n#pa-root .pa-pick-item small { color: var(--pa-dim); }\n#pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }\n#pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }\n#pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }\n#pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n\n/* ---------- 缝合：紧凑控件 ---------- */\n#pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }\n#pa-root .pa-compact .pa-seg button { min-height: 28px; padding: 3px 10px; }\n#pa-root .pa-compact .pa-pane-head { padding: 6px 10px 2px; gap: 6px; }\n#pa-root .pa-compact .pa-src-pick { padding: 2px 10px 4px; }\n#pa-root .pa-compact .pa-row { min-height: 34px; }\n#pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 15px; height: 15px; border-width: 1.5px; }\n#pa-root .pa-compact .pa-ghead { min-height: 36px; }\n#pa-root .pa-compact .pa-mini { min-height: 26px; padding: 1px 9px; }\n#pa-root .pa-compact .pa-picker > span { font-size: .8em; }\n#pa-root .pa-stitchbar .pa-link { padding: 4px 4px; font-size: .9em; }\n\n/* ---------- 缝合预览 ---------- */\n#pa-root .pa-hook { border-left: 3px solid var(--pa-thread); padding: 6px 10px; display: grid; gap: 6px; border-radius: 4px; background: var(--pa-card); }\n#pa-root .pa-hook small { color: var(--pa-dim); line-height: 1.5; display: block; }\n#pa-root .pa-hook .pa-warn { margin: 0; font-size: .88em; }\n#pa-root .pa-hook-covered, #pa-root .pa-hook-mention, #pa-root .pa-hook-skip, #pa-root .pa-hook-cot { border-left-color: var(--pa-ok); }\n#pa-root .pa-hook-nocot { border-left-color: var(--pa-warn); }\n#pa-root .pa-field-wide { flex: 1 1 260px; min-width: 0; grid-column: 1 / -1; }\n#pa-root .pa-field-wide .pa-input { width: 100%; }\n#pa-root .pa-explain summary, #pa-root .pa-adv summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-explain .pa-notes { margin-top: 6px; color: var(--pa-text); }\n#pa-root .pa-was { display: grid; gap: 2px; font-size: .92em; }\n#pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }\n#pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }\n\n#pa-root .pa-modes { display: grid; gap: 8px; }\n#pa-root .pa-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); cursor: pointer; background: transparent; }\n#pa-root .pa-mode.on { border: 2px dashed var(--pa-thread); background: var(--pa-sel); padding: 7px 9px; }\n#pa-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }\n#pa-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }\n#pa-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }\n#pa-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }\n#pa-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n\n/* ---------- 思维链页 ---------- */\n#pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }\n#pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }\n#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }\n#pa-root .pa-verdict p { margin: 0; }\n#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }\n#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }\n#pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }\n#pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }\n#pa-root .pa-legend .pa-lv { flex: none; }\n#pa-root .pa-cot-sum span { line-height: 1.3; }\n\n/* ---------- 更多：方案 / API / 外观 ---------- */\n#pa-root .pa-more-head { display: flex; justify-content: center; padding: 8px 10px 2px; }\n#pa-root .pa-subpage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n#pa-root .pa-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }\n#pa-root .pa-theme { display: grid; gap: 8px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--pa-line); cursor: pointer; min-height: 72px; }\n#pa-root .pa-theme[aria-pressed=\"true\"] { outline: 2px dashed var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-theme-dots { display: flex; gap: 5px; }\n#pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }\n#pa-root .pa-theme b { font-size: .95em; }\n#pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }\n\n/* ---------- 莫兰迪色卡（不透明） ---------- */\n#pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-shell, #pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }\n#pa-root[data-theme=\"mist\"]     { --pa-tint:#f6f2e2; --pa-text:#2f3a46; --pa-thread:#4f74a3; --pa-em:#4f5d6a; --pa-line:#d3d9c6; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b25a3c; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); --pa-sel:rgba(79,116,163,.18); }\n#pa-root[data-theme=\"bean\"]     { --pa-tint:#f7ece9; --pa-text:#45343f; --pa-thread:#b0607e; --pa-em:#6a5562; --pa-line:#e3d1d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(176,96,126,.16); }\n#pa-root[data-theme=\"matcha\"]   { --pa-tint:#e9efe6; --pa-text:#36443a; --pa-thread:#5d7d58; --pa-em:#55634f; --pa-line:#cdd9c9; --pa-input-bg:#f7faf5; --pa-warn:#b0603f; --pa-ok:#4c7d55; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"oat\"]      { --pa-tint:#f2ece4; --pa-text:#4a3f35; --pa-thread:#8a6a4c; --pa-em:#67594b; --pa-line:#e0d5c6; --pa-input-bg:#fbf8f3; --pa-warn:#b0563d; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"lavender\"] { --pa-tint:#edeaf3; --pa-text:#403a4f; --pa-thread:#72649a; --pa-em:#5d566c; --pa-line:#d7d1e3; --pa-input-bg:#f9f8fc; --pa-warn:#b0566a; --pa-ok:#567f6c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"seasalt\"]  { --pa-tint:#e6efef; --pa-text:#2f4344; --pa-thread:#4b7a7b; --pa-em:#4d6263; --pa-line:#c7d8d8; --pa-input-bg:#f6fafa; --pa-warn:#b25e48; --pa-ok:#4a7f5f; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"night\"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }\n#pa-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }\n\n@media (prefers-reduced-motion: reduce) {\n    #pa-root *, #pa-root *::before, #pa-root *::after { animation: none !important; transition: none !important; }\n}\n\n/* 1.3.4 加载体检 */\n#pa-root .pa-health-body { display: block; }\n#pa-root .pa-rank { display: grid; grid-template-columns: minmax(0, 1fr) 26% auto; gap: 7px 8px; align-items: center; font-size: .9em; margin-bottom: 6px; }\n#pa-root .pa-rank > div { display: contents; }\n#pa-root .pa-rank > p { grid-column: 1 / -1; }\n#pa-root .pa-rank span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-rank em { text-align: right; font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .92em; }\n#pa-root .pa-bar { display: block; height: 6px; border-radius: 3px; background: var(--pa-line); overflow: hidden; }\n#pa-root .pa-bar b { display: block; height: 100%; background: var(--pa-thread); border-radius: 3px; }\n#pa-root .pa-health .pa-card-act { margin: 10px 0 4px; }\n\n/* 1.3.4 扩展页设置框（在酒馆页面里，不在 #pa-root 里，用酒馆自己的颜色） */\n#pa-settings .pa-set-badge { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78em; font-weight: 500; line-height: 1.6; vertical-align: 1px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); opacity: .85; }\n#pa-settings .inline-drawer-content { padding: 4px 2px 6px; }\n#pa-settings .pa-set-intro { font-size: .9em; opacity: .75; margin: 2px 0 6px; }\n#pa-settings .pa-set-btns { display: flex; flex-wrap: wrap; gap: 6px; }\n#pa-settings .menu_button { width: auto; white-space: nowrap; padding: 4px 10px; margin: 2px 0; gap: 6px; }\n#pa-settings .menu_button span { font-size: inherit; }\n#pa-settings .pa-set-btns .menu_button { flex: 1 1 0; min-width: 7.5em; }\n#pa-settings .pa-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }\n#pa-settings .pa-set-k { opacity: .7; min-width: 2.5em; }\n#pa-settings .pa-set-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; }\n#pa-settings .pa-set-mini { font-size: .88em; padding: 2px 8px; }\n#pa-settings .pa-set-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9em; margin: 2px 0 6px; padding: 6px 8px; border-radius: 6px; border: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-status[hidden] { display: none; }\n#pa-settings .pa-set-status.new { border-style: solid; border-color: var(--SmartThemeQuoteColor, #e18a24); }\n#pa-settings .pa-set-status.bad { border-color: #d36b6b; }\n#pa-settings .pa-set-log { margin: 6px 0; }\n#pa-settings .pa-set-log > summary { cursor: pointer; opacity: .85; padding: 2px 0; }\n#pa-settings .pa-set-logs { max-height: 34vh; overflow: auto; margin-top: 4px; padding-right: 4px; }\n#pa-settings .pa-set-logv { font-size: .86em; line-height: 1.55; margin: 6px 0 8px; padding-left: 8px; border-left: 2px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }\n#pa-settings .pa-set-logv b { display: block; margin-bottom: 2px; }\n#pa-settings .pa-set-foot { font-size: .82em; opacity: .65; margin-top: 6px; }\n#pa-settings .pa-set-foot a { color: inherit; text-decoration: underline; margin-left: 4px; }\n#pa-settings code { font-size: .95em; padding: 0 3px; }\n\n/* 折叠箭头 */\n#pa-root .pa-caret svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; transition: transform .15s; }\n#pa-root .pa-caret.open svg { transform: rotate(90deg); }\n\n/* 1.3.7 API 站点：点开看详情、直接换模型 */\n#pa-root .pa-field-row { display: flex; align-items: center; gap: 8px; margin: 6px 0 0; }\n#pa-root .pa-field-row > span { flex: none; color: var(--pa-dim); }\n#pa-root .pa-select-s { min-width: 0; flex: 1 1 auto; max-width: 100%; padding: 4px 8px; }\n#pa-root .pa-site > header { cursor: pointer; display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; margin: 0; }\n#pa-root .pa-site > header b { flex: none; }\n#pa-root .pa-site-caret { color: var(--pa-dim); width: 1em; flex: none; }\n#pa-root .pa-site-model { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pa-dim); }\n#pa-root .pa-btn-s { padding: 3px 12px; min-height: 0; }\n#pa-root .pa-site-dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 10px 0 4px; align-items: center; }\n#pa-root .pa-site-dl dt { color: var(--pa-dim); font-size: .9em; }\n#pa-root .pa-site-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }\n#pa-root .pa-dim { color: var(--pa-dim); }\n\n/* 1.3.9 花田、晴野：油画感渐变背景。几层柔和色团叠在浅色底上，再加一层很淡的画布纹理 */\n#pa-root { --pa-canvas: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); }\n#pa-root[data-theme=\"bean\"] .pa-shell, #pa-root .pa-paint-bean {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),\n        radial-gradient(ellipse 55% 28% at 84% 86%, rgba(244, 178, 150, .46), transparent 70%),\n        radial-gradient(ellipse 48% 24% at 46% 72%, rgba(190, 170, 226, .42), transparent 72%),\n        radial-gradient(ellipse 70% 20% at 72% 36%, rgba(206, 190, 226, .50), transparent 70%),\n        radial-gradient(ellipse 50% 18% at 18% 40%, rgba(214, 198, 228, .46), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 56%, rgba(246, 212, 192, .40), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),\n        linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%);\n}\n#pa-root[data-theme=\"mist\"] .pa-shell, #pa-root .pa-paint-mist {\n    background:\n        var(--pa-canvas),\n        radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),\n        radial-gradient(ellipse 45% 16% at 12% 10%, rgba(104, 148, 138, .36), transparent 70%),\n        radial-gradient(ellipse 55% 26% at 30% 54%, rgba(246, 230, 146, .52), transparent 70%),\n        radial-gradient(ellipse 46% 24% at 78% 64%, rgba(212, 226, 164, .56), transparent 70%),\n        radial-gradient(ellipse 28% 14% at 70% 40%, rgba(240, 176, 186, .42), transparent 70%),\n        radial-gradient(ellipse 34% 16% at 22% 86%, rgba(198, 188, 236, .42), transparent 70%),\n        radial-gradient(ellipse 30% 14% at 86% 90%, rgba(244, 196, 160, .40), transparent 70%),\n        linear-gradient(180deg, #e2eaec 0%, #f6f1db 26%, #f3eecd 60%, #e2e9cf 100%);\n}\n#pa-root[data-theme=\"bean\"] .pa-shell::before, #pa-root[data-theme=\"mist\"] .pa-shell::before { background: none; }\n/* 渐变背景上的半透明面板 */\n#pa-root[data-theme=\"bean\"] .pa-top, #pa-root[data-theme=\"mist\"] .pa-top,\n#pa-root[data-theme=\"bean\"] .pa-tabs, #pa-root[data-theme=\"mist\"] .pa-tabs { background: rgba(255, 255, 255, .34); }\n#pa-root[data-theme=\"bean\"] :is(.pa-selbar, .pa-movebar, .pa-stitchbar), #pa-root[data-theme=\"mist\"] :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: rgba(255, 255, 255, .62); }\n#pa-root .pa-theme.pa-paint-bean, #pa-root .pa-theme.pa-paint-mist { background-size: auto, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%; }\n\n/* 1.3.9 自定义背景图：图片上盖一层主题底色 */\n#pa-root.pa-has-bg .pa-shell { background: linear-gradient(var(--pa-bg-veil), var(--pa-bg-veil)), var(--pa-bg-img) center / cover no-repeat; }\n#pa-root.pa-has-bg .pa-shell::before { background: none; }\n#pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }\n#pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }\n#pa-root.pa-has-bg { --pa-card: color-mix(in srgb, var(--pa-tint) 58%, transparent); --pa-card-2: color-mix(in srgb, var(--pa-tint) 78%, transparent); }\n#pa-root .pa-bgpanel input[type=range] { flex: 1 1 auto; accent-color: var(--pa-thread); }\n#pa-root .pa-bgpanel em { font-style: normal; color: var(--pa-dim); min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }\n\n/* 1.3.9 空分组、分组拖动、新分组选位置、模型下拉 */\n#pa-root .pa-gempty { margin: 0; padding: 4px 14px 8px; color: var(--pa-dim); font-size: .85em; }\n#pa-root .pa-group.pa-gempty-box { border: 1px dashed var(--pa-line); }\n#pa-root .pa-group.pa-dragging { opacity: .4; }\n#pa-root .pa-ghead .pa-handle { height: 32px; width: 34px; }\n#pa-root .pa-movebar-ng > b { color: var(--pa-text); }\n#pa-root .pa-ngbar { border-top: 2px solid var(--pa-thread); }\n#pa-root .pa-model-slot { display: grid; gap: 6px; }\n#pa-root .pa-model-slot .pa-select { width: 100%; }\n";
 
 // src/ui/app.js
 var TABS = [
@@ -5107,9 +5431,8 @@ function buildRoot() {
                 <div class="pa-savebar" hidden>
                     <span class="pa-dirty-text"></span>
                     <button class="pa-btn" data-g="undo">撤销</button>
-                    <button class="pa-btn pa-btn-primary" data-g="save">保存</button>
+                    <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
                 </div>
-                <button class="pa-icon-btn pa-theme-btn" data-g="theme" aria-label="换颜色" title="换颜色"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.4 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7.3" r="1.2"/><circle cx="14.5" cy="7.3" r="1.2"/></svg></button>
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭">✕</button>
             </header>
             <nav class="pa-tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</nav>
@@ -5139,12 +5462,11 @@ function buildRoot() {
   rootEl2.querySelector(".pa-top").addEventListener("click", async (e) => {
     const g = e.target.closest("[data-g]")?.dataset.g;
     if (g === "close") return close();
-    if (g === "theme") return themeSheet();
     if (g === "undo") {
       const d = getDraft(focusPreset());
       const label = d.undo();
       if (label) {
-        toast(`撤销了：${label}`);
+        toast(`已撤销：${label}`);
         emitChange(d.name);
       }
     }
@@ -5159,7 +5481,7 @@ function buildRoot() {
         toast("保存失败：" + err.message, "error");
       }
       btn.disabled = false;
-      btn.textContent = "保存";
+      btn.textContent = "重试保存";
     }
   });
   cleanups.push(onDraftChange(updateSavebar));
@@ -5174,7 +5496,9 @@ function updateSavebar() {
   }
   const n = d?.dirty ? d.history.length : 0;
   bar.hidden = !d || (!d.dirty && !d.history.length);
-  rootEl2.querySelector(".pa-dirty-text").textContent = saveErrors.has(d?.name) ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)} · 点保存重试` : saveJobs.has(d?.name) ? "自动保存中…" : d?.dirty ? "草稿已即时备份 · 等待自动保存" : "已自动保存";
+  const err = saveErrors.has(d?.name);
+  rootEl2.querySelector(".pa-dirty-text").textContent = err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) ? "保存中…" : d?.dirty ? "待保存" : "已保存";
+  rootEl2.querySelector("[data-g=save]").hidden = !err;
 }
 function show(tab) {
   current = tab;
@@ -5186,7 +5510,7 @@ function show(tab) {
     pages[tab].render();
   } catch (e) {
     console.error(e);
-    toast("出错了：" + e.message, "error");
+    toast("出错：" + e.message, "error");
   }
   updateSavebar();
 }
@@ -5204,16 +5528,16 @@ async function close() {
   const dirty = dirtyDrafts();
   if (dirty.length) {
     const r = await sheet({
-      title: "还有改动没保存",
-      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有没保存的改动。</p>`,
-      actions: [{ label: "先留着（下次打开还在）", value: "keep" }, { label: "放弃改动", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
+      title: "有未保存的修改",
+      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有未保存的修改。</p>`,
+      actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃修改", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
     });
     if (!r) return;
     if (r === "drop") dirty.forEach((d) => dropDraft(d.name));
     if (r === "save") {
       try {
         for (const d of dirty) await saveDraft(d.name, "裁缝铺保存");
-        toast("都保存好了", "success");
+        toast("已全部保存", "success");
       } catch (e) {
         return toast("保存失败：" + e.message, "error");
       }
@@ -5278,7 +5602,7 @@ function addSettingsEntry() {
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
       </div>
       <div class="inline-drawer-content">
-        <div class="pa-set-intro">整理分组 · 跨预设缝合 · 思维链检查 · 开关方案 · API 站点</div>
+        <div class="pa-set-intro">整理分组 · 跨预设缝合 · 思维链检查 · 开关方案 · API 站点 · 加载体检</div>
         <div class="pa-set-btns">
           <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开裁缝铺</span></div>
           <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>加载体检</span></div>
@@ -5290,8 +5614,8 @@ function addSettingsEntry() {
           ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
         </div>
         <div class="pa-set-status" hidden></div>
-        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 3).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
-        <div class="pa-set-foot">也可以从魔棒菜单 →「预设裁缝铺」打开，或者发 <code>/atelier</code>。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
+        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
+        <div class="pa-set-foot">也可从魔棒菜单打开，或发送 <code>/atelier</code>。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>
   </div>`);
@@ -5312,18 +5636,18 @@ function addSettingsEntry() {
     icon?.classList.add("fa-spin");
     try {
       if (a === "check") {
-        say("正在问 GitHub 有没有新版本…");
+        say("正在检查更新…");
         const v = await extApi("version");
-        if (v.isUpToDate) say(`已经是最新版（${esc(VERSION)}）。`, "ok");
-        else say('有新版本。<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>现在更新</span></div>', "new");
+        if (v.isUpToDate) say(`已是最新版本（${esc(VERSION)}）。`, "ok");
+        else say('有新版本。<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>更新</span></div>', "new");
       } else if (a === "update") {
         say("正在更新…");
         const v = await extApi("update");
-        if (v.isUpToDate) say("已经是最新版了。", "ok");
-        else say('更新好了，刷新页面就能用上新版。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>', "ok");
+        if (v.isUpToDate) say("已是最新版本。", "ok");
+        else say('更新完成，刷新页面后生效。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>', "ok");
       }
     } catch (e) {
-      say(`没成功：${esc(e.message).slice(0, 200)}<br>也可以去「扩展管理」里点更新。`, "bad");
+      say(`更新失败：${esc(e.message).slice(0, 200)}<br>可在「扩展管理」中更新。`, "bad");
     } finally {
       icon?.classList.remove("fa-spin");
       busy = false;
@@ -5375,7 +5699,7 @@ var keepConnection = debounce(async () => {
   applying = true;
   try {
     await applyConnection(site);
-    toast(`换预设后已自动连回「${site.name}」`);
+    toast(`已恢复连接「${site.name}」`);
   } catch (e) {
     console.warn("[裁缝铺] 自动恢复连接失败", e);
   } finally {

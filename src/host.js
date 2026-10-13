@@ -22,7 +22,7 @@ async function initHost() {
     load("wi", "scripts/world-info.js"),
     load("personas", "scripts/personas.js")
   ]);
-  if (!mods.openai) throw new Error("读不到酒馆的聊天补全模块，可能是酒馆版本过旧");
+  if (!mods.openai) throw new Error("无法读取酒馆的聊天补全模块，酒馆版本可能过旧");
 }
 function ctx() {
   return globalThis.SillyTavern.getContext();
@@ -46,7 +46,7 @@ function presetIndex(name) {
 function readPreset(name) {
   const { presets } = pm().getPresetList();
   const idx = presetIndex(name);
-  if (idx === void 0 || idx < 0 || !presets[idx]) throw new Error(`找不到预设「${name}」`);
+  if (idx === void 0 || idx < 0 || !presets[idx]) throw new Error(`未找到预设「${name}」`);
   const base = structuredClone(presets[idx]);
   if (name === currentPresetName() && mods.openai?.getChatCompletionPreset) {
     const live = mods.openai.getChatCompletionPreset(mods.openai.oai_settings);
@@ -84,7 +84,7 @@ async function writePreset(name, data, reason = "保存") {
 }
 async function selectPreset(name) {
   const value = pm().findPreset(name);
-  if (value === void 0) throw new Error(`找不到预设「${name}」`);
+  if (value === void 0) throw new Error(`未找到预设「${name}」`);
   await pm().selectPreset(value);
 }
 function listWorldbooks() {
@@ -152,7 +152,7 @@ function multiKeySupported() {
 }
 async function storeKey(source, key, label) {
   const secretKey = SOURCES[source]?.secret;
-  if (!secretKey) throw new Error("不支持的来源");
+  if (!secretKey) throw new Error("不支持的连接类型");
   const id = await mods.secrets.writeSecret(secretKey, key, label);
   return typeof id === "string" ? id : null;
 }
@@ -170,7 +170,7 @@ function setSelect(sel, value) {
 }
 async function applyConnection(site, { connect = true } = {}) {
   const src = SOURCES[site.source];
-  if (!src) throw new Error("不支持的来源");
+  if (!src) throw new Error("不支持的连接类型");
   if ($("#main_api").val() !== "openai") $("#main_api").val("openai").trigger("change");
   if ($("#chat_completion_source").val() !== site.source) {
     $("#chat_completion_source").val(site.source).trigger("change");
@@ -187,7 +187,7 @@ async function applyConnection(site, { connect = true } = {}) {
     } else if (site.legacyKey) {
       await mods.secrets.writeSecret(src.secret, site.legacyKey, site.name);
     } else {
-      throw new Error(`「${site.name}」保存的 key 在酒馆密钥库里找不到了，请重新填一次`);
+      throw new Error(`「${site.name}」的密钥在酒馆密钥库中已不存在，请重新填写`);
     }
   } else if (site.legacyKey) {
     await mods.secrets.writeSecret(src.secret, site.legacyKey);
@@ -202,7 +202,7 @@ async function applyConnection(site, { connect = true } = {}) {
   }
   if (connect) {
     $("#api_button_openai").trigger("click");
-    await waitOnline(12e3);
+    await waitConnect(15e3);
     if (site.model && site.source === "custom") {
       $("#custom_model_id").val(site.model).trigger("input");
       setSelect("#model_custom_select", site.model);
@@ -227,6 +227,58 @@ function setLiveModel(model) {
 }
 function customModelOptions() {
   return $("#model_custom_select option").map((_, o) => o.value).toArray().filter(Boolean);
+}
+// 1.3.9：已经连着的时候点「连接」，状态一开始就是在线，只看在线会抢在新请求回来之前返回。
+// 先等酒馆的连接按钮进入忙碌状态，再等它结束。
+async function waitConnect(ms) {
+  const busy = () => $("#api_button_openai").hasClass("disabled") || $("#api_loading_openai").is(":visible");
+  const t0 = Date.now();
+  while (Date.now() - t0 < 800 && !busy()) await sleep(50);
+  while (Date.now() - t0 < ms && busy()) await sleep(200);
+  return waitOnline(Math.max(0, ms - (Date.now() - t0)));
+}
+// 1.3.9：直接向酒馆后端要模型列表（酒馆自己连接时调用的也是这个接口），不等界面上的下拉框刷新
+async function fetchModelList(site) {
+  const s = mods.openai?.oai_settings || {};
+  const body = { chat_completion_source: site.source, reverse_proxy: s.reverse_proxy, proxy_password: s.proxy_password };
+  if (site.source === "custom") {
+    body.custom_url = site.url;
+    body.custom_include_headers = s.custom_include_headers;
+  }
+  const r = await fetch("/api/backends/chat-completions/status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
+    body: JSON.stringify(body),
+    cache: "no-cache"
+  });
+  if (!r.ok) throw new Error(`酒馆返回 ${r.status}`);
+  const data = await r.json().catch(() => ({}));
+  const raw = Array.isArray(data?.data) ? data.data : Array.isArray(data?.data?.data) ? data.data.data : Array.isArray(data?.models) ? data.models : Array.isArray(data) ? data : [];
+  const list = [...new Set(raw.map((m) => typeof m === "string" ? m : m?.id || m?.name).filter(Boolean))];
+  if (data?.error && !list.length) throw new Error("站点未返回模型列表，请检查网址和密钥");
+  return list;
+}
+// 用这个站点保存的密钥做一件事，做完换回原来在用的密钥
+async function withSiteKey(site, fn) {
+  const src = SOURCES[site.source];
+  let restore = null;
+  if (site.secretId && mods.secrets?.rotateSecret && src) {
+    const list = (await readSecretState())[src.secret];
+    if (Array.isArray(list)) {
+      if (!list.some((x) => x.id === site.secretId)) throw new Error(`「${site.name || "站点"}」的密钥在酒馆密钥库中已不存在，请重新填写`);
+      const cur = list.find((x) => x.active)?.id || null;
+      if (cur !== site.secretId) {
+        await mods.secrets.rotateSecret(src.secret, site.secretId);
+        restore = cur;
+      }
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    if (restore) await mods.secrets.rotateSecret(src.secret, restore).catch(() => {
+    });
+  }
 }
 async function waitOnline(ms) {
   const t0 = Date.now();
@@ -253,13 +305,15 @@ var dbp = null;
 function db() {
   if (dbp) return dbp;
   dbp = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB, 1);
+    const req = indexedDB.open(DB, 2);
     req.onupgradeneeded = () => {
       const d = req.result;
       if (!d.objectStoreNames.contains("backups")) {
         const s = d.createObjectStore("backups", { keyPath: "id", autoIncrement: true });
         s.createIndex("preset", "preset");
       }
+      // 1.3.9：自定义背景图等本地文件，只存在这个浏览器里
+      if (!d.objectStoreNames.contains("assets")) d.createObjectStore("assets");
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -286,4 +340,12 @@ async function backupList(preset) {
 async function backupGet(id) {
   return tx("backups", "readonly", (s) => s.get(id));
 }
-
+async function assetPut(key, blob) {
+  await tx("assets", "readwrite", (s) => s.put(blob, key));
+}
+async function assetGet(key) {
+  return tx("assets", "readonly", (s) => s.get(key));
+}
+async function assetDel(key) {
+  await tx("assets", "readwrite", (s) => s.delete(key));
+}

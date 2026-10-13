@@ -18,6 +18,5 @@ await page.waitForTimeout(200);
 await page.click('[data-st="go"]'); await page.waitForTimeout(700);
 await page.evaluate(() => { const m = document.querySelector('.pa-item .pa-modes'); m.scrollIntoView(); });
 await page.screenshot({ path: "test/shots/x-1-review.png" });
-await page.click('[data-st="profile"]').catch(() => {});
 console.log(errs.join("\n") || "no page errors");
 await browser.close();

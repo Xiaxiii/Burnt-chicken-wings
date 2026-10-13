@@ -123,7 +123,7 @@ function suggestGroups(draft, { minSize = 3, onlyUngrouped = true } = {}) {
   let runVar = null;
   const flushVar = () => {
     if (runVar && run.length >= minSize) {
-      out.push({ name: runVar, ids: [...run], reason: `都写入变量「${runVar}」` });
+      out.push({ name: runVar, ids: [...run], reason: `均写入变量「${runVar}」` });
       run.forEach((x) => used.add(x));
     }
     run = [];
@@ -156,7 +156,7 @@ function suggestGroups(draft, { minSize = 3, onlyUngrouped = true } = {}) {
   const flushSym = () => {
     if (sym && run.length >= minSize) {
       const names = run.map((x) => draft.prompt(x)?.name || "");
-      out.push({ name: guessName(sym, names), ids: [...run], reason: `都以「${sym}」开头` });
+      out.push({ name: guessName(sym, names), ids: [...run], reason: `均以「${sym}」开头` });
       run.forEach((x) => used.add(x));
     }
     run = [];

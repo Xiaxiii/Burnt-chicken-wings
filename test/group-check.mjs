@@ -1,11 +1,13 @@
-// 缝合页「整理分组」：在已经有分组的预设里点选条目 → 建新分组，要真的多一个组
+// 装了百宝箱时建分组：百宝箱会用内存里的旧分组覆盖保存结果，新分组必须保存后仍然存在
+// 用法：node test/group-check.mjs [预设名]，默认用仓库自带的众生相风格测试预设
 import { chromium } from "playwright";
-const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-// 假百宝箱：缓存当前预设的分组，只在「导入完成」时清缓存；别的时候保存都拿缓存盖回去（真百宝箱的行为）
+const T = process.argv[2] || "【众生相】Claude-Lite-v1.8";
+// 假百宝箱：缓存当前预设的分组，只在「导入完成」时清缓存；其他时候保存都用缓存覆盖（与真实百宝箱行为一致）
 await page.evaluate((T) => {
   const c = window.SillyTavern.getContext();
   c.extensionSettings.baiBaiToolkit = {};
@@ -15,33 +17,28 @@ await page.evaluate((T) => {
   let cache = structuredClone(m.live.extensions);
   c.eventSource.on("oai_preset_import_ready", (e) => { if (e.presetName === T) cache = null; window.__bbReset = (window.__bbReset || 0) + 1; });
   c.eventSource.on("oai_after", () => { if (cache) { m.live.extensions = structuredClone(cache); m.presets[i].extensions = structuredClone(cache); } else cache = structuredClone(m.live.extensions); });
-  window.__presetAtelier.open("suture");
-}, process.argv[2] || "V2.61");
+  window.__presetAtelier.open("organize");
+}, T);
 await page.waitForTimeout(400);
-const T = process.argv[2] || "V2.61";
-await page.waitForTimeout(100);
-await page.selectOption(".pa-dst-picker select", T); await page.waitForTimeout(300);
-const groups = () => page.evaluate((t) => { const i = window.__mock.names.indexOf(t); const p = window.__mock.presets[i]; return { bb: p.extensions?.baibaiToolkit?.presetPromptGroups?.groups?.map((x) => x.name), eg: p.extensions?.entryGrouping?.map?.((x) => x.name) }; }, T);
+await page.selectOption(".pa-picker-slot select", T); await page.waitForTimeout(300);
+const groups = () => page.evaluate((t) => { const i = window.__mock.names.indexOf(t); return window.__mock.presets[i].extensions?.baibaiToolkit?.presetPromptGroups?.groups?.map((x) => x.name); }, T);
+const fail = [];
+const check = (ok, msg) => { console.log(ok ? "✓" : "✗", msg); if (!ok) fail.push(msg); };
 console.log("before", JSON.stringify(await groups()));
-await page.click('[data-gm="toggle"]'); await page.waitForTimeout(200);
-// 展开第一个分组，点里面两条
-await page.evaluate(() => document.querySelector(".pa-dst-list .pa-ghead .pa-gname").click()); await page.waitForTimeout(200);
-const picked = [];
-for (const k of [1, 2]) picked.push(await page.evaluate((k) => { const r = document.querySelectorAll(".pa-dst-list .pa-row")[k]; r.click(); return r.textContent.trim().slice(0, 20); }, k));
-await page.waitForTimeout(200);
-console.log("picked", picked, await page.evaluate(() => document.querySelector(".pa-gsel-n").textContent));
-await page.screenshot({ path: "test/shots/g-1-picked.png" });
-await page.click('[data-gm="new"]'); await page.waitForTimeout(300);
-await page.screenshot({ path: "test/shots/g-2-prompt.png" });
+// 整理页：展开第一个分组，点选两条 → 建成分组
+await page.locator(".pa-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(200);
+await page.locator(".pa-list .pa-group").first().locator(".pa-row").nth(0).click();
+await page.locator(".pa-list .pa-group").first().locator(".pa-row").nth(1).click();
+await page.click('[data-sel="newgroup"]'); await page.waitForTimeout(300);
 await page.fill(".pa-sheet input.pa-input", "新组测试"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(2500);
-await page.screenshot({ path: "test/shots/g-3-after.png" });
-console.log("after", JSON.stringify(await groups()));
-console.log("dst heads", await page.evaluate(() => [...document.querySelectorAll(".pa-dst-list .pa-ghead .pa-gname")].map((x) => x.textContent.trim()).join(" | ")));
-console.log("bb resets", await page.evaluate(() => window.__bbReset));
-// 整组选中 → 应该先问「改名还是建新组」
-await page.evaluate(() => document.querySelector('.pa-dst-list .pa-ghead [data-act="gselect"]').click()); await page.waitForTimeout(200);
-await page.click('[data-gm="new"]'); await page.waitForTimeout(300);
-console.log("whole-group sheet:", await page.evaluate(() => document.querySelector(".pa-sheet")?.innerText.replace(/\s+/g, " ").slice(0, 120)));
-await page.screenshot({ path: "test/shots/g-4-whole.png" });
+check((await groups()).includes("新组测试"), "建成分组后保存仍在");
+// 缝合页：新建空白分组
+await page.click('[data-tab="suture"]'); await page.waitForTimeout(300);
+await page.click('[data-st="newgroup"]'); await page.waitForTimeout(300);
+await page.fill(".pa-sheet input.pa-input", "空白组"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(300);
+await page.locator(".pa-dst-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(2500);
+check((await groups()).includes("空白组"), "新建空白分组后保存仍在");
+console.log("after", JSON.stringify(await groups()), "百宝箱刷新次数", await page.evaluate(() => window.__bbReset));
 console.log(errs.length ? errs : "no page errors");
 await browser.close();
+if (fail.length || errs.length) process.exit(1);

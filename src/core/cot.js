@@ -295,10 +295,10 @@ function analyze(draft, manual = {}) {
   for (const [name, v] of vars) {
     if (v.writers.length && !v.readers.length && !/cot$/i.test(name)) {
       const off = [...allReaders.get(name) || []].map((x) => draft.prompt(x)?.name || x);
-      const why = off.length ? `；读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等" : ""}没开` : "；整个预设里没有任何条目读取它";
+      const why = off.length ? `。读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等条目" : ""}未开启` : "。预设中没有条目读取它";
       const registrationOnly = v.writers.every(id => detectShape(draft.prompt(id)?.content).shape === "tagname");
       if (registrationOnly) continue;
-      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], text: `写进了变量「${name}」，但没被读取，等于没生效${why}` });
+      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], text: `写入变量「${name}」，但未被读取，内容不会发送${why}` });
     }
     if (v.readers.length && !v.writers.length) {
       optional.push({ varName: name, ids: v.readers });
@@ -306,7 +306,7 @@ function analyze(draft, manual = {}) {
   }
   for (const [name, v] of vars) {
     if (/cot$/i.test(name) && v.writers.length && !v.readers.some((r) => cotSet.has(r))) {
-      issues.push({ kind: "cotfrag", varName: name, ids: v.writers, text: `这些条目自带思维链片段「${name}」，但开着的思维链里没有读取它` });
+      issues.push({ kind: "cotfrag", varName: name, ids: v.writers, text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
     }
   }
   return { cotIds, vars, cot, coverage, issues, optional, activeSet };

@@ -53,7 +53,7 @@ function queueAutoSave(name) {
   clearTimeout(autoTimers.get(name));
   autoTimers.set(name, setTimeout(() => {
     autoTimers.delete(name);
-    saveDraft(name, "自动保存").catch(e => { saveErrors.set(name, e.message); notifyDraft(name); toast("自动保存失败，草稿仍保留；点保存重试：" + e.message, "error"); });
+    saveDraft(name, "自动保存").catch(e => { saveErrors.set(name, e.message); notifyDraft(name); toast("自动保存失败，草稿已保留：" + e.message, "error"); });
   }, 350));
 }
 function notifyDraft(name) {
@@ -85,7 +85,7 @@ function getDraft(name, { fresh = false } = {}) {
         const cached = JSON.parse(localStorage.getItem(recoveryKey(name)) || "null");
         if (cached?.preset?.prompts) {
           d = new Draft(name, cached.preset); d.history = cached.history || []; d.dirty = true;
-          toast(`已恢复「${name}」刷新前的草稿`); queueAutoSave(name);
+          toast(`已恢复「${name}」未保存的草稿`); queueAutoSave(name);
         }
       } catch(e) { console.warn("草稿恢复失败", e); }
     }
