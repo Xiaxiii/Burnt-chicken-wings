@@ -66,11 +66,30 @@ async function restoreArchivedByName(name) {
   return restoreArchived(e, { ask: false });
 }
 function mountCleanup(sec) {
-  sec.innerHTML = `<div class="pa-scroll pa-clean"><div class="pa-clean-body"><p class="pa-hint">正在分析预设…</p></div></div>
+  // 1.7.0：分栏——预设 / 扩展数据 / 角色卡 / 世界书 / 本地备份
+  const KINDS = [["preset", "预设"], ["ext", "扩展数据"], ["char", "角色卡"], ["world", "世界书"], ["local", "本地备份"]];
+  sec.innerHTML = `<div class="pa-scroll pa-clean"><div class="pa-ckinds"><div class="pa-seg pa-seg-s" role="tablist">${KINDS.map(([k, l]) => `<button data-kind="${k}" class="${k === "preset" ? "on" : ""}">${l}</button>`).join("")}</div></div>
+    <div class="pa-clean-body"><p class="pa-hint">正在分析预设…</p></div><div class="pa-clean-other" hidden></div></div>
     <div class="pa-movebar pa-clean-act" hidden></div>`;
   const body = sec.querySelector(".pa-clean-body");
   const act = sec.querySelector(".pa-clean-act");
-  const st = { filter: null, sort: "size", sel: new Set(), rows: [], busy: false, open: new Set() };
+  const st = { filter: null, sort: "size", sel: new Set(), rows: [], busy: false, open: new Set(), kind: "preset" };
+  sec.querySelector(".pa-ckinds").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-kind]");
+    if (!b || st.busy) return;
+    st.kind = b.dataset.kind;
+    sec.querySelectorAll("[data-kind]").forEach((x) => x.classList.toggle("on", x === b));
+    const other = sec.querySelector(".pa-clean-other");
+    body.hidden = st.kind !== "preset";
+    other.hidden = st.kind === "preset";
+    if (st.kind === "preset") return render();
+    act.hidden = true;
+    // 每次换栏都换一个新容器，事件不会叠加
+    const fresh = document.createElement("div");
+    fresh.className = "pa-clean-other";
+    other.replaceWith(fresh);
+    mountCleanKind(st.kind, fresh);
+  });
   const MB = 1024 * 1024;
   // 估算：勾选的预设一共能让打开快多少（按本次打开实测的压缩比例和速度）
   function estimate(bytes) {
@@ -183,7 +202,7 @@ function mountCleanup(sec) {
       <small>归档：移出预设文件夹，存到服务器的用户文件目录，打开酒馆时不再下载，可随时恢复。</small>`;
   }
   async function render() {
-    if (st.busy) return;
+    if (st.busy || st.kind !== "preset") return;
     try {
       await scan();
     } catch (e) {

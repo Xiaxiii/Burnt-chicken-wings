@@ -490,6 +490,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root[data-theme="matcha"]   { --pa-tint:#f9f1e4; --pa-text:#3a4433; --pa-thread:#5f7a52; --pa-em:#556049; --pa-line:#dfdcbf; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#a85a45; --pa-ok:#5f7a52; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }
 #pa-root[data-theme="goose"]    { --pa-tint:#f9f1e4; --pa-text:#3d4540; --pa-thread:#5f7f68; --pa-em:#59625b; --pa-line:#e3ddd0; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0604a; --pa-ok:#5f7f68; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); }
 #pa-root[data-theme="taro"]     { --pa-tint:#f6eef6; --pa-text:#4a4160; --pa-thread:#7b6fa3; --pa-em:#635a7c; --pa-line:#e3d9ea; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0566a; --pa-ok:#5b7d6a; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(156,145,184,.2); }
+#pa-root[data-theme="dusk"]     { --pa-tint:#fbf1e6; --pa-text:#1f4a55; --pa-thread:#026d81; --pa-em:#3f6670; --pa-line:#ead9cc; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#c4503f; --pa-ok:#3f7d5c; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(2,109,129,.14); }
 #pa-root[data-theme="night"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }
 #pa-root[data-theme]:not([data-theme="follow"]):not([data-theme="night"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }
 
@@ -787,3 +788,27 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-pane-head .pa-dst-wb { flex: 1 1 160px; width: auto; min-width: 0; }
 #pa-root .pa-wbset { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
 #pa-root .pa-wbset .pa-field-wide { grid-column: 1 / -1; }
+
+/* 1.7.0 清理分栏 */
+#pa-root .pa-ckinds { display: flex; justify-content: center; margin: 2px 0 10px; }
+#pa-root .pa-ck-act { position: sticky; bottom: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); background: var(--pa-card-2); }
+#pa-root .pa-ck-act > b { flex: 1 1 auto; }
+#pa-root .pa-ck-group { margin-bottom: 10px; padding-left: 8px; border-left: 2px dashed var(--pa-line); }
+#pa-root .pa-ck-prog { margin-left: 8px; }
+#pa-root .pa-h .pa-chip { margin-left: 8px; font-weight: 400; }
+
+/* 1.7.0 日落海岸：026D81 F87078 FC9804 F9BA32 F3E8AB，上方海蓝薄雾，中段珊瑚粉，下方橘黄余晖，底色奶油 */
+#pa-root[data-theme="dusk"] .pa-shell, #pa-root .pa-paint-dusk {
+    background:
+        var(--pa-canvas),
+        radial-gradient(ellipse 70% 26% at 20% 0%, rgba(2, 109, 129, .34), transparent 72%),
+        radial-gradient(ellipse 46% 20% at 88% 8%, rgba(60, 140, 160, .26), transparent 70%),
+        radial-gradient(ellipse 60% 24% at 76% 38%, rgba(248, 112, 120, .30), transparent 72%),
+        radial-gradient(ellipse 48% 22% at 14% 52%, rgba(248, 140, 140, .26), transparent 70%),
+        radial-gradient(ellipse 70% 22% at 50% 72%, rgba(252, 152, 4, .22), transparent 72%),
+        radial-gradient(ellipse 50% 20% at 88% 86%, rgba(249, 186, 50, .32), transparent 70%),
+        radial-gradient(ellipse 60% 22% at 18% 96%, rgba(249, 186, 50, .26), transparent 72%),
+        radial-gradient(ellipse 54% 26% at 46% 50%, rgba(255, 250, 240, .70), transparent 72%),
+        linear-gradient(175deg, #e2eef0 0%, #f8e7e3 34%, #fde6d2 64%, #f8edc8 100%);
+}
+#pa-root .pa-h .pa-chip { max-width: none; }

@@ -10,6 +10,7 @@ var THEMES = [
   { id: "matcha", fg: "#3a4433", name: "春芽", sub: "绿色水彩", dots: ["#fbeccf", "#7b986c", "#a2b891"], paint: true },
   { id: "goose", fg: "#3d4540", name: "春和", sub: "粉绿水彩", dots: ["#fbded0", "#d1e5d9", "#bdcdb0"], paint: true },
   { id: "taro", fg: "#4a4160", name: "玫瑰芋泥", sub: "粉紫朦胧水彩", dots: ["#f5e8f3", "#cdbddb", "#9c91b8"], paint: true },
+  { id: "dusk", fg: "#1f4a55", name: "日落海岸", sub: "海蓝到橘粉的晚霞", dots: ["#f3e8ab", "#f87078", "#026d81"], paint: true },
   { id: "night", name: "夜雾", sub: "深色", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
 ];
 function readColor(value) {

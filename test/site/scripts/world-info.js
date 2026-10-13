@@ -15,3 +15,5 @@ export function createWorldInfoEntry(_name, data) {
   data.entries[uid] = e;
   return e;
 }
+export const selected_world_info = ["示例世界书"];
+export async function deleteWorldInfo(name) { const i = world_names.indexOf(name); if (i < 0) return false; world_names.splice(i, 1); delete store[name]; return true; }
