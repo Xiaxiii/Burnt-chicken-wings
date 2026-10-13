@@ -113,7 +113,8 @@ function show(tab) {
   }
   updateSavebar();
 }
-function open(tab) {
+function open(tab, sub) {
+  if (sub && tab === "more") settings().moreTab = sub;
   if (!rootEl2) buildRoot();
   dropClean();
   setFocusPreset(currentPresetName());
@@ -153,14 +154,113 @@ function addMenuEntry() {
   item.addEventListener("click", () => open());
   menu.append(item);
 }
+// 1.3.4：扩展页里的设置框，照酒馆扩展的标准样子做：标题带版本号，按钮横排，能检查更新、看更新说明
+var EXT_DIR = (() => {
+  if (BUILD_KIND !== "extension") return null;
+  try {
+    return (/\/third-party\/([^/?#]+)\//.exec(decodeURIComponent(import.meta.url)) || [])[1] || null;
+  } catch {
+    return null;
+  }
+})();
+function changelogSections() {
+  const parts = String(CHANGELOG || "").split(/\n(?=\d+\.\d+(?:\.\d+)?[^\n]*\n)/);
+  return parts.slice(1).map((t) => {
+    const nl = t.indexOf("\n");
+    return { head: t.slice(0, nl).trim(), body: t.slice(nl + 1).trim() };
+  });
+}
+async function extensionType() {
+  try {
+    const r = await fetch("/api/extensions/discover", { headers: ctx().getRequestHeaders?.() || {} });
+    const list = r.ok ? await r.json() : [];
+    return list.find((x) => x.name === `third-party/${EXT_DIR}`)?.type || "local";
+  } catch {
+    return "local";
+  }
+}
+async function extApi(path) {
+  const r = await fetch(`/api/extensions/${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
+    body: JSON.stringify({ extensionName: EXT_DIR, global: await extensionType() === "global" })
+  });
+  if (!r.ok) throw new Error((await r.text().catch(() => "")) || r.statusText || `HTTP ${r.status}`);
+  return r.json();
+}
 function addSettingsEntry() {
   if (document.getElementById("pa-settings")) return;
   const host2 = document.getElementById("extensions_settings2") || document.getElementById("extensions_settings");
   if (!host2) return;
-  const box = el(`<div id="pa-settings" class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>预设裁缝铺</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div>
-        <div class="inline-drawer-content"><p>整理分组、跨预设缝合、思维链检查、开关方案、API 站点。版本 ${VERSION}（${BUILD_KIND === "extension" ? "扩展版" : "脚本版"}）</p>
-        <div class="menu_button" id="pa-open-btn">打开裁缝铺</div></div></div>`);
-  box.querySelector("#pa-open-btn").addEventListener("click", () => open());
+  const log = changelogSections();
+  const kind = BUILD_KIND === "extension" ? "扩展版" : "脚本版";
+  const box = el(`<div id="pa-settings" class="pa-set">
+    <div class="inline-drawer">
+      <div class="inline-drawer-toggle inline-drawer-header">
+        <b>预设裁缝铺 <span class="pa-set-badge">v${esc(VERSION)}</span></b>
+        <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+      </div>
+      <div class="inline-drawer-content">
+        <div class="pa-set-intro">整理分组 · 跨预设缝合 · 思维链检查 · 开关方案 · API 站点</div>
+        <div class="pa-set-btns">
+          <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开裁缝铺</span></div>
+          <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>加载体检</span></div>
+        </div>
+        <hr class="sysHR">
+        <div class="pa-set-row">
+          <span class="pa-set-k">版本</span>
+          <span class="pa-set-v">${esc(VERSION)} · ${kind}</span>
+          ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
+        </div>
+        <div class="pa-set-status" hidden></div>
+        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 3).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
+        <div class="pa-set-foot">也可以从魔棒菜单 →「预设裁缝铺」打开，或者发 <code>/atelier</code>。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
+      </div>
+    </div>
+  </div>`);
+  const status = box.querySelector(".pa-set-status");
+  const say = (html, cls = "") => {
+    status.hidden = false;
+    status.className = "pa-set-status " + cls;
+    status.innerHTML = html;
+  };
+  let busy = false;
+  async function act(a, btn) {
+    if (a === "open") return open();
+    if (a === "health") return open("more", "health");
+    if (a === "reload") return location.reload();
+    if (busy) return;
+    busy = true;
+    const icon = btn.querySelector("i");
+    icon?.classList.add("fa-spin");
+    try {
+      if (a === "check") {
+        say("正在问 GitHub 有没有新版本…");
+        const v = await extApi("version");
+        if (v.isUpToDate) say(`已经是最新版（${esc(VERSION)}）。`, "ok");
+        else say('有新版本。<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>现在更新</span></div>', "new");
+      } else if (a === "update") {
+        say("正在更新…");
+        const v = await extApi("update");
+        if (v.isUpToDate) say("已经是最新版了。", "ok");
+        else say('更新好了，刷新页面就能用上新版。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>', "ok");
+      }
+    } catch (e) {
+      say(`没成功：${esc(e.message).slice(0, 200)}<br>也可以去「扩展管理」里点更新。`, "bad");
+    } finally {
+      icon?.classList.remove("fa-spin");
+      busy = false;
+    }
+  }
+  const handler = (e) => {
+    const b = e.target.closest("[data-a]");
+    if (!b || !box.contains(b)) return;
+    if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    act(b.dataset.a, b);
+  };
+  box.addEventListener("click", handler);
+  box.addEventListener("keydown", handler);
   host2.append(box);
 }
 function registerSlash() {

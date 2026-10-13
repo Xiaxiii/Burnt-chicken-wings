@@ -16,6 +16,7 @@
  "ui/schemes.js",
  "ui/apiview.js",
  "ui/theme.js",
+ "ui/health.js",
  "ui/more.js",
  "ui/style.css",
  "ui/app.js",

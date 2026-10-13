@@ -3,9 +3,10 @@ import fs from "node:fs";
 const order = JSON.parse(fs.readFileSync(new URL("./order.json", import.meta.url)));
 const pkg = JSON.parse(fs.readFileSync(new URL("./package.json", import.meta.url)));
 const VERSION = pkg.version;
+const CHANGELOG = fs.readFileSync(new URL("./CHANGELOG.txt", import.meta.url), "utf8");
 function bundle(kind) {
   let out = `// 预设裁缝铺 ${VERSION}（${kind === "extension" ? "扩展版" : "脚本版"}）— 由 build.mjs 生成，请改 src/ 里的源码\n`;
-  out += `var BUILD_KIND = ${JSON.stringify(kind)};\nvar VERSION = ${JSON.stringify(VERSION)};\n`;
+  out += `var BUILD_KIND = ${JSON.stringify(kind)};\nvar VERSION = ${JSON.stringify(VERSION)};\nvar CHANGELOG = ${JSON.stringify(CHANGELOG)};\n`;
   for (const f of order) {
     const p = new URL(`./src/${f}`, import.meta.url);
     let body = fs.readFileSync(p, "utf8");
@@ -34,7 +35,7 @@ const wrapper = `// 预设裁缝铺 ${VERSION}（脚本版）：把主程序注�
 `;
 const tpl = JSON.parse(fs.readFileSync(new URL("./script-template.json", import.meta.url)));
 tpl.content = wrapper;
-tpl.info = fs.readFileSync(new URL("./CHANGELOG.txt", import.meta.url), "utf8");
+tpl.info = CHANGELOG;
 fs.writeFileSync(new URL(`./dist/预设裁缝铺-脚本版-${VERSION}.json`, import.meta.url), JSON.stringify(tpl, null, 2));
 const man = JSON.parse(fs.readFileSync(new URL("./manifest.json", import.meta.url)));
 man.version = VERSION;

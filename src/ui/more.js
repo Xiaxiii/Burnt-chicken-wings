@@ -1,6 +1,6 @@
 // 1.3.0：方案、API、外观合并成一个「更多」页，上面用小分段切换
 function mountMore(page, app) {
-  const SUBS = [["schemes", "开关方案"], ["api", "API 站点"], ["look", "外观"]];
+  const SUBS = [["schemes", "开关方案"], ["api", "API 站点"], ["look", "外观"], ["health", "加载体检"]];
   page.innerHTML = `
     <div class="pa-more-head"><div class="pa-seg pa-seg-s" role="tablist">${SUBS.map(([k, l]) => `<button data-m="${k}">${l}</button>`).join("")}</div></div>
     ${SUBS.map(([k]) => `<section class="pa-subpage" data-mp="${k}" hidden></section>`).join("")}`;
@@ -16,7 +16,8 @@ function mountMore(page, app) {
       const render = () => { slot.innerHTML = themeCards(); };
       bindThemeCards(slot);
       return { render };
-    })()
+    })(),
+    health: mountHealth(sec("health"))
   };
   let cur = settings().moreTab && subs[settings().moreTab] ? settings().moreTab : "schemes";
   function show(k) {
@@ -30,5 +31,5 @@ function mountMore(page, app) {
     const b = e.target.closest("[data-m]");
     if (b) { show(b.dataset.m); saveSettings(); }
   });
-  return { render: () => show(cur), destroy: () => { subs.schemes.destroy?.(); subs.api.destroy?.(); } };
+  return { render: () => show(subs[settings().moreTab] ? settings().moreTab : cur), destroy: () => { subs.schemes.destroy?.(); subs.api.destroy?.(); } };
 }
