@@ -1,8 +1,12 @@
 {
   "name": "little-tailor-shop",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "private": true,
   "description": "预设裁缝铺：SillyTavern 预设整理、跨预设缝合、思维链检查",
   "type": "module",
-  "scripts": { "build": "node build.mjs" }
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node test/run-core.cjs",
+    "mock": "node test/fixtures/make-zsx-like.cjs > test/site/zsx.json"
+  }
 }

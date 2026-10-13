@@ -2,7 +2,7 @@
 const A = require("./core.cjs");
 const fs = require("fs"), path = require("path");
 const assert = require("assert");
-const load = (f) => new A.Draft("t", JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", f), "utf8")));
+const load = (f) => new A.Draft("t", f === "zsx-like.json" ? require("./fixtures/make-zsx-like.cjs")() : JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", f), "utf8")));
 const by = (d, n) => d.preset.prompts.find((p) => p.name === n);
 const mk = (list, extra = {}) => new A.Draft("p", { prompts: list.map(([id, name, content, x]) => ({ identifier: id, name, content, ...(x || {}) })), prompt_order: [{ character_id: 100001, order: list.map(([id]) => ({ identifier: id, enabled: true })) }], ...extra });
 let n = 0, skipped = 0;
@@ -97,4 +97,68 @@ test("写法分析：Ako 认出初始化条目、问句变量写法；众生相�
   const zs = A.profilePreset(load("zsx-like.json"));
   assert.equal(zs.cotStyle, "text");
 });
+
+// ---------- 1.3.1：Ariadne / 众生相 这类写法（合成数据） ----------
+const L = (t) => (t + "\n").repeat(6).trim();
+const ariLike = () => mk([
+  ["init", "│注入变量│", "{{setvar::笔法:: }}{{setvar::创作模式:: }}{{setvar::x:: }}"],
+  ["s0", "├─文字笔法─┤", "<Writing_Style>"],
+  ["w1", "│📝笔法·来点生活", "[Writing Style: 来点生活]\n" + L("轻描淡写地写生活里的重事，语气松弛，细节具体。") + "\n{{setvar::笔法::- 以[Writing Style: 来点生活]为核心文风，如何落实到当前场景？}}"],
+  ["w2", "│📝笔法·诗意流淌", "[Writing Style: 诗意流淌]\n" + L("句子绵长，意象连缀，情绪像水一样流过去。") + "\n{{setvar::笔法::- 以[Writing Style: 诗意流淌]为核心文风，如何落实到当前场景？}}"],
+  ["w3", "│📝笔法·毫末凝视", "[Writing Style: 毫末凝视]\n" + L("盯住极小的细节，放大，再放大，让情绪藏在物件里。") + "\n{{setvar::笔法::- 以[Writing Style: 毫末凝视]为核心文风，如何落实到当前场景？}}"],
+  ["s1", "├─情感氛围─┤", "</Writing_Style>"],
+  ["m1", "│🐚抢话·积极", "允许替 user 写动作和对白，但重大选择留给 user。\n{{setvar::创作模式::根据抢话规则处理 user 输入}}"],
+  ["c0", "┌─思维链始·线─┐", "思考要求：严格按步骤思考"],
+  ["c1", "│🧩叙事风格", "# Phase1\n{{getvar::笔法}}"],
+  ["c2", "│🧩核心推演", "基于{{getvar::创作模式}}处理输入\n检查 narrative 是否连贯"],
+  ["c3", "└─思维链终─┘", "</thinking>"],
+], {}) ;
+test("思维链区段：名字不带\"思维链\"的步骤也算（思维链始 … 思维链终）", () => {
+  const d = ariLike();
+  const a = A.analyze(d);
+  for (const id of ["c0", "c1", "c2", "c3"]) assert.ok(a.cotIds.includes(id), id);
+  assert.equal(a.coverage.get("w1").level, "var");
+});
+test("单选槽位：夹在同类中间就照样登记问句、换成目标的标题", () => {
+  const d = ariLike();
+  const t = A.inferTarget(d, { after: "w1" }, null);
+  assert.equal(t.shape, "tagname"); assert.equal(t.varName, "笔法"); assert.ok(t.slot.between); assert.ok(t.labelTpl);
+  const plan = A.planItem({ name: "🔸墟里春生", content: "# writing_style: 墟里春生\n魔幻现实主义，生死与时序的边界消融。" }, t, {});
+  assert.ok(plan.content.startsWith("[Writing Style: 墟里春生]\n魔幻"), plan.content);
+  assert.ok(plan.content.endsWith("{{setvar::笔法::- 以[Writing Style: 墟里春生]为核心文风，如何落实到当前场景？}}"), plan.content);
+});
+test("单选槽位：不是同一类的不加入，免得顶掉选好的那项", () => {
+  const d = ariLike();
+  const t = A.inferTarget(d, { after: "w3" }, null);
+  assert.ok(!t.slot.between);
+  const plan = A.planItem({ name: "嬷u·把玩", content: "<把玩>\n角色会无意识地捏 user 身上柔软的地方。\n</把玩>", sections: ["user_image_corrections"] }, t, {});
+  assert.equal(plan.want.shape, "plain");
+  assert.ok(!plan.content.includes("setvar::笔法"));
+  const same = A.planItem({ name: "🔸墟里春生", content: "魔幻现实主义，生死与时序的边界消融，文字克制。", sections: ["WRITING_STYLE"] }, t, {});
+  assert.ok(same.content.includes("setvar::笔法"));
+});
+test("普通英文单词碰巧出现在思维链里不算提到；<标签> 才算", () => {
+  const d = ariLike();
+  const h = A.planHook(d, { after: "m1" }, null, { content: "<narrative>\n叙事要连贯，场景切换要交代清楚，不要跳。\n</narrative>", name: "叙事连贯" });
+  assert.notEqual(h.status, "mention");
+});
+test("注释分区：<!-- START: STORY_TONE --> 里的条目；思维链没提到时，加一步点名整个分区", () => {
+  const d = mk([
+    ["t0", "🔖故事基调", "<!-- START: STORY_TONE -->\n[STORY · TONE]"],
+    ["t1", "🔹高浓活力", "情绪浓烈，角色主动推动局面，不等 user 开口。"],
+    ["t2", "🔖故事基调", "<!-- END: STORY_TONE -->"],
+    ["w0", "🔖文风设定", "<!-- START: WRITING_STYLE -->"],
+    ["w1", "🍂英伦锦叙", "# writing_style: 英伦锦叙\n英式幽默与克制的白描。"],
+    ["w2", "🔖文风设定", "<!-- END: WRITING_STYLE -->"],
+    ["c0", "🌙思考开始", "<thinking>"],
+    ["c1", "✨思维链：溯源", "## Phase 1.看清情绪\n## Phase 2.如何遵循writing_style？"],
+    ["c2", "🌙思考结束", "</thinking>"],
+  ]);
+  assert.equal(A.analyze(d).coverage.get("w1").level, "mention");
+  assert.equal(A.analyze(d).coverage.get("t1").level, "none");
+  const h = A.planHook(d, { after: "t1" }, null, { content: "轻松日常，误会靠性格产生，不靠恶意，大家都挺可爱。", name: "🎼喜笑人间" }, { srcCot: true });
+  assert.equal(h.mode, "text"); assert.equal(h.section, "STORY_TONE"); assert.ok(h.on);
+  assert.ok(h.line.startsWith("## Phase 3."), h.line);
+});
+
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

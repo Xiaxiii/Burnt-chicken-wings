@@ -12,7 +12,12 @@ body{margin:0;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-se
   const ako = await load("ako.json").catch(() => null), zsx = await load("zsx.json");
   const names = [...(ako ? ["Ako1.92-修复版"] : []), "【众生相】Claude-Lite-v1.8"];
   const presets = [...(ako ? [ako] : []), zsx];
-  const live = { preset_settings_openai: names[names.length - 1], ...structuredClone(zsx), chat_completion_source: "custom", custom_url: "https://example.com/v1", custom_model: "claude-x" };
+  // test/site/local/ 里放的真实预设（不进仓库）
+  for (const [n, f] of [["Ariadne_V1.3Beta", "local/ariadne.json"], ["众生相-真实版", "local/zsx-real.json"]]) {
+    const x = await load(f).catch(() => null);
+    if (x) { names.push(n); presets.push(x); }
+  }
+  const live = { preset_settings_openai: names[names.length - 1], ...structuredClone(presets[presets.length - 1]), chat_completion_source: "custom", custom_url: "https://example.com/v1", custom_model: "claude-x" };
   window.__mock = { live, presets, names };
   const listeners = {};
   const ctx = {

@@ -24,9 +24,7 @@ https://github.com/Xiaxiii/Burnt-chicken-wings
 
 ### 脚本版（酒馆助手）
 
-下载 [`dist/`](dist/) 里的 `预设裁缝铺-脚本版-x.x.x.json`，在酒馆助手的脚本库里导入并打开。
-
-两个版本同时装时，只有扩展版会启动，不会打架。
+功能稳定后再出。到时两个版本同时装也没关系，只有扩展版会启动。
 
 ## 打开方式
 
@@ -44,9 +42,11 @@ https://github.com/Xiaxiii/Burnt-chicken-wings
 源码在 `src/`，改完运行：
 
 ```
-node build.mjs          # 生成 index.js（扩展版）和 dist/ 里的脚本版
+node build.mjs          # 生成 index.js（扩展版）；dist/ 里的脚本版暂不提交
 node test/run-core.cjs  # 核心逻辑测试
 ```
+
+仓库里不放任何预设文件。测试用的"众生相风格"小预设是代码生成的纯测试数据（`test/fixtures/make-zsx-like.cjs`）；想用真实预设测试，放进 `test/site/local/`（已在 .gitignore 里）。
 
 不要直接改 `index.js`，它是生成出来的。
 

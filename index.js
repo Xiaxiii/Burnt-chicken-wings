@@ -1,6 +1,6 @@
-// 预设裁缝铺 1.3.0（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.3.1（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.3.0";
+var VERSION = "1.3.1";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -1017,9 +1017,9 @@ function detectShape(content) {
     }
   }
   const lastTop = parsed[parsed.length - 1];
-  if (lastTop && lastTop.v && (lastTop.v.op === "add" || lastTop.v.op === "set") && !isBlankValue(lastTop.v.value) && lastTop.v.value.length <= 60 && !/\n/.test(lastTop.v.value.trim()) && text.slice(lastTop.end).trim() === "" && text.slice(0, lastTop.start).trim().length > 0) {
+  if (lastTop && lastTop.v && (lastTop.v.op === "add" || lastTop.v.op === "set") && !isBlankValue(lastTop.v.value) && lastTop.v.value.length <= 200 && !/\n/.test(lastTop.v.value.trim()) && text.slice(lastTop.end).trim() === "" && text.slice(0, lastTop.start).trim().length > 0) {
     const bodyRaw = text.slice(0, lastTop.start);
-    if (bodyRaw.trim().length > lastTop.v.value.length * 3) {
+    if (bodyRaw.trim().length > Math.min(lastTop.v.value.length * 3, 300)) {
       return {
         shape: "tagname",
         op: lastTop.v.op,
@@ -1090,10 +1090,45 @@ ${b.trim()}
 
 // src/core/cot.js
 var COT_NAME = /cot|思维链|思考|thinking|推理|内在思|reasoning|phase/i;
+// 1.3.0：思维链区段——从"思维链始/思考开始/打开 <thinking>"到"思维链终/思考结束/关上 </thinking>"之间的条目都算思维链
+// （Ariadne 这类预设的思维链步骤名字里不带"思维链"三个字，也没有分组）
+var COT_START = /(思维链|cot|ecot|思考|thinking)\s*[·・:：\-—_]?\s*(始|开始|开头|起|start|begin)/i;
+var COT_END = /(思维链|cot|ecot|思考|thinking)\s*[·・:：\-—_]?\s*(终|结束|收尾|尾|end)/i;
+var cotRegionCache = /* @__PURE__ */ new WeakMap();
+function cotRegion(draft) {
+  const order = draft.order;
+  const sig = order.length + ":" + order.map((o) => (o.enabled === false ? 0 : 1)).join("") + ":" + (draft.history?.length || 0);
+  const hit = cotRegionCache.get(order);
+  if (hit && hit.sig === sig) return hit.set;
+  const set = /* @__PURE__ */ new Set();
+  let cur = null;
+  for (const o of order) {
+    const p = draft.prompt(o.identifier);
+    if (!p) continue;
+    const active = o.enabled !== false;
+    const c = String(p.content || "");
+    // 只认单独占一行的 <thinking> / </thinking>（句子里提到的不算）
+    const opens = (c.match(/^[ \t]*<thinking>[ \t]*$/gim) || []).length, closes = (c.match(/^[ \t]*<\/thinking>[ \t]*$/gim) || []).length;
+    const name = p.name || "";
+    if (!cur) {
+      if (active && (opens > closes || COT_START.test(name)) && !(closes >= opens && COT_END.test(name) && !COT_START.test(name))) cur = [o.identifier];
+      continue;
+    }
+    cur.push(o.identifier);
+    if (active && (closes > opens || COT_END.test(name))) {
+      for (const id of cur) set.add(id);
+      cur = null;
+    }
+  }
+  // 没有结束的区段不算（比如底部的"思维链锁"只开不关）
+  cotRegionCache.set(order, { sig, set });
+  return set;
+}
 function isCotEntry(draft, id, manual = {}) {
   if (manual[id] !== void 0) return !!manual[id];
   const p = draft.prompt(id);
   if (!p) return false;
+  if (cotRegion(draft).has(id)) return true;
   const gid = draft.groupOf(id);
   const gname = gid ? draft.group(gid)?.name || "" : "";
   const name = p.name || "";
@@ -1112,6 +1147,42 @@ function exposedTags(content) {
   for (const m of body.matchAll(/<([A-Za-z_][\w-]{2,40})(?:[：:][^>\n]{0,40})?>/g)) tags.add(m[1].toLowerCase());
   for (const m of body.matchAll(/^\s*(?:#+|\[)\s*([A-Za-z_][\w-]{3,40})/gm)) tags.add(m[1].toLowerCase());
   return tags;
+}
+// 1.3.0：结构标记——单独一行的 <标签>/</标签>，以及 <!-- START: X --> / <!-- END: X --> 这种注释分区
+function structureMarks(content) {
+  const text = String(content || "").replace(/\{\{\/\/[\s\S]*?\}\}/g, "").replace(/<!--(?!\s*(?:START|BEGIN|END)\s*[:：])[\s\S]*?-->/gi, "");
+  const out = [];
+  const re = /<!--\s*(START|BEGIN|END)\s*[:：]\s*([^>]*?)\s*-->|^[ \t]*<(\/?)([^\s>\/!][^>\n]{0,40})>[ \t]*$/gim;
+  for (const m of text.matchAll(re)) {
+    if (m[1]) {
+      const name = m[2].trim().split(/\s+/)[0];
+      if (name) out.push({ open: !/^END$/i.test(m[1]), name, key: name.toLowerCase(), comment: true });
+    } else {
+      const name = m[4].split(/[：:\s]/)[0];
+      if (name) out.push({ open: !m[3], name, key: name.toLowerCase(), comment: false });
+    }
+  }
+  return out;
+}
+/** 按顺序扫一遍，返回每个外层区段 {name,key,openId,closeId,openIdx,closeIdx} */
+function structureSections(draft, { activeOnly = true, skip = null } = {}) {
+  const stack = [];
+  const out = [];
+  draft.order.forEach((o, i) => {
+    if (activeOnly && !draft.isActive(o.identifier)) return;
+    if (skip && skip.has(o.identifier)) return;
+    for (const mk of structureMarks(draft.prompt(o.identifier)?.content)) {
+      if (mk.open) stack.push({ ...mk, openId: o.identifier, openIdx: i });
+      else {
+        const k = stack.map((x) => x.key).lastIndexOf(mk.key);
+        if (k >= 0) {
+          const op = stack.splice(k, 1)[0];
+          if (op.openId !== o.identifier) out.push({ name: op.name, key: op.key, comment: op.comment, openId: op.openId, closeId: o.identifier, openIdx: op.openIdx, closeIdx: i });
+        }
+      }
+    }
+  });
+  return out;
 }
 // 1.3.0：条目的"称呼"——思维链靠文字点名时，会用这些字样提到它（中文标签、[方括号标题]、条目短名）
 var CJK = /[㐀-鿿]/;
@@ -1137,6 +1208,15 @@ function entryHandles(p) {
     for (const [a, b] of [["「", "」"], ["【", "】"], ["<", ">"], ["[", "]"], ["《", "》"]]) out.push({ needle: a + label + b, ref: a + label + b, cjk: true });
   }
   return out;
+}
+/** 思维链原文有没有"点名"这个标签：<tag>、[tag]、`tag`、「tag」都算；带下划线的标识符（writing_style）直接出现也算。
+ *  普通英文单词（narrative、style）只是碰巧出现在句子里，不算。 */
+function mentionsTag(text, key) {
+  const t = String(key || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!t) return false;
+  if (new RegExp(`[<\\[\`「【]\\s*\\/?${t}(?![\\w-])`, "i").test(text)) return true;
+  if (/[_-]/.test(key) && new RegExp(`(^|[^\\w-])${t}(?![\\w-])`, "i").test(text)) return true;
+  return false;
 }
 function cotPlainText(content) {
   return String(content || "").replace(/\{\{(?:get|set|add)(?:global)?var::[^{}]*\}\}/gi, "");
@@ -1211,8 +1291,7 @@ function analyze(draft, manual = {}) {
     const tags = [...tagsOf(id)].filter((t) => !IGNORE_TAGS.has(t));
     for (const c2 of cotIds) {
       if (c2 === id) continue;
-      const ms = cotMentions.get(c2);
-      const hit = tags.find((t) => ms.has(t));
+      const hit = tags.find((t) => mentionsTag(cotTexts.get(c2), t));
       if (hit) return { cot: c2, via: hit };
     }
     // 中文：思维链原文里直接写到了这条的标签 / [标题] / 名字
@@ -1226,29 +1305,23 @@ function analyze(draft, manual = {}) {
     }
     return null;
   };
-  // 1.1.3：外层结构标签。像 <text_style> 这种由前一个条目单独开一行、后面条目单独一行关闭的标签，
-  // 中间的条目（例如缝进来的文风）本身不带标签，旧版会一律判成"没提到"。
+  // 外层结构标签/注释分区。像 <text_style>、<!-- START: WRITING_STYLE --> 这种由前一个条目开、后面条目关的区段，
+  // 中间的条目（例如缝进来的文风）本身不带标签，思维链提到这个区段名就算想到了它。
   const enclosing = /* @__PURE__ */ new Map();
   {
-    const stack = [];
+    const secs = structureSections(draft, { skip: cotSet });
+    const idxOf = new Map(draft.order.map((o, i) => [o.identifier, i]));
     for (const id of active) {
-      enclosing.set(id, [...new Set(stack)]);
-      if (cotSet.has(id)) continue;
-      const text = String(draft.prompt(id)?.content || "").replace(/\{\{\/\/[\s\S]*?\}\}/g, "").replace(/<!--[\s\S]*?-->/g, "");
-      for (const m of text.matchAll(/^[ \t]*<(\/?)([A-Za-z_][\w-]{2,40})(?:[：:][^>\n]{0,40})?>[ \t]*$/gm)) {
-        const name = m[2].toLowerCase();
-        if (!m[1]) stack.push(name);
-        else {
-          const k = stack.lastIndexOf(name);
-          if (k >= 0) stack.splice(k, 1);
-        }
-      }
+      const i = idxOf.get(id);
+      enclosing.set(id, secs.filter((x) => x.openIdx < i && i < x.closeIdx).sort((a2, b2) => a2.openIdx - b2.openIdx));
     }
   }
   const findEnclosingMention = (id) => {
-    const tags = (enclosing.get(id) || []).filter((t) => !IGNORE_TAGS.has(t));
-    for (let i = tags.length - 1; i >= 0; i--) {
-      for (const c2 of cotIds) if (cotMentions.get(c2)?.has(tags[i])) return { cot: c2, via: `${tags[i]}（外层标签）` };
+    const secs = (enclosing.get(id) || []).filter((x) => !IGNORE_TAGS.has(x.key));
+    for (let i = secs.length - 1; i >= 0; i--) {
+      for (const c2 of cotIds) {
+        if (mentionsTag(cotTexts.get(c2), secs[i].key) || CJK.test(secs[i].name) && cotTexts.get(c2).includes(secs[i].name)) return { cot: c2, via: `${secs[i].name}（外层分区）` };
+      }
     }
     return null;
   };
@@ -2243,17 +2316,31 @@ function mostCommon(list) {
   return best;
 }
 var HEADER_RE = /^\s*(#{1,4})\s*([A-Za-z_][\w-]*)\s*([：:])\s*(.+)$/;
-function referenceIds(draft, where, groupId) {
+// [Writing Style: 来点生活] 这种方括号标题（Ariadne）
+var BRACKET_RE = /^\s*(\[([A-Za-z][A-Za-z _-]{1,30}?)\s*([：:])\s*)([^\]\n]{1,40})\]\s*$/;
+/** 插入位置所在的最内层区段（标签或注释分区） */
+function sectionAt(draft, idx) {
+  const secs = structureSections(draft).filter((x) => x.openIdx < idx && idx <= x.closeIdx);
+  return secs.sort((a, b) => b.openIdx - a.openIdx)[0] || null;
+}
+/** 参照范围：分组成员 / 前后几条；如果落在某个区段里，就只看同一区段（Ariadne 没有分组，靠区段区分基调、笔法、氛围） */
+function neighborhood(draft, where, groupId, radius = 6) {
   const order = draft.order.map((o) => o.identifier);
-  let ids;
-  if (groupId) {
-    ids = order.filter((id) => draft.groupOf(id) === groupId);
-  } else {
-    let idx = order.length;
-    if (where.after) idx = order.indexOf(where.after) + 1;
-    else if (where.before) idx = order.indexOf(where.before);
-    ids = order.slice(Math.max(0, idx - 6), idx + 6);
+  const idx = insertionIndex(draft, where);
+  let ids = groupId ? order.filter((id) => draft.groupOf(id) === groupId) : order.slice(Math.max(0, idx - radius), idx + radius);
+  const sec = sectionAt(draft, idx);
+  if (sec) {
+    const inSec = (groupId ? ids : order).filter((id) => {
+      const i = order.indexOf(id);
+      return i > sec.openIdx && i < sec.closeIdx;
+    });
+    if (inSec.length >= 2 || !groupId) ids = inSec.length ? inSec : ids;
+    if (!groupId && ids.length > radius * 2) ids = [...ids].sort((x, y) => Math.abs(order.indexOf(x) - idx) - Math.abs(order.indexOf(y) - idx)).slice(0, radius * 2);
   }
+  return { ids, idx, sec };
+}
+function referenceIds(draft, where, groupId) {
+  const { ids } = neighborhood(draft, where, groupId);
   return ids.filter((id) => {
     const p = draft.prompt(id);
     if (!p || draft.isMarker(id)) return false;
@@ -2312,6 +2399,40 @@ function inferTarget(draft, where, groupId) {
       t.headerTpl = { hashes, word, sep };
     }
   }
+  // 单选槽位（好几条 setvar 同一个变量）：新条目要不要加入，得看它是不是同一类——见 planItem 里的 slotAllowed
+  if (shape === "tagname" && t.varName && t.op === "set") {
+    const order = draft.order.map((o) => o.identifier);
+    const idx = insertionIndex(draft, where);
+    const isSep = (id) => String(draft.prompt(id)?.content || "").replace(/\{\{[^{}]*\}\}/g, "").replace(/<[^>\n]*>/g, "").trim().length < 20;
+    const inSlot = (id) => {
+      const s2 = detectShape(draft.prompt(id)?.content);
+      return s2.shape === "tagname" && s2.varName === t.varName;
+    };
+    let prev = null, next = null;
+    for (let i = idx - 1; i >= 0; i--) if (!isSep(order[i])) { prev = order[i]; break; }
+    for (let i = idx; i < order.length; i++) if (!isSep(order[i])) { next = order[i]; break; }
+    t.slot = { varName: t.varName, between: !!(prev && next && inSlot(prev) && inSlot(next)), section: neighborhood(draft, where, groupId).sec?.key || null };
+  }
+  // 登记的是一句问句、而且问句里带着各自的名字（Ariadne：- 以[Writing Style: 来点生活]为核心文风…）→ 记下模板，新条目照样换名字
+  if (shape === "tagname" && t.varName) {
+    const tpls = [];
+    for (const x of same.filter((y) => y.s.varName === t.varName)) {
+      const lab = x.s.label || "";
+      if (lab.length < 12) continue;
+      const nm = slotName(draft.prompt(x.id)?.name);
+      if (nm && lab.includes(nm)) tpls.push(lab.split(nm).join("{名字}"));
+    }
+    const tpl = mostCommon(tpls);
+    if (tpl && tpls.filter((x) => x === tpl).length >= 2) t.labelTpl = tpl;
+  }
+  if (!t.tagTpl && !t.headerTpl && !t.ownTag) {
+    const bs = bodies.map((b) => BRACKET_RE.exec(String(b).trim().split("\n")[0] || "")).filter(Boolean);
+    if (bs.length >= 2 && bs.length >= bodies.length / 2) {
+      const word = mostCommon(bs.map((m) => m[2]));
+      const m0 = bs.find((m) => m[2] === word);
+      t.headerTpl = { kind: "bracket", word, prefix: m0[1] };
+    }
+  }
   if (t.varName) {
     const key = t.varName;
     for (const id of draft.order.map((o) => o.identifier)) {
@@ -2357,8 +2478,22 @@ function describeTarget(t) {
   if (t.shape === "tagname") return `正文直写，末尾登记名字到变量「${t.varName}」`;
   return "直接写正文，不用变量";
 }
+/** 条目名里真正的"名字"部分：│📝笔法·来点生活 → 来点生活；🍂英伦锦叙（短）→ 英伦锦叙 */
+function slotName(name) {
+  const c2 = cleanLabel(name || "");
+  const parts = c2.split(/[·・:：|｜]/).map((x) => x.trim()).filter(Boolean);
+  return (parts[parts.length - 1] || c2).trim();
+}
 function addHeader(body, tpl, label) {
+  if (tpl.kind === "bracket") {
+    const lines2 = String(body).trim().split("\n");
+    const head = `${tpl.prefix}${label}]`;
+    if (BRACKET_RE.test(lines2[0] || "") || HEADER_RE.test(lines2[0] || "")) lines2[0] = head;
+    else lines2.unshift(head);
+    return lines2.join("\n");
+  }
   const lines = String(body).split("\n");
+  if (BRACKET_RE.test(lines[0] || "")) lines.shift();
   if (HEADER_RE.test(lines[0] || "")) {
     lines[0] = `${tpl.hashes} ${tpl.word}${tpl.sep} ${label}`;
     return lines.join("\n");
@@ -2393,9 +2528,18 @@ function explainConversion(s, want) {
 }
 function planItem(src, target, choice = {}) {
   const s = detectShape(src.content);
-  const label = (choice.label ?? s.label ?? shortLabel(src.name)).trim();
+  // 单选槽位守卫：加入槽位 = 开它就会顶替同类里开着的那一条。只有"明显是同一类"才自动加入：
+  // 夹在同一槽位的两条中间，或者它在来源里就待在同名区段（WRITING_STYLE ↔ <Writing_Style>）
+  const normKey = (k) => String(k || "").toLowerCase().replace(/[\s_\-·]/g, "");
+  const slotAllowed = !target.slot || choice.shape === "tagname" || target.slot.between || !!target.slot.section && (src.sections || []).some((k) => normKey(k) === normKey(target.slot.section));
+  const targetShape = !slotAllowed && !choice.shape ? "plain" : target.shape;
+  const usesTpl = target.labelTpl && (choice.shape || targetShape) === "tagname";
+  // 短名字：用于标签/标题/模板；label：最终登记进变量的内容（有模板时是一句问句）
+  const regLike = (choice.shape || targetShape) === "tagname" && !target.labelTpl;
+  const shortName = (choice.label ?? (regLike ? s.label ?? shortLabel(src.name) : slotName(src.name))).trim();
+  const label = usesTpl ? target.labelTpl.split("{名字}").join(shortName) : shortName;
   const want = {
-    shape: choice.shape || target.shape,
+    shape: choice.shape || targetShape,
     varName: choice.varName ?? target.varName,
     op: choice.op || target.op || "add",
     scope: target.scope || "local",
@@ -2405,11 +2549,11 @@ function planItem(src, target, choice = {}) {
   let body = s.shape === "init" || s.shape === "empty" ? String(src.content || "") : s.body;
   const notes = [];
   const hasOwnTag = !!outerTag(body);
-  const canTag = !!(target.tagTpl || target.headerTpl || target.ownTag);
+  const canTag = !!(target.tagTpl || target.headerTpl && (target.headerTpl.kind !== "bracket" || slotAllowed) || target.ownTag);
   const ownBodyTag = /^\s*<([^>\/\n!]{1,30})>[\s\S]*<\/\1>\s*$/.test(body);
   const useTag = choice.useTag ?? (canTag && (target.ownTag ? !ownBodyTag : !hasOwnTag || target.tagTpl && outerTag(body)?.tag !== target.tagTpl.tag));
   if (useTag && target.ownTag) {
-    const tagName = cleanLabel(label) || label;
+    const tagName = cleanLabel(shortName) || shortName;
     if (!ownBodyTag && tagName) {
       body = `<${tagName}>
 ${String(body).trim()}
@@ -2417,23 +2561,31 @@ ${String(body).trim()}
       notes.push(`目标这里每条正文都用自己名字的标签包着，已经给它套上 <${tagName}>`);
     }
   } else if (useTag && target.tagTpl) {
-    body = applyOuterTag(body, target.tagTpl, label);
-    notes.push(`外层套上目标用的 <${target.tagTpl.tag}${target.tagTpl.sep}${label}> 标签`);
+    body = applyOuterTag(body, target.tagTpl, shortName);
+    notes.push(`外层套上目标用的 <${target.tagTpl.tag}${target.tagTpl.sep}${shortName}> 标签`);
+  } else if (useTag && target.headerTpl?.kind === "bracket") {
+    body = addHeader(body, target.headerTpl, shortName);
+    notes.push(`开头用目标同类条目的标题格式：「${target.headerTpl.prefix}${shortName}]」`);
   } else if (useTag && target.headerTpl) {
-    body = addHeader(body, target.headerTpl, label);
-    notes.push(`开头加上目标用的「${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${label}」标题`);
+    body = addHeader(body, target.headerTpl, shortName);
+    notes.push(`开头用目标同类条目的标题格式：「${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}」`);
+  }
+  if (target.slot && !slotAllowed && !choice.shape) {
+    notes.push(`附近是单选槽位「${target.slot.varName}」（几条选一条，开了会顶掉同类里开着的那条）。这条看起来不是同一类，所以没有登记进去，免得顶掉你选好的那一项；确实是同类的话，在「高级」里把写法改成「正文直写＋登记名字」`);
   }
   const keepExtras = choice.keepExtras ?? false;
   const extras = keepExtras ? s.extras || [] : [];
   if ((s.extras || []).length && !keepExtras) notes.push(`来源里附带的 ${s.extras.length} 个额外宏（比如它自己的思维链片段）没带过来`);
   const content = buildContent(body, want, { label, extras });
-  notes.unshift(...explainConversion(s, want));
+  if (want.shape === "tagname" && target.labelTpl) {
+    notes.unshift(`目标这里同类条目都往变量「${want.varName}」登记一句问句（${want.op === "set" ? "setvar：同时开几条只认最后一条，相当于单选" : "addvar：开着的会接在一起"}），思维链会读它。已经照样登记：${label}`);
+  } else notes.unshift(...explainConversion(s, want));
   const warnings = [];
   if (want.varName && (want.shape === "wrap" || want.shape === "tagname")) {
     if (!target.readerIds.length && want.varName === target.varName) warnings.push(`目标预设里没有条目读取「${want.varName}」，缝进去可能不生效`);
     if (want.varName !== target.varName) warnings.push(`你改成了新变量「${want.varName}」，记得让某个条目用 {{getvar::${want.varName}}} 读取它`);
   }
-  return { content, label, sourceShape: s, want, notes, warnings };
+  return { content, label: shortName, question: label, sourceShape: s, want, notes, warnings, slotAllowed };
 }
 function buildPrompt(draft, src, plan, target, { keepSourceInjection = false } = {}) {
   const ref = target.sampleId ? draft.prompt(target.sampleId) : null;
@@ -2500,21 +2652,9 @@ function insertionIndex(draft, where) {
   return order.length;
 }
 function enclosingTagsAt(draft, idx, cotSet, skipId) {
-  const stack = [];
-  const order = draft.order.map((o) => o.identifier).slice(0, idx);
-  for (const id of order) {
-    if (id === skipId || cotSet.has(id) || !draft.isActive(id)) continue;
-    const text = String(draft.prompt(id)?.content || "").replace(/\{\{\/\/[\s\S]*?\}\}/g, "").replace(/<!--[\s\S]*?-->/g, "");
-    for (const m of text.matchAll(/^[ \t]*<(\/?)([A-Za-z_][\w-]{2,40})(?:[：:][^>\n]{0,40})?>[ \t]*$/gm)) {
-      const name = m[2].toLowerCase();
-      if (!m[1]) stack.push(name);
-      else {
-        const k = stack.lastIndexOf(name);
-        if (k >= 0) stack.splice(k, 1);
-      }
-    }
-  }
-  return [...new Set(stack)];
+  const skip = new Set(cotSet);
+  if (skipId) skip.add(skipId);
+  return structureSections(draft, { skip }).filter((x) => x.openIdx < idx && idx <= x.closeIdx).sort((a, b) => a.openIdx - b.openIdx);
 }
 function looksLikeQuestion(v) {
   const s = String(v || "").trim();
@@ -2532,6 +2672,20 @@ function lineAround(text, needle) {
   if (!prefix.trim() && /^#/.test(line.trim())) prefix = "- ";
   return { ls, le, line, prefix };
 }
+/** 思维链里"下一步"的写法：## Phase 11. → ## Phase 12.；1. → 2.；- → - */
+function nextStep(text) {
+  const lines = String(text || "").split("\n").map((l) => l.replace(/\s+$/, "")).filter((l) => l.trim() && !/^\s*<\/?[^>]+>\s*$/.test(l));
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const l = lines[i];
+    let m = /^(\s*#+\s*(?:Phase|Step|STEP|步骤)\s*)(\d+)(\s*[.、:：]\s*)/.exec(l);
+    if (m) return { prefix: `${m[1]}${Number(m[2]) + 1}${m[3]}` };
+    m = /^(\s*)(\d+)([.、)]\s*)/.exec(l);
+    if (m) return { prefix: `${m[1]}${Number(m[2]) + 1}${m[3]}` };
+    m = /^(\s*[-*•·]\s+)/.exec(l);
+    if (m) return { prefix: m[1] };
+  }
+  return null;
+}
 function mainCotOf(draft, cotIds) {
   // 正文最长、不是"开始/结束"这种短壳子的那条
   return [...cotIds].sort((x, y) => String(draft.prompt(y)?.content || "").length - String(draft.prompt(x)?.content || "").length)[0];
@@ -2545,7 +2699,7 @@ function mainCotOf(draft, cotIds) {
  * @param item {content, label, name, selfId?}
  * @param opts.srcCot 来源预设里，这条是否被思维链读到/提到（决定默认要不要挂）
  */
-function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null } = {}) {
+function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null, allowSlot = true } = {}) {
   const content = String(item.content || "");
   const bodyText = String(detectShape(content).body || content).replace(/\{\{[^{}]*\}\}/g, "");
   if (bodyText.trim().length < 20) return { status: "skip", on: false, text: "内容太短（像分隔条或开关），不用挂" };
@@ -2571,9 +2725,9 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   const mentions = /* @__PURE__ */ new Map();
   for (const c2 of a.cot) mentions.set(c2.id, new Set(c2.mentions));
   const tags = [...exposedTags(content)].filter((t) => !IGNORE_TAGS.has(t));
-  for (const [cid, ms] of mentions) {
+  for (const [cid] of mentions) {
     if (cid === item.selfId) continue;
-    const hit = tags.find((t) => ms.has(t));
+    const hit = tags.find((t) => mentionsTag(cotPlainText(draft.prompt(cid)?.content), t));
     if (hit) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」里直接点到了 <${hit}>，会被想到` };
   }
   const myHandles = entryHandles({ name: item.name, content }).filter((h) => h.cjk);
@@ -2582,12 +2736,16 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
     const h = myHandles.find((x) => t.includes(x.needle));
     if (h) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」里直接写到了 ${h.ref}，会被想到` };
   }
-  const outer = enclosingTagsAt(draft, idx, cotSet, item.selfId).filter((t) => !IGNORE_TAGS.has(t));
+  const outer = enclosingTagsAt(draft, idx, cotSet, item.selfId).filter((t) => !IGNORE_TAGS.has(t.key));
+  const secLabel = (w) => w.comment ? `「${w.name}」分区` : `<${w.name}>`;
   for (let i = outer.length - 1; i >= 0; i--) {
-    for (const [cid, ms] of mentions) if (cid !== item.selfId && ms.has(outer[i])) return { status: "mention", on: false, text: `会落在 <${outer[i]}> 里面，思维链「${draft.prompt(cid)?.name}」会分析这个标签，不用再挂` };
+    for (const [cid] of mentions) {
+      if (cid === item.selfId) continue;
+      if (mentionsTag(cotPlainText(draft.prompt(cid)?.content), outer[i].key) || CJK.test(outer[i].name) && cotPlainText(draft.prompt(cid)?.content).includes(outer[i].name)) return { status: "mention", on: false, text: `会落在 ${secLabel(outer[i])} 里面，思维链「${draft.prompt(cid)?.name}」会照着这个区段想，不用再挂` };
+    }
   }
   // ---- 找挂的位置：离得最近、已经和思维链连上的邻居
-  const near = (gid ? order.filter((id) => draft.groupOf(id) === gid) : order.slice(Math.max(0, idx - 10), idx + 10)).filter((id) => id !== item.selfId && !cotSet.has(id));
+  const near = neighborhood(draft, where, gid, 10).ids.filter((id) => id !== item.selfId && !cotSet.has(id));
   const dist = (id) => Math.abs(order.indexOf(id) - idx);
   near.sort((x, y) => dist(x) - dist(y));
   let pick = null;
@@ -2638,15 +2796,22 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   if (pick?.kind === "text" || !pick && !varCots.length) {
     const cotId = pick?.cotId || mainCotOf(draft, cotIds);
     const cot = String(draft.prompt(cotId)?.content || "");
-    const info = pick ? lineAround(cot, pick.needle) : null;
-    const prefix = info?.prefix ?? "- ";
-    const question = wantQ ?? (reuse ? reuse.value.trim() : `${myRef}：本段要怎么落实？具体体现在哪里？`);
     const cotName = draft.prompt(cotId)?.name || cotId;
+    const info = pick ? lineAround(cot, pick.needle) : null;
+    // 没有点到邻居、但落在一个思维链没提到的区段里（众生相的 STORY_TONE）：点名整个区段，以后这个区段里的条目都会被想到
+    const sec = !pick ? outer[outer.length - 1] : null;
+    const ref = sec ? sec.name : myRef;
+    const question = wantQ ?? (reuse ? reuse.value.trim() : sec ? `如何落实 ${sec.name} 里开着的内容？具体体现在哪里？` : `${myRef}：本段要怎么落实？具体体现在哪里？`);
+    const step = info ? null : nextStep(cot);
+    const prefix = info?.prefix ?? step?.prefix ?? "- ";
     return {
-      ...common, mode: "text", cotId, needle: pick?.needle || null, prefix, question, line: prefix + question.replace(/\n+/g, " "), varName: null,
+      ...common, mode: "text", cotId, needle: pick?.needle || null, prefix, question, line: prefix + question.replace(/\n+/g, " "), varName: null, section: sec?.name || null,
+      on: common.on || !!sec && !!srcCot,
       text: pick
         ? `${why}目标的思维链靠文字点名、不读变量。「${cotName}」里提到了附近的 ${pick.ref}，就在那一行后面也点一下这条`
-        : `${why}目标的思维链靠文字点名，附近条目也没被点到；可以在「${cotName}」末尾加一行点名`
+        : sec
+          ? `${why}目标的思维链靠文字点名，但没提到 ${secLabel(sec)}。可以在「${cotName}」里加一步点名整个区段——以后这个区段里开着的条目都会被想到`
+          : `${why}目标的思维链靠文字点名，附近条目也没被点到；可以在「${cotName}」末尾加一行点名`
     };
   }
   // ---- 目标思维链读变量
@@ -2656,7 +2821,19 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   }
   const question = wantQ ?? (reuse ? reuse.value.trim() : `### 根据${myRef}，本段要怎么落实？具体体现在哪里？`);
   const cotName = draft.prompt(pick.cotId)?.name || pick.cotId;
-  const anchorWriters = pick.anchorVar ? a.vars.get((pick.scope === "global" ? "全局:" : "") + pick.anchorVar)?.writers || [] : [];
+  const anchorKey = (pick.scope === "global" ? "全局:" : "") + pick.anchorVar;
+  const anchorWriters = pick.anchorVar ? [...new Set([...(a.vars.get(anchorKey)?.writers || []), ...draft.order.map((o) => o.identifier).filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.name === pick.anchorVar && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)))])] : [];
+  // 单选槽位：附近好几条都 setvar 同一个变量（Ariadne 的 叙事风格1），新条目也登记进这个槽位，照邻居的问句换个名字
+  if (pick.op === "set" && anchorWriters.length >= 2 && !wantVar && allowSlot) {
+    const nbr = listVarMacros(draft.prompt(pick.neighbor)?.content || "").filter((m) => m.name === pick.anchorVar && m.op === "set" && !isBlankValue(m.value)).pop();
+    const nbrName = slotName(draft.prompt(pick.neighbor)?.name);
+    const mine = slotName(item.name);
+    const q2 = wantQ ?? (reuse ? reuse.value.trim() : nbr && nbrName && nbr.value.includes(nbrName) ? nbr.value.trim().split(nbrName).join(mine) : question);
+    return {
+      ...common, clash: false, mode: "slot", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, question: q2,
+      text: `${why}附近 ${anchorWriters.length} 条都往变量「${pick.anchorVar}」里登记问句（setvar，同时开几条只认最后一条，相当于单选），由「${cotName}」读出，照样登记`
+    };
+  }
   if (pick.op === "add" && anchorWriters.length >= 2 && !wantVar) {
     return {
       ...common, clash: false, mode: "append", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, lead: pick.lead, question,
@@ -2679,6 +2856,8 @@ function contentWithHook(content, hook) {
   c = c.replace(/\s+$/, "");
   if (hook.mode === "text") return c;
   const g = hook.scope === "global" ? "global" : "";
+  if (hook.mode === "slot") return `${c}
+{{set${g}var::${hook.varName}::${hook.question}}}`;
   if (hook.mode === "append") return `${c}
 {{add${g}var::${hook.varName}::${hook.lead ?? "\n"}${hook.question}}}`;
   return `${c}
@@ -2720,7 +2899,7 @@ function insertLine(text, needle, line) {
 function applyHook(draft, hook) {
   const cot = draft.prompt(hook.cotId);
   if (!cot) return { ok: false };
-  if (hook.mode === "append") return { ok: true, cotName: cot.name, inited: false };
+  if (hook.mode === "append" || hook.mode === "slot") return { ok: true, cotName: cot.name, inited: false }; // 思维链本来就读这个变量
   if (hook.mode === "text") {
     cot.content = insertLine(cot.content, hook.needle, hook.line);
     return { ok: true, cotName: cot.name, inited: false };
@@ -2770,40 +2949,36 @@ function profilePreset(draft) {
   // 变量用法
   const perEntry = [];
   const shared = [];
+  // 写同一个变量的条目要把关着的也算上（单选槽位一般只开一条）
+  const writersAll = /* @__PURE__ */ new Map();
+  for (const o of draft.order) {
+    if (cotSet.has(o.identifier)) continue;
+    for (const m of listVarMacros(P(o.identifier)?.content || "")) {
+      if (!m.name || !(m.op === "set" || m.op === "add") || isBlankValue(m.value) || m.depth !== 0) continue;
+      const k = (m.scope === "global" ? "全局:" : "") + m.name;
+      if (!writersAll.has(k)) writersAll.set(k, []);
+      const list = writersAll.get(k);
+      if (!list.includes(o.identifier)) list.push(o.identifier);
+    }
+  }
   for (const [key, v] of a.vars) {
     const name = key.replace(/^全局:/, "");
     const cotReaders = v.readers.filter((r) => cotSet.has(r));
-    const writers = v.writers.filter((w) => !cotSet.has(w));
+    const writers = writersAll.get(key) || [];
     if (!writers.length) continue;
     if (writers.length === 1 && cotReaders.length) perEntry.push(name);
     if (writers.length >= 2) {
       const ops = writers.flatMap((w) => listVarMacros(P(w)?.content || "").filter((m) => m.name === name && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)).map((m) => m.op));
       const shapes = writers.map((w) => detectShape(P(w)?.content).shape);
-      shared.push({ name, writers, op: mostCommon(ops) || "set", wrap: shapes.filter((s) => s === "wrap").length >= writers.length / 2, cotReads: cotReaders.length > 0, readers: v.readers });
+      const op = mostCommon(ops) || "set";
+      shared.push({ name, writers, op, wrap: shapes.filter((s) => s === "wrap").length >= writers.length / 2, slot: op === "set" && cotReaders.length > 0 && shapes.filter((s) => s === "tagname").length >= writers.length / 2, cotReads: cotReaders.length > 0, readers: v.readers });
     }
   }
+  shared.sort((x, y) => (y.slot ? 1 : 0) - (x.slot ? 1 : 0) || y.writers.length - x.writers.length);
   const usesGlobal = [...a.vars.keys()].some((k) => k.startsWith("全局:"));
   const initId = findInitEntry(draft);
-  // 外层结构标签（比如 <text_style> 由一条开、另一条关）
-  const wrappers = [];
-  {
-    const stack = [];
-    for (const id of active) {
-      if (cotSet.has(id)) continue;
-      const text = String(P(id)?.content || "").replace(/\{\{\/\/[\s\S]*?\}\}/g, "").replace(/<!--[\s\S]*?-->/g, "");
-      for (const m of text.matchAll(/^[ \t]*<(\/?)([^\s>\/!][^>\n]{0,30})>[ \t]*$/gm)) {
-        const name = m[2].split(/[：:\s]/)[0];
-        if (!m[1]) stack.push({ name, id });
-        else {
-          const k = stack.map((x) => x.name).lastIndexOf(name);
-          if (k >= 0) {
-            const o = stack.splice(k, 1)[0];
-            if (o.id !== id) wrappers.push({ name, openId: o.id, closeId: id });
-          }
-        }
-      }
-    }
-  }
+  // 外层结构区段（<text_style> 这种标签，或 <!-- START: STORY_TONE --> 这种注释分区）
+  const wrappers = structureSections(draft, { skip: cotSet }).map((w) => ({ ...w, label: w.comment ? `「${w.name}」分区` : `<${w.name}>` }));
   // 特殊触发
   const depth = active.filter((id) => P(id)?.injection_position === 1);
   const gen = active.filter((id) => (P(id)?.injection_trigger || []).length);
@@ -2819,15 +2994,17 @@ function profilePreset(draft) {
     const how = cotStyle === "vars" ? "主要靠变量把条目读进来（{{getvar}}）" : cotStyle === "text" ? "靠文字点名——在思维链里写到条目的名字或标签，不读变量" : "一部分靠变量读，一部分靠文字点名";
     lines.push(`思维链 ${a.cotIds.length} 条（${namesOf(draft, a.cotIds, 2)}），${how}。`);
   }
-  if (perEntry.length >= 2) lines.push(`条目各自登记一个问句变量，再由思维链逐个读出（比如 ${perEntry.slice(0, 3).join("、")}）——缝进来的条目最好也照这样挂上。`);
   for (const s of shared.slice(0, 4)) {
-    if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 往「${s.name}」里追加思维链片段，思维链统一读它。`);
+    if (s.slot) lines.push(`${s.writers.length} 条都往「${s.name}」里登记一句问句（setvar：同时开几条只认最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读出——缝进来的同类条目会照样登记。`);
+    else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 往「${s.name}」里追加思维链片段，思维链统一读它。`);
     else if (s.wrap) lines.push(`${s.writers.length} 条把整段正文包进「${s.name}」（${s.op === "set" ? "setvar：同时开几条只认最后一条，相当于单选" : "addvar：开着的会接在一起"}），由 ${namesOf(draft, s.readers, 2)} 读出。`);
     else lines.push(`${s.writers.length} 条往同一个变量「${s.name}」里写（${s.op}var）。`);
   }
+  if (perEntry.length >= 2) lines.push(`另外有些条目各自登记一个问句变量，由思维链逐个读出（比如 ${perEntry.slice(0, 3).join("、")}）——缝进来的条目最好也照这样挂上。`);
   if (usesGlobal) lines.push("用到了全局变量（setglobalvar），换聊天也会保留。");
   if (initId) lines.push(`「${P(initId)?.name}」负责每轮把变量清空（初始化条目）。`);
-  for (const w of wrappers.slice(0, 3)) lines.push(`<${w.name}> 由「${P(w.openId)?.name}」开始、「${P(w.closeId)?.name}」结束，中间的条目都算在它里面。`);
+  const mentioned = (w) => a.cotIds.some((c2) => mentionsTag(cotPlainText(P(c2)?.content), w.key)) || a.cotIds.some((c2) => CJK.test(w.name) && cotPlainText(P(c2)?.content).includes(w.name));
+  for (const w of wrappers.slice(0, 4)) lines.push(`${w.label} 由「${P(w.openId)?.name}」开始、「${P(w.closeId)?.name}」结束，中间的条目都算在它里面${a.cotIds.length ? mentioned(w) ? "（思维链提到了这个区段）" : "（思维链没提到这个区段）" : ""}。`);
   const trig = [];
   if (depth.length) trig.push(`${depth.length} 条插在聊天记录里（深度注入）`);
   if (gen.length) trig.push(`${gen.length} 条只在特定生成方式下发送`);
@@ -2887,7 +3064,7 @@ function describeEntry(draft, id, prof = null) {
       const tags = [...exposedTags(content)].filter((t) => !IGNORE_TAGS.has(t));
       const hs = entryHandles(p).filter((h) => h.cjk);
       for (const c2 of a.cot) {
-        const t = tags.find((x) => c2.mentions.includes(x));
+        const t = tags.find((x) => mentionsTag(cotPlainText(draft.prompt(c2.id)?.content), x));
         if (t) { cov = { level: "mention", via: t, cot: c2.id }; break; }
         const txt = cotPlainText(draft.prompt(c2.id)?.content);
         const h = hs.find((x) => txt.includes(x.needle));
@@ -2906,7 +3083,7 @@ function describeEntry(draft, id, prof = null) {
     const i2 = draft.order.findIndex((o) => o.identifier === w.closeId);
     return i1 < pos && pos < i2;
   }).map((w) => w.name);
-  if (inside.length) lines.push(`在原预设里位于 <${inside.join("> / <")}> 里面`);
+  if (inside.length) lines.push(`在原预设里位于 ${inside.map((n) => pr.wrappers.find((w) => w.name === n)?.label || `<${n}>`).join(" / ")} 里面`);
   return { lines, cot, needsVars, inside };
 }
 
@@ -3263,7 +3440,7 @@ function mountSuture(page, app) {
           console.warn("[裁缝铺] 来源分析失败", e);
         }
       }
-      return { src, desc, choice: {}, manual: null, enabled: true };
+      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: {}, manual: null, enabled: true };
     });
     const body = el(`<div class="pa-review">
             <div class="pa-target-card">
@@ -3321,7 +3498,7 @@ function mountSuture(page, app) {
       const taken = new Set(items.filter((o) => o !== it && o.hookOn && o.hook?.varName).map((o) => o.hook.varName));
       const srcCot = it.desc?.cot ? ["var", "chain", "mention"].includes(it.desc.cot.level) : null;
       try {
-        it.hook = planHook(d, where, gid, { content: plan.content, name: it.src.name, label: plan.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot });
+        it.hook = planHook(d, where, gid, { content: plan.content, name: it.src.name, label: plan.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: plan.slotAllowed });
       } catch (e) {
         console.warn("[裁缝铺] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，跳过" };

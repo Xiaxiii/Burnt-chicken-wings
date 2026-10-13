@@ -102,9 +102,9 @@ function detectShape(content) {
     }
   }
   const lastTop = parsed[parsed.length - 1];
-  if (lastTop && lastTop.v && (lastTop.v.op === "add" || lastTop.v.op === "set") && !isBlankValue(lastTop.v.value) && lastTop.v.value.length <= 60 && !/\n/.test(lastTop.v.value.trim()) && text.slice(lastTop.end).trim() === "" && text.slice(0, lastTop.start).trim().length > 0) {
+  if (lastTop && lastTop.v && (lastTop.v.op === "add" || lastTop.v.op === "set") && !isBlankValue(lastTop.v.value) && lastTop.v.value.length <= 200 && !/\n/.test(lastTop.v.value.trim()) && text.slice(lastTop.end).trim() === "" && text.slice(0, lastTop.start).trim().length > 0) {
     const bodyRaw = text.slice(0, lastTop.start);
-    if (bodyRaw.trim().length > lastTop.v.value.length * 3) {
+    if (bodyRaw.trim().length > Math.min(lastTop.v.value.length * 3, 300)) {
       return {
         shape: "tagname",
         op: lastTop.v.op,

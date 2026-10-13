@@ -341,7 +341,7 @@ function mountSuture(page, app) {
           console.warn("[裁缝铺] 来源分析失败", e);
         }
       }
-      return { src, desc, choice: {}, manual: null, enabled: true };
+      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: {}, manual: null, enabled: true };
     });
     const body = el(`<div class="pa-review">
             <div class="pa-target-card">
@@ -399,7 +399,7 @@ function mountSuture(page, app) {
       const taken = new Set(items.filter((o) => o !== it && o.hookOn && o.hook?.varName).map((o) => o.hook.varName));
       const srcCot = it.desc?.cot ? ["var", "chain", "mention"].includes(it.desc.cot.level) : null;
       try {
-        it.hook = planHook(d, where, gid, { content: plan.content, name: it.src.name, label: plan.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot });
+        it.hook = planHook(d, where, gid, { content: plan.content, name: it.src.name, label: plan.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: plan.slotAllowed });
       } catch (e) {
         console.warn("[裁缝铺] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，跳过" };

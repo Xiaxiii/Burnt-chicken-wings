@@ -1,8 +1,43 @@
 var COT_NAME = /cot|思维链|思考|thinking|推理|内在思|reasoning|phase/i;
+// 1.3.0：思维链区段——从"思维链始/思考开始/打开 <thinking>"到"思维链终/思考结束/关上 </thinking>"之间的条目都算思维链
+// （Ariadne 这类预设的思维链步骤名字里不带"思维链"三个字，也没有分组）
+var COT_START = /(思维链|cot|ecot|思考|thinking)\s*[·・:：\-—_]?\s*(始|开始|开头|起|start|begin)/i;
+var COT_END = /(思维链|cot|ecot|思考|thinking)\s*[·・:：\-—_]?\s*(终|结束|收尾|尾|end)/i;
+var cotRegionCache = /* @__PURE__ */ new WeakMap();
+function cotRegion(draft) {
+  const order = draft.order;
+  const sig = order.length + ":" + order.map((o) => (o.enabled === false ? 0 : 1)).join("") + ":" + (draft.history?.length || 0);
+  const hit = cotRegionCache.get(order);
+  if (hit && hit.sig === sig) return hit.set;
+  const set = /* @__PURE__ */ new Set();
+  let cur = null;
+  for (const o of order) {
+    const p = draft.prompt(o.identifier);
+    if (!p) continue;
+    const active = o.enabled !== false;
+    const c = String(p.content || "");
+    // 只认单独占一行的 <thinking> / </thinking>（句子里提到的不算）
+    const opens = (c.match(/^[ \t]*<thinking>[ \t]*$/gim) || []).length, closes = (c.match(/^[ \t]*<\/thinking>[ \t]*$/gim) || []).length;
+    const name = p.name || "";
+    if (!cur) {
+      if (active && (opens > closes || COT_START.test(name)) && !(closes >= opens && COT_END.test(name) && !COT_START.test(name))) cur = [o.identifier];
+      continue;
+    }
+    cur.push(o.identifier);
+    if (active && (closes > opens || COT_END.test(name))) {
+      for (const id of cur) set.add(id);
+      cur = null;
+    }
+  }
+  // 没有结束的区段不算（比如底部的"思维链锁"只开不关）
+  cotRegionCache.set(order, { sig, set });
+  return set;
+}
 function isCotEntry(draft, id, manual = {}) {
   if (manual[id] !== void 0) return !!manual[id];
   const p = draft.prompt(id);
   if (!p) return false;
+  if (cotRegion(draft).has(id)) return true;
   const gid = draft.groupOf(id);
   const gname = gid ? draft.group(gid)?.name || "" : "";
   const name = p.name || "";
@@ -21,6 +56,42 @@ function exposedTags(content) {
   for (const m of body.matchAll(/<([A-Za-z_][\w-]{2,40})(?:[：:][^>\n]{0,40})?>/g)) tags.add(m[1].toLowerCase());
   for (const m of body.matchAll(/^\s*(?:#+|\[)\s*([A-Za-z_][\w-]{3,40})/gm)) tags.add(m[1].toLowerCase());
   return tags;
+}
+// 1.3.0：结构标记——单独一行的 <标签>/</标签>，以及 <!-- START: X --> / <!-- END: X --> 这种注释分区
+function structureMarks(content) {
+  const text = String(content || "").replace(/\{\{\/\/[\s\S]*?\}\}/g, "").replace(/<!--(?!\s*(?:START|BEGIN|END)\s*[:：])[\s\S]*?-->/gi, "");
+  const out = [];
+  const re = /<!--\s*(START|BEGIN|END)\s*[:：]\s*([^>]*?)\s*-->|^[ \t]*<(\/?)([^\s>\/!][^>\n]{0,40})>[ \t]*$/gim;
+  for (const m of text.matchAll(re)) {
+    if (m[1]) {
+      const name = m[2].trim().split(/\s+/)[0];
+      if (name) out.push({ open: !/^END$/i.test(m[1]), name, key: name.toLowerCase(), comment: true });
+    } else {
+      const name = m[4].split(/[：:\s]/)[0];
+      if (name) out.push({ open: !m[3], name, key: name.toLowerCase(), comment: false });
+    }
+  }
+  return out;
+}
+/** 按顺序扫一遍，返回每个外层区段 {name,key,openId,closeId,openIdx,closeIdx} */
+function structureSections(draft, { activeOnly = true, skip = null } = {}) {
+  const stack = [];
+  const out = [];
+  draft.order.forEach((o, i) => {
+    if (activeOnly && !draft.isActive(o.identifier)) return;
+    if (skip && skip.has(o.identifier)) return;
+    for (const mk of structureMarks(draft.prompt(o.identifier)?.content)) {
+      if (mk.open) stack.push({ ...mk, openId: o.identifier, openIdx: i });
+      else {
+        const k = stack.map((x) => x.key).lastIndexOf(mk.key);
+        if (k >= 0) {
+          const op = stack.splice(k, 1)[0];
+          if (op.openId !== o.identifier) out.push({ name: op.name, key: op.key, comment: op.comment, openId: op.openId, closeId: o.identifier, openIdx: op.openIdx, closeIdx: i });
+        }
+      }
+    }
+  });
+  return out;
 }
 // 1.3.0：条目的"称呼"——思维链靠文字点名时，会用这些字样提到它（中文标签、[方括号标题]、条目短名）
 var CJK = /[㐀-鿿]/;
@@ -46,6 +117,15 @@ function entryHandles(p) {
     for (const [a, b] of [["「", "」"], ["【", "】"], ["<", ">"], ["[", "]"], ["《", "》"]]) out.push({ needle: a + label + b, ref: a + label + b, cjk: true });
   }
   return out;
+}
+/** 思维链原文有没有"点名"这个标签：<tag>、[tag]、`tag`、「tag」都算；带下划线的标识符（writing_style）直接出现也算。
+ *  普通英文单词（narrative、style）只是碰巧出现在句子里，不算。 */
+function mentionsTag(text, key) {
+  const t = String(key || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!t) return false;
+  if (new RegExp(`[<\\[\`「【]\\s*\\/?${t}(?![\\w-])`, "i").test(text)) return true;
+  if (/[_-]/.test(key) && new RegExp(`(^|[^\\w-])${t}(?![\\w-])`, "i").test(text)) return true;
+  return false;
 }
 function cotPlainText(content) {
   return String(content || "").replace(/\{\{(?:get|set|add)(?:global)?var::[^{}]*\}\}/gi, "");
@@ -120,8 +200,7 @@ function analyze(draft, manual = {}) {
     const tags = [...tagsOf(id)].filter((t) => !IGNORE_TAGS.has(t));
     for (const c2 of cotIds) {
       if (c2 === id) continue;
-      const ms = cotMentions.get(c2);
-      const hit = tags.find((t) => ms.has(t));
+      const hit = tags.find((t) => mentionsTag(cotTexts.get(c2), t));
       if (hit) return { cot: c2, via: hit };
     }
     // 中文：思维链原文里直接写到了这条的标签 / [标题] / 名字
@@ -135,29 +214,23 @@ function analyze(draft, manual = {}) {
     }
     return null;
   };
-  // 1.1.3：外层结构标签。像 <text_style> 这种由前一个条目单独开一行、后面条目单独一行关闭的标签，
-  // 中间的条目（例如缝进来的文风）本身不带标签，旧版会一律判成"没提到"。
+  // 外层结构标签/注释分区。像 <text_style>、<!-- START: WRITING_STYLE --> 这种由前一个条目开、后面条目关的区段，
+  // 中间的条目（例如缝进来的文风）本身不带标签，思维链提到这个区段名就算想到了它。
   const enclosing = /* @__PURE__ */ new Map();
   {
-    const stack = [];
+    const secs = structureSections(draft, { skip: cotSet });
+    const idxOf = new Map(draft.order.map((o, i) => [o.identifier, i]));
     for (const id of active) {
-      enclosing.set(id, [...new Set(stack)]);
-      if (cotSet.has(id)) continue;
-      const text = String(draft.prompt(id)?.content || "").replace(/\{\{\/\/[\s\S]*?\}\}/g, "").replace(/<!--[\s\S]*?-->/g, "");
-      for (const m of text.matchAll(/^[ \t]*<(\/?)([A-Za-z_][\w-]{2,40})(?:[：:][^>\n]{0,40})?>[ \t]*$/gm)) {
-        const name = m[2].toLowerCase();
-        if (!m[1]) stack.push(name);
-        else {
-          const k = stack.lastIndexOf(name);
-          if (k >= 0) stack.splice(k, 1);
-        }
-      }
+      const i = idxOf.get(id);
+      enclosing.set(id, secs.filter((x) => x.openIdx < i && i < x.closeIdx).sort((a2, b2) => a2.openIdx - b2.openIdx));
     }
   }
   const findEnclosingMention = (id) => {
-    const tags = (enclosing.get(id) || []).filter((t) => !IGNORE_TAGS.has(t));
-    for (let i = tags.length - 1; i >= 0; i--) {
-      for (const c2 of cotIds) if (cotMentions.get(c2)?.has(tags[i])) return { cot: c2, via: `${tags[i]}（外层标签）` };
+    const secs = (enclosing.get(id) || []).filter((x) => !IGNORE_TAGS.has(x.key));
+    for (let i = secs.length - 1; i >= 0; i--) {
+      for (const c2 of cotIds) {
+        if (mentionsTag(cotTexts.get(c2), secs[i].key) || CJK.test(secs[i].name) && cotTexts.get(c2).includes(secs[i].name)) return { cot: c2, via: `${secs[i].name}（外层分区）` };
+      }
     }
     return null;
   };

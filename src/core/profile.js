@@ -34,40 +34,36 @@ function profilePreset(draft) {
   // 变量用法
   const perEntry = [];
   const shared = [];
+  // 写同一个变量的条目要把关着的也算上（单选槽位一般只开一条）
+  const writersAll = /* @__PURE__ */ new Map();
+  for (const o of draft.order) {
+    if (cotSet.has(o.identifier)) continue;
+    for (const m of listVarMacros(P(o.identifier)?.content || "")) {
+      if (!m.name || !(m.op === "set" || m.op === "add") || isBlankValue(m.value) || m.depth !== 0) continue;
+      const k = (m.scope === "global" ? "全局:" : "") + m.name;
+      if (!writersAll.has(k)) writersAll.set(k, []);
+      const list = writersAll.get(k);
+      if (!list.includes(o.identifier)) list.push(o.identifier);
+    }
+  }
   for (const [key, v] of a.vars) {
     const name = key.replace(/^全局:/, "");
     const cotReaders = v.readers.filter((r) => cotSet.has(r));
-    const writers = v.writers.filter((w) => !cotSet.has(w));
+    const writers = writersAll.get(key) || [];
     if (!writers.length) continue;
     if (writers.length === 1 && cotReaders.length) perEntry.push(name);
     if (writers.length >= 2) {
       const ops = writers.flatMap((w) => listVarMacros(P(w)?.content || "").filter((m) => m.name === name && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)).map((m) => m.op));
       const shapes = writers.map((w) => detectShape(P(w)?.content).shape);
-      shared.push({ name, writers, op: mostCommon(ops) || "set", wrap: shapes.filter((s) => s === "wrap").length >= writers.length / 2, cotReads: cotReaders.length > 0, readers: v.readers });
+      const op = mostCommon(ops) || "set";
+      shared.push({ name, writers, op, wrap: shapes.filter((s) => s === "wrap").length >= writers.length / 2, slot: op === "set" && cotReaders.length > 0 && shapes.filter((s) => s === "tagname").length >= writers.length / 2, cotReads: cotReaders.length > 0, readers: v.readers });
     }
   }
+  shared.sort((x, y) => (y.slot ? 1 : 0) - (x.slot ? 1 : 0) || y.writers.length - x.writers.length);
   const usesGlobal = [...a.vars.keys()].some((k) => k.startsWith("全局:"));
   const initId = findInitEntry(draft);
-  // 外层结构标签（比如 <text_style> 由一条开、另一条关）
-  const wrappers = [];
-  {
-    const stack = [];
-    for (const id of active) {
-      if (cotSet.has(id)) continue;
-      const text = String(P(id)?.content || "").replace(/\{\{\/\/[\s\S]*?\}\}/g, "").replace(/<!--[\s\S]*?-->/g, "");
-      for (const m of text.matchAll(/^[ \t]*<(\/?)([^\s>\/!][^>\n]{0,30})>[ \t]*$/gm)) {
-        const name = m[2].split(/[：:\s]/)[0];
-        if (!m[1]) stack.push({ name, id });
-        else {
-          const k = stack.map((x) => x.name).lastIndexOf(name);
-          if (k >= 0) {
-            const o = stack.splice(k, 1)[0];
-            if (o.id !== id) wrappers.push({ name, openId: o.id, closeId: id });
-          }
-        }
-      }
-    }
-  }
+  // 外层结构区段（<text_style> 这种标签，或 <!-- START: STORY_TONE --> 这种注释分区）
+  const wrappers = structureSections(draft, { skip: cotSet }).map((w) => ({ ...w, label: w.comment ? `「${w.name}」分区` : `<${w.name}>` }));
   // 特殊触发
   const depth = active.filter((id) => P(id)?.injection_position === 1);
   const gen = active.filter((id) => (P(id)?.injection_trigger || []).length);
@@ -83,15 +79,17 @@ function profilePreset(draft) {
     const how = cotStyle === "vars" ? "主要靠变量把条目读进来（{{getvar}}）" : cotStyle === "text" ? "靠文字点名——在思维链里写到条目的名字或标签，不读变量" : "一部分靠变量读，一部分靠文字点名";
     lines.push(`思维链 ${a.cotIds.length} 条（${namesOf(draft, a.cotIds, 2)}），${how}。`);
   }
-  if (perEntry.length >= 2) lines.push(`条目各自登记一个问句变量，再由思维链逐个读出（比如 ${perEntry.slice(0, 3).join("、")}）——缝进来的条目最好也照这样挂上。`);
   for (const s of shared.slice(0, 4)) {
-    if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 往「${s.name}」里追加思维链片段，思维链统一读它。`);
+    if (s.slot) lines.push(`${s.writers.length} 条都往「${s.name}」里登记一句问句（setvar：同时开几条只认最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读出——缝进来的同类条目会照样登记。`);
+    else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 往「${s.name}」里追加思维链片段，思维链统一读它。`);
     else if (s.wrap) lines.push(`${s.writers.length} 条把整段正文包进「${s.name}」（${s.op === "set" ? "setvar：同时开几条只认最后一条，相当于单选" : "addvar：开着的会接在一起"}），由 ${namesOf(draft, s.readers, 2)} 读出。`);
     else lines.push(`${s.writers.length} 条往同一个变量「${s.name}」里写（${s.op}var）。`);
   }
+  if (perEntry.length >= 2) lines.push(`另外有些条目各自登记一个问句变量，由思维链逐个读出（比如 ${perEntry.slice(0, 3).join("、")}）——缝进来的条目最好也照这样挂上。`);
   if (usesGlobal) lines.push("用到了全局变量（setglobalvar），换聊天也会保留。");
   if (initId) lines.push(`「${P(initId)?.name}」负责每轮把变量清空（初始化条目）。`);
-  for (const w of wrappers.slice(0, 3)) lines.push(`<${w.name}> 由「${P(w.openId)?.name}」开始、「${P(w.closeId)?.name}」结束，中间的条目都算在它里面。`);
+  const mentioned = (w) => a.cotIds.some((c2) => mentionsTag(cotPlainText(P(c2)?.content), w.key)) || a.cotIds.some((c2) => CJK.test(w.name) && cotPlainText(P(c2)?.content).includes(w.name));
+  for (const w of wrappers.slice(0, 4)) lines.push(`${w.label} 由「${P(w.openId)?.name}」开始、「${P(w.closeId)?.name}」结束，中间的条目都算在它里面${a.cotIds.length ? mentioned(w) ? "（思维链提到了这个区段）" : "（思维链没提到这个区段）" : ""}。`);
   const trig = [];
   if (depth.length) trig.push(`${depth.length} 条插在聊天记录里（深度注入）`);
   if (gen.length) trig.push(`${gen.length} 条只在特定生成方式下发送`);
@@ -151,7 +149,7 @@ function describeEntry(draft, id, prof = null) {
       const tags = [...exposedTags(content)].filter((t) => !IGNORE_TAGS.has(t));
       const hs = entryHandles(p).filter((h) => h.cjk);
       for (const c2 of a.cot) {
-        const t = tags.find((x) => c2.mentions.includes(x));
+        const t = tags.find((x) => mentionsTag(cotPlainText(draft.prompt(c2.id)?.content), x));
         if (t) { cov = { level: "mention", via: t, cot: c2.id }; break; }
         const txt = cotPlainText(draft.prompt(c2.id)?.content);
         const h = hs.find((x) => txt.includes(x.needle));
@@ -170,7 +168,7 @@ function describeEntry(draft, id, prof = null) {
     const i2 = draft.order.findIndex((o) => o.identifier === w.closeId);
     return i1 < pos && pos < i2;
   }).map((w) => w.name);
-  if (inside.length) lines.push(`在原预设里位于 <${inside.join("> / <")}> 里面`);
+  if (inside.length) lines.push(`在原预设里位于 ${inside.map((n) => pr.wrappers.find((w) => w.name === n)?.label || `<${n}>`).join(" / ")} 里面`);
   return { lines, cot, needsVars, inside };
 }
 
