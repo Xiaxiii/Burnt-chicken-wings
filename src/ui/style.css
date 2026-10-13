@@ -73,7 +73,8 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-savebar:not([hidden]) + .pa-backup-btn { margin-left: 0; }
 #pa-root .pa-backup-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 #pa-root .pa-top .pa-savebar .pa-btn { min-height: 34px; padding: 3px 12px; }
-@media (max-width: 459px) { #pa-root .pa-brand b { display: none; } }
+#pa-root .pa-brand { min-width: 0; }
+#pa-root .pa-brand b { overflow: hidden; text-overflow: ellipsis; }
 
 #pa-root .pa-tabs {
     grid-area: tabs;
