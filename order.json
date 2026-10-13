@@ -1,0 +1,23 @@
+[
+ "ui/dom.js",
+ "host.js",
+ "core/model.js",
+ "ui/state.js",
+ "core/macros.js",
+ "core/cot.js",
+ "ui/list.js",
+ "core/smartgroup.js",
+ "ui/picker.js",
+ "ui/organize.js",
+ "core/suture.js",
+ "core/profile.js",
+ "ui/suture.js",
+ "ui/cotview.js",
+ "ui/schemes.js",
+ "ui/apiview.js",
+ "ui/theme.js",
+ "ui/more.js",
+ "ui/style.css",
+ "ui/app.js",
+ "main.js"
+]

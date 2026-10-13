@@ -1,0 +1,7 @@
+node_modules/
+test/node_modules/
+test/package*.json
+test/shots/
+test/site/ako.json
+test/site/jquery.min.js
+test/fixtures/ako-*.json
