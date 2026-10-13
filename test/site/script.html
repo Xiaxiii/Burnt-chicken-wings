@@ -13,7 +13,7 @@ body{margin:0;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-se
   const names = [...(ako ? ["Ako1.92-修复版"] : []), "【众生相】Claude-Lite-v1.8"];
   const presets = [...(ako ? [ako] : []), zsx];
   // test/site/local/ 里放的真实预设（不进仓库）
-  for (const [n, f] of [["Ariadne_V1.3Beta", "local/ariadne.json"], ["众生相-真实版", "local/zsx-real.json"]]) {
+  for (const [n, f] of [["Ariadne_V1.3Beta", "local/ariadne.json"], ["众生相-真实版", "local/zsx-real.json"], ["V2.61", "local/v261.json"]]) {
     const x = await load(f).catch(() => null);
     if (x) { names.push(n); presets.push(x); }
   }

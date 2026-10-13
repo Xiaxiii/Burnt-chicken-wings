@@ -9,7 +9,8 @@ var DEFAULTS = {
   followTargetInjection: true,
   theme: "follow",
   sutureSplit: 45,
-  moreTab: "schemes"
+  moreTab: "schemes",
+  nameWithSource: false
 };
 function settings() {
   const all = ctx().extensionSettings;

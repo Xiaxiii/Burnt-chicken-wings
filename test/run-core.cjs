@@ -161,4 +161,27 @@ test("注释分区：<!-- START: STORY_TONE --> 里的条目；思维链没提�
   assert.ok(h.line.startsWith("## Phase 3."), h.line);
 });
 
+test("编号变量 + 多个思维链版本（V2.61 式）：新变量接着编号，每个版本都加读取", () => {
+  const body = (n) => `[模式：${n}]\n` + L(`${n}时的写法要点，写进动作和细节里。`);
+  const d = mk([
+    ["init", "📜获取变量（别关）", "{{setvar::修复模式1::}}{{setvar::修复模式2::}}{{setvar::x::}}"],
+    ["m1", "☪︎ 粘合-温情修复", body("温情修复") + "\n{{setvar::修复模式1::温情修复}}"],
+    ["m2", "☪︎ 金缮-做恨模式", body("做恨模式") + "\n{{setvar::修复模式2::做恨模式}}"],
+    ["c0", "📜修复开始", "<thinking>"],
+    ["c1", "✵ （选一）通用COT", "当前模式：{{getvar::修复模式1}}{{getvar::修复模式2}}"],
+    ["c2", "✵ （选一）酸涩氧化", "当前模式：{{getvar::修复模式1}}{{getvar::修复模式2}}"],
+    ["c3", "📜修复完成", "</thinking>"],
+  ]);
+  d.setEnabled(["c1"], false);
+  const t = A.inferTarget(d, { after: "m2" }, null);
+  const plan = A.planItem({ name: "💞氛围·酸涩拉扯", content: "---\n\n[酸涩拉扯]\n" + L("别扭又放不下，说一半留一半。") }, t, {});
+  assert.ok(plan.content.startsWith("[模式：酸涩拉扯]\n别扭"), plan.content.slice(0, 40));
+  const h = A.planHook(d, { after: "m2" }, null, { content: plan.content, name: "💞氛围·酸涩拉扯", label: plan.label });
+  assert.equal(h.mode, "own"); assert.equal(h.varName, "修复模式3"); assert.equal(h.question, "酸涩拉扯"); assert.equal(h.cotIds.length, 2);
+  d.insertPrompts([{ prompt: { name: "x", content: A.contentWithHook(plan.content, h) }, enabled: true }], { after: "m2" }, null);
+  A.applyHook(d, h);
+  for (const id of ["c1", "c2"]) assert.ok(d.prompt(id).content.includes("{{getvar::修复模式3}}"), id);
+  assert.ok(d.prompt("init").content.includes("{{setvar::修复模式3::}}"));
+});
+
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

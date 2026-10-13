@@ -1,6 +1,6 @@
-// 预设裁缝铺 1.3.1（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.3.2（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.3.1";
+var VERSION = "1.3.2";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -785,7 +785,8 @@ var DEFAULTS = {
   followTargetInjection: true,
   theme: "follow",
   sutureSplit: 45,
-  moreTab: "schemes"
+  moreTab: "schemes",
+  nameWithSource: false
 };
 function settings() {
   const all = ctx().extensionSettings;
@@ -1437,7 +1438,7 @@ function renderList(draft, o) {
       if (isCotEntry(draft, id)) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
     }
     if (marker) badge = '<span class="pa-chip pa-chip-dim">酒馆位置</span>';
-    const ins = o.marker && o.marker.after === id ? '<div class="pa-insert-mark">缝在这里</div>' : "";
+    const ins = o.marker && o.marker.after === id && o.mode !== "target-group" ? '<div class="pa-insert-mark">缝在这里</div>' : "";
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
     return `<div class="pa-row${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}">
             <span class="pa-check" aria-hidden="true"></span>
@@ -1461,8 +1462,8 @@ function renderList(draft, o) {
     const isCol = !q && collapsed.has(b.groupId);
     const onCount = b.ids.filter((id) => enabledMap.get(id)).length;
     const allSel = b.ids.length && b.ids.every((id) => sel.has(id));
-    const startMark = o.marker && o.marker.groupStart === b.groupId && b.part === 1 ? '<div class="pa-insert-mark">缝在组开头</div>' : "";
-    const endMark = o.marker && o.marker.groupEnd === b.groupId && b.part === b.parts ? '<div class="pa-insert-mark">缝在组末尾</div>' : "";
+    const startMark = o.mode !== "target-group" && o.marker && o.marker.groupStart === b.groupId && b.part === 1 ? '<div class="pa-insert-mark">缝在组开头</div>' : "";
+    const endMark = o.mode !== "target-group" && o.marker && o.marker.groupEnd === b.groupId && b.part === b.parts ? '<div class="pa-insert-mark">缝在组末尾</div>' : "";
     html += `<section class="pa-group${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}">
                 <button class="pa-icon-btn pa-group-select" data-act="${o.mode === "target" ? "collapse" : "gselect"}" aria-label="${o.mode === "target" ? "展开/折叠" : "全选/取消本组"}" aria-pressed="${!!allSel}"><span class="pa-check"></span></button>
@@ -1471,6 +1472,7 @@ function renderList(draft, o) {
                 ${o.mode === "organize" ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
                 ${o.mode === "target" ? `<button class="pa-mini" data-act="into">缝进这组</button>` : ""}
+                ${o.mode === "target-group" ? `<button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
             </header>
             ${startMark}<div class="pa-gbody">${visibleRows}</div>${endMark}
         </section>`;
@@ -2317,7 +2319,7 @@ function mostCommon(list) {
 }
 var HEADER_RE = /^\s*(#{1,4})\s*([A-Za-z_][\w-]*)\s*([：:])\s*(.+)$/;
 // [Writing Style: 来点生活] 这种方括号标题（Ariadne）
-var BRACKET_RE = /^\s*(\[([A-Za-z][A-Za-z _-]{1,30}?)\s*([：:])\s*)([^\]\n]{1,40})\]\s*$/;
+var BRACKET_RE = /^\s*(\[([A-Za-z\u4e00-\u9fff][A-Za-z\u4e00-\u9fff _-]{0,30}?)\s*([：:])\s*)([^\]\n]{1,40})\]\s*$/;
 /** 插入位置所在的最内层区段（标签或注释分区） */
 function sectionAt(draft, idx) {
   const secs = structureSections(draft).filter((x) => x.openIdx < idx && idx <= x.closeIdx);
@@ -2426,8 +2428,9 @@ function inferTarget(draft, where, groupId) {
     if (tpl && tpls.filter((x) => x === tpl).length >= 2) t.labelTpl = tpl;
   }
   if (!t.tagTpl && !t.headerTpl && !t.ownTag) {
-    const bs = bodies.map((b) => BRACKET_RE.exec(String(b).trim().split("\n")[0] || "")).filter(Boolean);
-    if (bs.length >= 2 && bs.length >= bodies.length / 2) {
+    const allBodies = shapes.map((x) => x.s.body || "");
+    const bs = allBodies.map((b) => BRACKET_RE.exec(String(b).trim().split("\n")[0] || "")).filter(Boolean);
+    if (bs.length >= 2 && bs.length >= allBodies.length / 2) {
       const word = mostCommon(bs.map((m) => m[2]));
       const m0 = bs.find((m) => m[2] === word);
       t.headerTpl = { kind: "bracket", word, prefix: m0[1] };
@@ -2478,6 +2481,22 @@ function describeTarget(t) {
   if (t.shape === "tagname") return `正文直写，末尾登记名字到变量「${t.varName}」`;
   return "直接写正文，不用变量";
 }
+/** 名字可能的几种写法（从短到长都试）：♥︎ 填充-激烈性爱 → 激烈性爱 / 填充-激烈性爱 */
+function nameParts(name) {
+  const c2 = cleanLabel(name || "");
+  const parts = c2.split(/[·・:：|｜\-—]/).map((x) => x.trim()).filter(Boolean);
+  return [...new Set([parts[parts.length - 1], slotName(name), c2].filter((x) => x && x.length >= 2))];
+}
+/** 照着邻居登记的内容换成自己的名字：邻居 "- 以[Writing Style: 来点生活]为核心…" → "- 以[Writing Style: 英伦锦叙]为核心…" */
+function mimicValue(value, neighborName, myName) {
+  const v = String(value || "");
+  const mine = nameParts(myName)[0] || cleanLabel(myName);
+  for (const c2 of nameParts(neighborName).sort((a, b) => b.length - a.length)) if (v.includes(c2)) return v.split(c2).join(mine);
+  return null;
+}
+function neighborValue(draft, id, varName, op) {
+  return listVarMacros(draft.prompt(id)?.content || "").filter((m) => m.name === varName && (!op || m.op === op) && !isBlankValue(m.value)).pop()?.value ?? null;
+}
 /** 条目名里真正的"名字"部分：│📝笔法·来点生活 → 来点生活；🍂英伦锦叙（短）→ 英伦锦叙 */
 function slotName(name) {
   const c2 = cleanLabel(name || "");
@@ -2487,8 +2506,10 @@ function slotName(name) {
 function addHeader(body, tpl, label) {
   if (tpl.kind === "bracket") {
     const lines2 = String(body).trim().split("\n");
+    // 开头的分隔线（---）和空行先拿掉，再看第一行是不是已经有标题（[名字]、[X: 名字]、# x: 名字）
+    while (lines2.length && /^\s*(-{3,}|\*{3,}|={3,})?\s*$/.test(lines2[0])) lines2.shift();
     const head = `${tpl.prefix}${label}]`;
-    if (BRACKET_RE.test(lines2[0] || "") || HEADER_RE.test(lines2[0] || "")) lines2[0] = head;
+    if (BRACKET_RE.test(lines2[0] || "") || HEADER_RE.test(lines2[0] || "") || /^\s*\[[^\]\n]{1,40}\]\s*$/.test(lines2[0] || "")) lines2[0] = head;
     else lines2.unshift(head);
     return lines2.join("\n");
   }
@@ -2548,6 +2569,7 @@ function planItem(src, target, choice = {}) {
   if ((want.shape === "wrap" || want.shape === "tagname") && !want.varName) want.shape = "plain";
   let body = s.shape === "init" || s.shape === "empty" ? String(src.content || "") : s.body;
   const notes = [];
+  const changes = []; // 给预览卡片用的简短改动说明
   const hasOwnTag = !!outerTag(body);
   const canTag = !!(target.tagTpl || target.headerTpl && (target.headerTpl.kind !== "bracket" || slotAllowed) || target.ownTag);
   const ownBodyTag = /^\s*<([^>\/\n!]{1,30})>[\s\S]*<\/\1>\s*$/.test(body);
@@ -2559,23 +2581,39 @@ function planItem(src, target, choice = {}) {
 ${String(body).trim()}
 </${tagName}>`;
       notes.push(`目标这里每条正文都用自己名字的标签包着，已经给它套上 <${tagName}>`);
+      changes.push(`套上 <${tagName}>`);
     }
   } else if (useTag && target.tagTpl) {
     body = applyOuterTag(body, target.tagTpl, shortName);
     notes.push(`外层套上目标用的 <${target.tagTpl.tag}${target.tagTpl.sep}${shortName}> 标签`);
+    changes.push(`套上 <${target.tagTpl.tag}${target.tagTpl.sep}${shortName}>`);
   } else if (useTag && target.headerTpl?.kind === "bracket") {
     body = addHeader(body, target.headerTpl, shortName);
     notes.push(`开头用目标同类条目的标题格式：「${target.headerTpl.prefix}${shortName}]」`);
+    changes.push(`开头标题：${target.headerTpl.prefix}${shortName}]`);
   } else if (useTag && target.headerTpl) {
     body = addHeader(body, target.headerTpl, shortName);
     notes.push(`开头用目标同类条目的标题格式：「${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}」`);
+    changes.push(`开头标题：${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}`);
   }
   if (target.slot && !slotAllowed && !choice.shape) {
     notes.push(`附近是单选槽位「${target.slot.varName}」（几条选一条，开了会顶掉同类里开着的那条）。这条看起来不是同一类，所以没有登记进去，免得顶掉你选好的那一项；确实是同类的话，在「高级」里把写法改成「正文直写＋登记名字」`);
   }
   const keepExtras = choice.keepExtras ?? false;
   const extras = keepExtras ? s.extras || [] : [];
-  if ((s.extras || []).length && !keepExtras) notes.push(`来源里附带的 ${s.extras.length} 个额外宏（比如它自己的思维链片段）没带过来`);
+  if ((s.extras || []).length && !keepExtras) {
+    notes.push(`来源里附带的 ${s.extras.length} 个额外宏（比如它自己的思维链片段）没带过来`);
+    changes.push(`去掉来源附带的 ${s.extras.length} 个宏`);
+  }
+  {
+    const from = s.shape === "init" || s.shape === "empty" ? "plain" : s.shape;
+    const to = want.shape;
+    const short = (x) => (x = String(x || "").trim(), x.length > 26 ? x.slice(0, 26) + "…" : x);
+    if (from === "wrap" && (to !== "wrap" || s.varName !== want.varName || s.op !== want.op)) changes.unshift(`拆掉外层 {{${s.op}var::${s.varName}::…}}`);
+    if (from === "tagname" && (to !== "tagname" || s.varName !== want.varName)) changes.unshift(`去掉末尾 {{${s.op}var::${s.varName}::…}}`);
+    if (to === "wrap" && (from !== "wrap" || s.varName !== want.varName || s.op !== want.op)) changes.push(`整段包进 {{${want.op}var::${want.varName}::…}}`);
+    if (to === "tagname" && (from !== "tagname" || s.varName !== want.varName || s.label !== label)) changes.push(`末尾登记 {{${want.op}var::${want.varName}::${short(label)}}}`);
+  }
   const content = buildContent(body, want, { label, extras });
   if (want.shape === "tagname" && target.labelTpl) {
     notes.unshift(`目标这里同类条目都往变量「${want.varName}」登记一句问句（${want.op === "set" ? "setvar：同时开几条只认最后一条，相当于单选" : "addvar：开着的会接在一起"}），思维链会读它。已经照样登记：${label}`);
@@ -2585,7 +2623,7 @@ ${String(body).trim()}
     if (!target.readerIds.length && want.varName === target.varName) warnings.push(`目标预设里没有条目读取「${want.varName}」，缝进去可能不生效`);
     if (want.varName !== target.varName) warnings.push(`你改成了新变量「${want.varName}」，记得让某个条目用 {{getvar::${want.varName}}} 读取它`);
   }
-  return { content, label: shortName, question: label, sourceShape: s, want, notes, warnings, slotAllowed };
+  return { content, label: shortName, question: label, sourceShape: s, want, notes, changes, warnings, slotAllowed };
 }
 function buildPrompt(draft, src, plan, target, { keepSourceInjection = false } = {}) {
   const ref = target.sampleId ? draft.prompt(target.sampleId) : null;
@@ -2804,11 +2842,12 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
     const question = wantQ ?? (reuse ? reuse.value.trim() : sec ? `如何落实 ${sec.name} 里开着的内容？具体体现在哪里？` : `${myRef}：本段要怎么落实？具体体现在哪里？`);
     const step = info ? null : nextStep(cot);
     const prefix = info?.prefix ?? step?.prefix ?? "- ";
+    const cotList = pick ? cotVersionsMentioning(draft, pick.needle, cotId) : [cotId];
     return {
-      ...common, mode: "text", cotId, needle: pick?.needle || null, prefix, question, line: prefix + question.replace(/\n+/g, " "), varName: null, section: sec?.name || null,
+      ...common, mode: "text", cotId, cotIds: cotList, needle: pick?.needle || null, prefix, question, line: prefix + question.replace(/\n+/g, " "), varName: null, section: sec?.name || null,
       on: common.on || !!sec && !!srcCot,
       text: pick
-        ? `${why}目标的思维链靠文字点名、不读变量。「${cotName}」里提到了附近的 ${pick.ref}，就在那一行后面也点一下这条`
+        ? `${why}目标的思维链靠文字点名、不读变量。「${cotName}」里提到了附近的 ${pick.ref}，就在那一行后面也点一下这条${cotList.length > 1 ? `（${cotList.length} 个思维链版本都会加上）` : ""}`
         : sec
           ? `${why}目标的思维链靠文字点名，但没提到 ${secLabel(sec)}。可以在「${cotName}」里加一步点名整个区段——以后这个区段里开着的条目都会被想到`
           : `${why}目标的思维链靠文字点名，附近条目也没被点到；可以在「${cotName}」末尾加一行点名`
@@ -2825,27 +2864,41 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   const anchorWriters = pick.anchorVar ? [...new Set([...(a.vars.get(anchorKey)?.writers || []), ...draft.order.map((o) => o.identifier).filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.name === pick.anchorVar && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)))])] : [];
   // 单选槽位：附近好几条都 setvar 同一个变量（Ariadne 的 叙事风格1），新条目也登记进这个槽位，照邻居的问句换个名字
   if (pick.op === "set" && anchorWriters.length >= 2 && !wantVar && allowSlot) {
-    const nbr = listVarMacros(draft.prompt(pick.neighbor)?.content || "").filter((m) => m.name === pick.anchorVar && m.op === "set" && !isBlankValue(m.value)).pop();
-    const nbrName = slotName(draft.prompt(pick.neighbor)?.name);
-    const mine = slotName(item.name);
-    const q2 = wantQ ?? (reuse ? reuse.value.trim() : nbr && nbrName && nbr.value.includes(nbrName) ? nbr.value.trim().split(nbrName).join(mine) : question);
+    const mim = mimicValue(neighborValue(draft, pick.neighbor, pick.anchorVar, "set"), draft.prompt(pick.neighbor)?.name, item.name);
+    const q2 = wantQ ?? (reuse ? reuse.value.trim() : mim != null ? mim.trim() : question);
     return {
       ...common, clash: false, mode: "slot", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, question: q2,
       text: `${why}附近 ${anchorWriters.length} 条都往变量「${pick.anchorVar}」里登记问句（setvar，同时开几条只认最后一条，相当于单选），由「${cotName}」读出，照样登记`
     };
   }
   if (pick.op === "add" && anchorWriters.length >= 2 && !wantVar) {
+    const raw = neighborValue(draft, pick.neighbor, pick.anchorVar, "add");
+    const mim = wantQ == null && !reuse ? mimicValue(raw, draft.prompt(pick.neighbor)?.name, item.name) : null;
     return {
-      ...common, clash: false, mode: "append", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, lead: pick.lead, question,
+      ...common, clash: false, mode: "append", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, lead: mim != null ? "" : pick.lead, question: mim != null ? mim : question,
       text: `${why}附近 ${anchorWriters.length} 条都是用 addvar 往变量「${pick.anchorVar}」里追加思维链片段、由「${cotName}」统一读出，照样追加一句`
     };
   }
-  const varName = wantVar || (reuse && !used.has(reuse.name) ? reuse.name : hookVarName(item.label || cleanLabel(item.name) || shortLabel(item.name), used));
+  // 邻居的变量是编号的（修复模式1…17），新变量接着编号
+  let numbered = null;
+  const nm = /^(.*?\D)(\d+)$/.exec(pick.anchorVar || "");
+  if (nm) {
+    let max = 0, n = 0;
+    for (const u of used) {
+      const m2 = u.startsWith(nm[1]) && /^\d+$/.test(u.slice(nm[1].length)) ? Number(u.slice(nm[1].length)) : null;
+      if (m2 != null) { max = Math.max(max, m2); n++; }
+    }
+    if (n >= 2) numbered = nm[1] + (max + 1);
+  }
+  const varName = wantVar || (reuse && !used.has(reuse.name) ? reuse.name : numbered || hookVarName(item.label || cleanLabel(item.name) || shortLabel(item.name), used));
   const clash = !!wantVar && used.has(wantVar) && !(reuse && reuse.name === wantVar);
+  const ownMim = wantQ == null && !reuse && pick.anchorVar ? mimicValue(neighborValue(draft, pick.neighbor, pick.anchorVar), draft.prompt(pick.neighbor)?.name, item.name) : null;
+  // 思维链有好几个"选一"版本、都读同一组变量时（V2.61），每个版本都加上，换版本也不会丢
+  const cotList = pick.anchorVar ? cotVersionsReading(draft, pick.anchorVar, pick.cotId) : [pick.cotId];
   return {
-    ...common, clash, mode: "own", scope: pick.anchorVar ? pick.scope : "local", cotId: pick.cotId, anchorVar: pick.anchorVar, varName, question,
+    ...common, clash, mode: "own", cotIds: cotList, scope: pick.anchorVar ? pick.scope : "local", cotId: pick.cotId, anchorVar: pick.anchorVar, varName, question: ownMim != null ? ownMim.trim() : question,
     text: pick.anchorVar
-      ? `${why}思维链读不到这条。附近的「${draft.prompt(pick.neighbor)?.name}」是靠变量「${pick.anchorVar}」被「${cotName}」读的，照同样的办法挂上`
+      ? `${why}思维链读不到这条。附近的「${draft.prompt(pick.neighbor)?.name}」是靠变量「${pick.anchorVar}」被「${cotName}」读的，照同样的办法挂上${cotList.length > 1 ? `（${cotList.length} 个思维链版本都会加上）` : ""}`
       : `${why}思维链读不到这条，附近条目也没有挂思维链；可以挂到读变量最多的「${cotName}」里`
   };
 }
@@ -2895,20 +2948,35 @@ function insertLine(text, needle, line) {
   }
   return s.slice(0, pos) + "\n" + line + s.slice(pos);
 }
+/** 所有算思维链的条目（开着的、关着的"选一"版本都算） */
+function cotLikeIds(draft) {
+  const region = cotRegion(draft);
+  return draft.order.map((o) => o.identifier).filter((id) => region.has(id) || isCotEntry(draft, id));
+}
+function cotVersionsReading(draft, varName, first) {
+  const list = cotLikeIds(draft).filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.op === "get" && m.name === varName));
+  return [first, ...list.filter((x) => x !== first)].filter(Boolean);
+}
+function cotVersionsMentioning(draft, needle, first) {
+  if (!needle) return [first];
+  const list = cotLikeIds(draft).filter((id) => cotPlainText(draft.prompt(id)?.content).includes(needle));
+  return [first, ...list.filter((x) => x !== first)].filter(Boolean);
+}
 /** 在思维链里加读取/点名、在初始化条目里加清空。条目正文要先用 contentWithHook 写好。 */
 function applyHook(draft, hook) {
   const cot = draft.prompt(hook.cotId);
   if (!cot) return { ok: false };
   if (hook.mode === "append" || hook.mode === "slot") return { ok: true, cotName: cot.name, inited: false }; // 思维链本来就读这个变量
+  const targets = (hook.cotIds || [hook.cotId]).map((id) => draft.prompt(id)).filter(Boolean);
   if (hook.mode === "text") {
-    cot.content = insertLine(cot.content, hook.needle, hook.line);
-    return { ok: true, cotName: cot.name, inited: false };
+    for (const c2 of targets) c2.content = insertLine(c2.content, hook.needle, hook.line);
+    return { ok: true, cotName: cot.name + (targets.length > 1 ? ` 等 ${targets.length} 个版本` : ""), inited: false };
   }
   const g = hook.scope === "global" ? "global" : "";
-  cot.content = insertGetvar(cot.content, hook.anchorVar, `{{get${g}var::${hook.varName}}}`);
+  for (const c2 of targets) c2.content = insertGetvar(c2.content, hook.anchorVar, `{{get${g}var::${hook.varName}}}`);
   const initId = findInitEntry(draft);
   const inited = initId ? ensureInit(draft, hook.varName, initId, hook.scope || "local") : false;
-  return { ok: true, cotName: cot.name, inited };
+  return { ok: true, cotName: cot.name + (targets.length > 1 ? ` 等 ${targets.length} 个版本` : ""), inited };
 }
 
 
@@ -3126,12 +3194,18 @@ function mountSuture(page, app) {
         </div>
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整上下大小" title="拖动调整大小"><span></span></div>
         <div class="pa-pane pa-dst">
-            <div class="pa-pane-head"><b>缝到哪儿</b><div class="pa-dst-picker"></div></div>
+            <div class="pa-pane-head"><b>缝到哪儿</b><div class="pa-dst-picker"></div><button class="pa-mini" data-gm="toggle">整理分组</button></div>
             <p class="pa-hint pa-dst-hint">点一个条目＝缝在它后面；点「缝进这组」＝缝到组末尾</p>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
     </div>
-    <div class="pa-stitchbar">
+    <div class="pa-stitchbar pa-groupbar" hidden>
+        <div class="pa-stitch-info"><b class="pa-gsel-n">点选条目来建分组</b><span>点分组右边的 ⋯ 可以改名、解除分组</span></div>
+        <button class="pa-btn" data-gm="new">建新分组</button>
+        <button class="pa-btn" data-gm="out">移出分组</button>
+        <button class="pa-btn pa-btn-primary" data-gm="done">完成</button>
+    </div>
+    <div class="pa-stitchbar pa-sbar">
         <div class="pa-stitch-info"><b class="pa-picked-n">还没选材料</b><span class="pa-where">还没选位置</span></div>
         <button class="pa-link" data-st="profile">两边写法</button>
         <button class="pa-link" data-st="clear">清空</button>
@@ -3140,7 +3214,9 @@ function mountSuture(page, app) {
   const srcPick = page.querySelector(".pa-src-pick");
   const srcList = page.querySelector(".pa-src-list");
   const dstList = page.querySelector(".pa-dst-list");
-  const bar = page.querySelector(".pa-stitchbar");
+  const bar = page.querySelector(".pa-sbar");
+  const gbar = page.querySelector(".pa-groupbar");
+  st.gsel = /* @__PURE__ */ new Set();
   const dstPicker = presetPicker(page.querySelector(".pa-dst-picker"), (name) => {
     st.marker = null;
     setFocusPreset(name);
@@ -3363,17 +3439,84 @@ function mountSuture(page, app) {
       st.marker = null;
     }
     const top = dstList.scrollTop;
-    dstList.innerHTML = renderList(d, { mode: "target", collapsed: st.dstCollapsed, marker: st.marker, highlight: st.highlight || void 0 });
+    dstList.innerHTML = renderList(d, { mode: st.groupEdit ? "target-group" : "target", selected: st.groupEdit ? st.gsel : void 0, collapsed: st.dstCollapsed, marker: st.marker, highlight: st.highlight || void 0 });
+    page.querySelector(".pa-dst-hint").textContent = st.groupEdit ? "整理分组中：点条目选中，再点下面的按钮" : "点一个条目＝缝在它后面；点「缝进这组」＝缝到组末尾";
+    page.querySelector("[data-gm=toggle]").textContent = st.groupEdit ? "退出整理" : "整理分组";
+    bar.hidden = !!st.groupEdit;
+    gbar.hidden = !st.groupEdit;
+    gbar.querySelector(".pa-gsel-n").textContent = st.gsel.size ? `已选 ${st.gsel.size} 条` : "点选条目来建分组";
     dstList.scrollTop = top;
     renderBar();
   }
-  dstList.addEventListener("click", (e) => {
+  // ---- 目标预设里建分组 / 解除分组
+  page.querySelector("[data-gm=toggle]").addEventListener("click", () => {
+    st.groupEdit = !st.groupEdit;
+    st.gsel.clear();
+    renderDst();
+  });
+  gbar.addEventListener("click", async (e) => {
+    const a = e.target.closest("[data-gm]")?.dataset.gm;
+    if (!a) return;
+    const d = target();
+    if (a === "done") {
+      st.groupEdit = false;
+      st.gsel.clear();
+      return renderDst();
+    }
+    const ids = d.sortByOrder([...st.gsel]);
+    if (!ids.length) return toast("先点选条目");
+    if (a === "new") {
+      const name = await promptBox("新分组叫什么", "", "比如：缝进来的文风");
+      if (!name) return;
+      mutate(d, `建分组「${name}」`, (x) => x.createGroup(name, ids));
+      toast(`建好了「${name}」，会自动保存`, "success");
+    }
+    if (a === "out") {
+      if (!ids.some((id) => d.groupOf(id))) return toast("选中的条目本来就不在分组里");
+      mutate(d, "移出分组", (x) => x.removeFromGroup(ids));
+      toast("已移出分组，会自动保存", "success");
+    }
+    st.gsel.clear();
+    renderDst();
+  });
+  dstList.addEventListener("click", async (e) => {
     const d = target();
     const head = e.target.closest(".pa-ghead");
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "peek") {
       const p = d.prompt(e.target.closest(".pa-row").dataset.id);
       return showText(p.name, p.content);
+    }
+    if (st.groupEdit) {
+      if (head) {
+        const gid2 = head.dataset.gid;
+        const g = d.group(gid2);
+        if (act === "gselect") {
+          const ids = d.order.filter((o) => d.groupOf(o.identifier) === gid2).map((o) => o.identifier);
+          const all = ids.every((id) => st.gsel.has(id));
+          ids.forEach((id) => all ? st.gsel.delete(id) : st.gsel.add(id));
+        } else if (act === "gmenu") {
+          const v = await pickBox(g?.name || "分组", [{ label: "改名", value: "rename" }, { label: "解除分组", sub: "条目留在原处，只是不再归这个组", value: "dissolve" }]);
+          if (v === "rename") {
+            const n = await promptBox("分组名", g?.name || "");
+            if (n) mutate(d, "分组改名", (x) => x.renameGroup(gid2, n));
+          }
+          if (v === "dissolve" && await confirmBox("解除分组", `解除「${g?.name}」？里面的条目不会删除，也不会挪位置。`, "解除")) {
+            mutate(d, `解除分组「${g?.name}」`, (x) => x.dissolveGroup(gid2));
+            toast("已解除，会自动保存", "success");
+          }
+        } else {
+          st.dstCollapsed.has(gid2) ? st.dstCollapsed.delete(gid2) : st.dstCollapsed.add(gid2);
+        }
+        return renderDst();
+      }
+      const row = e.target.closest(".pa-row");
+      if (row) {
+        const id = row.dataset.id;
+        st.gsel.has(id) ? st.gsel.delete(id) : st.gsel.add(id);
+        renderDst();
+      }
+      return;
     }
     if (head) {
       const gid = head.dataset.gid;
@@ -3442,75 +3585,85 @@ function mountSuture(page, app) {
       }
       return { src: { ...src, sections: desc?.inside || [] }, desc, choice: {}, manual: null, enabled: true };
     });
+    const fromLabel = (it) => {
+      const f = String(it.src.from || "").replace(/^世界书\s*/, "");
+      return f && f !== "粘贴" ? f : "";
+    };
+    const nameOf = (it) => it.customName ?? (settings().nameWithSource && fromLabel(it) ? `${it.src.name}（来自${fromLabel(it)}）` : it.src.name);
     const body = el(`<div class="pa-review">
             <div class="pa-target-card">
                 <div><b>目标「${esc(d.name)}」是这样写的</b></div>
                 <ul class="pa-notes">${tgtProf.lines.slice(0, 3).map((l) => `<li>${esc(l)}</li>`).join("")}</ul>
                 ${tgtProf.lines.length > 3 ? `<details class="pa-explain"><summary>还有 ${tgtProf.lines.length - 3} 条</summary><ul class="pa-notes">${tgtProf.lines.slice(3).map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : ""}
-                <small>缝到这里，附近条目的写法是：${esc(t.summary)}${tgtWr.length ? `；会落在 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 里面` : ""}</small>
-                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 角色和注入位置跟随目标（推荐）</label>
-                <details class="pa-explain"><summary>看不懂？这几种写法是什么意思</summary>
-                    <ul class="pa-notes">
-                        <li><b>直接写正文</b>：没有变量，条目开着就原样发给模型。</li>
-                        <li><b>整段包进变量</b>：正文存进变量，要有别的条目用 {{getvar::变量名}} 读出来才会发出去。setvar＝同一个变量只认最后一个开着的（单选）；addvar＝开着的几条接在一起（多选）。</li>
-                        <li><b>正文直写＋登记名字</b>：正文照常发，末尾把名字登记到变量里，让读这个变量的条目（常常是思维链）知道开了它。</li>
-                        <li><b>挂进思维链</b>：让模型在正式写之前"想到"这一条。思维链读变量的预设，就给条目配一句问句变量；思维链靠文字点名的预设，就在思维链里加一行点它的名字。不挂的话，条目虽然发出去了，思维链可能完全不提它，看起来就像"没生效"。</li>
-                    </ul>
-                </details>
+                <small>缝到这里，附近条目的写法：${esc(t.summary)}${tgtWr.length ? `；会落在 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 里面` : ""}</small>
+                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝入时，角色和注入位置也跟随目标</label>
+                <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名后面加上「（来自 来源预设）」</label>
             </div>
             <div class="pa-items"></div>
         </div>`);
     const box = body.querySelector(".pa-items");
-    const shapeOpts = (it) => {
-      const cur = it.choice.shape || "auto";
-      const o = [["auto", `跟随目标（${SHAPE_LABEL[t.shape]}）`], ["plain", SHAPE_LABEL.plain], ["wrap", SHAPE_LABEL.wrap], ["tagname", SHAPE_LABEL.tagname]];
-      return o.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${esc(l)}</option>`).join("");
-    };
     const initName = (() => {
       const id = findInitEntry(d);
       return id ? d.prompt(id)?.name : null;
     })();
+    // 正文缩略预览：开头几行 + 结尾几行（变量、标题这些改动通常就在头尾）
+    const snip = (text) => {
+      const lines = String(text || "").split("\n").filter((l) => l.trim() && !/^\s*(-{3,}|\*{3,}|={3,})\s*$/.test(l));
+      const cut = (l) => (l = l.trim(), l.length > 46 ? l.slice(0, 46) + "…" : l);
+      const show = lines.length <= 5 ? lines.map(cut) : [...lines.slice(0, 2).map(cut), "⋯", ...lines.slice(-2).map(cut)];
+      return esc(show.join("\n"));
+    };
     const hookBlock = (it) => {
       const h = it.hook;
       if (h.status !== "hook") return `<div class="pa-hook pa-hook-${esc(h.status)}"><small><b>思维链：</b>${esc(h.text)}</small></div>`;
       const cotName = esc(d.prompt(h.cotId)?.name || "");
+      const more = (h.cotIds || []).length > 1 ? `（共 ${h.cotIds.length} 个思维链版本）` : "";
       let detail = "";
       if (it.hookOn && h.mode === "text") {
-        detail = `<label class="pa-field pa-field-wide"><span>在「${cotName}」里加这一行</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label>
+        detail = `<label class="pa-field pa-field-wide"><span>在「${cotName}」里加这一行${more}</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label>
             <small>${h.needle ? `加在提到 ${esc(h.needle)} 的那一行后面` : "加在这条思维链的末尾"}。条目正文不用改。</small>`;
-      } else if (it.hookOn && h.mode === "append") {
-        detail = `<label class="pa-field pa-field-wide"><span>追加的思维链片段</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label>
-            <small>条目末尾加 {{addvar::${esc(h.varName)}::片段}}。「${cotName}」本来就读「${esc(h.varName)}」，思维链不用改。${h.removeRange ? "来源自带的问句已经沿用。" : ""}</small>`;
+      } else if (it.hookOn && (h.mode === "append" || h.mode === "slot")) {
+        detail = `<label class="pa-field pa-field-wide"><span>${h.mode === "slot" ? "登记的问句" : "追加的内容"}</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label>
+            <small>条目末尾加 {{${h.mode === "slot" ? "setvar" : "addvar"}::${esc(h.varName)}::…}}。「${cotName}」本来就读「${esc(h.varName)}」，思维链不用改。</small>`;
       } else if (it.hookOn) {
         detail = `<div class="pa-item-ctl">
                 <label class="pa-field"><span>问句变量</span><input class="pa-input pa-input-s" data-c="hv" value="${esc(h.varName)}"></label>
                 <label class="pa-field pa-field-wide"><span>思维链里问什么</span><input class="pa-input" data-c="hq" value="${esc(h.question)}"></label></div>
             ${h.clash ? `<p class="pa-warn">目标里已经有变量「${esc(h.varName)}」了，用这个名字会和原来的内容互相覆盖，建议换一个</p>` : ""}
-            <small>会做三件事：条目末尾加 {{setvar::${esc(h.varName)}::问句}}；${initName ? `「${esc(initName)}」里加一行清空` : "（没找到初始化条目，跳过清空）"}；「${cotName}」里${h.anchorVar ? `紧跟 {{getvar::${esc(h.anchorVar)}}} ` : ""}加 {{getvar::${esc(h.varName)}}}。${h.removeRange ? "来源自带的问句已经沿用。" : ""}</small>`;
+            <small>条目末尾加 {{setvar::${esc(h.varName)}::…}}；${initName ? `「${esc(initName)}」里加一行清空` : "没找到初始化条目，跳过清空"}；「${cotName}」${more}里${h.anchorVar ? `紧跟 {{getvar::${esc(h.anchorVar)}}} ` : ""}加 {{getvar::${esc(h.varName)}}}。</small>`;
       }
       return `<div class="pa-hook">
             <label class="pa-inline-check"><input type="checkbox" data-c="hook" ${it.hookOn ? "checked" : ""}> <b>挂进思维链</b></label>
-            <small>${esc(h.text)}${h.on ? "" : "。" + esc(h.offHint || "")}</small>${detail}</div>`;
+            <small>${esc(h.text)}${it.hookOn || h.on ? "" : "。" + esc(h.offHint || "")}</small>${detail}</div>`;
     };
     const renderItem = (it, i) => {
-      const plan = planItem(it.src, t, { ...it.choice, shape: it.choice.shape === "auto" ? void 0 : it.choice.shape });
-      it.plan = plan;
+      const src = { ...it.src, name: it.src.name };
+      const base = { ...it.choice };
+      delete base.shape;
+      const planFix = planItem(src, t, base);
+      const planSlot = t.slot && !planFix.slotAllowed ? planItem(src, t, { ...base, shape: "tagname" }) : null;
+      const rawContent = String(it.src.content || "");
+      const same = planFix.content.trim() === rawContent.trim();
+      let mode = it.choice.mode || (same ? "raw" : "fix");
+      if (mode === "slot" && !planSlot) mode = "fix";
+      it.mode = mode;
+      const chosen = mode === "raw" ? { content: rawContent, label: planFix.label, want: { shape: "plain" }, slotAllowed: false } : mode === "slot" ? planSlot : planFix;
+      it.plan = chosen;
       const taken = new Set(items.filter((o) => o !== it && o.hookOn && o.hook?.varName).map((o) => o.hook.varName));
       const srcCot = it.desc?.cot ? ["var", "chain", "mention"].includes(it.desc.cot.level) : null;
       try {
-        it.hook = planHook(d, where, gid, { content: plan.content, name: it.src.name, label: plan.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: plan.slotAllowed });
+        it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed });
       } catch (e) {
         console.warn("[裁缝铺] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，跳过" };
       }
-      it.hookOn = it.hook.status === "hook" && (it.choice.hook ?? it.hook.on);
-      it.finalContent = it.hookOn ? contentWithHook(plan.content, it.hook) : plan.content;
-      // 来源 → 目标 的差异提醒
-      const warns = [...plan.warnings];
-      const infos = [...plan.notes];
+      it.hookOn = it.hook.status === "hook" && (it.choice.hook ?? (mode === "raw" ? false : it.hook.on));
+      it.finalContent = it.hookOn ? contentWithHook(chosen.content, it.hook) : chosen.content;
+      // 两边差异提醒（不管哪种缝法都要知道的）
+      const warns = [];
       const sp = it.src.prompt;
-      if (sp?.injection_position === 1) infos.push(`来源里它插在聊天记录里（深度 ${sp.injection_depth ?? 4}）。${settings().followTargetInjection ? "跟随目标后会放在普通位置；想保留原来的位置，取消上面「跟随目标」" : "会保留原来的深度注入"}`);
-      if ((sp?.injection_trigger || []).length) infos.push("来源里它只在特定生成方式下发送，这个设置会一起带过去");
+      if (sp?.injection_position === 1) warns.push(`来源里它插在聊天记录里（深度 ${sp.injection_depth ?? 4}）。直接缝入会保留；按目标写法缝入时${settings().followTargetInjection ? "放到普通位置" : "也保留"}`);
+      if ((sp?.injection_trigger || []).length) warns.push("来源里它只在特定生成方式下发送，这个设置会一起带过去");
       if (hasScript(it.src.content || "")) warns.push("带脚本（EJS 等），目标这边也要装同样的插件才会生效");
       if (hasConditional(it.src.content || "")) warns.push("带 {{if}} 条件，用到的变量目标里也要有");
       for (const k of it.desc?.needsVars || []) {
@@ -3520,41 +3673,54 @@ function mountSuture(page, app) {
       }
       for (const w of it.desc?.inside || []) {
         const tw = tgtProf.wrappers.find((x) => x.name === w);
-        if (!tw) continue;
-        if (tgtWr.includes(w)) infos.push(`来源里它在 <${w}> 里面，缝到这里也在目标的 <${w}> 里面，位置对得上`);
-        else warns.push(`来源里它在 <${w}> 里面；目标的 <${w}> 在「${d.prompt(tw.openId)?.name}」和「${d.prompt(tw.closeId)?.name}」之间，现在选的位置不在里面，可能要挪进去`);
+        if (!tw || tgtWr.includes(w)) continue;
+        warns.push(`来源里它在 ${tw.label} 里面；目标的 ${tw.label} 在「${d.prompt(tw.openId)?.name}」和「${d.prompt(tw.closeId)?.name}」之间，现在选的位置不在里面`);
       }
-      const shape = plan.want.shape;
-      const needVar = shape === "wrap" || shape === "tagname";
-      const canTag = !!(t.tagTpl || t.headerTpl || t.ownTag);
+      const card = (value, title, sub, content, notes = []) => `<label class="pa-mode${mode === value ? " on" : ""}">
+            <span class="pa-mode-head"><input type="radio" name="pa-mode-${i}" data-c="mode" value="${value}" ${mode === value ? "checked" : ""}><b>${esc(title)}</b><small>${esc(sub)}</small></span>
+            <pre class="pa-snip">${snip(content)}</pre>
+            ${notes.length && mode === value ? `<ul class="pa-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
+      const modes = same && !planSlot ? card("raw", "直接缝入", "目标写法和来源一样，不用改", rawContent) : [
+        card("raw", "直接缝入", "不改写法，原样放进去", rawContent),
+        card("fix", "按目标写法缝入", `照「${d.name}」的写法改好`, planFix.content, planFix.changes.length ? planFix.changes : ["内容不用改，只是位置、角色跟随目标"]),
+        planSlot ? card("slot", `按目标写法缝入，并加入单选「${t.slot.varName}」`, "开它会顶掉同类里开着的那条", planSlot.content, planSlot.changes) : ""
+      ].join("");
+      const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);
       return `<article class="pa-item" data-i="${i}">
                 <header><label class="pa-inline-check"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}> 缝进来后开启</label>
-                <input class="pa-input pa-input-s" data-c="name" value="${esc(it.src.name)}" aria-label="条目名"></header>
-                ${it.desc ? `<div class="pa-was"><b>在「${esc(it.src.from || "")}」里：</b><ul class="pa-notes">${it.desc.lines.map((l) => `<li>${esc(l)}</li>`).join("")}${it.desc.cot ? `<li>${esc(it.desc.cot.text)}</li>` : ""}</ul></div>` : `<small class="pa-from">来自 ${esc(it.src.from || "")}</small>`}
-                <div class="pa-was"><b>缝过去：</b><ul class="pa-notes">${infos.map((n) => `<li>${esc(n)}</li>`).join("")}${warns.map((w) => `<li class="pa-warn">${esc(w)}</li>`).join("")}</ul></div>
+                <input class="pa-input pa-input-s" data-c="name" value="${esc(nameOf(it))}" aria-label="条目名"></header>
+                ${it.desc ? `<details class="pa-was"><summary>在「${esc(it.src.from || "")}」里是怎么用的</summary><ul class="pa-notes">${it.desc.lines.map((l) => `<li>${esc(l)}</li>`).join("")}${it.desc.cot ? `<li>${esc(it.desc.cot.text)}</li>` : ""}</ul></details>` : `<small class="pa-from">来自 ${esc(it.src.from || "")}</small>`}
+                <div class="pa-modes" role="radiogroup">${modes}</div>
+                ${warns.length ? `<ul class="pa-notes">${warns.map((w) => `<li class="pa-warn">${esc(w)}</li>`).join("")}</ul>` : ""}
                 ${hookBlock(it)}
-                <details class="pa-adv" ${it.choice.adv ? "open" : ""}><summary>高级：手动改写法</summary>
+                ${showAdv ? `<details class="pa-adv" ${it.choice.adv ? "open" : ""}><summary>高级</summary>
                 <div class="pa-item-ctl">
-                    <label class="pa-field"><span>写法</span><select class="pa-select" data-c="shape">${shapeOpts(it)}</select></label>
-                    ${needVar ? `<label class="pa-field"><span>变量</span><input class="pa-input pa-input-s" data-c="var" value="${esc(plan.want.varName || "")}"></label>
-                    <label class="pa-field"><span>方式</span><select class="pa-select" data-c="op"><option value="add" ${plan.want.op !== "set" ? "selected" : ""}>addvar 追加（可多选）</option><option value="set" ${plan.want.op === "set" ? "selected" : ""}>setvar 覆盖（单选）</option></select></label>` : ""}
-                    ${shape === "tagname" || canTag && it.choice.useTag !== false ? `<label class="pa-field"><span>短名字</span><input class="pa-input pa-input-s" data-c="label" value="${esc(plan.label)}"></label>` : ""}
-                    ${canTag ? `<label class="pa-inline-check"><input type="checkbox" data-c="tag" ${it.choice.useTag ?? plan.notes.some((n) => n.includes("标签") || n.includes("标题")) ? "checked" : ""}> ${t.ownTag ? "套上自己名字的标签" : `套目标的${t.tagTpl ? `&lt;${esc(t.tagTpl.tag)}&gt; 标签` : "标题格式"}`}</label>` : ""}
-                    ${plan.sourceShape.extras?.length ? `<label class="pa-inline-check"><input type="checkbox" data-c="extras" ${it.choice.keepExtras ? "checked" : ""}> 带上来源附带的 ${plan.sourceShape.extras.length} 个额外宏</label>` : ""}
-                </div></details>
-                <details class="pa-body" ${i === 0 && items.length === 1 ? "open" : ""}><summary>缝进去的正文${it.manual != null ? "（你手动改过）" : ""}</summary>
+                    <label class="pa-field"><span>标题/标签里用的名字</span><input class="pa-input pa-input-s" data-c="label" value="${esc(planFix.label)}"></label>
+                    ${chosen.want?.varName && (chosen.want.shape === "wrap" || chosen.want.shape === "tagname") ? `<label class="pa-field"><span>变量</span><input class="pa-input pa-input-s" data-c="var" value="${esc(chosen.want.varName)}"></label>
+                    <label class="pa-field"><span>方式</span><select class="pa-select" data-c="op"><option value="add" ${chosen.want.op !== "set" ? "selected" : ""}>addvar 追加（可多选）</option><option value="set" ${chosen.want.op === "set" ? "selected" : ""}>setvar 覆盖（单选）</option></select></label>` : ""}
+                    ${planFix.sourceShape.extras?.length ? `<label class="pa-inline-check"><input type="checkbox" data-c="extras" ${it.choice.keepExtras ? "checked" : ""}> 带上来源附带的 ${planFix.sourceShape.extras.length} 个额外宏</label>` : ""}
+                </div></details>` : ""}
+                <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝进去的完整正文${it.manual != null ? "（你手动改过）" : ""}</summary>
                 <textarea class="pa-input pa-text" data-c="content" spellcheck="false">${esc(it.manual ?? it.finalContent)}</textarea>
                 ${it.manual != null ? '<button class="pa-link" data-c="reset">撤销手动修改，按上面的选项重新生成</button>' : ""}</details>
             </article>`;
     };
     const rerender = (art, it) => {
       const i = Number(art.dataset.i);
-      const openBody = art.querySelector(".pa-body")?.open;
+      it.bodyOpen = art.querySelector(".pa-body")?.open || void 0;
       it.choice.adv = art.querySelector(".pa-adv")?.open || void 0;
       art.outerHTML = renderItem(it, i);
-      if (openBody) box.querySelector(`.pa-item[data-i="${i}"] .pa-body`).open = true;
     };
     box.innerHTML = items.map(renderItem).join("");
+    body.querySelector("[data-g=from]").addEventListener("change", (e) => {
+      settings().nameWithSource = e.target.checked;
+      saveSettings();
+      box.querySelectorAll(".pa-item").forEach((art) => {
+        const it = items[Number(art.dataset.i)];
+        const inp = art.querySelector("[data-c=name]");
+        if (inp && it.customName == null) inp.value = nameOf(it);
+      });
+    });
     box.addEventListener("change", (e) => {
       const art = e.target.closest(".pa-item");
       if (!art) return;
@@ -3565,18 +3731,17 @@ function mountSuture(page, app) {
         return;
       }
       if (c2 === "name") {
-        it.src = { ...it.src, name: e.target.value };
+        it.customName = e.target.value;
         return;
       }
       if (c2 === "content") {
         it.manual = e.target.value;
         return;
       }
-      if (c2 === "shape") it.choice.shape = e.target.value;
+      if (c2 === "mode") it.choice.mode = e.target.value;
       if (c2 === "var") it.choice.varName = e.target.value.trim();
       if (c2 === "op") it.choice.op = e.target.value;
       if (c2 === "label") it.choice.label = e.target.value;
-      if (c2 === "tag") it.choice.useTag = e.target.checked;
       if (c2 === "extras") it.choice.keepExtras = e.target.checked;
       if (c2 === "hook") it.choice.hook = e.target.checked;
       if (c2 === "hv") it.choice.hookVar = e.target.value.replace(/[{}:：\s]/g, "");
@@ -3601,8 +3766,8 @@ function mountSuture(page, app) {
     mutate(d, `缝合 ${items.length} 条`, (x) => {
       const prompts = items.map((it) => {
         const content = it.manual ?? it.finalContent ?? it.plan.content;
-        const prompt = buildPrompt(x, it.src, { content }, t, { keepSourceInjection: !ok.inj });
-        prompt.name = it.src.name;
+        const prompt = buildPrompt(x, it.src, { content }, t, { keepSourceInjection: it.mode === "raw" || !ok.inj });
+        prompt.name = nameOf(it);
         const v = it.plan.want;
         if ((v.shape === "wrap" || v.shape === "tagname") && v.varName && v.varName !== t.varName) {
           const initId = t.initId || findInitEntry(x);
@@ -3627,7 +3792,7 @@ function mountSuture(page, app) {
         const r = applyHook(x, h);
         if (r.ok) {
           chain.set(key, h.mode === "text" ? h.line.trim() : h.varName);
-          hooked.push(`${it.src.name} → ${r.cotName}`);
+          hooked.push(`${nameOf(it)} → ${r.cotName}`);
         }
       });
     });
@@ -4398,7 +4563,7 @@ function mountMore(page, app) {
 }
 
 // src/ui/style.css
-var style_default = "/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用\"缝线\"虚线做标记。所有选择器都限定在 #pa-root 内。 */\n\n#pa-root {\n    --pa-text: var(--SmartThemeBodyColor, #e6e1d8);\n    --pa-tint: var(--SmartThemeBlurTintColor, rgba(28, 26, 30, 0.94));\n    --pa-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));\n    --pa-thread: var(--SmartThemeQuoteColor, #e0a24a);\n    --pa-em: var(--SmartThemeEmColor, #b9b3a8);\n    --pa-dim: rgba(128, 128, 128, 0.95);\n    --pa-card: rgba(127, 127, 127, 0.09);\n    --pa-card-2: rgba(127, 127, 127, 0.16);\n    --pa-sel: rgba(224, 162, 74, 0.16);\n    --pa-warn: #e0784a;\n    --pa-ok: #6fb38a;\n    --pa-on-accent: #1b1712;\n    --pa-input-bg: rgba(0, 0, 0, .18);\n    --pa-r: 10px;\n    --pa-row-h: 38px;\n    position: fixed;\n    inset: 0;\n    width: 100%; height: 100vh; height: 100dvh;\n    max-height: none; min-height: 0; margin: 0; padding: 0;\n    z-index: 10010;\n    color: var(--pa-text);\n    font-size: var(--mainFontSize, 15px);\n    line-height: 1.45;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #pa-root {\n        --pa-dim: color-mix(in srgb, var(--pa-text) 58%, transparent);\n        --pa-card: color-mix(in srgb, var(--pa-text) 7%, transparent);\n        --pa-card-2: color-mix(in srgb, var(--pa-text) 13%, transparent);\n        --pa-sel: color-mix(in srgb, var(--pa-thread) 20%, transparent);\n    }\n}\n@media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }\n#pa-root[hidden] { display: none; }\nhtml.pa-open body { overflow: hidden; }\n\n#pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }\n#pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }\n#pa-root [hidden] { display: none !important; }\n\n/* ---------- 外壳 ---------- */\n#pa-root .pa-shell {\n    position: absolute; inset: 0;\n    display: grid;\n    grid-template-rows: auto auto minmax(0, 1fr);\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-areas: \"top\" \"tabs\" \"main\";\n    width: 100%; overflow: hidden;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    height: 100vh; height: 100dvh;\n}\n#pa-root .pa-shell::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }\n#pa-root .pa-top {\n    grid-area: top;\n    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;\n    padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n}\n#pa-root .pa-brand { display: flex; align-items: center; gap: 8px; font-size: 1.05em; white-space: nowrap; }\n#pa-root .pa-logo { display: inline-flex; color: var(--pa-thread); }\n#pa-root .pa-logo svg { width: 20px; height: 20px; }\n#pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }\n#pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }\n#pa-root .pa-theme-btn { margin-left: auto; }\n#pa-root .pa-savebar:not([hidden]) + .pa-theme-btn { margin-left: 0; }\n\n#pa-root .pa-tabs {\n    grid-area: tabs;\n    display: flex; gap: 2px; padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n    overflow-x: auto; scrollbar-width: none;\n}\n#pa-root .pa-tabs::-webkit-scrollbar { display: none; }\n#pa-root .pa-tabs button {\n    flex: 1 0 auto; min-width: 64px;\n    padding: 10px 12px; border: 0; background: none; cursor: pointer;\n    color: var(--pa-dim); border-bottom: 2px solid transparent;\n}\n#pa-root .pa-tabs button[aria-selected=\"true\"] { color: var(--pa-text); border-bottom: 2px dashed var(--pa-thread); }\n\n#pa-root .pa-main { grid-area: main; min-height: 0; position: relative; }\n#pa-root .pa-page { height: 100%; display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }\n#pa-root .pa-scroll {\n    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;\n    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;\n    padding: 6px calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));\n    position: relative;\n}\n\n/* 手机：页签放到底部，拇指够得着 */\n@media (max-width: 759px) {\n    #pa-root .pa-shell { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: \"top\" \"main\" \"tabs\"; }\n    #pa-root .pa-tabs { border-bottom: 0; border-top: 1px solid var(--pa-line); padding-bottom: env(safe-area-inset-bottom); }\n    #pa-root .pa-tabs button { border-bottom: 0; border-top: 2px solid transparent; padding: 11px 6px; min-width: 0; flex: 1 1 0; }\n    #pa-root .pa-tabs button[aria-selected=\"true\"] { border-top: 2px dashed var(--pa-thread); border-bottom: 0; }\n    #pa-root .pa-top:has(.pa-savebar:not([hidden])) .pa-brand b { display: none; }\n    #pa-root .pa-dirty-text { max-width: 38vw; }\n}\n\n/* ---------- 基础控件 ---------- */\n#pa-root .pa-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: 36px; padding: 6px 12px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-card); cursor: pointer; white-space: nowrap;\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-btn:disabled { opacity: .45; cursor: default; }\n#pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }\n#pa-root .pa-btn-soft { background: transparent; border-style: dashed; }\n#pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }\n#pa-root .pa-btn-danger-soft { color: var(--pa-warn); border-color: currentColor; background: transparent; }\n#pa-root .pa-sq { min-width: 40px; padding: 6px; }\n#pa-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-style: dashed; }\n#pa-root .pa-mini { border: 1px dashed var(--pa-thread); color: var(--pa-thread); background: none; border-radius: 999px; padding: 2px 10px; font-size: .82em; cursor: pointer; white-space: nowrap; min-height: 28px; }\n#pa-root .pa-icon-btn {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 34px; height: 34px; flex: none;\n    border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }\n#pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-input, #pa-root .pa-select {\n    width: 100%; min-height: 38px; padding: 7px 10px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-input-bg); color: var(--pa-text);\n    font-size: max(16px, 1em); /* iOS 小于 16px 会自动放大页面 */\n}\n#pa-root .pa-select { appearance: auto; }\n#pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }\n#pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }\n#pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }\n#pa-root .pa-text-s { min-height: 26vh; }\n#pa-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }\n#pa-root .pa-pad { padding: 0 14px; }\n#pa-root .pa-p { margin: 0 0 8px; }\n#pa-root .pa-empty { color: var(--pa-dim); text-align: center; padding: 28px 12px; }\n#pa-root .pa-h { font-size: 1em; margin: 18px 2px 8px; font-weight: 600; }\n#pa-root .pa-inline-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: .92em; }\n#pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }\n#pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }\n#pa-root .pa-field > span { color: var(--pa-dim); }\n#pa-root .pa-form { display: grid; gap: 12px; }\n#pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }\n#pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-groups-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 24px; }\n#pa-root .pa-chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: .74em; line-height: 1.7; border: 1px solid var(--pa-line); color: var(--pa-em); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }\n#pa-root .pa-chip-dim { opacity: .7; }\n#pa-root .pa-chip-cot { border-color: var(--pa-thread); color: var(--pa-thread); }\n\n#pa-root .pa-seg { display: inline-flex; border: 1px solid var(--pa-line); border-radius: 999px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }\n#pa-root .pa-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; color: var(--pa-dim); white-space: nowrap; min-height: 32px; }\n#pa-root .pa-seg button.on { background: var(--pa-card-2); color: var(--pa-text); }\n#pa-root .pa-seg-s button { padding: 4px 10px; font-size: .9em; }\n\n/* 开关 */\n#pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }\n#pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }\n#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }\n#pa-root .pa-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }\n#pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }\n#pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-switch-s { width: 32px; height: 19px; }\n#pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }\n#pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }\n#pa-root .pa-switch-s i::after { width: 13px; height: 13px; }\n#pa-root .pa-switch-s input:checked + i::after { transform: translateX(13px); }\n\n/* ---------- 工具栏 ---------- */\n#pa-root .pa-toolbar {\n    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;\n    padding: 10px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n}\n#pa-root .pa-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }\n#pa-root .pa-picker > span { color: var(--pa-dim); font-size: .88em; white-space: nowrap; }\n#pa-root .pa-picker .pa-select { min-width: 0; }\n#pa-root .pa-search-row { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-search-row .pa-search { flex: 1 1 auto; width: auto; min-width: 0; }\n#pa-root .pa-toolbar > .pa-search { flex: 1 1 160px; width: auto; }\n#pa-root .pa-tools-more { display: none; }\n@media (max-width: 759px) {\n    #pa-root .pa-tools { display: none; }\n    #pa-root .pa-tools-more { display: inline-flex; }\n    #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }\n    #pa-root .pa-chip { max-width: 5em; }\n    #pa-root .pa-badges { max-width: 32%; }\n}\n#pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }\n#pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }\n\n/* ---------- 条目列表 ---------- */\n#pa-root .pa-loose { padding: 2px 0; }\n#pa-root .pa-row {\n    display: flex; align-items: center; gap: 6px;\n    min-height: var(--pa-row-h); padding: 3px 4px 3px 8px;\n    border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;\n    -webkit-tap-highlight-color: transparent; position: relative;\n}\n#pa-root .pa-row:hover { background: var(--pa-card); }\n#pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }\n#pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }\n#pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }\n#pa-root .pa-row.pa-sel { background: var(--pa-sel); }\n#pa-root .pa-row.pa-sel .pa-check { border: 2px dashed var(--pa-thread); background: radial-gradient(circle, var(--pa-thread) 0 4px, transparent 4.5px); }\n#pa-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }\n#pa-root .pa-peek { width: 30px; height: 30px; opacity: .6; }\n#pa-root .pa-handle {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none;\n    color: var(--pa-dim); cursor: grab; touch-action: none; border-radius: 8px;\n}\n#pa-root .pa-handle:active { cursor: grabbing; background: var(--pa-card-2); }\n#pa-root .pa-row.pa-dragging { opacity: .35; }\n#pa-root .pa-row.pa-flash { animation: pa-flash 1.4s ease-out; }\n@keyframes pa-flash { 0%, 30% { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); } 100% { background: transparent; box-shadow: none; } }\n\n/* 分组框：左边一道缝线 */\n#pa-root .pa-group { margin: 6px 0; border-radius: var(--pa-r); background: var(--pa-card); position: relative; }\n#pa-root .pa-group::before { content: \"\"; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed var(--pa-thread); opacity: .75; }\n#pa-root .pa-group.pa-goff { opacity: .6; }\n#pa-root .pa-group.pa-goff::before { border-left-color: var(--pa-dim); }\n#pa-root .pa-group.pa-gsel { box-shadow: inset 0 0 0 1px var(--pa-thread); }\n#pa-root .pa-ghead { display: flex; align-items: center; gap: 4px; min-height: 42px; padding: 4px 6px 4px 6px; cursor: pointer; }\n#pa-root .pa-caret svg { transition: transform .15s; transform: rotate(90deg); }\n#pa-root .pa-collapsed .pa-caret svg { transform: rotate(0deg); }\n#pa-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); font-size: .8em; margin-left: 6px; }\n#pa-root .pa-count { color: var(--pa-dim); font-size: .82em; font-variant-numeric: tabular-nums; margin-right: 4px; }\n#pa-root .pa-gbody { padding: 0 2px 6px 10px; }\n#pa-root .pa-collapsed .pa-gbody { display: none; }\n\n#pa-root .pa-drop-line { position: absolute; left: 6px; right: 6px; height: 0; border-top: 3px solid var(--pa-thread); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n#pa-root .pa-ghost {\n    position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none;\n    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px);\n    padding: 8px 12px; border-radius: 10px; background: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600;\n    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);\n}\n#pa-root .pa-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-insert-mark {\n    margin: 2px 6px; padding: 2px 10px; font-size: .8em; color: var(--pa-thread);\n    border-top: 2px dashed var(--pa-thread); text-align: right;\n}\n#pa-root .pa-moving .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }\n#pa-root .pa-moving .pa-row:not(.pa-sel):hover, #pa-root .pa-moving .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }\n\n/* ---------- 底部操作条 ---------- */\n#pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar {\n    flex: none; border-top: 1px solid var(--pa-line);\n    padding: 8px calc(10px + env(safe-area-inset-right)) 8px calc(10px + env(safe-area-inset-left));\n    background: var(--pa-card);\n}\n#pa-root .pa-selbar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }\n#pa-root .pa-selbar-btns { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }\n#pa-root .pa-selbar-btns::-webkit-scrollbar { display: none; }\n#pa-root .pa-movebar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--pa-thread); }\n#pa-root .pa-movebar span { flex: 1 1 200px; }\n#pa-root .pa-stitchbar { display: flex; align-items: center; gap: 10px; }\n#pa-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }\n#pa-root .pa-stitch-info span { color: var(--pa-dim); font-size: .86em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n@media (max-width: 759px) {\n    #pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar { padding-bottom: 8px; }\n}\n\n/* ---------- 缝合 ---------- */\n#pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }\n#pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }\n#pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }\n#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }\n#pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#pa-root .pa-src { border-right: 0; }\n#pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }\n#pa-root .pa-pane-head > b { white-space: nowrap; }\n#pa-root .pa-pane-head .pa-dst-picker { flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-src-pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 12px; }\n#pa-root .pa-src-pick .pa-select { flex: 1 1 55%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-search { flex: 1 1 35%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-file { flex: none; }\n#pa-root .pa-dst-hint { padding: 0 12px; margin: 0 0 4px; }\n#pa-root .pa-file { position: relative; overflow: hidden; }\n#pa-root .pa-paste { padding: 4px 2px; }\n@media (max-width: 759px) {\n    #pa-root .pa-suture { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(90px, var(--pa-split, 45%)) 18px minmax(90px, 1fr); }\n    #pa-root .pa-splitter { cursor: row-resize; border-top: 2px dashed var(--pa-thread); border-bottom: 1px solid var(--pa-line); background: var(--pa-card); }\n    #pa-root .pa-splitter span { width: 48px; height: 4px; }\n    #pa-root .pa-pane-head { padding: 6px 10px 2px; }\n    #pa-root .pa-dst-hint { font-size: .8em; }\n}\n\n#pa-root .pa-review { display: grid; gap: 12px; }\n#pa-root .pa-target-card { border: 1px dashed var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 6px; }\n#pa-root .pa-target-card small { color: var(--pa-dim); }\n#pa-root .pa-items { display: grid; gap: 12px; }\n#pa-root .pa-item { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; background: var(--pa-card); }\n#pa-root .pa-item header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }\n#pa-root .pa-item header .pa-input { flex: 1 1 180px; width: auto; }\n#pa-root .pa-from { color: var(--pa-dim); }\n#pa-root .pa-item-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: end; }\n#pa-root .pa-notes { margin: 0; padding-left: 18px; font-size: .88em; color: var(--pa-em); }\n#pa-root .pa-notes .pa-warn { color: var(--pa-warn); }\n#pa-root .pa-item details summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 4px 0; }\n#pa-root .pa-item .pa-text { min-height: 30vh; margin-top: 6px; }\n\n/* ---------- 卡片（思维链/方案/API） ---------- */\n#pa-root .pa-cards { display: grid; gap: 8px; }\n#pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }\n#pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }\n#pa-root .pa-card small { display: block; color: var(--pa-dim); }\n#pa-root .pa-card p { margin: 2px 0; }\n#pa-root .pa-card-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }\n#pa-root .pa-card-warn { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root details.pa-card > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; list-style: none; }\n#pa-root details.pa-card > summary::-webkit-details-marker { display: none; }\n#pa-root details.pa-card > summary::before { content: \"▸\"; color: var(--pa-thread); }\n#pa-root details.pa-card[open] > summary::before { content: \"▾\"; }\n#pa-root .pa-reads { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 6px; }\n#pa-root .pa-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .9em; }\n#pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }\n#pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }\n#pa-root .pa-cot { padding-top: 4px; }\n#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 6px 0 4px; }\n#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }\n#pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }\n#pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }\n@media (max-width: 459px) { #pa-root .pa-cot-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }\n#pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }\n#pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }\n#pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }\n#pa-root .pa-cov .pa-link { grid-row: 1; grid-column: 3; font-size: .8em; }\n#pa-root .pa-cov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-lv { font-size: .74em; padding: 1px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }\n#pa-root .pa-lv-ok { color: var(--pa-ok); }\n#pa-root .pa-lv-maybe { color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-lv-none { color: var(--pa-dim); }\n#pa-root .pa-optional { margin-top: 16px; }\n\n#pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }\n#pa-root .pa-live .pa-dot::before { content: \"●\"; margin-right: 4px; }\n#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }\n#pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\n#pa-root .pa-api, #pa-root .pa-schemes { padding-top: 10px; }\n#pa-root .pa-api .pa-card .pa-inline-check { display: flex; margin: 4px 0; }\n\n/* ---------- 弹层 ---------- */\n#pa-root .pa-sheet-mask {\n    position: absolute; inset: 0; z-index: 50;\n    background: rgba(0, 0, 0, .45);\n    display: flex; align-items: flex-end; justify-content: center;\n    animation: pa-fade .16s ease-out;\n}\n#pa-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }\n#pa-root .pa-sheet {\n    width: 100%; max-height: 90vh; max-height: 90dvh;\n    display: flex; flex-direction: column;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);\n    border: 1px solid var(--pa-line); border-bottom: 0;\n    border-radius: 16px 16px 0 0;\n    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);\n    animation: pa-up .2s ease-out;\n    position: relative;\n}\n#pa-root .pa-sheet::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); border-radius: inherit; z-index: -1; }\n#pa-root .pa-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; border-bottom: 1px dashed var(--pa-line); }\n#pa-root .pa-sheet-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-sheet-body { padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }\n#pa-root .pa-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--pa-line); }\n@media (min-width: 760px) {\n    #pa-root .pa-sheet-mask { align-items: center; padding: 24px; }\n    #pa-root .pa-sheet { max-width: 560px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: 86vh; }\n    #pa-root .pa-sheet-wide { max-width: 920px; }\n}\n@keyframes pa-fade { from { opacity: 0; } }\n@keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }\n#pa-root .pa-pick { display: grid; gap: 6px; }\n#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }\n#pa-root .pa-pick-item small { color: var(--pa-dim); }\n#pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }\n#pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }\n#pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }\n#pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n\n/* ---------- 缝合：紧凑控件 ---------- */\n#pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }\n#pa-root .pa-compact .pa-seg button { min-height: 28px; padding: 3px 10px; }\n#pa-root .pa-compact .pa-pane-head { padding: 6px 10px 2px; gap: 6px; }\n#pa-root .pa-compact .pa-src-pick { padding: 2px 10px 4px; }\n#pa-root .pa-compact .pa-row { min-height: 34px; }\n#pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 15px; height: 15px; border-width: 1.5px; }\n#pa-root .pa-compact .pa-ghead { min-height: 36px; }\n#pa-root .pa-compact .pa-mini { min-height: 26px; padding: 1px 9px; }\n#pa-root .pa-compact .pa-picker > span { font-size: .8em; }\n#pa-root .pa-stitchbar .pa-link { padding: 4px 4px; font-size: .9em; }\n\n/* ---------- 缝合预览 ---------- */\n#pa-root .pa-hook { border-left: 3px solid var(--pa-thread); padding: 6px 10px; display: grid; gap: 6px; border-radius: 4px; background: var(--pa-card); }\n#pa-root .pa-hook small { color: var(--pa-dim); line-height: 1.5; display: block; }\n#pa-root .pa-hook .pa-warn { margin: 0; font-size: .88em; }\n#pa-root .pa-hook-covered, #pa-root .pa-hook-mention, #pa-root .pa-hook-skip, #pa-root .pa-hook-cot { border-left-color: var(--pa-ok); }\n#pa-root .pa-hook-nocot { border-left-color: var(--pa-warn); }\n#pa-root .pa-field-wide { flex: 1 1 260px; min-width: 0; grid-column: 1 / -1; }\n#pa-root .pa-field-wide .pa-input { width: 100%; }\n#pa-root .pa-explain summary, #pa-root .pa-adv summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-explain .pa-notes { margin-top: 6px; color: var(--pa-text); }\n#pa-root .pa-was { display: grid; gap: 2px; font-size: .92em; }\n#pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }\n#pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }\n\n/* ---------- 思维链页 ---------- */\n#pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }\n#pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }\n#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }\n#pa-root .pa-verdict p { margin: 0; }\n#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }\n#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }\n#pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }\n#pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }\n#pa-root .pa-legend .pa-lv { flex: none; }\n#pa-root .pa-cot-sum span { line-height: 1.3; }\n\n/* ---------- 更多：方案 / API / 外观 ---------- */\n#pa-root .pa-more-head { display: flex; justify-content: center; padding: 8px 10px 2px; }\n#pa-root .pa-subpage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n#pa-root .pa-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }\n#pa-root .pa-theme { display: grid; gap: 8px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--pa-line); cursor: pointer; min-height: 72px; }\n#pa-root .pa-theme[aria-pressed=\"true\"] { outline: 2px dashed var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-theme-dots { display: flex; gap: 5px; }\n#pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }\n#pa-root .pa-theme b { font-size: .95em; }\n#pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }\n#pa-root .pa-theme-btn { color: var(--pa-dim); }\n\n/* ---------- 莫兰迪色卡（不透明） ---------- */\n#pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-shell, #pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }\n#pa-root[data-theme=\"mist\"]     { --pa-tint:#e9eef2; --pa-text:#34404c; --pa-thread:#5b7a93; --pa-em:#55636f; --pa-line:#cad4dc; --pa-input-bg:#f7f9fb; --pa-warn:#b4604a; --pa-ok:#4e8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"bean\"]     { --pa-tint:#f4e9e8; --pa-text:#4f3c3c; --pa-thread:#a0605d; --pa-em:#6c5655; --pa-line:#e2cfcd; --pa-input-bg:#fcf7f6; --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"matcha\"]   { --pa-tint:#e9efe6; --pa-text:#36443a; --pa-thread:#5d7d58; --pa-em:#55634f; --pa-line:#cdd9c9; --pa-input-bg:#f7faf5; --pa-warn:#b0603f; --pa-ok:#4c7d55; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"oat\"]      { --pa-tint:#f2ece4; --pa-text:#4a3f35; --pa-thread:#8a6a4c; --pa-em:#67594b; --pa-line:#e0d5c6; --pa-input-bg:#fbf8f3; --pa-warn:#b0563d; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"lavender\"] { --pa-tint:#edeaf3; --pa-text:#403a4f; --pa-thread:#72649a; --pa-em:#5d566c; --pa-line:#d7d1e3; --pa-input-bg:#f9f8fc; --pa-warn:#b0566a; --pa-ok:#567f6c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"seasalt\"]  { --pa-tint:#e6efef; --pa-text:#2f4344; --pa-thread:#4b7a7b; --pa-em:#4d6263; --pa-line:#c7d8d8; --pa-input-bg:#f6fafa; --pa-warn:#b25e48; --pa-ok:#4a7f5f; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"night\"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }\n#pa-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }\n\n@media (prefers-reduced-motion: reduce) {\n    #pa-root *, #pa-root *::before, #pa-root *::after { animation: none !important; transition: none !important; }\n}\n";
+var style_default = "/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用\"缝线\"虚线做标记。所有选择器都限定在 #pa-root 内。 */\n\n#pa-root {\n    --pa-text: var(--SmartThemeBodyColor, #e6e1d8);\n    --pa-tint: var(--SmartThemeBlurTintColor, rgba(28, 26, 30, 0.94));\n    --pa-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));\n    --pa-thread: var(--SmartThemeQuoteColor, #e0a24a);\n    --pa-em: var(--SmartThemeEmColor, #b9b3a8);\n    --pa-dim: rgba(128, 128, 128, 0.95);\n    --pa-card: rgba(127, 127, 127, 0.09);\n    --pa-card-2: rgba(127, 127, 127, 0.16);\n    --pa-sel: rgba(224, 162, 74, 0.16);\n    --pa-warn: #e0784a;\n    --pa-ok: #6fb38a;\n    --pa-on-accent: #1b1712;\n    --pa-input-bg: rgba(0, 0, 0, .18);\n    --pa-r: 10px;\n    --pa-row-h: 38px;\n    position: fixed;\n    inset: 0;\n    width: 100%; height: 100vh; height: 100dvh;\n    max-height: none; min-height: 0; margin: 0; padding: 0;\n    z-index: 10010;\n    color: var(--pa-text);\n    font-size: var(--mainFontSize, 15px);\n    line-height: 1.45;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #pa-root {\n        --pa-dim: color-mix(in srgb, var(--pa-text) 58%, transparent);\n        --pa-card: color-mix(in srgb, var(--pa-text) 7%, transparent);\n        --pa-card-2: color-mix(in srgb, var(--pa-text) 13%, transparent);\n        --pa-sel: color-mix(in srgb, var(--pa-thread) 20%, transparent);\n    }\n}\n@media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }\n#pa-root[hidden] { display: none; }\nhtml.pa-open body { overflow: hidden; }\n\n#pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }\n#pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }\n#pa-root [hidden] { display: none !important; }\n\n/* ---------- 外壳 ---------- */\n#pa-root .pa-shell {\n    position: absolute; inset: 0;\n    display: grid;\n    grid-template-rows: auto auto minmax(0, 1fr);\n    grid-template-columns: minmax(0, 1fr);\n    grid-template-areas: \"top\" \"tabs\" \"main\";\n    width: 100%; overflow: hidden;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);\n    height: 100vh; height: 100dvh;\n}\n#pa-root .pa-shell::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }\n#pa-root .pa-top {\n    grid-area: top;\n    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;\n    padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n}\n#pa-root .pa-brand { display: flex; align-items: center; gap: 8px; font-size: 1.05em; white-space: nowrap; }\n#pa-root .pa-logo { display: inline-flex; color: var(--pa-thread); }\n#pa-root .pa-logo svg { width: 20px; height: 20px; }\n#pa-root .pa-savebar { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }\n#pa-root .pa-dirty-text { color: var(--pa-thread); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }\n#pa-root .pa-theme-btn { margin-left: auto; }\n#pa-root .pa-savebar:not([hidden]) + .pa-theme-btn { margin-left: 0; }\n\n#pa-root .pa-tabs {\n    grid-area: tabs;\n    display: flex; gap: 2px; padding: 0 calc(8px + env(safe-area-inset-right)) 0 calc(8px + env(safe-area-inset-left));\n    border-bottom: 1px solid var(--pa-line);\n    overflow-x: auto; scrollbar-width: none;\n}\n#pa-root .pa-tabs::-webkit-scrollbar { display: none; }\n#pa-root .pa-tabs button {\n    flex: 1 0 auto; min-width: 64px;\n    padding: 10px 12px; border: 0; background: none; cursor: pointer;\n    color: var(--pa-dim); border-bottom: 2px solid transparent;\n}\n#pa-root .pa-tabs button[aria-selected=\"true\"] { color: var(--pa-text); border-bottom: 2px dashed var(--pa-thread); }\n\n#pa-root .pa-main { grid-area: main; min-height: 0; position: relative; }\n#pa-root .pa-page { height: 100%; display: flex; flex-direction: column; min-height: 0; min-width: 0; width: 100%; }\n#pa-root .pa-scroll {\n    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;\n    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;\n    padding: 6px calc(10px + env(safe-area-inset-right)) 16px calc(10px + env(safe-area-inset-left));\n    position: relative;\n}\n\n/* 手机：页签放到底部，拇指够得着 */\n@media (max-width: 759px) {\n    #pa-root .pa-shell { grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: \"top\" \"main\" \"tabs\"; }\n    #pa-root .pa-tabs { border-bottom: 0; border-top: 1px solid var(--pa-line); padding-bottom: env(safe-area-inset-bottom); }\n    #pa-root .pa-tabs button { border-bottom: 0; border-top: 2px solid transparent; padding: 11px 6px; min-width: 0; flex: 1 1 0; }\n    #pa-root .pa-tabs button[aria-selected=\"true\"] { border-top: 2px dashed var(--pa-thread); border-bottom: 0; }\n    #pa-root .pa-top:has(.pa-savebar:not([hidden])) .pa-brand b { display: none; }\n    #pa-root .pa-dirty-text { max-width: 38vw; }\n}\n\n/* ---------- 基础控件 ---------- */\n#pa-root .pa-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: 36px; padding: 6px 12px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-card); cursor: pointer; white-space: nowrap;\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-btn:disabled { opacity: .45; cursor: default; }\n#pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }\n#pa-root .pa-btn-soft { background: transparent; border-style: dashed; }\n#pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }\n#pa-root .pa-btn-danger-soft { color: var(--pa-warn); border-color: currentColor; background: transparent; }\n#pa-root .pa-sq { min-width: 40px; padding: 6px; }\n#pa-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-style: dashed; }\n#pa-root .pa-mini { border: 1px dashed var(--pa-thread); color: var(--pa-thread); background: none; border-radius: 999px; padding: 2px 10px; font-size: .82em; cursor: pointer; white-space: nowrap; min-height: 28px; }\n#pa-root .pa-icon-btn {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 34px; height: 34px; flex: none;\n    border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);\n    -webkit-tap-highlight-color: transparent;\n}\n#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }\n#pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#pa-root .pa-input, #pa-root .pa-select {\n    width: 100%; min-height: 38px; padding: 7px 10px;\n    border: 1px solid var(--pa-line); border-radius: 8px;\n    background: var(--pa-input-bg); color: var(--pa-text);\n    font-size: max(16px, 1em); /* iOS 小于 16px 会自动放大页面 */\n}\n#pa-root .pa-select { appearance: auto; }\n#pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }\n#pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }\n#pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }\n#pa-root .pa-text-s { min-height: 26vh; }\n#pa-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }\n#pa-root .pa-pad { padding: 0 14px; }\n#pa-root .pa-p { margin: 0 0 8px; }\n#pa-root .pa-empty { color: var(--pa-dim); text-align: center; padding: 28px 12px; }\n#pa-root .pa-h { font-size: 1em; margin: 18px 2px 8px; font-weight: 600; }\n#pa-root .pa-inline-check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: .92em; }\n#pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }\n#pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }\n#pa-root .pa-field > span { color: var(--pa-dim); }\n#pa-root .pa-form { display: grid; gap: 12px; }\n#pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }\n#pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-groups-pick { display: flex; flex-wrap: wrap; gap: 6px 14px; padding-left: 24px; }\n#pa-root .pa-chip { display: inline-block; padding: 0 7px; border-radius: 999px; font-size: .74em; line-height: 1.7; border: 1px solid var(--pa-line); color: var(--pa-em); white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }\n#pa-root .pa-chip-dim { opacity: .7; }\n#pa-root .pa-chip-cot { border-color: var(--pa-thread); color: var(--pa-thread); }\n\n#pa-root .pa-seg { display: inline-flex; border: 1px solid var(--pa-line); border-radius: 999px; padding: 2px; gap: 2px; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; }\n#pa-root .pa-seg button { border: 0; background: none; padding: 5px 12px; border-radius: 999px; cursor: pointer; color: var(--pa-dim); white-space: nowrap; min-height: 32px; }\n#pa-root .pa-seg button.on { background: var(--pa-card-2); color: var(--pa-text); }\n#pa-root .pa-seg-s button { padding: 4px 10px; font-size: .9em; }\n\n/* 开关 */\n#pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }\n#pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }\n#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }\n#pa-root .pa-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }\n#pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }\n#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }\n#pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-switch-s { width: 32px; height: 19px; }\n#pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }\n#pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }\n#pa-root .pa-switch-s i::after { width: 13px; height: 13px; }\n#pa-root .pa-switch-s input:checked + i::after { transform: translateX(13px); }\n\n/* ---------- 工具栏 ---------- */\n#pa-root .pa-toolbar {\n    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;\n    padding: 10px calc(12px + env(safe-area-inset-right)) 8px calc(12px + env(safe-area-inset-left));\n}\n#pa-root .pa-picker { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 220px; }\n#pa-root .pa-picker > span { color: var(--pa-dim); font-size: .88em; white-space: nowrap; }\n#pa-root .pa-picker .pa-select { min-width: 0; }\n#pa-root .pa-search-row { display: flex; gap: 6px; flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-search-row .pa-search { flex: 1 1 auto; width: auto; min-width: 0; }\n#pa-root .pa-toolbar > .pa-search { flex: 1 1 160px; width: auto; }\n#pa-root .pa-tools-more { display: none; }\n@media (max-width: 759px) {\n    #pa-root .pa-tools { display: none; }\n    #pa-root .pa-tools-more { display: inline-flex; }\n    #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }\n    #pa-root .pa-chip { max-width: 5em; }\n    #pa-root .pa-badges { max-width: 32%; }\n}\n#pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }\n#pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }\n\n/* ---------- 条目列表 ---------- */\n#pa-root .pa-loose { padding: 2px 0; }\n#pa-root .pa-row {\n    display: flex; align-items: center; gap: 6px;\n    min-height: var(--pa-row-h); padding: 3px 4px 3px 8px;\n    border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;\n    -webkit-tap-highlight-color: transparent; position: relative;\n}\n#pa-root .pa-row:hover { background: var(--pa-card); }\n#pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }\n#pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }\n#pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }\n#pa-root .pa-row.pa-sel { background: var(--pa-sel); }\n#pa-root .pa-row.pa-sel .pa-check { border: 2px dashed var(--pa-thread); background: radial-gradient(circle, var(--pa-thread) 0 4px, transparent 4.5px); }\n#pa-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }\n#pa-root .pa-peek { width: 30px; height: 30px; opacity: .6; }\n#pa-root .pa-handle {\n    display: inline-flex; align-items: center; justify-content: center;\n    width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none;\n    color: var(--pa-dim); cursor: grab; touch-action: none; border-radius: 8px;\n}\n#pa-root .pa-handle:active { cursor: grabbing; background: var(--pa-card-2); }\n#pa-root .pa-row.pa-dragging { opacity: .35; }\n#pa-root .pa-row.pa-flash { animation: pa-flash 1.4s ease-out; }\n@keyframes pa-flash { 0%, 30% { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-thread); } 100% { background: transparent; box-shadow: none; } }\n\n/* 分组框：左边一道缝线 */\n#pa-root .pa-group { margin: 6px 0; border-radius: var(--pa-r); background: var(--pa-card); position: relative; }\n#pa-root .pa-group::before { content: \"\"; position: absolute; left: 0; top: 10px; bottom: 10px; border-left: 2px dashed var(--pa-thread); opacity: .75; }\n#pa-root .pa-group.pa-goff { opacity: .6; }\n#pa-root .pa-group.pa-goff::before { border-left-color: var(--pa-dim); }\n#pa-root .pa-group.pa-gsel { box-shadow: inset 0 0 0 1px var(--pa-thread); }\n#pa-root .pa-ghead { display: flex; align-items: center; gap: 4px; min-height: 42px; padding: 4px 6px 4px 6px; cursor: pointer; }\n#pa-root .pa-caret svg { transition: transform .15s; transform: rotate(90deg); }\n#pa-root .pa-collapsed .pa-caret svg { transform: rotate(0deg); }\n#pa-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); font-size: .8em; margin-left: 6px; }\n#pa-root .pa-count { color: var(--pa-dim); font-size: .82em; font-variant-numeric: tabular-nums; margin-right: 4px; }\n#pa-root .pa-gbody { padding: 0 2px 6px 10px; }\n#pa-root .pa-collapsed .pa-gbody { display: none; }\n\n#pa-root .pa-drop-line { position: absolute; left: 6px; right: 6px; height: 0; border-top: 3px solid var(--pa-thread); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n#pa-root .pa-ghost {\n    position: absolute; left: 0; top: 0; z-index: 20; pointer-events: none;\n    display: flex; align-items: center; gap: 8px; max-width: calc(100% - 24px);\n    padding: 8px 12px; border-radius: 10px; background: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600;\n    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);\n}\n#pa-root .pa-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-insert-mark {\n    margin: 2px 6px; padding: 2px 10px; font-size: .8em; color: var(--pa-thread);\n    border-top: 2px dashed var(--pa-thread); text-align: right;\n}\n#pa-root .pa-moving .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }\n#pa-root .pa-moving .pa-row:not(.pa-sel):hover, #pa-root .pa-moving .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }\n\n/* ---------- 底部操作条 ---------- */\n#pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar {\n    flex: none; border-top: 1px solid var(--pa-line);\n    padding: 8px calc(10px + env(safe-area-inset-right)) 8px calc(10px + env(safe-area-inset-left));\n    background: var(--pa-card);\n}\n#pa-root .pa-selbar-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }\n#pa-root .pa-selbar-btns { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }\n#pa-root .pa-selbar-btns::-webkit-scrollbar { display: none; }\n#pa-root .pa-movebar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--pa-thread); }\n#pa-root .pa-movebar span { flex: 1 1 200px; }\n#pa-root .pa-stitchbar { display: flex; align-items: center; gap: 10px; }\n#pa-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }\n#pa-root .pa-stitch-info span { color: var(--pa-dim); font-size: .86em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n@media (max-width: 759px) {\n    #pa-root .pa-selbar, #pa-root .pa-movebar, #pa-root .pa-stitchbar { padding-bottom: 8px; }\n}\n\n/* ---------- 缝合 ---------- */\n#pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }\n#pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }\n#pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }\n#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }\n#pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#pa-root .pa-src { border-right: 0; }\n#pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }\n#pa-root .pa-pane-head > b { white-space: nowrap; }\n#pa-root .pa-pane-head .pa-dst-picker { flex: 1 1 200px; min-width: 0; }\n#pa-root .pa-src-pick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; padding: 4px 12px; }\n#pa-root .pa-src-pick .pa-select { flex: 1 1 55%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-search { flex: 1 1 35%; width: auto; min-width: 0; }\n#pa-root .pa-src-pick .pa-file { flex: none; }\n#pa-root .pa-dst-hint { padding: 0 12px; margin: 0 0 4px; }\n#pa-root .pa-file { position: relative; overflow: hidden; }\n#pa-root .pa-paste { padding: 4px 2px; }\n@media (max-width: 759px) {\n    #pa-root .pa-suture { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(90px, var(--pa-split, 45%)) 18px minmax(90px, 1fr); }\n    #pa-root .pa-splitter { cursor: row-resize; border-top: 2px dashed var(--pa-thread); border-bottom: 1px solid var(--pa-line); background: var(--pa-card); }\n    #pa-root .pa-splitter span { width: 48px; height: 4px; }\n    #pa-root .pa-pane-head { padding: 6px 10px 2px; }\n    #pa-root .pa-dst-hint { font-size: .8em; }\n}\n\n#pa-root .pa-review { display: grid; gap: 12px; }\n#pa-root .pa-target-card { border: 1px dashed var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 6px; }\n#pa-root .pa-target-card small { color: var(--pa-dim); }\n#pa-root .pa-items { display: grid; gap: 12px; }\n#pa-root .pa-item { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; background: var(--pa-card); }\n#pa-root .pa-item header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }\n#pa-root .pa-item header .pa-input { flex: 1 1 180px; width: auto; }\n#pa-root .pa-from { color: var(--pa-dim); }\n#pa-root .pa-item-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: end; }\n#pa-root .pa-notes { margin: 0; padding-left: 18px; font-size: .88em; color: var(--pa-em); }\n#pa-root .pa-notes .pa-warn { color: var(--pa-warn); }\n#pa-root .pa-item details summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 4px 0; }\n#pa-root .pa-item .pa-text { min-height: 30vh; margin-top: 6px; }\n\n/* ---------- 卡片（思维链/方案/API） ---------- */\n#pa-root .pa-cards { display: grid; gap: 8px; }\n#pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }\n#pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }\n#pa-root .pa-card small { display: block; color: var(--pa-dim); }\n#pa-root .pa-card p { margin: 2px 0; }\n#pa-root .pa-card-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }\n#pa-root .pa-card-warn { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root details.pa-card > summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; list-style: none; }\n#pa-root details.pa-card > summary::-webkit-details-marker { display: none; }\n#pa-root details.pa-card > summary::before { content: \"▸\"; color: var(--pa-thread); }\n#pa-root details.pa-card[open] > summary::before { content: \"▾\"; }\n#pa-root .pa-reads { list-style: none; margin: 8px 0 4px; padding: 0; display: grid; gap: 6px; }\n#pa-root .pa-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: .9em; }\n#pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }\n#pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }\n#pa-root .pa-cot { padding-top: 4px; }\n#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 6px 0 4px; }\n#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }\n#pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }\n#pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }\n#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }\n#pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }\n@media (max-width: 459px) { #pa-root .pa-cot-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }\n#pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }\n#pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }\n#pa-root .pa-cov small { grid-column: 2 / 4; color: var(--pa-dim); font-size: .8em; word-break: break-all; }\n#pa-root .pa-cov .pa-link { grid-row: 1; grid-column: 3; font-size: .8em; }\n#pa-root .pa-cov-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-lv { font-size: .74em; padding: 1px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }\n#pa-root .pa-lv-ok { color: var(--pa-ok); }\n#pa-root .pa-lv-maybe { color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-lv-none { color: var(--pa-dim); }\n#pa-root .pa-optional { margin-top: 16px; }\n\n#pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }\n#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }\n#pa-root .pa-live .pa-dot::before { content: \"●\"; margin-right: 4px; }\n#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }\n#pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }\n#pa-root .pa-api, #pa-root .pa-schemes { padding-top: 10px; }\n#pa-root .pa-api .pa-card .pa-inline-check { display: flex; margin: 4px 0; }\n\n/* ---------- 弹层 ---------- */\n#pa-root .pa-sheet-mask {\n    position: absolute; inset: 0; z-index: 50;\n    background: rgba(0, 0, 0, .45);\n    display: flex; align-items: flex-end; justify-content: center;\n    animation: pa-fade .16s ease-out;\n}\n#pa-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }\n#pa-root .pa-sheet {\n    width: 100%; max-height: 90vh; max-height: 90dvh;\n    display: flex; flex-direction: column;\n    background: var(--pa-tint);\n    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);\n    border: 1px solid var(--pa-line); border-bottom: 0;\n    border-radius: 16px 16px 0 0;\n    box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);\n    animation: pa-up .2s ease-out;\n    position: relative;\n}\n#pa-root .pa-sheet::before { content: \"\"; position: absolute; inset: 0; background: var(--pa-tint); border-radius: inherit; z-index: -1; }\n#pa-root .pa-sheet-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px 16px; border-bottom: 1px dashed var(--pa-line); }\n#pa-root .pa-sheet-head b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#pa-root .pa-sheet-body { padding: 12px 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }\n#pa-root .pa-sheet-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--pa-line); }\n@media (min-width: 760px) {\n    #pa-root .pa-sheet-mask { align-items: center; padding: 24px; }\n    #pa-root .pa-sheet { max-width: 560px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: 86vh; }\n    #pa-root .pa-sheet-wide { max-width: 920px; }\n}\n@keyframes pa-fade { from { opacity: 0; } }\n@keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }\n#pa-root .pa-pick { display: grid; gap: 6px; }\n#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }\n#pa-root .pa-pick-item small { color: var(--pa-dim); }\n#pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }\n#pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }\n#pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }\n#pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }\n#pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n\n/* ---------- 缝合：紧凑控件 ---------- */\n#pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }\n#pa-root .pa-compact .pa-seg button { min-height: 28px; padding: 3px 10px; }\n#pa-root .pa-compact .pa-pane-head { padding: 6px 10px 2px; gap: 6px; }\n#pa-root .pa-compact .pa-src-pick { padding: 2px 10px 4px; }\n#pa-root .pa-compact .pa-row { min-height: 34px; }\n#pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 15px; height: 15px; border-width: 1.5px; }\n#pa-root .pa-compact .pa-ghead { min-height: 36px; }\n#pa-root .pa-compact .pa-mini { min-height: 26px; padding: 1px 9px; }\n#pa-root .pa-compact .pa-picker > span { font-size: .8em; }\n#pa-root .pa-stitchbar .pa-link { padding: 4px 4px; font-size: .9em; }\n\n/* ---------- 缝合预览 ---------- */\n#pa-root .pa-hook { border-left: 3px solid var(--pa-thread); padding: 6px 10px; display: grid; gap: 6px; border-radius: 4px; background: var(--pa-card); }\n#pa-root .pa-hook small { color: var(--pa-dim); line-height: 1.5; display: block; }\n#pa-root .pa-hook .pa-warn { margin: 0; font-size: .88em; }\n#pa-root .pa-hook-covered, #pa-root .pa-hook-mention, #pa-root .pa-hook-skip, #pa-root .pa-hook-cot { border-left-color: var(--pa-ok); }\n#pa-root .pa-hook-nocot { border-left-color: var(--pa-warn); }\n#pa-root .pa-field-wide { flex: 1 1 260px; min-width: 0; grid-column: 1 / -1; }\n#pa-root .pa-field-wide .pa-input { width: 100%; }\n#pa-root .pa-explain summary, #pa-root .pa-adv summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n#pa-root .pa-explain .pa-notes { margin-top: 6px; color: var(--pa-text); }\n#pa-root .pa-was { display: grid; gap: 2px; font-size: .92em; }\n#pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }\n#pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }\n\n#pa-root .pa-modes { display: grid; gap: 8px; }\n#pa-root .pa-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); cursor: pointer; background: transparent; }\n#pa-root .pa-mode.on { border: 2px dashed var(--pa-thread); background: var(--pa-sel); padding: 7px 9px; }\n#pa-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }\n#pa-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }\n#pa-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }\n#pa-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }\n#pa-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }\n\n/* ---------- 思维链页 ---------- */\n#pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }\n#pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }\n#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }\n#pa-root .pa-verdict p { margin: 0; }\n#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }\n#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }\n#pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }\n#pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }\n#pa-root .pa-legend .pa-lv { flex: none; }\n#pa-root .pa-cot-sum span { line-height: 1.3; }\n\n/* ---------- 更多：方案 / API / 外观 ---------- */\n#pa-root .pa-more-head { display: flex; justify-content: center; padding: 8px 10px 2px; }\n#pa-root .pa-subpage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }\n#pa-root .pa-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }\n#pa-root .pa-theme { display: grid; gap: 8px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--pa-line); cursor: pointer; min-height: 72px; }\n#pa-root .pa-theme[aria-pressed=\"true\"] { outline: 2px dashed var(--pa-thread); outline-offset: 2px; }\n#pa-root .pa-theme-dots { display: flex; gap: 5px; }\n#pa-root .pa-theme-dots i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(0,0,0,.12); display: block; }\n#pa-root .pa-theme b { font-size: .95em; }\n#pa-root .pa-theme small { color: inherit; opacity: .7; font-size: .78em; }\n#pa-root .pa-theme-btn { color: var(--pa-dim); }\n\n/* ---------- 莫兰迪色卡（不透明） ---------- */\n#pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-shell, #pa-root[data-theme]:not([data-theme=\"follow\"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }\n#pa-root[data-theme=\"mist\"]     { --pa-tint:#e9eef2; --pa-text:#34404c; --pa-thread:#5b7a93; --pa-em:#55636f; --pa-line:#cad4dc; --pa-input-bg:#f7f9fb; --pa-warn:#b4604a; --pa-ok:#4e8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"bean\"]     { --pa-tint:#f4e9e8; --pa-text:#4f3c3c; --pa-thread:#a0605d; --pa-em:#6c5655; --pa-line:#e2cfcd; --pa-input-bg:#fcf7f6; --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"matcha\"]   { --pa-tint:#e9efe6; --pa-text:#36443a; --pa-thread:#5d7d58; --pa-em:#55634f; --pa-line:#cdd9c9; --pa-input-bg:#f7faf5; --pa-warn:#b0603f; --pa-ok:#4c7d55; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"oat\"]      { --pa-tint:#f2ece4; --pa-text:#4a3f35; --pa-thread:#8a6a4c; --pa-em:#67594b; --pa-line:#e0d5c6; --pa-input-bg:#fbf8f3; --pa-warn:#b0563d; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"lavender\"] { --pa-tint:#edeaf3; --pa-text:#403a4f; --pa-thread:#72649a; --pa-em:#5d566c; --pa-line:#d7d1e3; --pa-input-bg:#f9f8fc; --pa-warn:#b0566a; --pa-ok:#567f6c; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"seasalt\"]  { --pa-tint:#e6efef; --pa-text:#2f4344; --pa-thread:#4b7a7b; --pa-em:#4d6263; --pa-line:#c7d8d8; --pa-input-bg:#f6fafa; --pa-warn:#b25e48; --pa-ok:#4a7f5f; --pa-on-accent:#fff; }\n#pa-root[data-theme=\"night\"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }\n#pa-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }\n\n@media (prefers-reduced-motion: reduce) {\n    #pa-root *, #pa-root *::before, #pa-root *::after { animation: none !important; transition: none !important; }\n}\n";
 
 // src/ui/app.js
 var TABS = [

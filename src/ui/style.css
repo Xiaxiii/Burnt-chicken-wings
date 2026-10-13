@@ -419,6 +419,15 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-was > b { font-size: .9em; color: var(--pa-dim); font-weight: 600; }
 #pa-root .pa-adv .pa-item-ctl { margin-top: 8px; }
 
+#pa-root .pa-modes { display: grid; gap: 8px; }
+#pa-root .pa-mode { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); cursor: pointer; background: transparent; }
+#pa-root .pa-mode.on { border: 2px dashed var(--pa-thread); background: var(--pa-sel); padding: 7px 9px; }
+#pa-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+#pa-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }
+#pa-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }
+#pa-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }
+#pa-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }
+
 /* ---------- 思维链页 ---------- */
 #pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }
 #pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }

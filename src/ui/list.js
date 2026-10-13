@@ -33,7 +33,7 @@ function renderList(draft, o) {
       if (isCotEntry(draft, id)) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
     }
     if (marker) badge = '<span class="pa-chip pa-chip-dim">酒馆位置</span>';
-    const ins = o.marker && o.marker.after === id ? '<div class="pa-insert-mark">缝在这里</div>' : "";
+    const ins = o.marker && o.marker.after === id && o.mode !== "target-group" ? '<div class="pa-insert-mark">缝在这里</div>' : "";
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
     return `<div class="pa-row${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}">
             <span class="pa-check" aria-hidden="true"></span>
@@ -57,8 +57,8 @@ function renderList(draft, o) {
     const isCol = !q && collapsed.has(b.groupId);
     const onCount = b.ids.filter((id) => enabledMap.get(id)).length;
     const allSel = b.ids.length && b.ids.every((id) => sel.has(id));
-    const startMark = o.marker && o.marker.groupStart === b.groupId && b.part === 1 ? '<div class="pa-insert-mark">缝在组开头</div>' : "";
-    const endMark = o.marker && o.marker.groupEnd === b.groupId && b.part === b.parts ? '<div class="pa-insert-mark">缝在组末尾</div>' : "";
+    const startMark = o.mode !== "target-group" && o.marker && o.marker.groupStart === b.groupId && b.part === 1 ? '<div class="pa-insert-mark">缝在组开头</div>' : "";
+    const endMark = o.mode !== "target-group" && o.marker && o.marker.groupEnd === b.groupId && b.part === b.parts ? '<div class="pa-insert-mark">缝在组末尾</div>' : "";
     html += `<section class="pa-group${isCol ? " pa-collapsed" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}">
                 <button class="pa-icon-btn pa-group-select" data-act="${o.mode === "target" ? "collapse" : "gselect"}" aria-label="${o.mode === "target" ? "展开/折叠" : "全选/取消本组"}" aria-pressed="${!!allSel}"><span class="pa-check"></span></button>
@@ -67,6 +67,7 @@ function renderList(draft, o) {
                 ${o.mode === "organize" ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
                 ${o.mode === "target" ? `<button class="pa-mini" data-act="into">缝进这组</button>` : ""}
+                ${o.mode === "target-group" ? `<button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>` : ""}
             </header>
             ${startMark}<div class="pa-gbody">${visibleRows}</div>${endMark}
         </section>`;
