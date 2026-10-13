@@ -1,6 +1,6 @@
-// 预设裁缝铺 1.3.2（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.3.3（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.3.2";
+var VERSION = "1.3.3";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -942,7 +942,11 @@ function scanTopMacros(text) {
       }
       j++;
     }
-    if (end < 0) break;
+    if (end < 0) {
+      // 少了一个 } 的笔误（比如 {{user}：…），跳过这个 {{ 接着往后找，后面的 {{getvar}} 照样算
+      i = open2 + 2;
+      continue;
+    }
     out.push({ start: open2, end, inner: s.slice(open2 + 2, end - 2) });
     i = end;
   }
@@ -1195,8 +1199,11 @@ function entryHandles(p) {
   if (!p) return out;
   const raw = String(p.content || "");
   const body = String(detectShape(raw).body || raw);
-  const ot = /^\s*<([^>\/\n!]{2,30})>/.exec(body);
+  const ot = /^\s*<([^>\/\n!]{2,40})>/.exec(body);
   if (ot) {
+    // <small_theater: 日记小剧场> 这种：标签是大家共用的，后面那个才是这条自己的名字
+    const two = /^([^：:\s]+)\s*[：:]\s*(.+)$/.exec(ot[1]);
+    if (two && two[2].trim().length >= 2) out.push({ needle: two[2].trim(), ref: `「${two[2].trim()}」`, cjk: CJK.test(two[2]) });
     const name = ot[1].split(/[：:\s]/)[0];
     if (name.length >= 2) out.push({ needle: name, ref: `<${name}>`, cjk: CJK.test(name) });
   }
@@ -2402,18 +2409,21 @@ function inferTarget(draft, where, groupId) {
     }
   }
   // 单选槽位（好几条 setvar 同一个变量）：新条目要不要加入，得看它是不是同一类——见 planItem 里的 slotAllowed
-  if (shape === "tagname" && t.varName && t.op === "set") {
+  if ((shape === "tagname" || shape === "wrap") && t.varName && t.op === "set") {
     const order = draft.order.map((o) => o.identifier);
     const idx = insertionIndex(draft, where);
-    const isSep = (id) => String(draft.prompt(id)?.content || "").replace(/\{\{[^{}]*\}\}/g, "").replace(/<[^>\n]*>/g, "").trim().length < 20;
+    const isSep = (id) => {
+      const c2 = String(draft.prompt(id)?.content || "");
+      return String(detectShape(c2).body || c2).replace(/\{\{[^{}]*\}\}/g, "").replace(/<[^>\n]*>/g, "").trim().length < 20;
+    };
     const inSlot = (id) => {
       const s2 = detectShape(draft.prompt(id)?.content);
-      return s2.shape === "tagname" && s2.varName === t.varName;
+      return s2.shape === shape && s2.varName === t.varName;
     };
     let prev = null, next = null;
     for (let i = idx - 1; i >= 0; i--) if (!isSep(order[i])) { prev = order[i]; break; }
     for (let i = idx; i < order.length; i++) if (!isSep(order[i])) { next = order[i]; break; }
-    t.slot = { varName: t.varName, between: !!(prev && next && inSlot(prev) && inSlot(next)), section: neighborhood(draft, where, groupId).sec?.key || null };
+    t.slot = { varName: t.varName, shape, between: !!(prev && next && inSlot(prev) && inSlot(next)), section: neighborhood(draft, where, groupId).sec?.key || null };
   }
   // 登记的是一句问句、而且问句里带着各自的名字（Ariadne：- 以[Writing Style: 来点生活]为核心文风…）→ 记下模板，新条目照样换名字
   if (shape === "tagname" && t.varName) {
@@ -2446,6 +2456,9 @@ function inferTarget(draft, where, groupId) {
       }
       if (ms.some((m) => m.name === key && m.op === "get")) t.readerIds.push(id);
     }
+    // 读它的条目全都关着（小冰块的「小剧场一键开关」）：包进这个变量的内容根本发不出去
+    t.readersOff = t.readerIds.length > 0 && t.readerIds.every((id) => !draft.isActive(id));
+    t.readerNames = Object.fromEntries(t.readerIds.map((id) => [id, draft.prompt(id)?.name || id]));
     if (!t.initId) t.initId = findInitEntry(draft);
   }
   t.summary = describeTarget(t);
@@ -2547,17 +2560,21 @@ function explainConversion(s, want) {
   }
   return out;
 }
+function draft0Name(target, id) {
+  return target.readerNames?.[id] || id;
+}
 function planItem(src, target, choice = {}) {
   const s = detectShape(src.content);
   // 单选槽位守卫：加入槽位 = 开它就会顶替同类里开着的那一条。只有"明显是同一类"才自动加入：
   // 夹在同一槽位的两条中间，或者它在来源里就待在同名区段（WRITING_STYLE ↔ <Writing_Style>）
   const normKey = (k) => String(k || "").toLowerCase().replace(/[\s_\-·]/g, "");
-  const slotAllowed = !target.slot || choice.shape === "tagname" || target.slot.between || !!target.slot.section && (src.sections || []).some((k) => normKey(k) === normKey(target.slot.section));
+  const slotAllowed = !target.slot || choice.shape === target.slot.shape || target.slot.between || !!target.slot.section && (src.sections || []).some((k) => normKey(k) === normKey(target.slot.section));
   const targetShape = !slotAllowed && !choice.shape ? "plain" : target.shape;
   const usesTpl = target.labelTpl && (choice.shape || targetShape) === "tagname";
   // 短名字：用于标签/标题/模板；label：最终登记进变量的内容（有模板时是一句问句）
   const regLike = (choice.shape || targetShape) === "tagname" && !target.labelTpl;
-  const shortName = (choice.label ?? (regLike ? s.label ?? shortLabel(src.name) : slotName(src.name))).trim();
+  // 登记名字的写法：来源自己登记的是短名字就沿用，登记的是一整句问句（Ako/Ariadne）就用条目名
+  const shortName = (choice.label ?? (regLike && s.label && s.label.trim().length <= 20 ? s.label : slotName(src.name))).trim();
   const label = usesTpl ? target.labelTpl.split("{名字}").join(shortName) : shortName;
   const want = {
     shape: choice.shape || targetShape,
@@ -2596,6 +2613,9 @@ ${String(body).trim()}
     notes.push(`开头用目标同类条目的标题格式：「${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}」`);
     changes.push(`开头标题：${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}`);
   }
+  if (target.slot && want.varName === target.slot.varName && want.shape === target.slot.shape) {
+    changes.push(`加入单选「${target.slot.varName}」：开它会顶掉同类里开着的那条`);
+  }
   if (target.slot && !slotAllowed && !choice.shape) {
     notes.push(`附近是单选槽位「${target.slot.varName}」（几条选一条，开了会顶掉同类里开着的那条）。这条看起来不是同一类，所以没有登记进去，免得顶掉你选好的那一项；确实是同类的话，在「高级」里把写法改成「正文直写＋登记名字」`);
   }
@@ -2622,6 +2642,7 @@ ${String(body).trim()}
   if (want.varName && (want.shape === "wrap" || want.shape === "tagname")) {
     if (!target.readerIds.length && want.varName === target.varName) warnings.push(`目标预设里没有条目读取「${want.varName}」，缝进去可能不生效`);
     if (want.varName !== target.varName) warnings.push(`你改成了新变量「${want.varName}」，记得让某个条目用 {{getvar::${want.varName}}} 读取它`);
+    if (want.varName === target.varName && target.readersOff) warnings.push(`读「${want.varName}」的「${target.readerIds.map((id) => draft0Name(target, id)).join("」「")}」现在是关着的，要把它打开，这条才会发出去`);
   }
   return { content, label: shortName, question: label, sourceShape: s, want, notes, changes, warnings, slotAllowed };
 }
@@ -2737,7 +2758,7 @@ function mainCotOf(draft, cotIds) {
  * @param item {content, label, name, selfId?}
  * @param opts.srcCot 来源预设里，这条是否被思维链读到/提到（决定默认要不要挂）
  */
-function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null, allowSlot = true } = {}) {
+function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null, allowSlot = true, collector = null } = {}) {
   const content = String(item.content || "");
   const bodyText = String(detectShape(content).body || content).replace(/\{\{[^{}]*\}\}/g, "");
   if (bodyText.trim().length < 20) return { status: "skip", on: false, text: "内容太短（像分隔条或开关），不用挂" };
@@ -2826,9 +2847,10 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
     const ot = outerTag(detectShape(content).body || content);
     return ot ? `<${ot.tag}>` : `「${item.label || cleanLabel(item.name) || shortLabel(item.name)}」`;
   })();
-  const wantOn = neighborHooked || !!reuse || !!srcCot;
+  // 包进变量、由「一键开关」这类条目统一发出去的（小冰块的小剧场），思维链一般不用专门想它
+  const wantOn = !collector && (neighborHooked || !!reuse || !!srcCot);
   const why = srcCot ? "它在原预设里就是被思维链读到/提到的，" : "";
-  const offHint = wantOn ? "" : "附近条目都没和思维链连上，默认不勾；需要模型专门想到它再勾上";
+  const offHint = wantOn ? "" : collector ? `它会由「${collector}」统一发出去，一般不用挂，默认不勾` : "附近条目都没和思维链连上，默认不勾；需要模型专门想到它再勾上";
   const common = { status: "hook", on: wantOn, neighborHooked, srcCot: !!srcCot, removeRange: reuse ? [reuse.start, reuse.end] : null, offHint };
   // ---- 目标思维链靠文字点名
   if (pick?.kind === "text" || !pick && !varCots.length) {
@@ -3029,7 +3051,18 @@ function profilePreset(draft) {
       if (!list.includes(o.identifier)) list.push(o.identifier);
     }
   }
-  for (const [key, v] of a.vars) {
+  const readersAll = /* @__PURE__ */ new Map();
+  for (const o of draft.order) {
+    for (const m of listVarMacros(P(o.identifier)?.content || "")) {
+      if (m.op !== "get" || !m.name) continue;
+      const k = (m.scope === "global" ? "全局:" : "") + m.name;
+      if (!readersAll.has(k)) readersAll.set(k, []);
+      if (!readersAll.get(k).includes(o.identifier)) readersAll.get(k).push(o.identifier);
+    }
+  }
+  const varKeys = new Set([...a.vars.keys(), ...writersAll.keys()]);
+  for (const key of varKeys) {
+    const v = { readers: readersAll.get(key) || [] };
     const name = key.replace(/^全局:/, "");
     const cotReaders = v.readers.filter((r) => cotSet.has(r));
     const writers = writersAll.get(key) || [];
@@ -3037,12 +3070,20 @@ function profilePreset(draft) {
     if (writers.length === 1 && cotReaders.length) perEntry.push(name);
     if (writers.length >= 2) {
       const ops = writers.flatMap((w) => listVarMacros(P(w)?.content || "").filter((m) => m.name === name && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)).map((m) => m.op));
-      const shapes = writers.map((w) => detectShape(P(w)?.content).shape);
+      // 按"这个变量"在每条里扮演的角色分类：整段包裹 / 末尾登记 / 附带的
+      const shapes = writers.map((w) => {
+        const sh = detectShape(P(w)?.content);
+        return sh.varName === name ? sh.shape : "extra";
+      });
+      const vals = writers.flatMap((w) => listVarMacros(P(w)?.content || "").filter((m) => m.name === name && !isBlankValue(m.value)).map((m) => m.value.trim()));
+      const avgLen = vals.length ? vals.reduce((n, x) => n + x.length, 0) / vals.length : 0;
       const op = mostCommon(ops) || "set";
-      shared.push({ name, writers, op, wrap: shapes.filter((s) => s === "wrap").length >= writers.length / 2, slot: op === "set" && cotReaders.length > 0 && shapes.filter((s) => s === "tagname").length >= writers.length / 2, cotReads: cotReaders.length > 0, readers: v.readers });
+      const wrap = shapes.filter((s) => s === "wrap").length >= writers.length / 2;
+      shared.push({ name, writers, op, wrap, names: !wrap && avgLen <= 20, slot: op === "set" && cotReaders.length > 0 && shapes.filter((s) => s === "tagname").length >= writers.length / 2 && avgLen > 20, cotReads: cotReaders.length > 0, readers: v.readers });
     }
   }
-  shared.sort((x, y) => (y.slot ? 1 : 0) - (x.slot ? 1 : 0) || y.writers.length - x.writers.length);
+  const rank = (x) => x.wrap && x.readers.length && x.readers.every((r) => !draft.isActive(r)) ? 0 : x.wrap ? 1 : x.slot ? 2 : 3;
+  shared.sort((x, y) => rank(x) - rank(y) || y.writers.length - x.writers.length);
   const usesGlobal = [...a.vars.keys()].some((k) => k.startsWith("全局:"));
   const initId = findInitEntry(draft);
   // 外层结构区段（<text_style> 这种标签，或 <!-- START: STORY_TONE --> 这种注释分区）
@@ -3062,11 +3103,30 @@ function profilePreset(draft) {
     const how = cotStyle === "vars" ? "主要靠变量把条目读进来（{{getvar}}）" : cotStyle === "text" ? "靠文字点名——在思维链里写到条目的名字或标签，不读变量" : "一部分靠变量读，一部分靠文字点名";
     lines.push(`思维链 ${a.cotIds.length} 条（${namesOf(draft, a.cotIds, 2)}），${how}。`);
   }
-  for (const s of shared.slice(0, 4)) {
-    if (s.slot) lines.push(`${s.writers.length} 条都往「${s.name}」里登记一句问句（setvar：同时开几条只认最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读出——缝进来的同类条目会照样登记。`);
+  // 包进变量的：按"由谁统一发出去"合并成一行（小冰块的一键开关）
+  const wrapGroups = /* @__PURE__ */ new Map();
+  for (const s of shared.filter((x) => x.wrap && !x.slot)) {
+    const key = [...s.readers].sort().join("|") || "(无人读)";
+    if (!wrapGroups.has(key)) wrapGroups.set(key, { readers: s.readers, vars: [], n: 0, ops: [] });
+    const g = wrapGroups.get(key);
+    g.vars.push(s.name);
+    g.n += s.writers.length;
+    g.ops.push(s.op);
+  }
+  for (const g of [...wrapGroups.values()].sort((x, y) => y.n - x.n).slice(0, 4)) {
+    const off = g.readers.length && g.readers.every((r) => !draft.isActive(r));
+    const vars = g.vars.slice(0, 4).map((v) => `「${v}」`).join("") + (g.vars.length > 4 ? ` 等 ${g.vars.length} 个变量` : "");
+    if (!g.readers.length) lines.push(`${g.n} 条把正文包进 ${vars}，但预设里没有条目读这些变量，开了也不会发。`);
+    else lines.push(`${g.n} 条把正文包进 ${vars}，由 ${namesOf(draft, g.readers, 2)} 统一发出去${off ? "——它现在是关着的，这些条目开了也不会发" : ""}。`);
+  }
+  for (const s of shared.filter((x) => x.slot).slice(0, 4)) {
+    lines.push(`${s.writers.length} 条都往「${s.name}」里登记一句问句（setvar：同时开几条只认最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读出——缝进来的同类条目会照样登记。`);
+  }
+  for (const s of shared.filter((x) => !x.slot && !x.wrap).slice(0, 3)) {
+    const who = s.readers.length ? namesOf(draft, s.readers, 1) : "";
+    if (s.names) lines.push(`${s.writers.length} 条把自己的名字登记到「${s.name}」（${s.op === "set" ? "setvar，只认最后一条，相当于单选" : "addvar，开着的都列上"}）${who ? `，${who} 读这份名单` : ""}。`);
     else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 往「${s.name}」里追加思维链片段，思维链统一读它。`);
-    else if (s.wrap) lines.push(`${s.writers.length} 条把整段正文包进「${s.name}」（${s.op === "set" ? "setvar：同时开几条只认最后一条，相当于单选" : "addvar：开着的会接在一起"}），由 ${namesOf(draft, s.readers, 2)} 读出。`);
-    else lines.push(`${s.writers.length} 条往同一个变量「${s.name}」里写（${s.op}var）。`);
+    else lines.push(`${s.writers.length} 条往同一个变量「${s.name}」里写（${s.op}var）${who ? `，${who} 读它` : ""}。`);
   }
   if (perEntry.length >= 2) lines.push(`另外有些条目各自登记一个问句变量，由思维链逐个读出（比如 ${perEntry.slice(0, 3).join("、")}）——缝进来的条目最好也照这样挂上。`);
   if (usesGlobal) lines.push("用到了全局变量（setglobalvar），换聊天也会保留。");
@@ -3641,7 +3701,7 @@ function mountSuture(page, app) {
       const base = { ...it.choice };
       delete base.shape;
       const planFix = planItem(src, t, base);
-      const planSlot = t.slot && !planFix.slotAllowed ? planItem(src, t, { ...base, shape: "tagname" }) : null;
+      const planSlot = t.slot && !planFix.slotAllowed ? planItem(src, t, { ...base, shape: t.slot.shape }) : null;
       const rawContent = String(it.src.content || "");
       const same = planFix.content.trim() === rawContent.trim();
       let mode = it.choice.mode || (same ? "raw" : "fix");
@@ -3651,8 +3711,9 @@ function mountSuture(page, app) {
       it.plan = chosen;
       const taken = new Set(items.filter((o) => o !== it && o.hookOn && o.hook?.varName).map((o) => o.hook.varName));
       const srcCot = it.desc?.cot ? ["var", "chain", "mention"].includes(it.desc.cot.level) : null;
+      const collectors = chosen.want?.shape === "wrap" && chosen.want.varName === t.varName ? t.readerIds.filter((r) => !isCotEntry(d, r)) : [];
       try {
-        it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed });
+        it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null });
       } catch (e) {
         console.warn("[裁缝铺] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，跳过" };
@@ -3682,7 +3743,7 @@ function mountSuture(page, app) {
             ${notes.length && mode === value ? `<ul class="pa-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
       const modes = same && !planSlot ? card("raw", "直接缝入", "目标写法和来源一样，不用改", rawContent) : [
         card("raw", "直接缝入", "不改写法，原样放进去", rawContent),
-        card("fix", "按目标写法缝入", `照「${d.name}」的写法改好`, planFix.content, planFix.changes.length ? planFix.changes : ["内容不用改，只是位置、角色跟随目标"]),
+        card("fix", "按目标写法缝入", `照「${d.name}」的写法改好`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["内容不用改，只是位置、角色跟随目标"]), ...planFix.warnings.map((w) => "⚠ " + w)]),
         planSlot ? card("slot", `按目标写法缝入，并加入单选「${t.slot.varName}」`, "开它会顶掉同类里开着的那条", planSlot.content, planSlot.changes) : ""
       ].join("");
       const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);

@@ -184,4 +184,45 @@ test("编号变量 + 多个思维链版本（V2.61 式）：新变量接着编�
   assert.ok(d.prompt("init").content.includes("{{setvar::修复模式3::}}"));
 });
 
+test("宏里少一个 } 的笔误不影响后面的 {{getvar}}", () => {
+  const vars = A.listVarMacros ? null : null;
+  const d = mk([["a", "文风指导", "<文风指导>\n{{user}：以下是文风。\n{{getvar::文风}}\n</文风指导>"], ["b", "某文风", L("文风正文文风正文") + "\n{{addvar::文风::某文风}}"]]);
+  assert.ok(A.analyze(d).vars.get("文风").readers.includes("a"));
+});
+test("包进变量的单选（setvar 同一个变量）也要守卫；读它的条目全关着时提醒", () => {
+  const W = (n) => `{{setvar::顶栏规范::\n[顶栏规范]\n${L(n + "：每次正文前先输出顶栏，格式固定。")}\n}}`;
+  const d = mk([
+    ["t1", "🧸顶栏|一号", W("一号")], ["t2", "🧸顶栏|二号", W("二号")], ["t3", "🧸顶栏|三号", W("三号")],
+    ["s1", "🧸单人状态栏", "{{setvar::单人状态栏规范::\n" + L("状态栏规范") + "\n}}"],
+    ["k", "🧸附加属性一键开关", "{{getvar::顶栏规范 }}\n{{getvar::单人状态栏规范 }}"],
+  ]);
+  d.setEnabled(["k"], false);
+  const tIn = A.inferTarget(d, { after: "t1" }, null);
+  assert.equal(tIn.shape, "wrap"); assert.ok(tIn.slot.between); assert.ok(tIn.readersOff);
+  const p1 = A.planItem({ name: "状态栏（轻盈）", content: L("生成前置状态栏，三段式。") }, tIn, {});
+  assert.ok(p1.content.startsWith("{{setvar::顶栏规范::"));
+  assert.ok(p1.changes.some((c) => c.includes("加入单选「顶栏规范」")));
+  assert.ok(p1.warnings.some((w) => w.includes("关着")));
+  const tEnd = A.inferTarget(d, { after: "t3" }, null);
+  const p2 = A.planItem({ name: "无关条目", content: L("这条和顶栏无关，是别的规则。") }, tEnd, {});
+  assert.equal(p2.want.shape, "plain");
+});
+test("登记名字：来源登记的是一整句问句时，用条目名登记（小冰块 文风）", () => {
+  const S = (n) => `<writing_style：${n}>\n${L(n + "的文风要点。")}\n</writing_style：${n}>\n{{addvar::文风::${n}}}`;
+  const d = mk([["a", "🍧木心|小散文", S("小散文")], ["b", "🍧BL|蓝淋", S("蓝淋")], ["c", "🍧太宰治|小卑劣", S("小卑劣")]]);
+  const t = A.inferTarget(d, { after: "b" }, null);
+  const src = "[Writing Style: 来点生活]\n" + L("轻描淡写地写生活。") + "\n{{setvar::叙事风格1::- 以[Writing Style: 来点生活]为核心文风，如何落实到当前场景的创作中？}}";
+  const p = A.planItem({ name: "│📝笔法·来点生活", content: src }, t, {});
+  assert.ok(p.content.startsWith("<writing_style：来点生活>"), p.content.slice(0, 40));
+  assert.ok(p.content.endsWith("{{addvar::文风::来点生活}}"), p.content.slice(-40));
+});
+
+test("共用标签 <small_theater: 名字> 时用后面的名字称呼；由一键开关统一发出去的默认不挂思维链", () => {
+  const hs = A.entryHandles({ name: "💌日记小剧场", content: "<small_theater: 日记小剧场>\n写一段日记\n</small_theater: 日记小剧场>" });
+  assert.equal(hs[0].ref, "「日记小剧场」");
+  const d = mk([["a", "规则", "规则正文规则正文规则正文规则正文"], ["c0", "思考开始", "<thinking>"], ["c1", "格式确认", "- 小剧场字数是否达标？"], ["c2", "思考结束", "</thinking>"], ["b", "🧩小剧场字数", L("小剧场要写够字数")]]);
+  const h = A.planHook(d, { after: "b" }, null, { content: "{{addvar::小剧场::\n" + L("日记内容") + "\n}}", name: "日记小剧场" }, { collector: "小剧场一键开关" });
+  if (h.status === "hook") assert.equal(h.on, false);
+});
+
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

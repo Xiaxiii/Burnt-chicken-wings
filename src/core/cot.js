@@ -103,8 +103,11 @@ function entryHandles(p) {
   if (!p) return out;
   const raw = String(p.content || "");
   const body = String(detectShape(raw).body || raw);
-  const ot = /^\s*<([^>\/\n!]{2,30})>/.exec(body);
+  const ot = /^\s*<([^>\/\n!]{2,40})>/.exec(body);
   if (ot) {
+    // <small_theater: 日记小剧场> 这种：标签是大家共用的，后面那个才是这条自己的名字
+    const two = /^([^：:\s]+)\s*[：:]\s*(.+)$/.exec(ot[1]);
+    if (two && two[2].trim().length >= 2) out.push({ needle: two[2].trim(), ref: `「${two[2].trim()}」`, cjk: CJK.test(two[2]) });
     const name = ot[1].split(/[：:\s]/)[0];
     if (name.length >= 2) out.push({ needle: name, ref: `<${name}>`, cjk: CJK.test(name) });
   }

@@ -46,7 +46,18 @@ function profilePreset(draft) {
       if (!list.includes(o.identifier)) list.push(o.identifier);
     }
   }
-  for (const [key, v] of a.vars) {
+  const readersAll = /* @__PURE__ */ new Map();
+  for (const o of draft.order) {
+    for (const m of listVarMacros(P(o.identifier)?.content || "")) {
+      if (m.op !== "get" || !m.name) continue;
+      const k = (m.scope === "global" ? "全局:" : "") + m.name;
+      if (!readersAll.has(k)) readersAll.set(k, []);
+      if (!readersAll.get(k).includes(o.identifier)) readersAll.get(k).push(o.identifier);
+    }
+  }
+  const varKeys = new Set([...a.vars.keys(), ...writersAll.keys()]);
+  for (const key of varKeys) {
+    const v = { readers: readersAll.get(key) || [] };
     const name = key.replace(/^全局:/, "");
     const cotReaders = v.readers.filter((r) => cotSet.has(r));
     const writers = writersAll.get(key) || [];
@@ -54,12 +65,20 @@ function profilePreset(draft) {
     if (writers.length === 1 && cotReaders.length) perEntry.push(name);
     if (writers.length >= 2) {
       const ops = writers.flatMap((w) => listVarMacros(P(w)?.content || "").filter((m) => m.name === name && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)).map((m) => m.op));
-      const shapes = writers.map((w) => detectShape(P(w)?.content).shape);
+      // 按"这个变量"在每条里扮演的角色分类：整段包裹 / 末尾登记 / 附带的
+      const shapes = writers.map((w) => {
+        const sh = detectShape(P(w)?.content);
+        return sh.varName === name ? sh.shape : "extra";
+      });
+      const vals = writers.flatMap((w) => listVarMacros(P(w)?.content || "").filter((m) => m.name === name && !isBlankValue(m.value)).map((m) => m.value.trim()));
+      const avgLen = vals.length ? vals.reduce((n, x) => n + x.length, 0) / vals.length : 0;
       const op = mostCommon(ops) || "set";
-      shared.push({ name, writers, op, wrap: shapes.filter((s) => s === "wrap").length >= writers.length / 2, slot: op === "set" && cotReaders.length > 0 && shapes.filter((s) => s === "tagname").length >= writers.length / 2, cotReads: cotReaders.length > 0, readers: v.readers });
+      const wrap = shapes.filter((s) => s === "wrap").length >= writers.length / 2;
+      shared.push({ name, writers, op, wrap, names: !wrap && avgLen <= 20, slot: op === "set" && cotReaders.length > 0 && shapes.filter((s) => s === "tagname").length >= writers.length / 2 && avgLen > 20, cotReads: cotReaders.length > 0, readers: v.readers });
     }
   }
-  shared.sort((x, y) => (y.slot ? 1 : 0) - (x.slot ? 1 : 0) || y.writers.length - x.writers.length);
+  const rank = (x) => x.wrap && x.readers.length && x.readers.every((r) => !draft.isActive(r)) ? 0 : x.wrap ? 1 : x.slot ? 2 : 3;
+  shared.sort((x, y) => rank(x) - rank(y) || y.writers.length - x.writers.length);
   const usesGlobal = [...a.vars.keys()].some((k) => k.startsWith("全局:"));
   const initId = findInitEntry(draft);
   // 外层结构区段（<text_style> 这种标签，或 <!-- START: STORY_TONE --> 这种注释分区）
@@ -79,11 +98,30 @@ function profilePreset(draft) {
     const how = cotStyle === "vars" ? "主要靠变量把条目读进来（{{getvar}}）" : cotStyle === "text" ? "靠文字点名——在思维链里写到条目的名字或标签，不读变量" : "一部分靠变量读，一部分靠文字点名";
     lines.push(`思维链 ${a.cotIds.length} 条（${namesOf(draft, a.cotIds, 2)}），${how}。`);
   }
-  for (const s of shared.slice(0, 4)) {
-    if (s.slot) lines.push(`${s.writers.length} 条都往「${s.name}」里登记一句问句（setvar：同时开几条只认最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读出——缝进来的同类条目会照样登记。`);
+  // 包进变量的：按"由谁统一发出去"合并成一行（小冰块的一键开关）
+  const wrapGroups = /* @__PURE__ */ new Map();
+  for (const s of shared.filter((x) => x.wrap && !x.slot)) {
+    const key = [...s.readers].sort().join("|") || "(无人读)";
+    if (!wrapGroups.has(key)) wrapGroups.set(key, { readers: s.readers, vars: [], n: 0, ops: [] });
+    const g = wrapGroups.get(key);
+    g.vars.push(s.name);
+    g.n += s.writers.length;
+    g.ops.push(s.op);
+  }
+  for (const g of [...wrapGroups.values()].sort((x, y) => y.n - x.n).slice(0, 4)) {
+    const off = g.readers.length && g.readers.every((r) => !draft.isActive(r));
+    const vars = g.vars.slice(0, 4).map((v) => `「${v}」`).join("") + (g.vars.length > 4 ? ` 等 ${g.vars.length} 个变量` : "");
+    if (!g.readers.length) lines.push(`${g.n} 条把正文包进 ${vars}，但预设里没有条目读这些变量，开了也不会发。`);
+    else lines.push(`${g.n} 条把正文包进 ${vars}，由 ${namesOf(draft, g.readers, 2)} 统一发出去${off ? "——它现在是关着的，这些条目开了也不会发" : ""}。`);
+  }
+  for (const s of shared.filter((x) => x.slot).slice(0, 4)) {
+    lines.push(`${s.writers.length} 条都往「${s.name}」里登记一句问句（setvar：同时开几条只认最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读出——缝进来的同类条目会照样登记。`);
+  }
+  for (const s of shared.filter((x) => !x.slot && !x.wrap).slice(0, 3)) {
+    const who = s.readers.length ? namesOf(draft, s.readers, 1) : "";
+    if (s.names) lines.push(`${s.writers.length} 条把自己的名字登记到「${s.name}」（${s.op === "set" ? "setvar，只认最后一条，相当于单选" : "addvar，开着的都列上"}）${who ? `，${who} 读这份名单` : ""}。`);
     else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 往「${s.name}」里追加思维链片段，思维链统一读它。`);
-    else if (s.wrap) lines.push(`${s.writers.length} 条把整段正文包进「${s.name}」（${s.op === "set" ? "setvar：同时开几条只认最后一条，相当于单选" : "addvar：开着的会接在一起"}），由 ${namesOf(draft, s.readers, 2)} 读出。`);
-    else lines.push(`${s.writers.length} 条往同一个变量「${s.name}」里写（${s.op}var）。`);
+    else lines.push(`${s.writers.length} 条往同一个变量「${s.name}」里写（${s.op}var）${who ? `，${who} 读它` : ""}。`);
   }
   if (perEntry.length >= 2) lines.push(`另外有些条目各自登记一个问句变量，由思维链逐个读出（比如 ${perEntry.slice(0, 3).join("、")}）——缝进来的条目最好也照这样挂上。`);
   if (usesGlobal) lines.push("用到了全局变量（setglobalvar），换聊天也会保留。");

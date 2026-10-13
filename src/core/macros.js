@@ -26,7 +26,11 @@ function scanTopMacros(text) {
       }
       j++;
     }
-    if (end < 0) break;
+    if (end < 0) {
+      // 少了一个 } 的笔误（比如 {{user}：…），跳过这个 {{ 接着往后找，后面的 {{getvar}} 照样算
+      i = open2 + 2;
+      continue;
+    }
     out.push({ start: open2, end, inner: s.slice(open2 + 2, end - 2) });
     i = end;
   }

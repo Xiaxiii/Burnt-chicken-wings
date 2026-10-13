@@ -1,6 +1,6 @@
 {
   "name": "little-tailor-shop",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "private": true,
   "description": "预设裁缝铺：SillyTavern 预设整理、跨预设缝合、思维链检查",
   "type": "module",

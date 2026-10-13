@@ -474,7 +474,7 @@ function mountSuture(page, app) {
       const base = { ...it.choice };
       delete base.shape;
       const planFix = planItem(src, t, base);
-      const planSlot = t.slot && !planFix.slotAllowed ? planItem(src, t, { ...base, shape: "tagname" }) : null;
+      const planSlot = t.slot && !planFix.slotAllowed ? planItem(src, t, { ...base, shape: t.slot.shape }) : null;
       const rawContent = String(it.src.content || "");
       const same = planFix.content.trim() === rawContent.trim();
       let mode = it.choice.mode || (same ? "raw" : "fix");
@@ -484,8 +484,9 @@ function mountSuture(page, app) {
       it.plan = chosen;
       const taken = new Set(items.filter((o) => o !== it && o.hookOn && o.hook?.varName).map((o) => o.hook.varName));
       const srcCot = it.desc?.cot ? ["var", "chain", "mention"].includes(it.desc.cot.level) : null;
+      const collectors = chosen.want?.shape === "wrap" && chosen.want.varName === t.varName ? t.readerIds.filter((r) => !isCotEntry(d, r)) : [];
       try {
-        it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed });
+        it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null });
       } catch (e) {
         console.warn("[裁缝铺] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，跳过" };
@@ -515,7 +516,7 @@ function mountSuture(page, app) {
             ${notes.length && mode === value ? `<ul class="pa-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
       const modes = same && !planSlot ? card("raw", "直接缝入", "目标写法和来源一样，不用改", rawContent) : [
         card("raw", "直接缝入", "不改写法，原样放进去", rawContent),
-        card("fix", "按目标写法缝入", `照「${d.name}」的写法改好`, planFix.content, planFix.changes.length ? planFix.changes : ["内容不用改，只是位置、角色跟随目标"]),
+        card("fix", "按目标写法缝入", `照「${d.name}」的写法改好`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["内容不用改，只是位置、角色跟随目标"]), ...planFix.warnings.map((w) => "⚠ " + w)]),
         planSlot ? card("slot", `按目标写法缝入，并加入单选「${t.slot.varName}」`, "开它会顶掉同类里开着的那条", planSlot.content, planSlot.changes) : ""
       ].join("");
       const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);
