@@ -1,3 +1,12 @@
+var repainting = false;
+function repaint(node, html) {
+  repainting = true;
+  try {
+    if (node.isConnected) node.outerHTML = html;
+  } finally {
+    repainting = false;
+  }
+}
 function mountSuture(page, app) {
   const st = {
     srcType: "preset",
@@ -13,7 +22,12 @@ function mountSuture(page, app) {
     marker: null,
     newName: null,
     pasteN: 0,
-    worldCache: /* @__PURE__ */ new Map()
+    worldCache: /* @__PURE__ */ new Map(),
+    // 1.6.0 目标可以是世界书
+    dstType: "preset",
+    dstWorld: null,
+    wbDraft: null,
+    wbMarker: null
   };
   page.innerHTML = `
     <div class="pa-suture pa-compact">
@@ -28,7 +42,7 @@ function mountSuture(page, app) {
         </div>
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整两栏大小" title="拖动调整大小"><span></span></div>
         <div class="pa-pane pa-dst">
-            <div class="pa-pane-head"><b>目标</b><div class="pa-dst-picker"></div><button class="pa-mini" data-st="newgroup">＋ 新建分组</button></div>
+            <div class="pa-pane-head"><b>目标</b><div class="pa-seg pa-seg-s pa-dst-seg" role="tablist"><button data-dst="preset" class="on">预设</button><button data-dst="world">世界书</button></div><div class="pa-dst-picker"></div><select class="pa-select pa-dst-wb" aria-label="目标世界书" hidden></select><button class="pa-mini" data-st="newgroup">＋ 新建分组</button></div>
             <p class="pa-hint pa-dst-hint"></p>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
@@ -93,11 +107,11 @@ function mountSuture(page, app) {
     settings().sutureSplit = applySplit((settings().sutureSplit ?? 45) + k);
     saveSettings();
   });
-  page.querySelector(".pa-seg").addEventListener("click", (e) => {
+  page.querySelector(".pa-src .pa-seg").addEventListener("click", (e) => {
     const b = e.target.closest("[data-src]");
     if (!b) return;
     st.srcType = b.dataset.src;
-    page.querySelectorAll(".pa-seg button").forEach((x) => x.classList.toggle("on", x === b));
+    page.querySelectorAll(".pa-src .pa-seg button").forEach((x) => x.classList.toggle("on", x === b));
     renderSrcPick();
     renderSrc();
   });
@@ -106,7 +120,8 @@ function mountSuture(page, app) {
       const names = listPresets();
       if (!st.srcPreset || !names.includes(st.srcPreset)) st.srcPreset = names.find((n) => n !== focusPreset()) || names[0];
       srcPick.innerHTML = `<select class="pa-select" aria-label="来源预设">${names.map((n) => `<option ${n === st.srcPreset ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
-                <input class="pa-input pa-search" type="search" placeholder="搜索条目" value="${esc(st.srcQuery)}">`;
+                <input class="pa-input pa-search" type="search" placeholder="搜索条目" value="${esc(st.srcQuery)}">
+                ${st.dstType === "preset" ? '<button class="pa-mini" data-st="migrate" title="把来源（旧版）中你缝进去的条目，搬到目标（新版）的对应位置">搬到新版</button>' : ""}`;
     } else if (st.srcType === "world") {
       const names = listWorldbooks();
       if (!st.srcWorld || !names.includes(st.srcWorld)) st.srcWorld = names[0] || null;
@@ -218,7 +233,7 @@ function mountSuture(page, app) {
       if (!r) return;
       const it = srcList._items.find((x) => x.id === r.dataset.wid);
       if (peekBtn) return showText(it.name, it.content);
-      st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: `世界书 ${st.srcWorld}` });
+      st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: `世界书 ${st.srcWorld}`, raw: it.raw });
       return renderSrc();
     }
     const d = srcList._draft;
@@ -254,7 +269,70 @@ function mountSuture(page, app) {
   function showText(name, content) {
     sheet({ title: name, body: `<pre class="pa-pre">${esc(content || "（空）")}</pre>`, wide: true, actions: [] });
   }
+  // 世界书目标：把条目包装成一个只读的「预设」，列表、选位置都沿用预设那一套（没有分组）
+  async function loadWbDraft(force = false) {
+    const names = listWorldbooks();
+    if (!st.dstWorld || !names.includes(st.dstWorld)) st.dstWorld = names[0] || null;
+    if (!st.dstWorld) {
+      st.wbDraft = null;
+      return;
+    }
+    if (!force && st.wbDraft?.name === st.dstWorld) return;
+    const data = await mods.wi.loadWorldInfo(st.dstWorld);
+    const list = wiSorted(data);
+    const prompts = list.map((e) => ({ identifier: `wb${e.uid}`, name: e.comment || (e.key || []).join(",") || `条目${e.uid}`, content: e.content || "", role: "system", system_prompt: false, marker: false, injection_position: 0 }));
+    const dd = new Draft(st.dstWorld, { prompts, prompt_order: [{ character_id: 100001, order: list.map((e) => ({ identifier: `wb${e.uid}`, enabled: !e.disable })) }] });
+    dd.wb = Object.fromEntries(list.map((e) => [`wb${e.uid}`, e]));
+    if (st.wbDraft?.name !== st.dstWorld) st.wbMarker = null;
+    st.wbDraft = dd;
+    st.wbMarker = fixPlace(dd, st.wbMarker);
+  }
+  async function renderDstWorld() {
+    const sel = page.querySelector(".pa-dst-wb");
+    try {
+      await loadWbDraft();
+    } catch (e) {
+      dstList.innerHTML = `<p class="pa-empty">读取失败：${esc(e.message)}</p>`;
+      return;
+    }
+    const names = listWorldbooks();
+    sel.innerHTML = names.map((n) => `<option ${n === st.dstWorld ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("");
+    const d = st.wbDraft;
+    const hint = page.querySelector(".pa-dst-hint");
+    if (!d) {
+      dstList.innerHTML = '<p class="pa-empty">没有世界书</p>';
+      hint.hidden = true;
+      return renderBar();
+    }
+    const top = dstList.scrollTop;
+    dstList.classList.add("pa-placing");
+    dstList.innerHTML = renderList(d, { mode: "target", place: true, inside: false, collapsed: new Set(), marker: st.wbMarker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
+    hint.textContent = "点条目：缝到该条目之后。世界书没有分组，插入位置、顺序等设置在预览中调整。";
+    hint.hidden = !!st.wbMarker;
+    bar.hidden = false;
+    ngbar.hidden = true;
+    dstList.scrollTop = top;
+    renderBar();
+  }
+  page.querySelector(".pa-dst-seg").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-dst]");
+    if (!b || b.dataset.dst === st.dstType) return;
+    st.dstType = b.dataset.dst;
+    st.newName = null;
+    page.querySelectorAll(".pa-dst-seg button").forEach((x) => x.classList.toggle("on", x === b));
+    page.querySelector(".pa-dst-picker").hidden = st.dstType !== "preset";
+    page.querySelector(".pa-dst-wb").hidden = st.dstType !== "world";
+    page.querySelector("[data-st=newgroup]").hidden = st.dstType !== "preset";
+    renderSrcPick();
+    renderDst();
+  });
+  page.querySelector(".pa-dst-wb").addEventListener("change", (e) => {
+    st.dstWorld = e.target.value;
+    st.wbMarker = null;
+    renderDst();
+  });
   function renderDst() {
+    if (st.dstType === "world") return renderDstWorld();
     let d;
     try {
       d = target();
@@ -283,6 +361,18 @@ function mountSuture(page, app) {
     renderBar();
   }
   dstList.addEventListener("click", (e) => {
+    if (st.dstType === "world") {
+      const d2 = st.wbDraft;
+      if (!d2) return;
+      if (e.target.closest("[data-act]")?.dataset.act === "peek") {
+        const p = d2.prompt(e.target.closest(".pa-row").dataset.id);
+        return showText(p.name, p.content);
+      }
+      const m2 = placeFromClick(d2, e, false);
+      if (!m2) return;
+      st.wbMarker = m2;
+      return renderDst();
+    }
     const d = target();
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "peek") {
@@ -317,12 +407,13 @@ function mountSuture(page, app) {
     const n = st.picked.size;
     let d = null;
     try {
-      d = target();
+      d = st.dstType === "world" ? st.wbDraft : target();
     } catch {
     }
+    const m = st.dstType === "world" ? st.wbMarker : st.marker;
     bar.querySelector(".pa-picked-n").textContent = n ? `已选 ${n} 条` : "未选条目";
-    bar.querySelector(".pa-where").textContent = d && st.marker ? `位置：${placeText(d, st.marker)}` : "未选位置";
-    bar.querySelector("[data-st=go]").disabled = !(n && st.marker);
+    bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : "未选位置";
+    bar.querySelector("[data-st=go]").disabled = !(n && m);
   }
   page.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-st]")?.dataset.st;
@@ -331,7 +422,8 @@ function mountSuture(page, app) {
       st.picked.clear();
       renderSrc();
     }
-    if (a === "go") review();
+    if (a === "go") st.dstType === "world" ? reviewWorld() : review();
+    if (a === "migrate") migrate();
     if (a === "newgroup") {
       const n = await promptBox("新分组名称", "", "例如：文风");
       if (!n) return;
@@ -353,17 +445,29 @@ function mountSuture(page, app) {
     const mem = sd.order.map((o) => o.identifier).filter((x) => sd.groupOf(x) === g && !sd.isMarker(x));
     return mem.length && mem.every((x) => picked.has(x)) ? { key: `${sd.name}|${g}`, name: sd.group(g)?.name || "分组" } : null;
   }
-  async function review() {
+  // spec（1.6.0 搬到新版用）：{ entries: [{ src, marker, hook }] }，每条可以有自己的位置；不传时用左边选中的条目和右边选的位置
+  async function review(spec = null) {
     const d = target();
-    const marker = fixPlace(d, st.marker);
-    if (!marker) return renderDst();
-    const { where, gid } = placeOf(d, marker);
-    const t = inferTarget(d, where, gid);
+    let entries;
+    if (spec) entries = spec.entries.map((e) => ({ ...e, marker: fixPlace(d, e.marker) || { at: "top" } }));
+    else {
+      const marker = fixPlace(d, st.marker);
+      if (!marker) return renderDst();
+      entries = [...st.picked.values()].map((src) => ({ src, marker }));
+    }
+    if (!entries.length) return;
     const tgtProf = profilePreset(d);
-    const idx = insertionIndex(d, where);
-    const tgtWr = wrappersAt(d, tgtProf, idx);
+    const posCache = /* @__PURE__ */ new Map();
+    const posOf = (marker) => {
+      const k = JSON.stringify(marker);
+      if (!posCache.has(k)) {
+        const pw = placeOf(d, marker);
+        posCache.set(k, { key: k, marker, where: pw.where, gid: pw.gid, t: inferTarget(d, pw.where, pw.gid), tgtWr: wrappersAt(d, tgtProf, insertionIndex(d, pw.where)) });
+      }
+      return posCache.get(k);
+    };
     const srcProfs = /* @__PURE__ */ new Map();
-    const items = [...st.picked.values()].map((src) => {
+    const items = entries.map(({ src, marker, hook }) => {
       let desc = null;
       if (src.srcDraft && src.srcId) {
         try {
@@ -373,8 +477,13 @@ function mountSuture(page, app) {
           console.warn("[裁缝铺] 来源分析失败", e);
         }
       }
-      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: {}, manual: null, enabled: true, srcGroup: wholeGroupOf(src) };
+      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: hook ? { hook: true } : {}, autoHook: !!spec && !hook, manual: null, enabled: true, srcGroup: spec ? null : wholeGroupOf(src), pos: posOf(marker) };
     });
+    const single = posCache.size === 1;
+    const P0 = items[0].pos;
+    const { gid, t } = P0;
+    const marker = P0.marker;
+    const tgtWr = P0.tgtWr;
     // 整组选中的来源分组：成员排在一起（在第一次出现的位置），缝到组外时可以保持成组
     const groupKeys = [];
     for (const it of items) if (it.srcGroup && !groupKeys.some((g) => g.key === it.srcGroup.key)) groupKeys.push(it.srcGroup);
@@ -384,7 +493,7 @@ function mountSuture(page, app) {
       return acc;
     }, []));
     const grpDefault = groupKeys.length ? "keep" : "none";
-    const grpRow = gid ? "" : `<div class="pa-field-row"><span>分组</span>
+    const grpRow = gid || !single || spec ? "" : `<div class="pa-field-row"><span>分组</span>
                 <select class="pa-select pa-select-s" data-g="grp">
                     ${groupKeys.length ? `<option value="keep">保留原分组（${esc(groupKeys.map((g) => g.name).join("、"))}）</option>` : ""}
                     <option value="none" ${grpDefault === "none" ? "selected" : ""}>不分组</option>
@@ -398,9 +507,9 @@ function mountSuture(page, app) {
     const nameOf = (it) => it.customName ?? (settings().nameWithSource && fromLabel(it) ? `${it.src.name}（来自${fromLabel(it)}）` : it.src.name);
     const body = el(`<div class="pa-review">
             <div class="pa-target-card">
-                <div><b>位置：${esc(placeText(d, marker))}</b></div>
+                ${single ? `<div><b>位置：${esc(placeText(d, marker))}</b></div>
                 ${grpRow}
-                <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `。位于 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 之内` : ""}</small>
+                <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `。位于 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 之内` : ""}</small>` : `<div><b>缝到 ${posCache.size} 个位置</b></div><small>按各条目在来源中的位置，分别放在目标中对应条目之后。每条的位置见条目详情。</small>`}
                 ${tgtProf.lines.length ? `<details class="pa-explain"><summary>目标预设的写法（${tgtProf.lines.length} 条）</summary><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : ""}
                 ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<details class="pa-explain"><summary>来源「${esc(sd.name)}」的写法（${pr.lines.length} 条）</summary><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : "").join("")}
                 <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝合时，角色和插入位置与目标一致</label>
@@ -446,6 +555,7 @@ function mountSuture(page, app) {
             <small>${esc(h.text)}${it.hookOn || h.on ? "" : "。" + esc(h.offHint || "")}</small>${detail}</div>`;
     };
     const renderItem = (it, i) => {
+      const { t, where, gid, tgtWr } = it.pos;
       const src = { ...it.src, name: it.src.name };
       const base = { ...it.choice };
       delete base.shape;
@@ -467,6 +577,8 @@ function mountSuture(page, app) {
         console.warn("[裁缝铺] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，已跳过" };
       }
+      // 搬到新版：没有缝合记录的条目，原预设的思维链读取过它就默认接入
+      if (it.autoHook && it.choice.hook === void 0) it.choice.hook = !!it.hook.on;
       // 1.4.1：默认不接入（每接入一条，思维链就多一问，思考时间变长）；推荐与否见 hook.on，由顶部「推荐接入」一键勾选
       it.hookOn = it.hook.status === "hook" && !!it.choice.hook;
       it.finalContent = it.hookOn ? contentWithHook(chosen.content, it.hook) : chosen.content;
@@ -475,6 +587,8 @@ function mountSuture(page, app) {
       const sp = it.src.prompt;
       if (sp?.injection_position === 1) warns.push(`来源中此条目插入聊天记录（深度 ${sp.injection_depth ?? 4}）。原样缝合时保留；按目标写法缝合时${settings().followTargetInjection ? "改为普通位置" : "同样保留"}`);
       if ((sp?.injection_trigger || []).length) warns.push("来源中此条目只在特定生成类型下发送，此设置一并保留");
+      const raw = it.src.raw;
+      if (raw && !raw.constant && (raw.key || []).length) warns.push(`在世界书中按关键词触发（${raw.key.slice(0, 4).join("、")}${raw.key.length > 4 ? "等" : ""}），缝进预设后会一直生效`);
       if (hasScript(it.src.content || "")) warns.push("含脚本（如 EJS），需要安装相应插件才能生效");
       if (hasConditional(it.src.content || "")) warns.push("含 {{if}} 条件，条件中的变量需在目标中存在");
       for (const k of it.desc?.needsVars || []) {
@@ -507,6 +621,7 @@ function mountSuture(page, app) {
                 <span class="pa-item-caret">${it.open ? "▾" : "▸"}</span></header>
                 <div class="pa-item-body"${it.open ? "" : " hidden"}>
                 <label class="pa-field"><span>条目名称</span><input class="pa-input pa-input-s" data-c="name" value="${esc(nameOf(it))}"></label>
+                ${single ? "" : `<small class="pa-from">位置：${esc(placeText(d, it.pos.marker))}</small>`}
                 ${it.desc ? `<details class="pa-was"><summary>在「${esc(it.src.from || "")}」中的作用</summary><ul class="pa-notes">${it.desc.lines.map((l) => `<li>${esc(l)}</li>`).join("")}${it.desc.cot ? `<li>${esc(it.desc.cot.text)}</li>` : ""}</ul></details>` : `<small class="pa-from">来自 ${esc(it.src.from || "")}</small>`}
                 <div class="pa-modes" role="radiogroup">${modes}</div>
                 ${warns.length ? `<ul class="pa-notes">${warns.map((w) => `<li class="pa-warn">${esc(w)}</li>`).join("")}</ul>` : ""}
@@ -528,7 +643,7 @@ function mountSuture(page, app) {
       const i = Number(art.dataset.i);
       it.bodyOpen = art.querySelector(".pa-body")?.open || void 0;
       it.choice.adv = art.querySelector(".pa-adv")?.open || void 0;
-      art.outerHTML = renderItem(it, i);
+      repaint(art, renderItem(it, i));
     };
     box.innerHTML = items.map(renderItem).join("");
     // 思维链批量选择：全部接入 / 推荐接入 / 全部不接入
@@ -571,7 +686,8 @@ function mountSuture(page, app) {
     });
     box.addEventListener("change", (e) => {
       const art = e.target.closest(".pa-item");
-      if (!art) return;
+      // 重画时，正在编辑的输入框被移走会再触发一次 change（失焦），忽略这一次
+      if (!art || !art.isConnected || repainting) return;
       const it = items[Number(art.dataset.i)];
       const c2 = e.target.dataset.c;
       if (c2 === "on") {
@@ -614,7 +730,7 @@ function mountSuture(page, app) {
       rerender(art, it);
       paintHookBar();
     });
-    const ok = await sheet({ title: `缝合 ${items.length} 条到「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, {
+    const ok = await sheet({ title: spec?.title || `缝合 ${items.length} 条到「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, {
       label: "确认缝合",
       kind: "primary",
       validate: () => {
@@ -633,19 +749,29 @@ function mountSuture(page, app) {
     let newIds = [];
     const inits = [];
     const hooked = [];
-    mutate(d, `缝合 ${items.length} 条`, (x) => {
-      const prompts = items.map((it) => {
+    const hookedIdx = /* @__PURE__ */ new Set();
+    mutate(d, spec ? "搬到新版" : `缝合 ${items.length} 条`, (x) => {
+      const build = (it) => {
+        const t2 = it.pos.t;
         const content = it.manual ?? it.finalContent ?? it.plan.content;
-        const prompt = buildPrompt(x, it.src, { content }, t, { keepSourceInjection: it.mode === "raw" || !ok.inj });
+        const prompt = buildPrompt(x, it.src, { content }, t2, { keepSourceInjection: it.mode === "raw" || !ok.inj });
         prompt.name = nameOf(it);
         const v = it.plan.want;
-        if ((v.shape === "wrap" || v.shape === "tagname") && v.varName && v.varName !== t.varName) {
-          const initId = t.initId || findInitEntry(x);
+        if ((v.shape === "wrap" || v.shape === "tagname") && v.varName && v.varName !== t2.varName) {
+          const initId = t2.initId || findInitEntry(x);
           if (initId && ensureInit(x, v.varName, initId)) inits.push(v.varName);
         }
         return { prompt, enabled: it.enabled };
-      });
-      newIds = x.insertPrompts(prompts, where, gid);
+      };
+      // 同一位置的条目一起插入，保持原来的先后顺序
+      const byPos = /* @__PURE__ */ new Map();
+      items.forEach((it, i) => (byPos.get(it.pos.key) || byPos.set(it.pos.key, []).get(it.pos.key)).push(i));
+      newIds = new Array(items.length);
+      for (const [k, idxs] of byPos) {
+        const P = posCache.get(k);
+        const ids = x.insertPrompts(idxs.map((i) => build(items[i])), P.where, P.gid);
+        idxs.forEach((i, j) => { newIds[i] = ids[j]; });
+      }
       if (!gid && ok.grp === "new") x.createGroup(ok.gname, newIds);
       if (!gid && ok.grp === "keep") {
         // 整组选中的来源分组：在目标里照原名建组（它们已经排在一起了）
@@ -671,10 +797,17 @@ function mountSuture(page, app) {
         if (r.ok) {
           chain.set(key, h.mode === "text" ? h.line.trim() : h.varName);
           hooked.push(`${nameOf(it)} → ${r.cotName}`);
+          hookedIdx.add(i);
         }
       });
+      // 1.6.0：记下哪些条目是缝进来的（来源、是否接入思维链），预设更新后「搬到新版」靠它找回
+      const ext = x.preset.extensions || (x.preset.extensions = {});
+      const rec = ext.presetAtelier && typeof ext.presetAtelier === "object" ? ext.presetAtelier : (ext.presetAtelier = {});
+      const live = new Set(x.order.map((o) => o.identifier));
+      rec.stitched = (Array.isArray(rec.stitched) ? rec.stitched : []).filter((r) => live.has(r.id));
+      items.forEach((it, i) => rec.stitched.push({ id: newIds[i], from: String(it.src.from || "").slice(0, 80), at: Date.now(), ...(hookedIdx.has(i) ? { cot: 1 } : {}) }));
     });
-    st.picked.clear();
+    if (!spec) st.picked.clear();
     // 下次接着往后缝：落在新分组里就放在这组后面，否则接在最后一条后面
     const lastNew = newIds[newIds.length - 1];
     st.marker = !gid && d.groupOf(lastNew) ? fixPlace(d, { at: "block", id: lastNew }) : { at: "row", id: lastNew };
@@ -688,8 +821,209 @@ function mountSuture(page, app) {
       st.highlight = null;
     }, 1500);
   }
+
+  // ---- 1.6.0 缝进世界书：没有思维链和分组；每条可设触发方式、插入位置、深度、顺序
+  async function reviewWorld() {
+    try {
+      await loadWbDraft(true);
+    } catch (e) {
+      return toast("读取世界书失败：" + e.message, "error");
+    }
+    const d = st.wbDraft;
+    const marker = d && fixPlace(d, st.wbMarker);
+    if (!marker) return renderDst();
+    const { where } = placeOf(d, marker);
+    const t = inferTarget(d, where, null);
+    const afterId = marker.at === "top" ? null : marker.id;
+    const firstId = d.order[0]?.identifier;
+    const anchor = d.wb[afterId || firstId] || null;
+    const roleNum = (r) => ({ system: 0, user: 1, assistant: 2 })[r] ?? 0;
+    const base = { position: anchor?.position ?? 0, depth: anchor?.depth ?? 4, role: anchor?.role ?? 0, order: anchor?.order ?? 100 };
+    // 预设和本世界书里写入过的变量（读取没人写的变量时提醒）
+    const written = new Set();
+    const addW = (txt) => listVarMacros(txt || "").forEach((m) => { if ((m.op === "set" || m.op === "add") && !isBlankValue(m.value)) written.add(m.name); });
+    Object.values(d.wb).forEach((e) => addW(e.content));
+    try {
+      getDraft(focusPreset()).preset.prompts.forEach((x) => addW(x.content));
+    } catch {
+    }
+    const items = [...st.picked.values()].map((src) => {
+      const raw = src.raw;
+      const sp = src.prompt;
+      const wb = raw ? { constant: !!raw.constant, keys: (raw.key || []).join(", "), position: raw.position ?? 0, depth: raw.depth ?? 4, role: raw.role ?? 0, order: raw.order ?? 100, from: true }
+        : { constant: true, keys: "", ...base, ...(sp?.injection_position === 1 ? { position: 4, depth: sp.injection_depth ?? 4, role: roleNum(sp.role) } : {}) };
+      return { src: { ...src, sections: [] }, wb, choice: {}, manual: null, enabled: raw ? !raw.disable : true, open: false };
+    });
+    const snip = (text) => {
+      const lines = String(text || "").split("\n").filter((l) => l.trim());
+      const cut = (l) => (l = l.trim(), l.length > 46 ? l.slice(0, 46) + "…" : l);
+      return esc((lines.length <= 5 ? lines.map(cut) : [...lines.slice(0, 2).map(cut), "⋯", ...lines.slice(-2).map(cut)]).join("\n"));
+    };
+    const posName = (v) => WI_POS.find(([k]) => k === Number(v))?.[1] || "角色定义之前";
+    const renderItem = (it, i) => {
+      const raw = String(it.src.content || "");
+      const plan = planItem({ ...it.src }, t, it.choice);
+      const same = plan.content.trim() === raw.trim();
+      const mode = same ? "raw" : it.choice.mode || "fix";
+      it.content = mode === "raw" ? raw : plan.content;
+      const warns = [];
+      for (const m of listVarMacros(it.content)) if (m.op === "get" && !written.has(m.name)) warns.push(`读取变量「${m.name}」，世界书和当前预设中都没有条目写入此变量，该部分将为空`);
+      if (hasScript(raw)) warns.push("含脚本（如 EJS），需要安装相应插件才能生效");
+      if (hasConditional(raw)) warns.push("含 {{if}} 条件，条件中的变量需存在");
+      if (!it.wb.constant && !it.wb.keys.trim()) warns.push("按关键词触发但没有填写关键词，条目不会生效");
+      const card = (value, title, sub, content) => `<label class="pa-mode${mode === value ? " on" : ""}">
+            <span class="pa-mode-head"><input type="radio" name="pa-wmode-${i}" data-c="mode" value="${value}" ${mode === value ? "checked" : ""}><b>${esc(title)}</b><small>${esc(sub)}</small></span>
+            <pre class="pa-snip">${snip(content)}</pre>${mode === value && value === "fix" && plan.changes.length ? `<ul class="pa-notes">${plan.changes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
+      const w = it.wb;
+      return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
+        <header class="pa-item-head" data-c="toggle"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""} title="缝合后开启" aria-label="缝合后开启">
+          <span class="pa-item-name">${esc(it.name ?? it.src.name)}</span>
+          <span class="pa-badges"><span class="pa-chip">${w.constant ? "常驻" : "关键词"}</span><span class="pa-chip">${esc(posName(w.position))}${Number(w.position) === 4 ? ` ${w.depth}` : ""}</span>${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span>
+          <span class="pa-item-caret">${it.open ? "▾" : "▸"}</span></header>
+        <div class="pa-item-body"${it.open ? "" : " hidden"}>
+          <label class="pa-field"><span>条目名称</span><input class="pa-input pa-input-s" data-c="name" value="${esc(it.name ?? it.src.name)}"></label>
+          <small class="pa-from">来自 ${esc(it.src.from || "")}${w.from ? "，沿用原世界书中的触发和插入设置" : ""}</small>
+          <div class="pa-modes" role="radiogroup">${same ? card("raw", "原样缝合", "两边写法相同，无需调整", raw) : card("raw", "原样缝合", "不调整写法", raw) + card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, plan.content)}</div>
+          ${warns.length ? `<ul class="pa-notes">${warns.map((x) => `<li class="pa-warn">${esc(x)}</li>`).join("")}</ul>` : ""}
+          <div class="pa-item-ctl pa-wbset">
+            <label class="pa-field"><span>触发</span><select class="pa-select pa-select-s" data-c="constant"><option value="1" ${w.constant ? "selected" : ""}>常驻（一直生效）</option><option value="0" ${w.constant ? "" : "selected"}>按关键词触发</option></select></label>
+            ${w.constant ? "" : `<label class="pa-field pa-field-wide"><span>关键词（逗号分隔）</span><input class="pa-input pa-input-s" data-c="keys" value="${esc(w.keys)}"></label>`}
+            <label class="pa-field"><span>插入位置</span><select class="pa-select pa-select-s" data-c="position">${WI_POS.map(([k, l]) => `<option value="${k}" ${Number(w.position) === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+            ${Number(w.position) === 4 ? `<label class="pa-field"><span>深度</span><input class="pa-input pa-input-s" type="number" min="0" data-c="depth" value="${esc(w.depth)}"></label>
+            <label class="pa-field"><span>角色</span><select class="pa-select pa-select-s" data-c="role">${[[0, "系统"], [1, "用户"], [2, "AI"]].map(([k, l]) => `<option value="${k}" ${Number(w.role) === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>` : ""}
+            <label class="pa-field"><span>顺序</span><input class="pa-input pa-input-s" type="number" data-c="order" value="${esc(w.order)}"></label>
+          </div>
+          <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</summary>
+            <textarea class="pa-input pa-text" data-c="content" spellcheck="false">${esc(it.manual ?? it.content)}</textarea></details>
+        </div></article>`;
+    };
+    const body = el(`<div class="pa-review">
+        <div class="pa-target-card"><div><b>位置：世界书「${esc(d.name)}」，${esc(placeText(d, marker))}</b></div>
+          <small>位置决定条目在世界书编辑器中的排列。实际发送顺序由每条的「插入位置」和「顺序」决定，默认与${anchor ? `「${esc(d.prompt(afterId || firstId)?.name || "")}」` : "世界书默认值"}相同。预设条目缝入后默认「常驻」，与在预设中一样一直生效。</small></div>
+        <div class="pa-items"></div></div>`);
+    const box = body.querySelector(".pa-items");
+    const paint = () => { box.innerHTML = items.map(renderItem).join(""); };
+    paint();
+    box.addEventListener("change", (e) => {
+      const art = e.target.closest(".pa-item");
+      // 重画时，正在编辑的输入框被移走会再触发一次 change（失焦），忽略这一次
+      if (!art || !art.isConnected || repainting) return;
+      const it = items[Number(art.dataset.i)];
+      const c2 = e.target.dataset.c, v = e.target.value;
+      if (c2 === "on") return void (it.enabled = e.target.checked);
+      if (c2 === "name") return void (it.name = v, art.querySelector(".pa-item-name").textContent = v);
+      if (c2 === "content") return void (it.manual = v);
+      if (c2 === "keys") it.wb.keys = v;
+      if (c2 === "mode") { it.choice.mode = v; it.manual = null; }
+      if (c2 === "constant") it.wb.constant = v === "1";
+      if (c2 === "position") it.wb.position = Number(v);
+      if (c2 === "depth") it.wb.depth = Math.max(0, Number(v) || 0);
+      if (c2 === "role") it.wb.role = Number(v);
+      if (c2 === "order") it.wb.order = Number(v) || 0;
+      it.bodyOpen = art.querySelector(".pa-body")?.open || void 0;
+      repaint(art, renderItem(it, Number(art.dataset.i)));
+    });
+    box.addEventListener("click", (e) => {
+      const head = e.target.closest("[data-c=toggle]");
+      if (!head || e.target.closest("input")) return;
+      const art = head.closest(".pa-item");
+      const it = items[Number(art.dataset.i)];
+      it.open = !it.open;
+      repaint(art, renderItem(it, Number(art.dataset.i)));
+    });
+    const ok = await sheet({ title: `缝合 ${items.length} 条到世界书「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, { label: "确认缝合", kind: "primary", value: true }] });
+    if (!ok) return;
+    const fields = items.map((it) => {
+      const w = it.wb;
+      const raw = it.src.raw ? structuredClone(it.src.raw) : {};
+      delete raw.uid;
+      delete raw.displayIndex;
+      return {
+        ...raw,
+        comment: it.name ?? it.src.name,
+        content: it.manual ?? it.content,
+        constant: w.constant,
+        key: w.constant && !w.keys.trim() ? raw.key || [] : w.keys.split(/[,，]/).map((x) => x.trim()).filter(Boolean),
+        position: w.position,
+        depth: w.depth,
+        role: w.role,
+        order: w.order,
+        disable: !it.enabled
+      };
+    });
+    try {
+      const uids = await writeWorldEntries(d.name, fields, afterId ? d.wb[afterId]?.uid : null);
+      st.worldCache.delete(d.name);
+      st.picked.clear();
+      await loadWbDraft(true);
+      st.wbMarker = { at: "row", id: `wb${uids[uids.length - 1]}` };
+      st.highlight = new Set(uids.map((u) => `wb${u}`));
+      toast(`已缝合 ${uids.length} 条到世界书「${d.name}」`, "success");
+      renderSrc();
+      await renderDst();
+      dstList.querySelector(".pa-flash")?.scrollIntoView({ block: "center" });
+      setTimeout(() => { st.highlight = null; }, 1500);
+    } catch (e) {
+      toast("写入世界书失败：" + e.message, "error");
+    }
+  }
+  // ---- 1.6.0 搬到新版：来源 = 旧版，目标 = 新版。把旧版里缝进去的条目按原位置搬过去
+  async function migrate() {
+    if (st.srcType !== "preset" || !st.srcPreset) return;
+    const neu = target();
+    if (st.srcPreset === neu.name) return toast("来源和目标是同一个预设。请在左边选旧版，右边选新版");
+    const old = getDraft(st.srcPreset);
+    const rec = new Map((old.preset.extensions?.presetAtelier?.stitched || []).map((r) => [r.id, r]));
+    const norm = (x) => String(x || "").replace(/\s+/g, "");
+    const newIds = new Set(neu.order.map((o) => o.identifier));
+    const newContent = new Set(neu.preset.prompts.map((p) => norm(p.content)).filter(Boolean));
+    const newByName = new Map(neu.preset.prompts.map((p) => [p.name, p.identifier]));
+    const order = old.order.map((o) => o.identifier);
+    const inNew = (id) => newIds.has(id) && !rec.has(id) ? id : (() => {
+      const nm = old.prompt(id)?.name;
+      const hit = nm && newByName.get(nm);
+      return hit && !rec.has(id) ? hit : null;
+    })();
+    const cands = [];
+    order.forEach((id, i) => {
+      if (old.isMarker(id)) return;
+      const p = old.prompt(id);
+      if (!p) return;
+      const recorded = rec.has(id);
+      // 新版里已经有（同 id 或正文完全一样）的，不用搬
+      if (newContent.has(norm(p.content)) && norm(p.content)) return;
+      if (!recorded && (newIds.has(id) || newByName.has(p.name))) return;
+      // 位置：往前找最近一个新版里也有的条目，放在它后面
+      let anchor = null;
+      for (let j = i - 1; j >= 0 && !anchor; j--) anchor = inNew(order[j]);
+      const og = old.groupOf(id), ag = anchor ? neu.groupOf(anchor) : null;
+      const sameGroup = og && anchor && old.group(og)?.name === neu.group(ag)?.name;
+      const marker = !anchor ? { at: "top" } : ag && !sameGroup ? { at: "block", id: anchor } : { at: "row", id: anchor };
+      cands.push({ id, p, recorded, marker, on: recorded, hook: !!rec.get(id)?.cot });
+    });
+    if (!cands.length) return toast(`「${old.name}」中没有找到需要搬到「${neu.name}」的条目`);
+    const body = el(`<div>
+      <p class="pa-p">从「${esc(old.name)}」搬到「${esc(neu.name)}」。有缝合记录的条目已勾选；没有记录、但新版中没有的条目未勾选，它们可能是你加的，也可能是作者在新版中删掉的，请自行判断。</p>
+      <div class="pa-mig">${cands.map((c, i) => `<label class="pa-crow${c.on ? " on" : ""}"><input type="checkbox" data-i="${i}" ${c.on ? "checked" : ""}>
+        <span class="pa-crow-main"><b>${esc(c.p.name || c.id)}</b><span class="pa-crow-tags">${c.recorded ? '<span class="pa-chip pa-chip-cot">缝合记录</span>' : '<span class="pa-chip">新版中没有</span>'}${c.hook ? '<span class="pa-chip">原先接入思维链</span>' : ""}<span class="pa-chip pa-chip-dim">${esc(placeText(neu, fixPlace(neu, c.marker) || { at: "top" }))}</span></span></span></label>`).join("")}</div>
+      <p class="pa-hint">下一步会打开缝合预览，可逐条检查写法和思维链。早于 1.6.0 缝合的条目没有记录，只能按「新版中没有」找出。</p></div>`);
+    body.addEventListener("change", (e) => {
+      const i = e.target.dataset.i;
+      if (i == null) return;
+      cands[Number(i)].on = e.target.checked;
+      e.target.closest(".pa-crow").classList.toggle("on", e.target.checked);
+    });
+    const ok = await sheet({ title: `搬到新版：找到 ${cands.length} 条`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, { label: "下一步：预览", kind: "primary", value: true }] });
+    if (!ok) return;
+    const pick = cands.filter((c) => c.on);
+    if (!pick.length) return toast("没有勾选条目");
+    await review({
+      title: `搬 ${pick.length} 条到「${neu.name}」`,
+      entries: pick.map((c) => ({ src: { name: c.p.name, content: c.p.content, prompt: c.p, from: old.name, srcDraft: old, srcId: c.id }, marker: c.marker, hook: c.hook || void 0 }))
+    });
+  }
   const off = onDraftChange(() => {
-    if (page.isConnected && !page.hidden) renderDst();
+    if (page.isConnected && !page.hidden && st.dstType === "preset") renderDst();
   });
   return {
     render() {

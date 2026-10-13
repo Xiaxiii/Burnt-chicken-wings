@@ -97,10 +97,56 @@ async function readWorldbook(name) {
   entries.sort((a, b) => (a.displayIndex ?? a.order ?? 0) - (b.displayIndex ?? b.order ?? 0));
   return entries.map((e) => ({
     id: `wi:${name}:${e.uid}`,
+    uid: e.uid,
     name: e.comment || (Array.isArray(e.key) ? e.key.join(",") : "") || `条目${e.uid}`,
     content: e.content || "",
-    enabled: !e.disable
+    enabled: !e.disable,
+    // 1.6.0：缝进世界书时整条复制设置；缝进预设时提醒关键词触发
+    raw: structuredClone(e)
   }));
+}
+// 1.6.0 世界书作为缝合目标
+var WI_POS = [
+  [0, "角色定义之前"], [1, "角色定义之后"], [5, "示例消息之前"], [6, "示例消息之后"],
+  [2, "作者注释之前"], [3, "作者注释之后"], [4, "按深度插入"]
+];
+function wiSorted(data) {
+  return Object.values(data?.entries || {}).sort((a, b) => (a.displayIndex ?? a.order ?? 0) - (b.displayIndex ?? b.order ?? 0) || a.uid - b.uid);
+}
+// 新条目：优先用酒馆自己的函数（字段齐全），旧版酒馆没有时按常用字段补齐
+function newWorldEntry(name, data) {
+  if (typeof mods.wi?.createWorldInfoEntry === "function") {
+    const e = mods.wi.createWorldInfoEntry(name, data);
+    if (e) return e;
+  }
+  const used = Object.values(data.entries).map((e) => Number(e.uid)).filter(Number.isFinite);
+  const uid2 = used.length ? Math.max(...used) + 1 : 0;
+  const e = { uid: uid2, key: [], keysecondary: [], comment: "", content: "", constant: false, vectorized: false, selective: true, selectiveLogic: 0, addMemo: true, order: 100, position: 0, disable: false, excludeRecursion: false, preventRecursion: false, delayUntilRecursion: false, probability: 100, useProbability: true, depth: 4, group: "", groupOverride: false, groupWeight: 100, scanDepth: null, caseSensitive: null, matchWholeWords: null, useGroupScoring: null, automationId: "", role: null, sticky: 0, cooldown: 0, delay: 0 };
+  data.entries[uid2] = e;
+  return e;
+}
+// 把条目写进世界书，放在 afterUid 之后（null 表示最前面）。返回新条目的 uid。
+async function writeWorldEntries(name, fields, afterUid) {
+  const wi = mods.wi;
+  if (!wi?.loadWorldInfo || !wi?.saveWorldInfo) throw new Error("无法写入世界书，酒馆版本可能过旧");
+  const data = await wi.loadWorldInfo(name);
+  if (!data?.entries) throw new Error(`无法读取世界书「${name}」`);
+  const list = wiSorted(data);
+  const at = afterUid == null ? 0 : list.findIndex((e) => String(e.uid) === String(afterUid)) + 1;
+  const made = fields.map((f) => {
+    const e = newWorldEntry(name, data);
+    const { uid: _u, displayIndex: _d, ...rest } = f;
+    Object.assign(e, rest);
+    return e;
+  });
+  list.splice(Math.max(0, at), 0, ...made);
+  list.forEach((e, i) => { e.displayIndex = i; });
+  await wi.saveWorldInfo(name, data, true);
+  try {
+    wi.reloadEditor?.(name);
+  } catch {
+  }
+  return made.map((e) => e.uid);
 }
 function listPersonas() {
   const map = ctx().powerUserSettings?.personas || {};

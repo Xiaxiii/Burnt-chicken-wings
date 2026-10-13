@@ -779,3 +779,11 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-crow { padding: 7px 8px; gap: 4px 8px; }
     #pa-root .pa-verdict { padding: 8px 10px; }
 }
+
+/* 1.6.0 搬到新版、缝进世界书 */
+#pa-root .pa-mig { display: grid; gap: 6px; margin: 8px 0; }
+#pa-root .pa-mig .pa-crow { grid-template-columns: auto minmax(0, 1fr); }
+#pa-root .pa-dst-seg { flex: none; }
+#pa-root .pa-pane-head .pa-dst-wb { flex: 1 1 160px; width: auto; min-width: 0; }
+#pa-root .pa-wbset { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+#pa-root .pa-wbset .pa-field-wide { grid-column: 1 / -1; }
