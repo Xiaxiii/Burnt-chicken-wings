@@ -51,32 +51,37 @@ function mountApi(liveBox, sitesBox) {
       if (changed) saveSettings();
     }
     const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => sc.siteId === id).map((sc) => sc.preset))];
-    liveBox.innerHTML = `
-        <div class="pa-card pa-live">
-            <header><b>当前连接</b><span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span></header>
-            <p>${esc(active?.name || src?.label || live.source || "—")}${live.url ? ` \xB7 ${esc(hostOf(live.url))}` : ""}${live.secretMask ? ` \xB7 密钥 ${esc(live.secretMask)}` : ""}</p>
-            <div class="pa-field pa-field-row"><span>模型</span>${modelBtn(live.model, 'data-a="livemodel"')}</div>
-            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button>${active ? "" : '<button class="pa-btn pa-btn-soft" data-a="capture">保存为站点</button>'}</div>
-        </div>`;
-    sitesBox.innerHTML = `
-        <div class="pa-row-head"><h3 class="pa-h">API 站点</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 添加站点</button></div>
-        ${sites().length ? sites().map((x) => {
-      const on = x.id === s.activeSiteId;
-      const isOpen = open.has(x.id);
-      return `<article class="pa-card pa-site${on ? " pa-site-on" : ""}${isOpen ? " pa-open" : ""}" data-id="${esc(x.id)}">
-            <header data-a="toggle"><span class="pa-site-caret">${isOpen ? "▾" : "▸"}</span><b>${esc(x.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}<small class="pa-site-model">${usedBy(x.id).length ? `预设：${esc(usedBy(x.id).join("、"))}` : esc(x.model || "")}</small>
-              ${on ? "" : '<button class="pa-btn pa-btn-primary pa-btn-s" data-a="use">切换</button>'}</header>
+    const dot = `<span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span>`;
+    // 1.4.1：「当前连接」就是使用中的站点卡片，不再单独一块；当前连接还没存成站点时，用同样样式显示
+    const siteCard = (x, isLive) => {
+      const isOpen = isLive || open.has(x.id);
+      return `<article class="pa-card pa-site${isLive ? " pa-site-on" : ""}${isOpen ? " pa-open" : ""}" data-id="${esc(x.id)}">
+            <header ${isLive ? "" : 'data-a="toggle"'}>${isLive ? "" : `<span class="pa-site-caret">${isOpen ? "▾" : "▸"}</span>`}<b>${esc(x.name)}</b>${isLive ? '<span class="pa-chip">使用中</span>' : ""}<small class="pa-site-model">${usedBy(x.id).length ? `预设：${esc(usedBy(x.id).join("、"))}` : isLive ? "" : esc(x.model || "")}</small>
+              ${isLive ? dot : '<button class="pa-btn pa-btn-primary pa-btn-s" data-a="use">切换</button>'}</header>
             ${isOpen ? `<dl class="pa-site-dl">
               <dt>类型</dt><dd>${esc(SOURCES[x.source]?.label || x.source)}</dd>
               ${x.url ? `<dt>网址</dt><dd>${esc(x.url)}</dd>` : ""}
               <dt>密钥</dt><dd>${esc(x.keyMask || (x.secretId ? "已保存" : "使用当前密钥"))}</dd>
-              <dt>模型</dt><dd>${modelBtn(x.model, 'data-a="sitemodel"')}${x.source === "custom" ? '<button class="pa-link" data-a="fetch">获取模型列表</button>' : ""}</dd>
+              <dt>模型</dt><dd>${modelBtn(isLive ? live.model : x.model, isLive ? 'data-a="livemodel"' : 'data-a="sitemodel"')}${x.source === "custom" && !isLive ? '<button class="pa-link" data-a="fetch">获取模型列表</button>' : ""}</dd>
               ${usedBy(x.id).length ? `<dt>用于</dt><dd>${settings().schemes.filter((sc) => sc.siteId === x.id).map((sc) => `方案「${esc(sc.name)}」（${esc(sc.preset)}）`).join("、")}</dd>` : ""}
               ${x.note ? `<dt>备注</dt><dd>${esc(x.note)}</dd>` : ""}
             </dl>
-            <div class="pa-card-act"><button class="pa-btn" data-a="edit">编辑</button><button class="pa-btn pa-btn-danger-soft" data-a="del">删除</button></div>` : ""}
+            <div class="pa-card-act">${isLive ? '<button class="pa-btn" data-a="reconnect">重新连接</button>' : ""}<button class="pa-btn" data-a="edit">编辑</button>${x.source === "custom" && isLive ? '<button class="pa-btn" data-a="fetch">获取模型列表</button>' : ""}<button class="pa-btn pa-btn-danger-soft" data-a="del">删除</button></div>` : ""}
         </article>`;
-    }).join("") : '<p class="pa-empty">暂无站点。可点「＋ 添加站点」，或在酒馆中连接后点「保存为站点」。</p>'}
+    };
+    liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">当前连接</h3></div>` + (active ? siteCard(active, true) : `<article class="pa-card pa-site pa-site-on pa-open">
+            <header><b>${esc(src?.label?.split("（")[0] || live.source || "—")}${live.url ? ` ${esc(hostOf(live.url))}` : ""}</b><span class="pa-chip pa-chip-dim">未保存为站点</span><small class="pa-site-model"></small>${dot}</header>
+            <dl class="pa-site-dl">
+              ${live.url ? `<dt>网址</dt><dd>${esc(live.url)}</dd>` : ""}
+              ${live.secretMask ? `<dt>密钥</dt><dd>${esc(live.secretMask)}</dd>` : ""}
+              <dt>模型</dt><dd>${modelBtn(live.model, 'data-a="livemodel"')}</dd>
+            </dl>
+            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button><button class="pa-btn pa-btn-primary" data-a="capture">保存为站点</button></div>
+        </article>`);
+    const others = sites().filter((x) => x.id !== s.activeSiteId);
+    sitesBox.innerHTML = `
+        <div class="pa-row-head"><h3 class="pa-h">${active ? "其他站点" : "API 站点"}</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 添加站点</button></div>
+        ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
         <div class="pa-card">
             <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后恢复当前站点</label>
             <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时不改变连接设置</label>

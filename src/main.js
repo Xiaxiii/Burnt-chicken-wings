@@ -4,7 +4,7 @@ function boot() {
   booted = true;
   start().catch((e) => {
     console.error("[裁缝铺] 启动失败", e);
-    globalThis.toastr?.error?.("预设裁缝铺启动失败：" + e.message);
+    globalThis.toastr?.error?.("焦香鸡翅（预设裁缝铺）启动失败：" + e.message);
   });
 }
 var c = globalThis.SillyTavern?.getContext?.();

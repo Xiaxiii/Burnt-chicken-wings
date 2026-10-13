@@ -26,7 +26,7 @@ function buildRoot() {
   rootEl2 = el(`<div id="pa-root" class="pa-root" hidden>
         <div class="pa-shell">
             <header class="pa-top">
-                <div class="pa-brand"><span class="pa-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span><b>预设裁缝铺</b></div>
+                <div class="pa-brand"><span class="pa-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span><b class="pa-appname">${esc(appName())}</b></div>
                 <div class="pa-savebar" hidden>
                     <span class="pa-dirty-text"></span>
                     <button class="pa-btn" data-g="undo">撤销</button>
@@ -164,7 +164,7 @@ function addMenuEntry() {
   const menu = document.getElementById("extensionsMenu");
   if (!menu) return;
   const item = el(`<div id="pa-menu-entry" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem">
-        <div class="fa-solid fa-scissors extensionsMenuExtensionButton"></div><span>预设裁缝铺</span></div>`);
+        <div class="fa-solid fa-scissors extensionsMenuExtensionButton"></div><span class="pa-appname">${esc(appName())}</span></div>`);
   item.addEventListener("click", () => open());
   menu.append(item);
 }
@@ -211,16 +211,21 @@ function addSettingsEntry() {
   const box = el(`<div id="pa-settings" class="pa-set">
     <div class="inline-drawer">
       <div class="inline-drawer-toggle inline-drawer-header">
-        <b>预设裁缝铺 <span class="pa-set-badge">v${esc(VERSION)}</span></b>
+        <b><span class="pa-appname">${esc(appName())}</span> <span class="pa-set-badge">v${esc(VERSION)}</span></b>
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
       </div>
       <div class="inline-drawer-content">
         <div class="pa-set-intro">整理分组 · 跨预设缝合 · 思维链检查 · 开关方案 · API 站点 · 加载体检</div>
         <div class="pa-set-btns">
-          <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开裁缝铺</span></div>
+          <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开<span class="pa-appname">${esc(appName())}</span></span></div>
           <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>加载体检</span></div>
         </div>
         <hr class="sysHR">
+        <div class="pa-set-row">
+          <span class="pa-set-k">名称</span>
+          <span class="pa-set-v pa-appname">${esc(appName())}</span>
+          <div class="menu_button menu_button_icon pa-set-mini" data-a="rename" tabindex="0" role="button" title="修改名称"><i class="fa-solid fa-pencil"></i><span>修改</span></div>
+        </div>
         <div class="pa-set-row">
           <span class="pa-set-k">版本</span>
           <span class="pa-set-v">${esc(VERSION)} · ${kind}</span>
@@ -243,6 +248,13 @@ function addSettingsEntry() {
     if (a === "open") return open();
     if (a === "health") return open("more", "health");
     if (a === "reload") return location.reload();
+    if (a === "rename") {
+      const n = window.prompt("扩展名称（留空恢复默认）", appName());
+      if (n === null) return;
+      settings().appName = n.trim() || "";
+      saveSettings();
+      return refreshAppName();
+    }
     if (busy) return;
     busy = true;
     const icon = btn.querySelector("i");
@@ -283,8 +295,8 @@ function registerSlash() {
     if (c2.SlashCommandParser && c2.SlashCommand) {
       c2.SlashCommandParser.addCommandObject(c2.SlashCommand.fromProps({
         name: "atelier",
-        aliases: ["裁缝铺"],
-        helpString: "打开预设裁缝铺",
+        aliases: ["裁缝铺", "焦香鸡翅"],
+        helpString: "打开焦香鸡翅（预设裁缝铺）",
         callback: () => {
           open();
           return "";
@@ -294,7 +306,7 @@ function registerSlash() {
       c2.registerSlashCommand("atelier", () => {
         open();
         return "";
-      }, ["裁缝铺"], "打开预设裁缝铺");
+      }, ["裁缝铺"], "打开焦香鸡翅（预设裁缝铺）");
     }
   } catch (e) {
     console.warn("[裁缝铺] 注册斜杠命令失败", e);
@@ -431,4 +443,16 @@ async function backupsSheet(name) {
     });
     toast("已恢复", "success");
   }
+}
+// 1.4.1：扩展名称可修改，默认「焦香鸡翅」。酒馆「扩展管理」列表里的名称来自 manifest.json，无法按用户修改
+var DEFAULT_APP_NAME = "焦香鸡翅";
+function appName() {
+  try {
+    return settings().appName || DEFAULT_APP_NAME;
+  } catch {
+    return DEFAULT_APP_NAME;
+  }
+}
+function refreshAppName() {
+  document.querySelectorAll(".pa-appname").forEach((x) => { x.textContent = appName(); });
 }

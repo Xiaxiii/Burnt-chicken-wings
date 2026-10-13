@@ -5,9 +5,9 @@ var THEMES = [
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
   { id: "bean", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
   { id: "mist", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
-  { id: "oat", name: "杏色", sub: "暖橙", dots: ["#f4d4ab", "#a5652c", "#4a3426"] },
-  { id: "goose", name: "鹅黄", sub: "浅黄", dots: ["#f8f1a1", "#7a6b12", "#3e3a1e"] },
-  { id: "matcha", name: "芽绿", sub: "嫩绿", dots: ["#e2f0b5", "#557a2a", "#33402a"] },
+  { id: "oat", name: "杏色", sub: "奶油杏", dots: ["#f2e6d8", "#8f6a4c", "#4d3f35"] },
+  { id: "goose", name: "鹅黄", sub: "奶油黄", dots: ["#f3eed6", "#7d7245", "#45412c"] },
+  { id: "matcha", name: "芽绿", sub: "奶油绿", dots: ["#e7ecda", "#627858", "#3a4234"] },
   { id: "night", name: "夜雾", sub: "深色", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
 ];
 function readColor(value) {

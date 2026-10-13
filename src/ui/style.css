@@ -479,9 +479,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root[data-theme]:not([data-theme="follow"]) .pa-shell, #pa-root[data-theme]:not([data-theme="follow"]) .pa-sheet { -webkit-backdrop-filter: none; backdrop-filter: none; }
 #pa-root[data-theme="mist"]     { --pa-tint:#f6f2e2; --pa-text:#2f3a46; --pa-thread:#4f74a3; --pa-em:#4f5d6a; --pa-line:#d3d9c6; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b25a3c; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); --pa-sel:rgba(79,116,163,.18); }
 #pa-root[data-theme="bean"]     { --pa-tint:#f7ece9; --pa-text:#45343f; --pa-thread:#b0607e; --pa-em:#6a5562; --pa-line:#e3d1d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(176,96,126,.16); }
-#pa-root[data-theme="oat"]      { --pa-tint:#f4d4ab; --pa-text:#4a3426; --pa-thread:#a5652c; --pa-em:#6b4f3c; --pa-line:#e3bf93; --pa-input-bg:rgba(255,255,255,.62); --pa-warn:#b4472e; --pa-ok:#4f7d45; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.34); --pa-card-2:rgba(255,255,255,.54); }
-#pa-root[data-theme="goose"]    { --pa-tint:#f8f1a1; --pa-text:#3e3a1e; --pa-thread:#7a6b12; --pa-em:#5c5630; --pa-line:#e2d888; --pa-input-bg:rgba(255,255,255,.62); --pa-warn:#b4472e; --pa-ok:#4f7d45; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.36); --pa-card-2:rgba(255,255,255,.56); }
-#pa-root[data-theme="matcha"]   { --pa-tint:#e2f0b5; --pa-text:#33402a; --pa-thread:#557a2a; --pa-em:#4f5d3e; --pa-line:#c9da98; --pa-input-bg:rgba(255,255,255,.62); --pa-warn:#b4472e; --pa-ok:#3f7a3a; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.36); --pa-card-2:rgba(255,255,255,.56); }
+#pa-root[data-theme="oat"]      { --pa-tint:#f2e6d8; --pa-text:#4d3f35; --pa-thread:#8f6a4c; --pa-em:#6e5d50; --pa-line:#e0d0bd; --pa-input-bg:#faf5ef; --pa-warn:#a85a45; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }
+#pa-root[data-theme="goose"]    { --pa-tint:#f3eed6; --pa-text:#45412c; --pa-thread:#7d7245; --pa-em:#66604a; --pa-line:#e0d9b8; --pa-input-bg:#faf8ec; --pa-warn:#a85a45; --pa-ok:#5d7f5c; --pa-on-accent:#fff; }
+#pa-root[data-theme="matcha"]   { --pa-tint:#e7ecda; --pa-text:#3a4234; --pa-thread:#627858; --pa-em:#5a6551; --pa-line:#d1dabf; --pa-input-bg:#f6f8f0; --pa-warn:#a85a45; --pa-ok:#4f7d55; --pa-on-accent:#fff; }
 #pa-root[data-theme="night"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }
 #pa-root[data-theme]:not([data-theme="follow"]):not([data-theme="night"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }
 
@@ -607,3 +607,24 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-mpick-item { text-align: left; padding: 8px 10px; min-height: 40px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); color: var(--pa-text); cursor: pointer; overflow-wrap: anywhere; }
 #pa-root .pa-mpick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); font-weight: 600; }
 #pa-root .pa-mpick-custom { border-style: dashed; color: var(--pa-thread); }
+
+/* 1.4.1 缝合预览：每条默认收起 */
+#pa-root .pa-item { gap: 0; padding: 0; }
+#pa-root .pa-item-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; min-height: 44px; }
+#pa-root .pa-item-head input[type=checkbox] { flex: none; width: 18px; height: 18px; }
+#pa-root .pa-item-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+#pa-root .pa-item-head .pa-badges { max-width: 55%; flex-wrap: nowrap; }
+#pa-root .pa-item-caret { flex: none; color: var(--pa-dim); width: 1em; text-align: center; }
+#pa-root .pa-item-body { display: grid; gap: 8px; padding: 0 12px 12px; }
+#pa-root .pa-item-body[hidden] { display: none; }
+#pa-root .pa-item.open { border-color: var(--pa-thread); }
+#pa-root .pa-chip-warn { color: var(--pa-warn); border-color: var(--pa-warn); }
+#pa-root .pa-hookbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+#pa-root .pa-hookbar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }
+/* 说明里的名词标签 */
+#pa-root .pa-legend .pa-lv-term { border-style: solid; border-color: var(--pa-thread); color: var(--pa-thread); white-space: nowrap; }
+#pa-root .pa-legend { grid-template-columns: max-content minmax(0, 1fr); column-gap: 10px; align-items: baseline; }
+#pa-root .pa-legend li { display: contents; }
+#pa-root .pa-legend .pa-lv { justify-self: start; }
+#pa-root .pa-site > header .pa-dot { flex: none; white-space: nowrap; }
+#pa-root .pa-site > header .pa-chip { flex: none; }

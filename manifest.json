@@ -1,11 +1,11 @@
 {
-  "display_name": "预设裁缝铺",
+  "display_name": "焦香鸡翅",
   "loading_order": 100,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "author": "Xiaxiii",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "homePage": "https://github.com/Xiaxiii/Burnt-chicken-wings",
   "auto_update": true
 }

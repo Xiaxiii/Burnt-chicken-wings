@@ -405,6 +405,8 @@ function mountSuture(page, app) {
                 ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<details class="pa-explain"><summary>来源「${esc(sd.name)}」的写法（${pr.lines.length} 条）</summary><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : "").join("")}
                 <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝合时，角色和插入位置与目标一致</label>
                 <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名称后加「（来自来源预设）」</label>
+                <div class="pa-hookbar"><span class="pa-hookbar-n"></span><button class="pa-btn pa-btn-s" data-g="hook-all">全部接入</button><button class="pa-btn pa-btn-s" data-g="hook-rec">推荐接入</button><button class="pa-btn pa-btn-s" data-g="hook-none">全部不接入</button></div>
+                <small>接入思维链会让思维链多一个问题，条目多时思考时间会变长。默认不接入。</small>
             </div>
             <div class="pa-items"></div>
         </div>`);
@@ -440,7 +442,7 @@ function mountSuture(page, app) {
             <small>条目末尾添加 {{setvar::${esc(h.varName)}::…}}；${initName ? `「${esc(initName)}」中添加一行清空` : "未找到初始化条目，不添加清空"}；「${cotName}」${more}中${h.anchorVar ? `在 {{getvar::${esc(h.anchorVar)}}} 之后` : ""}添加 {{getvar::${esc(h.varName)}}}。</small>`;
       }
       return `<div class="pa-hook">
-            <label class="pa-inline-check"><input type="checkbox" data-c="hook" ${it.hookOn ? "checked" : ""}> <b>接入思维链</b></label>
+            <label class="pa-inline-check"><input type="checkbox" data-c="hook" ${it.hookOn ? "checked" : ""}> <b>接入思维链</b>${h.on ? '<span class="pa-chip pa-chip-cot">推荐</span>' : ""}</label>
             <small>${esc(h.text)}${it.hookOn || h.on ? "" : "。" + esc(h.offHint || "")}</small>${detail}</div>`;
     };
     const renderItem = (it, i) => {
@@ -465,7 +467,8 @@ function mountSuture(page, app) {
         console.warn("[裁缝铺] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，已跳过" };
       }
-      it.hookOn = it.hook.status === "hook" && (it.choice.hook ?? (mode === "raw" ? false : it.hook.on));
+      // 1.4.1：默认不接入（每接入一条，思维链就多一问，思考时间变长）；推荐与否见 hook.on，由顶部「推荐接入」一键勾选
+      it.hookOn = it.hook.status === "hook" && !!it.choice.hook;
       it.finalContent = it.hookOn ? contentWithHook(chosen.content, it.hook) : chosen.content;
       // 两边差异提醒（不管哪种缝法都要知道的）
       const warns = [];
@@ -494,9 +497,16 @@ function mountSuture(page, app) {
         planSlot ? card("slot", `按目标写法缝合，并加入单选「${t.slot.varName}」`, "开启后，同类中已开启的一条会被替换", planSlot.content, planSlot.changes) : ""
       ].join("");
       const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);
-      return `<article class="pa-item" data-i="${i}">
-                <header><label class="pa-inline-check"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}> 缝合后开启</label>
-                <input class="pa-input pa-input-s" data-c="name" value="${esc(nameOf(it))}" aria-label="条目名称"></header>
+      const modeLabel = { raw: "原样", fix: "按目标写法", slot: "加入单选" }[mode];
+      const hookLabel = it.hook.status !== "hook" ? "" : it.hookOn ? '<span class="pa-chip pa-chip-cot">接入思维链</span>' : it.hook.on ? '<span class="pa-chip pa-chip-dim">推荐接入</span>' : "";
+      // 默认收起，只显示一行摘要；点开看详情
+      return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
+                <header class="pa-item-head" data-c="toggle"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""} title="缝合后开启" aria-label="缝合后开启">
+                <span class="pa-item-name">${esc(nameOf(it))}</span>
+                <span class="pa-badges"><span class="pa-chip">${modeLabel}</span>${hookLabel}${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span>
+                <span class="pa-item-caret">${it.open ? "▾" : "▸"}</span></header>
+                <div class="pa-item-body"${it.open ? "" : " hidden"}>
+                <label class="pa-field"><span>条目名称</span><input class="pa-input pa-input-s" data-c="name" value="${esc(nameOf(it))}"></label>
                 ${it.desc ? `<details class="pa-was"><summary>在「${esc(it.src.from || "")}」中的作用</summary><ul class="pa-notes">${it.desc.lines.map((l) => `<li>${esc(l)}</li>`).join("")}${it.desc.cot ? `<li>${esc(it.desc.cot.text)}</li>` : ""}</ul></details>` : `<small class="pa-from">来自 ${esc(it.src.from || "")}</small>`}
                 <div class="pa-modes" role="radiogroup">${modes}</div>
                 ${warns.length ? `<ul class="pa-notes">${warns.map((w) => `<li class="pa-warn">${esc(w)}</li>`).join("")}</ul>` : ""}
@@ -511,6 +521,7 @@ function mountSuture(page, app) {
                 <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</summary>
                 <textarea class="pa-input pa-text" data-c="content" spellcheck="false">${esc(it.manual ?? it.finalContent)}</textarea>
                 ${it.manual != null ? '<button class="pa-link" data-c="reset">撤销手动修改，按上方选项重新生成</button>' : ""}</details>
+                </div>
             </article>`;
     };
     const rerender = (art, it) => {
@@ -520,6 +531,26 @@ function mountSuture(page, app) {
       art.outerHTML = renderItem(it, i);
     };
     box.innerHTML = items.map(renderItem).join("");
+    // 思维链批量选择：全部接入 / 推荐接入 / 全部不接入
+    const hookable = () => items.filter((it) => it.hook?.status === "hook");
+    const paintHookBar = () => {
+      const bar = body.querySelector(".pa-hookbar");
+      const n = hookable().length;
+      bar.hidden = !n;
+      bar.querySelector("[data-g=hook-rec]").textContent = `推荐接入（${hookable().filter((it) => it.hook.on).length}）`;
+      bar.querySelector(".pa-hookbar-n").textContent = `思维链：已接入 ${items.filter((it) => it.hookOn).length} / ${n}`;
+    };
+    paintHookBar();
+    body.querySelector(".pa-hookbar").addEventListener("click", (e) => {
+      const g = e.target.closest("[data-g]")?.dataset.g;
+      if (!g) return;
+      for (const it of hookable()) {
+        it.choice.hook = g === "hook-all" ? true : g === "hook-rec" ? !!it.hook.on : false;
+        it.manual = null;
+      }
+      box.innerHTML = items.map(renderItem).join("");
+      paintHookBar();
+    });
     const grpSel = body.querySelector("[data-g=grp]");
     const grpName = body.querySelector("[data-g=gname]");
     grpSel?.addEventListener("change", () => {
@@ -532,7 +563,10 @@ function mountSuture(page, app) {
       box.querySelectorAll(".pa-item").forEach((art) => {
         const it = items[Number(art.dataset.i)];
         const inp = art.querySelector("[data-c=name]");
-        if (inp && it.customName == null) inp.value = nameOf(it);
+        if (it.customName == null) {
+          if (inp) inp.value = nameOf(it);
+          art.querySelector(".pa-item-name").textContent = nameOf(it);
+        }
       });
     });
     box.addEventListener("change", (e) => {
@@ -546,6 +580,7 @@ function mountSuture(page, app) {
       }
       if (c2 === "name") {
         it.customName = e.target.value;
+        art.querySelector(".pa-item-name").textContent = e.target.value;
         return;
       }
       if (c2 === "content") {
@@ -562,13 +597,22 @@ function mountSuture(page, app) {
       if (c2 === "hq") it.choice.hookQ = e.target.value.trim() || void 0;
       it.manual = null;
       rerender(art, it);
+      paintHookBar();
     });
     box.addEventListener("click", (e) => {
+      const head = e.target.closest("[data-c=toggle]");
+      if (head && !e.target.closest("input")) {
+        const art = head.closest(".pa-item");
+        const it = items[Number(art.dataset.i)];
+        it.open = !it.open;
+        return rerender(art, it);
+      }
       if (e.target.dataset.c !== "reset") return;
       const art = e.target.closest(".pa-item");
       const it = items[Number(art.dataset.i)];
       it.manual = null;
       rerender(art, it);
+      paintHookBar();
     });
     const ok = await sheet({ title: `缝合 ${items.length} 条到「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, {
       label: "确认缝合",

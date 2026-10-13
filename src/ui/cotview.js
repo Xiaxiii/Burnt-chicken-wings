@@ -116,12 +116,12 @@ function mountCot(page, app) {
         </div>
         <details class="pa-card pa-explain-card"><summary><b>说明</b></summary>
             <ul class="pa-legend">
-                <li><span class="pa-lv pa-lv-ok">已读取</span>思维链通过 {{getvar}} 读取该条目写入的变量。</li>
-                <li><span class="pa-lv pa-lv-maybe">文字提及</span>思维链中出现该条目的名称或标签。</li>
-                <li><span class="pa-lv pa-lv-none">未提及</span>思维链中没有出现该条目。</li>
-                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量未被读取</span>条目写入的变量没有被任何开启条目读取，内容不会发送。</li>
-                <li><b>接入思维链</b>：在思维链中加入对该条目的读取或提及，使模型思考时考虑这条内容。按本预设原有的写法添加（变量读取或文字提及），可撤销。规则类条目通常不需要接入；文风、人设、玩法等需要模型重点落实的条目可以接入。</li>
-                <li><b>手动指定思维链</b>：思维链条目名称特殊、未被自动识别时，在此手动指定；识别错误的，在对应思维链下点「不是思维链」。</li>
+                <li><span class="pa-lv pa-lv-ok">已读取</span><span>思维链通过 {{getvar}} 读取该条目写入的变量。</span></li>
+                <li><span class="pa-lv pa-lv-maybe">文字提及</span><span>思维链中出现该条目的名称或标签。</span></li>
+                <li><span class="pa-lv pa-lv-none">未提及</span><span>思维链中没有出现该条目。</span></li>
+                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量未被读取</span><span>条目写入的变量没有被任何开启条目读取，内容不会发送。</span></li>
+                <li><span class="pa-lv pa-lv-term">接入思维链</span><span>在思维链中加入对该条目的读取或提及，使模型思考时考虑这条内容。按本预设原有的写法添加（变量读取或文字提及），可撤销。规则类条目通常不需要接入；文风、人设、玩法等需要模型重点落实的条目可以接入。</span></li>
+                <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链条目名称特殊、未被自动识别时，在此手动指定；识别错误的，在对应思维链下点「不是思维链」。</span></li>
             </ul>
         </details>
         <div class="pa-cot-sum">
