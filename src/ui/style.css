@@ -820,3 +820,4 @@ html.pa-open body { overflow: hidden; }
 #pa-rescue .pa-rescue-x { margin-left: auto !important; }
 #pa-rescue .menu_button { width: auto; margin: 0; padding: 4px 12px; white-space: nowrap; }
 #pa-rescue .pa-rescue-x { padding: 4px 8px; opacity: .7; }
+#pa-root .pa-dupgroups { margin: 6px 0 8px; }

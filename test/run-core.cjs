@@ -311,4 +311,15 @@ test("预设清理：完全相同、旧版本、同系列、内容相近都能�
   assert.equal(r2["留光 v3.6.1"].suggest, false);
 });
 
+test("双层分组 entryGrouping 里与百宝箱同名同成员的分组算重复，保存时去掉；别的分组保留", () => {
+  const d = mk([["a", "甲", "x"], ["b", "乙", "y"], ["c", "丙", "z"], ["e", "戊", "w"]], { extensions: {
+    baibaiToolkit: { presetPromptGroups: { version: 1, groups: [{ id: "g1", name: "文风选择" }], prompts: { a: { groupId: "g1" }, b: { groupId: "g1" } } } },
+    entryGrouping: [{ id: "x1", name: "文风选择", startIdentifier: "a", endIdentifier: "b", mode: "inclusive" }, { id: "x2", name: "别的组", memberIdentifiers: ["c", "e"] }, { id: "x3", name: "文风选择", memberIdentifiers: ["a", "c"] }]
+  } });
+  assert.deepEqual(d.dupEntryGroups().map((g) => g.id), ["x1"]);
+  const out = d.toPreset();
+  assert.deepEqual(out.extensions.entryGrouping.map((g) => g.id), ["x2", "x3"]);
+  assert.equal(new A.Draft("p", out).dupEntryGroups().length, 0);
+});
+
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

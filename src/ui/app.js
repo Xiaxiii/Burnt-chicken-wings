@@ -236,7 +236,7 @@ function addSettingsEntry() {
         <div class="pa-set-note">在页面顶部往下拖时，Safari 会刷新整个酒馆。开启后阻止这种刷新；刷新按钮照常可用。</div>
         <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="rescue" ${settings().rescue !== false ? "checked" : ""}><span>后台中断补救</span></label>
         <div class="pa-set-note">切到别的 App 时，手机可能中断正在生成的回复，或把酒馆整页重新加载。开启后，回来时提醒你，并可一键续写或重新生成。</div>
-        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
+        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 1).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
         <div class="pa-set-foot">打开方式：点上方按钮，或从魔棒菜单打开，或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>

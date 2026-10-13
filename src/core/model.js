@@ -404,6 +404,35 @@ var Draft = class {
     const set = new Set(ids);
     for (const o of this.order) if (set.has(o.identifier)) o.enabled = !!on;
   }
+  /**
+   * 1.7.5 双层分组：预设里同时存了百宝箱分组和 entryGrouping，而 entryGrouping 里的分组与百宝箱分组同名、成员也在其中，
+   * 两个插件各显示一层，看起来像分组里又套了一层同名分组。返回这些重复的 entryGrouping 分组。
+   */
+  dupEntryGroups() {
+    const eg = this.preset.extensions?.entryGrouping;
+    if (!this.hadBaibai || !Array.isArray(eg) || !eg.length) return [];
+    const ids = this.order.map((o) => o.identifier);
+    const has = new Set(ids);
+    const byName = new Map();
+    for (const g of this.groups.groups) {
+      const k = String(g.name || "").trim();
+      const mem = new Set(ids.filter((x) => this.groupOf(x) === g.id));
+      if (k) byName.set(k, byName.has(k) ? new Set([...byName.get(k), ...mem]) : mem);
+    }
+    return eg.filter((g) => {
+      if (!g) return false;
+      const set = byName.get(String(g.name || "").trim());
+      if (!set) return false;
+      let mem;
+      if (Array.isArray(g.memberIdentifiers)) mem = g.memberIdentifiers;
+      else {
+        const a = ids.indexOf(g.startIdentifier), b = ids.indexOf(g.endIdentifier);
+        mem = a >= 0 && b >= a ? ids.slice(a, b + 1) : [];
+      }
+      const live = mem.filter((x) => has.has(x));
+      return live.length > 0 && live.every((x) => set.has(x));
+    });
+  }
   /** 插入新条目（缝合用） */
   insertPrompts(items, where, groupId) {
     const ids = [];
@@ -473,7 +502,9 @@ var Draft = class {
         ext.baibaiToolkit.presetPromptGroups = groups;
       }
       if (Array.isArray(ext.entryGrouping)) {
-        // 去掉和百宝箱分组同 id 的镜像，以及成员已经不存在的旧分组；别的插件自己建的分组保留
+        // 去掉和百宝箱分组同 id 的镜像、同名且成员相同的重复分组（1.7.5），以及成员已经不存在的旧分组；别的插件自己建的分组保留
+        const dupKeys = new Set(this.dupEntryGroups().map((g) => `${g.id}|${g.name}`));
+        ext.entryGrouping = ext.entryGrouping.filter((g) => !g || !dupKeys.has(`${g.id}|${g.name}`));
         const mirror = new Set([...(this.loadedGroupIds || []), ...groups.groups.map((g) => g.id)]);
         const live = new Set(order.map((o) => o.identifier));
         ext.entryGrouping = ext.entryGrouping.filter((g) => g && !mirror.has(g.id) && (Array.isArray(g.memberIdentifiers)

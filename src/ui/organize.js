@@ -65,7 +65,10 @@ function mountOrganize(page) {
     for (const id of [...st.selected]) if (!d.order.some((o) => o.identifier === id)) st.selected.delete(id);
     const placing = !!st.mode;
     const top = list.scrollTop;
-    list.innerHTML = renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
+    // 1.7.5 双层分组提示
+    const dups = placing ? [] : d.dupEntryGroups();
+    const dupBanner = dups.length ? `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>这个预设的分组存了两份，所以每个分组里又套了一层同名分组。</b></p><small>预设里同时有百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。共 ${dups.length} 个分组重复：${esc(dups.slice(0, 4).map((g) => g.name).join("、"))}${dups.length > 4 ? " 等" : ""}。去掉重复的一层后，条目和分组都不变。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">去掉重复的一层</button></div></div>` : "";
+    list.innerHTML = dupBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
     list.scrollTop = top;
     list.classList.toggle("pa-placing", placing);
     const n = st.selected.size;
@@ -130,6 +133,18 @@ function mountOrganize(page) {
     showGroup(gid);
   }
   list.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-dup=fix]")) {
+      const d = draft();
+      const n = d.dupEntryGroups().length;
+      mutate(d, "去掉重复的分组", (x) => {
+        const dupKeys = new Set(x.dupEntryGroups().map((g) => `${g.id}|${g.name}`));
+        const eg = x.preset.extensions.entryGrouping.filter((g) => !g || !dupKeys.has(`${g.id}|${g.name}`));
+        if (eg.length) x.preset.extensions.entryGrouping = eg;
+        else delete x.preset.extensions.entryGrouping;
+      });
+      toast(`已去掉 ${n} 个重复的分组`, "success");
+      return;
+    }
     const d = draft();
     const actEl = e.target.closest("[data-act]");
     const act = actEl?.dataset.act;
