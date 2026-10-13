@@ -1,13 +1,20 @@
 // 「更多」页：开关方案、API 站点、外观、加载体检，顶部分段切换
 function mountMore(page, app) {
-  const SUBS = [["schemes", "开关方案"], ["api", "API 站点"], ["look", "外观"], ["health", "加载体检"]];
+  const SUBS = [["schemes", "方案与 API"], ["look", "外观"], ["health", "加载体检"]];
   page.innerHTML = `
     <div class="pa-more-head"><div class="pa-seg pa-seg-s" role="tablist">${SUBS.map(([k, l]) => `<button data-m="${k}">${l}</button>`).join("")}</div></div>
     ${SUBS.map(([k]) => `<section class="pa-subpage" data-mp="${k}" hidden></section>`).join("")}`;
   const sec = (k) => page.querySelector(`[data-mp="${k}"]`);
   const subs = {
-    schemes: mountSchemes(sec("schemes"), app),
-    api: mountApi(sec("api"), app),
+    // 1.4.0：开关方案和 API 站点合并为一页：当前连接 → 方案 → 站点
+    schemes: (() => {
+      const box = sec("schemes");
+      box.innerHTML = '<div class="pa-scroll pa-plan"><div class="pa-plan-live"></div><div class="pa-plan-schemes"></div><div class="pa-plan-sites"></div></div>';
+      const api = mountApi(box.querySelector(".pa-plan-live"), box.querySelector(".pa-plan-sites"));
+      // 方案改动后刷新站点列表（站点标题显示被哪些预设的方案使用）
+      const sc = mountSchemes(box.querySelector(".pa-plan-schemes"), { after: () => api.render() });
+      return { render: () => sc.render(), destroy: sc.destroy };
+    })(),
     look: (() => {
       const box = sec("look");
       box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
@@ -23,6 +30,7 @@ function mountMore(page, app) {
     })(),
     health: mountHealth(sec("health"))
   };
+  if (settings().moreTab === "api") settings().moreTab = "schemes";
   let cur = settings().moreTab && subs[settings().moreTab] ? settings().moreTab : "schemes";
   function show(k) {
     cur = k;
@@ -35,5 +43,5 @@ function mountMore(page, app) {
     const b = e.target.closest("[data-m]");
     if (b) { show(b.dataset.m); saveSettings(); }
   });
-  return { render: () => show(subs[settings().moreTab] ? settings().moreTab : cur), destroy: () => { subs.schemes.destroy?.(); subs.api.destroy?.(); } };
+  return { render: () => show(subs[settings().moreTab] ? settings().moreTab : cur), destroy: () => { subs.schemes.destroy?.(); } };
 }

@@ -5,63 +5,82 @@ function hostOf(url) {
     return url || "";
   }
 }
-function mountApi(page) {
-  page.innerHTML = `<div class="pa-scroll pa-api"></div>`;
-  const box = page.querySelector(".pa-api");
+// 1.4.0：模型选择框。系统下拉框在平板上又宽又长，改为带搜索的列表，高度限制在屏幕内
+async function pickModel(list, cur, { title = "选择模型" } = {}) {
+  const all = [...new Set([cur, ...list].filter(Boolean))];
+  const body = el(`<div class="pa-mpick"><input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off"><div class="pa-mpick-list" role="listbox"></div></div>`);
+  const input = body.querySelector("input");
+  const box = body.querySelector(".pa-mpick-list");
+  let picked = null;
+  const paint = () => {
+    const q = input.value.trim();
+    const ql = q.toLowerCase();
+    const hits = all.filter((m) => !ql || m.toLowerCase().includes(ql));
+    const custom = q && !all.includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}">使用「${esc(q)}」</button>` : "";
+    box.innerHTML = custom + hits.map((m) => `<button class="pa-mpick-item${m === cur ? " on" : ""}" data-m="${esc(m)}">${esc(m)}${m === cur ? " ✓" : ""}</button>`).join("") || '<p class="pa-hint">没有匹配的模型，可直接输入名称</p>';
+  };
+  input.addEventListener("input", paint);
+  paint();
+  await sheet({ title: `${title}（${all.length}）`, body, noFocus: true, actions: [{ label: "取消", value: null }], onMount: (w) => {
+    box.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-m]");
+      if (!b) return;
+      picked = b.dataset.m;
+      w.querySelector(".pa-sheet-x").click();
+    });
+    w.querySelector(".pa-mpick-item.on")?.scrollIntoView({ block: "center" });
+  } });
+  return picked;
+}
+const modelBtn = (cur, attr) => `<button class="pa-model-btn" ${attr} title="${esc(cur || "")}"><span>${esc(cur || "选择模型")}</span><i>▾</i></button>`;
+// liveBox：当前连接；sitesBox：站点列表和选项（「方案与 API」页把方案放在两者之间）
+function mountApi(liveBox, sitesBox) {
   const sites = () => settings().sites;
   const open = /* @__PURE__ */ new Set();
-  const modelSelect = (cur, list, attr) => {
-    const all = [...new Set([cur, ...list].filter(Boolean))];
-    if (!all.length) return '<span class="pa-dim">—</span>';
-    return `<select class="pa-select pa-select-s" ${attr}>${all.map((m) => `<option value="${esc(m)}" ${m === cur ? "selected" : ""}>${esc(m)}</option>`).join("")}</select>`;
-  };
   function render() {
     const live = liveConnection();
     const s = settings();
     const active = sites().find((x) => x.id === s.activeSiteId);
     const src = SOURCES[live.source];
     const liveModels = liveModelOptions();
-    // 使用中的站点顺带记下模型列表，展开其他站点时也能选
-    if (active && active.source === live.source && liveModels.length && JSON.stringify(active.models || []) !== JSON.stringify(liveModels)) {
-      active.models = liveModels;
-      saveSettings();
+    // 使用中的站点跟随实际连接：记下模型列表，酒馆里换了模型也同步过来
+    if (active && active.source === live.source && (active.source !== "custom" || (active.url || "") === (live.url || ""))) {
+      let changed = false;
+      if (liveModels.length && JSON.stringify(active.models || []) !== JSON.stringify(liveModels)) active.models = liveModels, changed = true;
+      if (live.model && active.model !== live.model) active.model = live.model, changed = true;
+      if (changed) saveSettings();
     }
-    box.innerHTML = `
+    const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => sc.siteId === id).map((sc) => sc.preset))];
+    liveBox.innerHTML = `
         <div class="pa-card pa-live">
             <header><b>当前连接</b><span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span></header>
             <p>${esc(active?.name || src?.label || live.source || "—")}${live.url ? ` \xB7 ${esc(hostOf(live.url))}` : ""}${live.secretMask ? ` \xB7 密钥 ${esc(live.secretMask)}` : ""}</p>
-            <label class="pa-field pa-field-row"><span>模型</span>${modelSelect(live.model, liveModels, 'data-a="livemodel"')}</label>
-            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button><button class="pa-btn pa-btn-soft" data-a="capture">保存为站点</button></div>
-        </div>
-        <div class="pa-card">
-            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后恢复当前站点</label>
-            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时不改变连接设置</label>
-        </div>
-        <div class="pa-row-head"><h3 class="pa-h">站点</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 添加站点</button></div>
+            <div class="pa-field pa-field-row"><span>模型</span>${modelBtn(live.model, 'data-a="livemodel"')}</div>
+            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button>${active ? "" : '<button class="pa-btn pa-btn-soft" data-a="capture">保存为站点</button>'}</div>
+        </div>`;
+    sitesBox.innerHTML = `
+        <div class="pa-row-head"><h3 class="pa-h">API 站点</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 添加站点</button></div>
         ${sites().length ? sites().map((x) => {
       const on = x.id === s.activeSiteId;
       const isOpen = open.has(x.id);
       return `<article class="pa-card pa-site${on ? " pa-site-on" : ""}${isOpen ? " pa-open" : ""}" data-id="${esc(x.id)}">
-            <header data-a="toggle"><span class="pa-site-caret">${isOpen ? "▾" : "▸"}</span><b>${esc(x.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}<small class="pa-site-model">${esc(x.model || "")}</small>
+            <header data-a="toggle"><span class="pa-site-caret">${isOpen ? "▾" : "▸"}</span><b>${esc(x.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}<small class="pa-site-model">${usedBy(x.id).length ? `预设：${esc(usedBy(x.id).join("、"))}` : esc(x.model || "")}</small>
               ${on ? "" : '<button class="pa-btn pa-btn-primary pa-btn-s" data-a="use">切换</button>'}</header>
             ${isOpen ? `<dl class="pa-site-dl">
               <dt>类型</dt><dd>${esc(SOURCES[x.source]?.label || x.source)}</dd>
               ${x.url ? `<dt>网址</dt><dd>${esc(x.url)}</dd>` : ""}
               <dt>密钥</dt><dd>${esc(x.keyMask || (x.secretId ? "已保存" : "使用当前密钥"))}</dd>
-              <dt>模型</dt><dd>${modelSelect(x.model, x.models || [], 'data-a="sitemodel"')}${(x.models || []).length || x.source !== "custom" ? "" : '<button class="pa-link" data-a="fetch">获取模型列表</button>'}</dd>
+              <dt>模型</dt><dd>${modelBtn(x.model, 'data-a="sitemodel"')}${x.source === "custom" ? '<button class="pa-link" data-a="fetch">获取模型列表</button>' : ""}</dd>
+              ${usedBy(x.id).length ? `<dt>用于</dt><dd>${settings().schemes.filter((sc) => sc.siteId === x.id).map((sc) => `方案「${esc(sc.name)}」（${esc(sc.preset)}）`).join("、")}</dd>` : ""}
               ${x.note ? `<dt>备注</dt><dd>${esc(x.note)}</dd>` : ""}
             </dl>
             <div class="pa-card-act"><button class="pa-btn" data-a="edit">编辑</button><button class="pa-btn pa-btn-danger-soft" data-a="del">删除</button></div>` : ""}
         </article>`;
-    }).join("") : '<p class="pa-empty">暂无站点。可点「＋ 添加站点」，或在酒馆中连接后点「保存为站点」。</p>'}`;
-  }
-  // 模型栏：有列表时下拉选择，最后一项「手动输入」；没有列表时直接输入
-  const MANUAL = "\0manual";
-  function modelField(cur, list) {
-    const all = [...new Set([...list, cur].filter(Boolean))];
-    if (!all.length) return `<input class="pa-input" data-f="model" value="${esc(cur || "")}" placeholder="模型名称" autocapitalize="off">`;
-    return `<select class="pa-select" data-f="modelsel">${all.map((m) => `<option value="${esc(m)}" ${m === cur ? "selected" : ""}>${esc(m)}</option>`).join("")}<option value="${MANUAL}">手动输入…</option></select>
-            <input class="pa-input" data-f="model" value="${esc(cur || "")}" placeholder="模型名称" autocapitalize="off" hidden>`;
+    }).join("") : '<p class="pa-empty">暂无站点。可点「＋ 添加站点」，或在酒馆中连接后点「保存为站点」。</p>'}
+        <div class="pa-card">
+            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后恢复当前站点</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时不改变连接设置</label>
+        </div>`;
   }
   async function getModels(site) {
     return withSiteKey(site, () => fetchModelList(site));
@@ -74,7 +93,7 @@ function mountApi(page) {
             <label class="pa-field"><span>类型</span><select class="pa-select" data-f="source">${Object.entries(SOURCES).map(([k, v]) => `<option value="${k}" ${k === s.source ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</select></label>
             <label class="pa-field" data-show="custom"><span>网址</span><input class="pa-input" data-f="url" value="${esc(s.url)}" placeholder="https://…/v1" inputmode="url" autocapitalize="off"></label>
             <label class="pa-field"><span>密钥</span><input class="pa-input" data-f="key" type="password" autocomplete="off" placeholder="${s.secretId || s.legacyKey ? "不修改请留空" : "留空则使用酒馆当前密钥"}"></label>
-            <div class="pa-field"><span>模型</span><div class="pa-model-slot">${modelField(s.model, s.models || [])}</div></div>
+            <div class="pa-field"><span>模型</span>${modelBtn(s.model, 'data-f="modelbtn" type="button"')}<input type="hidden" data-f="model" value="${esc(s.model || "")}"></div>
             <button class="pa-btn pa-btn-soft" data-f="fetch" type="button" data-show="custom">获取模型列表</button>
             <label class="pa-field"><span>备注</span><input class="pa-input" data-f="note" value="${esc(s.note || "")}" placeholder="例如：月卡至 11 月"></label>
             <p class="pa-hint">${multiKeySupported() ? "密钥存入酒馆密钥库，本扩展只记录编号。" : "酒馆版本较旧，密钥存入酒馆设置文件。"}</p>
@@ -85,18 +104,13 @@ function mountApi(page) {
         x.hidden = !custom;
       });
     };
-    const bindModel = (w) => {
-      const sel = w.querySelector("[data-f=modelsel]");
-      sel?.addEventListener("change", () => {
-        const inp = w.querySelector("[data-f=model]");
-        inp.hidden = sel.value !== MANUAL;
-        if (!inp.hidden) inp.focus();
-      });
+    const setModel = (w, m) => {
+      w.querySelector("[data-f=model]").value = m;
+      const b = w.querySelector("[data-f=modelbtn]");
+      b.title = m;
+      b.querySelector("span").textContent = m || "选择模型";
     };
-    const readModel = (w) => {
-      const sel = w.querySelector("[data-f=modelsel]");
-      return (sel && sel.value !== MANUAL ? sel.value : w.querySelector("[data-f=model]").value).trim();
-    };
+    const readModel = (w) => w.querySelector("[data-f=model]").value.trim();
     const read = (w) => ({
       name: w.querySelector("[data-f=name]").value.trim(),
       source: w.querySelector("[data-f=source]").value,
@@ -124,8 +138,11 @@ function mountApi(page) {
       noFocus: !isNew,
       onMount: (w) => {
         sync(w);
-        bindModel(w);
         w.querySelector("[data-f=source]").addEventListener("change", () => sync(w));
+        w.querySelector("[data-f=modelbtn]").addEventListener("click", async () => {
+          const m = await pickModel(s.models || [], readModel(w));
+          if (m) setModel(w, m);
+        });
         w.querySelector("[data-f=fetch]").addEventListener("click", async (ev) => {
           const v = read(w);
           if (!v.url) return toast("请填写网址");
@@ -138,9 +155,11 @@ function mountApi(page) {
             Object.assign(s, { source: v.source, url: v.url, name: v.name || s.name });
             const models = await getModels(s);
             s.models = models;
-            w.querySelector(".pa-model-slot").innerHTML = modelField(v.model, models);
-            bindModel(w);
-            if (models.length) toast(`已获取 ${models.length} 个模型`, "success");
+            if (models.length) {
+              toast(`已获取 ${models.length} 个模型`, "success");
+              const m = await pickModel(models, v.model);
+              if (m) setModel(w, m);
+            }
             else toast("站点未返回模型，可手动输入模型名称", "warning");
           } catch (err) {
             toast("获取失败：" + err.message, "error");
@@ -181,29 +200,31 @@ function mountApi(page) {
     saveSettings();
     render();
   }
-  box.addEventListener("change", (e) => {
-    const a = e.target.dataset.a;
-    if (a === "livemodel" || a === "sitemodel") {
-      const m = e.target.value;
-      const site = a === "sitemodel" ? sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id) : sites().find((x) => x.id === settings().activeSiteId);
-      if (site) site.model = m;
-      if (a === "livemodel" || site?.id === settings().activeSiteId) setLiveModel(m);
-      saveSettings();
-      toast(`模型已切换为 ${m}`, "success");
-      return render();
-    }
+  const onChange = (e) => {
     const o = e.target.dataset.o;
     if (o === "keep") {
       settings().keepApi = e.target.checked;
       saveSettings();
     }
     if (o === "unbind") setBindPresetToConnection(!e.target.checked);
-  });
-  box.addEventListener("click", async (e) => {
-    if (e.target.closest("select")) return;
+  };
+  sitesBox.addEventListener("change", onChange);
+  const onClick = async (e) => {
     const a = e.target.closest("[data-a]")?.dataset.a;
     if (!a) return;
     const site = sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id);
+    if (a === "livemodel" || a === "sitemodel") {
+      const live = liveConnection();
+      const target = a === "sitemodel" ? site : sites().find((x) => x.id === settings().activeSiteId);
+      const list = a === "livemodel" ? liveModelOptions() : target?.models || [];
+      const m = await pickModel(list, a === "livemodel" ? live.model : target?.model);
+      if (!m) return;
+      if (target) target.model = m;
+      if (a === "livemodel" || target?.id === settings().activeSiteId) setLiveModel(m);
+      saveSettings();
+      toast(`模型已切换为 ${m}`, "success");
+      return render();
+    }
     if (a === "toggle") {
       open.has(site.id) ? open.delete(site.id) : open.add(site.id);
       return render();
@@ -224,7 +245,9 @@ function mountApi(page) {
       return render();
     }
     if (a === "del") {
-      if (!await confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库中的密钥不会删除。`, "删除", true)) return;
+      const users = settings().schemes.filter((sc) => sc.siteId === site.id);
+      if (!await confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库中的密钥不会删除。${users.length ? `使用它的 ${users.length} 个方案将不再切换 API。` : ""}`, "删除", true)) return;
+      users.forEach((sc) => delete sc.siteId);
       settings().sites = sites().filter((x) => x.id !== site.id);
       if (settings().activeSiteId === site.id) settings().activeSiteId = null;
       saveSettings();
@@ -262,6 +285,8 @@ function mountApi(page) {
       toast("已保存为站点", "success");
       render();
     }
-  });
+  };
+  liveBox.addEventListener("click", onClick);
+  sitesBox.addEventListener("click", onClick);
   return { render };
 }

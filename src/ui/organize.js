@@ -19,16 +19,15 @@ function mountOrganize(page) {
             <div class="pa-tools">
                 <button class="pa-btn pa-btn-soft" data-tool="smart">智能分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="fold">全部折叠</button>
-                <button class="pa-btn pa-btn-soft" data-tool="backup">备份</button>
             </div>
         </div>
         <div class="pa-movebar" hidden><b class="pa-move-n"></b>
             <button class="pa-btn pa-sq" data-mv="up" aria-label="上移一位">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一位">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">移到最后</button>
-            <button class="pa-btn pa-btn-primary" data-mv="cancel">完成</button><small class="pa-move-hint"></small></div>
+            <button class="pa-btn pa-btn-primary" data-mv="cancel">取消</button><small class="pa-move-hint"></small></div>
         <div class="pa-scroll pa-list" role="list"></div>
         <div class="pa-selbar" hidden>
             <div class="pa-selbar-top"><b class="pa-selcount"></b>
-                <button class="pa-link" data-sel="all">全选</button><button class="pa-link" data-sel="none">取消选择</button></div>
+                <button class="pa-link" data-sel="all">全选</button><button class="pa-btn pa-btn-s pa-selcancel" data-sel="none">取消</button></div>
             <div class="pa-selbar-btns">
                 <button class="pa-btn pa-btn-primary" data-sel="moveto">移动</button>
                 <button class="pa-btn" data-sel="newgroup">建成分组</button>
@@ -76,7 +75,6 @@ function mountOrganize(page) {
     page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
     page.querySelector(".pa-move-n").textContent = st.mode === "newgroup" ? `新分组「${st.newName}」的位置` : `移动 ${n} 条`;
     page.querySelector(".pa-move-hint").textContent = st.mode === "newgroup" ? "点组名：放在该组之后。点条目：放在该条目之后。" : "点组名：移到该组之后。展开分组后点条目：移入组内。";
-    movebar.querySelector("[data-mv=cancel]").textContent = st.mode === "newgroup" ? "取消" : "完成";
     movebar.querySelectorAll("[data-mv=up], [data-mv=down], [data-mv=end]").forEach((b) => { b.hidden = st.mode === "newgroup"; });
     page.querySelector("[data-tool=fold]").textContent = allFolded(d) ? "全部展开" : "全部折叠";
     if (st.highlight.size) {
@@ -99,6 +97,7 @@ function mountOrganize(page) {
     mutate(d, label, (x) => x.place(ids, where, gid, { keep: st.keep }));
     st.mode = null;
     st.keep = [];
+    st.selected.clear();
     if (gid) st.collapsed.delete(gid);
     toast(`已移动 ${ids.length} 条`, "success");
     flash(ids);
@@ -199,8 +198,7 @@ function mountOrganize(page) {
     if (t === "menu") {
       t = await pickBox("工具", [
         { label: "智能分组", sub: "把相邻的同类条目建成分组", value: "smart" },
-        { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
-        { label: "备份与恢复", value: "backup" }
+        { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" }
       ]);
       if (!t) return;
     }
@@ -211,14 +209,14 @@ function mountOrganize(page) {
       render();
     }
     if (t === "smart") smartGroups(d);
-    if (t === "backup") backups(d.name);
   });
   movebar.addEventListener("click", (e) => {
     const a = e.target.closest("[data-mv]")?.dataset.mv;
     if (a === "cancel") {
+      if (st.mode === "move") st.selected.clear();
       st.mode = null;
       st.keep = [];
-      render();
+      return render();
     }
     if (st.mode !== "move") return;
     if (a === "end") doMove({ index: draft().order.length }, null, "移到最后");
@@ -385,37 +383,6 @@ function mountOrganize(page) {
     r.forEach((g) => st.collapsed.add(d.groupOf(g.ids[0])));
     toast(`已新建 ${r.length} 个分组`, "success");
     render();
-  }
-  async function backups(name) {
-    let list2 = [];
-    try {
-      list2 = await backupList(name);
-    } catch (e) {
-      return toast("读取备份失败：" + e.message, "error");
-    }
-    if (!list2.length) return toast("此预设暂无备份");
-    const items = list2.map((b2) => ({ label: new Date(b2.time).toLocaleString(), sub: b2.reason, value: b2.id }));
-    const id = await pickBox(`「${name}」的备份`, items);
-    if (!id) return;
-    const b = await backupGet(id);
-    const how = await pickBox("选择操作", [{ label: "恢复", sub: "恢复后自动保存，可撤销", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
-    if (how === "download") {
-      const blob = new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `${name}-备份-${new Date(b.time).toISOString().slice(0, 16).replace(/[:T]/g, "")}.json`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 5e3);
-    }
-    if (how === "restore") {
-      const d = getDraft(name);
-      mutate(d, "恢复备份", (x) => {
-        const tmp = new x.constructor(name, b.data);
-        x.preset = tmp.preset;
-        x.groups = tmp.groups;
-      });
-      toast("已恢复", "success");
-    }
   }
   // ---- 拖动：条目右侧的把手拖条目；分组头右侧的把手拖整个分组
   let drag = null;

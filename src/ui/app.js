@@ -30,8 +30,10 @@ function buildRoot() {
                 <div class="pa-savebar" hidden>
                     <span class="pa-dirty-text"></span>
                     <button class="pa-btn" data-g="undo">撤销</button>
+                    <button class="pa-btn pa-btn-primary" data-g="confirm">确认</button>
                     <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
                 </div>
+                <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg></button>
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭">✕</button>
             </header>
             <nav class="pa-tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</nav>
@@ -69,6 +71,15 @@ function buildRoot() {
         emitChange(d.name);
       }
     }
+    if (g === "confirm") {
+      try {
+        await confirmDraft(focusPreset());
+        toast("已确认", "success");
+      } catch (err) {
+        toast("保存失败：" + err.message, "error");
+      }
+    }
+    if (g === "backups") return backupsSheet(focusPreset());
     if (g === "save") {
       const btn = e.target.closest("button");
       btn.disabled = true;
@@ -93,11 +104,14 @@ function updateSavebar() {
     d = getDraft(focusPreset());
   } catch {
   }
-  const n = d?.dirty ? d.history.length : 0;
-  bar.hidden = !d || (!d.dirty && !d.history.length);
+  // 修改即时自动保存；有未确认的修改时显示「撤销」「确认」
   const err = saveErrors.has(d?.name);
-  rootEl2.querySelector(".pa-dirty-text").textContent = err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) ? "保存中…" : d?.dirty ? "待保存" : "已保存";
+  const pending = !!d?.history.length;
+  bar.hidden = !d || !pending && !err && !saveJobs.has(d.name);
+  rootEl2.querySelector(".pa-dirty-text").textContent = err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty ? "保存中…" : "已自动保存";
   rootEl2.querySelector("[data-g=save]").hidden = !err;
+  rootEl2.querySelector("[data-g=undo]").hidden = !pending;
+  rootEl2.querySelector("[data-g=confirm]").hidden = !pending || err;
 }
 function show(tab) {
   current = tab;
@@ -386,4 +400,35 @@ async function start() {
   };
   console.log(`[裁缝铺] ${VERSION} 已加载`);
 }
-
+// 备份：每批修改开始前自动备份一次修改前的版本，每个预设保留最近 10 份
+async function backupsSheet(name) {
+  let list = [];
+  try {
+    list = await backupList(name);
+  } catch (e) {
+    return toast("读取备份失败：" + e.message, "error");
+  }
+  if (!list.length) return toast(`「${name}」暂无备份`);
+  const items = list.map((b) => ({ label: new Date(b.time).toLocaleString(), sub: b.reason, value: b.id }));
+  const id = await pickBox(`「${name}」的备份（最近 ${BACKUP_MAX} 份）`, items, { hint: "每批修改开始前自动备份一次。点一份备份可恢复或下载。" });
+  if (!id) return;
+  const b = await backupGet(id);
+  const how = await pickBox("选择操作", [{ label: "恢复", sub: "恢复后自动保存，可撤销", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
+  if (how === "download") {
+    const blob = new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${name}-备份-${new Date(b.time).toISOString().slice(0, 16).replace(/[:T]/g, "")}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5e3);
+  }
+  if (how === "restore") {
+    const d = getDraft(name);
+    mutate(d, "恢复备份", (x) => {
+      const tmp = new x.constructor(name, b.data);
+      x.preset = tmp.preset;
+      x.groups = tmp.groups;
+    });
+    toast("已恢复", "success");
+  }
+}

@@ -121,7 +121,10 @@ async function saveDraft(name, reason = "保存") {
   const task = (async () => {
     while (d.dirty && drafts.get(name) === d) {
       const data = d.toPreset(); const sent = JSON.stringify(data);
-      await writePreset(name, data, reason);
+      // 1.4.0：每批修改（从上次「确认」或打开之后）只在第一次保存前备份一次修改前的版本
+      const first = !d.batchSaved;
+      await writePreset(name, data, first ? `修改前${d.history[0]?.label ? `（之后：${d.history[0].label}）` : ""}` : reason, { backup: first });
+      d.batchSaved = true;
       if (drafts.get(name) !== d) break;
       if (JSON.stringify(d.toPreset()) === sent) {
         try { d.savedSig = presetSig(readPreset(name)); } catch { d.savedSig = presetSig(data); }
@@ -148,4 +151,12 @@ function setFocusPreset(n) {
   focusName = n;
   emitChange(n);
 }
-
+// 「确认」：本批修改到此为止。先等保存完成，再清空撤销记录；下一次修改会重新备份
+async function confirmDraft(name) {
+  const d = drafts.get(name);
+  if (!d) return;
+  if (d.dirty) await saveDraft(name, "确认");
+  d.history = [];
+  d.batchSaved = false;
+  notifyDraft(name);
+}

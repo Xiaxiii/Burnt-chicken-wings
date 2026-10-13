@@ -128,22 +128,42 @@ check(L.includes("[新组B: 📏字数、🚫禁词]") && L.includes("[正文规
 console.log("after organize:", L.join(" | "));
 await page.screenshot({ path: "test/shots/p-6-organize.png" });
 
-// 6) API：添加站点 → 获取模型列表 → 下拉里选模型 → 保存
+// 6) 顶栏：有修改时显示「撤销」「确认」；确认后收起；备份按钮能列出备份
+check(await page.locator('.pa-top [data-g="confirm"]').isVisible(), "有修改时显示「确认」");
+await page.click('.pa-top [data-g="confirm"]'); await page.waitForTimeout(600);
+check(!(await page.locator('.pa-top [data-g="confirm"]').isVisible()), "确认后收起撤销/确认");
+await page.click('.pa-top [data-g="backups"]'); await page.waitForTimeout(500);
+const nBk = await page.locator(".pa-sheet .pa-pick-item").count();
+check(nBk >= 1 && nBk <= 10, `备份列表 ${nBk} 份（不超过 10）`);
+await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+
+// 7) 方案与 API：添加站点 → 获取模型列表 → 选择框里选模型 → 保存；方案记录站点
 await page.evaluate(async () => { const m = await import(new URL("scripts/secrets.js", document.baseURI).href); m.secret_state.api_key_custom.push({ id: "id1", value: "sk-…abcd", active: true }); });
 await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
-await page.click('[data-m="api"]'); await page.waitForTimeout(300);
+check(!(await page.locator('[data-m="api"]').count()), "「开关方案」和「API 站点」已合并");
+await page.click('[data-m="schemes"]'); await page.waitForTimeout(300);
 await page.click('[data-a="new"]'); await page.waitForTimeout(300);
 await page.fill('.pa-sheet [data-f="name"]', "测试站");
 await page.fill('.pa-sheet [data-f="url"]', "https://example.com/v1");
 await page.fill('.pa-sheet [data-f="key"]', "sk-test-123456789");
 await page.click('.pa-sheet [data-f="fetch"]'); await page.waitForTimeout(800);
-const opts = await page.evaluate(() => [...document.querySelectorAll('.pa-sheet [data-f="modelsel"] option')].map((o) => o.textContent));
-check(opts.length === 3 && opts[1] === "claude-sonnet" && opts[2] === "手动输入…", "获取到模型列表：" + JSON.stringify(opts));
-await page.selectOption('.pa-sheet [data-f="modelsel"]', "claude-sonnet");
+const opts = await page.evaluate(() => [...document.querySelectorAll(".pa-mpick-item")].map((o) => o.textContent.trim()));
+check(opts.length === 2 && opts.includes("claude-sonnet"), "获取后弹出模型选择框：" + JSON.stringify(opts));
 await page.screenshot({ path: "test/shots/p-7-api.png" });
-await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(300);
+await page.locator(".pa-mpick-item", { hasText: "claude-sonnet" }).click(); await page.waitForTimeout(300);
+await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
 const site = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites.find((s) => s.name === "测试站"));
 check(site?.model === "claude-sonnet" && site.models.length === 2, "站点保存了模型和列表");
+// 切到这个站点，再存方案（应记录 API 站点）
+await page.locator(".pa-site", { hasText: "测试站" }).locator('[data-a="use"]').click(); await page.waitForTimeout(2500);
+await page.click('[data-s="new"]'); await page.waitForTimeout(300);
+await page.fill('.pa-sheet [data-f="name"]', "测试方案");
+check(await page.locator('.pa-sheet [data-f="site"]').isChecked(), "保存方案时默认记录 API 站点");
+await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
+const sc = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.schemes.find((s) => s.name === "测试方案"));
+check(sc?.siteId === site.id, "方案记录了站点");
+check((await page.locator(".pa-site", { hasText: "测试站" }).locator(".pa-site-model").textContent()).startsWith("预设："), "站点标题显示对应的预设");
+await page.screenshot({ path: "test/shots/p-8-plan.png", fullPage: false });
 
 console.log(errs.length ? errs : "no page errors");
 await browser.close();

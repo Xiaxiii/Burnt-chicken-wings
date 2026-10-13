@@ -5,10 +5,9 @@ var THEMES = [
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
   { id: "bean", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
   { id: "mist", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
-  { id: "matcha", name: "抹茶绿", sub: "浅绿", dots: ["#e9efe6", "#5d7d58", "#36443a"] },
-  { id: "oat", name: "燕麦", sub: "米色", dots: ["#f2ece4", "#8a6a4c", "#4a3f35"] },
-  { id: "lavender", name: "薰衣草", sub: "浅紫", dots: ["#edeaf3", "#72649a", "#403a4f"] },
-  { id: "seasalt", name: "海盐", sub: "蓝绿", dots: ["#e6efef", "#4b7a7b", "#2f4344"] },
+  { id: "oat", name: "杏色", sub: "暖橙", dots: ["#f4d4ab", "#a5652c", "#4a3426"] },
+  { id: "goose", name: "鹅黄", sub: "浅黄", dots: ["#f8f1a1", "#7a6b12", "#3e3a1e"] },
+  { id: "matcha", name: "芽绿", sub: "嫩绿", dots: ["#e2f0b5", "#557a2a", "#33402a"] },
   { id: "night", name: "夜雾", sub: "深色", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
 ];
 function readColor(value) {
@@ -27,6 +26,7 @@ function readColor(value) {
 var bgUrl = null;
 function applyTheme(root) {
   if (!root) return;
+  // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
   const id = THEMES.some((t) => t.id === settings().theme) ? settings().theme : "follow";
   root.dataset.theme = id;
   if (id !== "follow") {

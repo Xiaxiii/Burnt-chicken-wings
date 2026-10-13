@@ -54,10 +54,11 @@ function readPreset(name) {
   }
   return base;
 }
-async function writePreset(name, data, reason = "保存") {
+// backup：写之前把服务器上的旧版本存一份备份（每批修改只存一次，由调用方决定）
+async function writePreset(name, data, reason = "保存", { backup = true } = {}) {
   const { presets } = pm().getPresetList();
   const idx = presetIndex(name);
-  if (idx !== void 0 && idx >= 0 && presets[idx]) {
+  if (backup && idx !== void 0 && idx >= 0 && presets[idx]) {
     await backupPut(name, presets[idx], reason).catch((e) => console.warn("[裁缝铺] 备份失败", e));
   }
   await pm().savePreset(name, data, { skipUpdate: true });
@@ -301,6 +302,7 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 var DB = "preset-atelier";
+var BACKUP_MAX = 10;
 var dbp = null;
 function db() {
   if (dbp) return dbp;
@@ -331,7 +333,7 @@ function tx(store, mode, fn) {
 async function backupPut(preset, data, reason) {
   await tx("backups", "readwrite", (s) => s.add({ preset, reason, time: Date.now(), data: structuredClone(data) }));
   const list = await backupList(preset);
-  for (const old of list.slice(15)) await tx("backups", "readwrite", (s) => s.delete(old.id));
+  for (const old of list.slice(BACKUP_MAX)) await tx("backups", "readwrite", (s) => s.delete(old.id));
 }
 async function backupList(preset) {
   const all = await tx("backups", "readonly", (s) => s.index("preset").getAll(preset));
