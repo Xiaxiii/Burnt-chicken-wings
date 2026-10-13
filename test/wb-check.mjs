@@ -109,6 +109,15 @@ const after = await page.evaluate(() => {
 console.log(after);
 assert.ok(after.prevGroup && !after.mine, "搬过去后在「正文规则」组之后（组外）");
 assert.equal(after.rec, 1, "新版也记录了搬过去的条目");
+// 5) 取消：清掉已选条目和缝合位置
+await rowClick(".pa-src-list", "开场白").catch(() => {});
+await page.evaluate(() => [...document.querySelectorAll(".pa-dst-list .pa-ghead")][0].click());
+await page.waitForTimeout(150);
+assert.ok(await page.$(".pa-dst-list .pa-insert-mark"));
+await page.click('[data-st="clear"]'); await page.waitForTimeout(200);
+assert.ok(!(await page.$(".pa-dst-list .pa-insert-mark")), "取消后缝合位置标识消失");
+assert.equal(await page.$eval(".pa-picked-n", (x) => x.textContent), "未选条目");
+assert.ok(await page.$eval('[data-st="clear"]', (b) => b.disabled));
 assert.deepEqual(errs, []);
 console.log("世界书与搬到新版检查全部通过");
 await browser.close();

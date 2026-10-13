@@ -49,7 +49,7 @@ function mountSuture(page, app) {
     </div>
     <div class="pa-stitchbar pa-sbar">
         <div class="pa-stitch-info"><b class="pa-picked-n">未选条目</b><span class="pa-where">未选位置</span></div>
-        <button class="pa-link" data-st="clear">清空</button>
+        <button class="pa-btn" data-st="clear">取消</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
     </div>
     <div class="pa-stitchbar pa-ngbar" hidden>
@@ -414,13 +414,18 @@ function mountSuture(page, app) {
     bar.querySelector(".pa-picked-n").textContent = n ? `已选 ${n} 条` : "未选条目";
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : "未选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
+    bar.querySelector("[data-st=clear]").disabled = !(n || m);
   }
   page.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-st]")?.dataset.st;
     if (!a) return;
+    // 取消：清掉已选的条目和缝合位置
     if (a === "clear") {
       st.picked.clear();
+      st.marker = null;
+      st.wbMarker = null;
       renderSrc();
+      renderDst();
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
     if (a === "migrate") migrate();

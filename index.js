@@ -1,7 +1,7 @@
-// 预设裁缝铺 1.6.0（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 预设裁缝铺 1.6.1（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.6.0";
-var CHANGELOG = "预设裁缝铺（焦香鸡翅）1.6.0\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.6.0\n- 缝合目标可选世界书：预设条目、世界书条目都能缝进世界书。点条目选位置（世界书没有分组）；预览中每条可设触发方式（常驻／按关键词）、关键词、插入位置、深度、角色、顺序。预设条目默认常驻，插入位置与所选位置的条目相同；预设中按深度插入的条目转为世界书的「按深度插入」；世界书条目照搬原有设置。\n- 世界书条目缝进预设时，如原本按关键词触发，预览中提醒「缝进预设后会一直生效」。\n- 搬到新版：来源选旧版、目标选新版，点「搬到新版」，自动找出旧版中缝进去的条目，按原位置（原来跟在哪条后面）放进新版，原先接入思维链的在新版中重新接入；之后进入缝合预览逐条确认。从本版本起，缝合时会在预设中记录缝入的条目；更早缝入的没有记录，按「新版中没有」列出，默认不勾选。\n\n1.5.1\n- 防止下拉误刷新（苹果设备）：Safari 在页面顶部往下拖会刷新整个酒馆，开启后阻止这种刷新，默认开启，可在扩展页设置框中关闭。\n- 「清理」分析预设时不再额外复制一份全部预设，减少内存占用（iOS 内存紧张时会自动刷新页面）。\n- 扩展页设置框：说明文字改为可换行；「/atelier」不再显示成空白框。\n";
+var VERSION = "1.6.1";
+var CHANGELOG = "预设裁缝铺（焦香鸡翅）1.6.1\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.6.1\n- 缝合页底栏的「清空」改为「取消」：同时清掉已选的条目和缝合位置。\n\n1.6.0\n- 缝合目标可选世界书：预设条目、世界书条目都能缝进世界书。点条目选位置（世界书没有分组）；预览中每条可设触发方式（常驻／按关键词）、关键词、插入位置、深度、角色、顺序。预设条目默认常驻，插入位置与所选位置的条目相同；预设中按深度插入的条目转为世界书的「按深度插入」；世界书条目照搬原有设置。\n- 世界书条目缝进预设时，如原本按关键词触发，预览中提醒「缝进预设后会一直生效」。\n- 搬到新版：来源选旧版、目标选新版，点「搬到新版」，自动找出旧版中缝进去的条目，按原位置（原来跟在哪条后面）放进新版，原先接入思维链的在新版中重新接入；之后进入缝合预览逐条确认。从本版本起，缝合时会在预设中记录缝入的条目；更早缝入的没有记录，按「新版中没有」列出，默认不勾选。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -3971,7 +3971,7 @@ function mountSuture(page, app) {
     </div>
     <div class="pa-stitchbar pa-sbar">
         <div class="pa-stitch-info"><b class="pa-picked-n">未选条目</b><span class="pa-where">未选位置</span></div>
-        <button class="pa-link" data-st="clear">清空</button>
+        <button class="pa-btn" data-st="clear">取消</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
     </div>
     <div class="pa-stitchbar pa-ngbar" hidden>
@@ -4336,13 +4336,18 @@ function mountSuture(page, app) {
     bar.querySelector(".pa-picked-n").textContent = n ? `已选 ${n} 条` : "未选条目";
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : "未选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
+    bar.querySelector("[data-st=clear]").disabled = !(n || m);
   }
   page.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-st]")?.dataset.st;
     if (!a) return;
+    // 取消：清掉已选的条目和缝合位置
     if (a === "clear") {
       st.picked.clear();
+      st.marker = null;
+      st.wbMarker = null;
       renderSrc();
+      renderDst();
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
     if (a === "migrate") migrate();
