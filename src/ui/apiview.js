@@ -33,7 +33,7 @@ async function pickModel(list, cur, { title = "选择模型" } = {}) {
   return picked;
 }
 const modelBtn = (cur, attr) => `<button class="pa-model-btn" ${attr} title="${esc(cur || "")}"><span>${esc(cur || "选择模型")}</span><i>▾</i></button>`;
-// liveBox：当前连接；sitesBox：站点列表和选项（「方案与 API」页把方案放在两者之间）
+// liveBox：当前连接；sitesBox：站点列表和选项（「方案」页把方案放在两者之间）
 function mountApi(liveBox, sitesBox) {
   const sites = () => settings().sites;
   const open = /* @__PURE__ */ new Set();

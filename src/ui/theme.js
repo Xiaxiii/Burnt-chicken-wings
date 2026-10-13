@@ -3,11 +3,12 @@
 // 自定义背景图存在本浏览器的 IndexedDB，不写进酒馆设置文件，不影响酒馆加载速度。
 var THEMES = [
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
-  { id: "bean", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
-  { id: "mist", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
-  { id: "oat", name: "杏色", sub: "奶油杏", dots: ["#f2e6d8", "#8f6a4c", "#4d3f35"] },
-  { id: "goose", name: "鹅黄", sub: "奶油黄", dots: ["#f3eed6", "#7d7245", "#45412c"] },
-  { id: "matcha", name: "芽绿", sub: "奶油绿", dots: ["#e7ecda", "#627858", "#3a4234"] },
+  { id: "bean", fg: "#45343f", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
+  { id: "mist", fg: "#2f3a46", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
+  { id: "oat", fg: "#4a3438", name: "秋樱", sub: "粉色花海", dots: ["#f4dcd9", "#b5566a", "#a9b48c"], paint: true },
+  { id: "sage", fg: "#34403a", name: "灰绿", sub: "莫兰迪刮刀画", dots: ["#d6ddd7", "#5e7468", "#34403a"], paint: true },
+  { id: "matcha", fg: "#3a4433", name: "春芽", sub: "绿色水彩", dots: ["#fbeccf", "#7b986c", "#a2b891"], paint: true },
+  { id: "goose", fg: "#3d4540", name: "春和", sub: "粉绿水彩", dots: ["#fbded0", "#d1e5d9", "#bdcdb0"], paint: true },
   { id: "night", name: "夜雾", sub: "深色", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
 ];
 function readColor(value) {
@@ -29,6 +30,7 @@ function applyTheme(root) {
   // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
   const id = THEMES.some((t) => t.id === settings().theme) ? settings().theme : "follow";
   root.dataset.theme = id;
+  root.classList.toggle("pa-painted", !!THEMES.find((t) => t.id === id)?.paint);
   if (id !== "follow") {
     root.style.removeProperty("--pa-tint");
     root.style.removeProperty("--pa-input-bg");
@@ -128,7 +130,7 @@ function themeCards() {
   const cur = settings().theme || "follow";
   return `<div class="pa-themes">${THEMES.map((t) => {
     const dots = t.dots || ["var(--SmartThemeBlurTintColor, #333)", "var(--SmartThemeQuoteColor, #e0a24a)", "var(--SmartThemeBodyColor, #ddd)"];
-    const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.dots[2]};border-color:${t.dots[1]}55` : "";
+    const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]};border-color:${t.dots[1]}55` : "";
     return `<button class="pa-theme${t.paint ? ` pa-paint-${t.id}` : ""}" data-theme-id="${t.id}" aria-pressed="${t.id === cur}" style="${style}">
         <span class="pa-theme-dots">${dots.map((c2) => `<i style="background:${c2}"></i>`).join("")}</span>
         <b>${esc(t.name)}</b><small>${esc(t.sub)}</small></button>`;

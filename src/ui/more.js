@@ -1,6 +1,6 @@
 // 「更多」页：开关方案、API 站点、外观、加载体检，顶部分段切换
 function mountMore(page, app) {
-  const SUBS = [["schemes", "方案与 API"], ["look", "外观"], ["health", "加载体检"]];
+  const SUBS = [["schemes", "方案"], ["look", "外观"], ["health", "加载体检"]];
   page.innerHTML = `
     <div class="pa-more-head"><div class="pa-seg pa-seg-s" role="tablist">${SUBS.map(([k, l]) => `<button data-m="${k}">${l}</button>`).join("")}</div></div>
     ${SUBS.map(([k]) => `<section class="pa-subpage" data-mp="${k}" hidden></section>`).join("")}`;
