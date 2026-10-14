@@ -13,10 +13,10 @@ function mountOrganize(page) {
   page.innerHTML = `
         <div class="pa-toolbar">
             <div class="pa-picker-slot"></div>
-            <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索名称或正文">🔍</button>
+            <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索条目">🔍</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">＋</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">⋯</button>
-            <div class="pa-searchrow" hidden><input class="pa-input pa-search" type="search" placeholder="🔍 搜索名称或正文" aria-label="搜索条目"></div>
+            <div class="pa-searchrow" hidden><input class="pa-input pa-search" type="search" placeholder="🔍 搜索条目名、标签、分组名" aria-label="搜索条目"></div>
             <div class="pa-tools">
                 <button class="pa-btn pa-btn-soft" data-tool="newgroup">＋ 新建分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="newentry">＋ 新建条目</button>
@@ -70,9 +70,9 @@ function mountOrganize(page) {
     const placing = !!st.mode;
     const top = list.scrollTop;
     // 1.7.5 双层分组提示
-    const dups = placing ? [] : d.dupEntryGroups();
+    const dups = placing || st.query ? [] : d.dupEntryGroups();
     const dupBanner = dups.length ? `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>这个预设的分组存了两份，所以每个分组里又套了一层同名分组。</b></p><small>预设里同时有柏宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。共 ${dups.length} 个分组重复：${esc(dups.slice(0, 4).map((g) => g.name).join("、"))}${dups.length > 4 ? " 等" : ""}。去掉重复的一层后，条目和分组都不变。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">去掉重复的一层</button></div></div>` : "";
-    list.innerHTML = dupBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
+    list.innerHTML = dupBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight });
     list.scrollTop = top;
     list.classList.toggle("pa-placing", placing);
     const n = st.selected.size;
@@ -140,6 +140,10 @@ function mountOrganize(page) {
     showGroup(gid);
   }
   list.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-act=qbody]")) {
+      st.searchBody = !st.searchBody;
+      return render();
+    }
     if (e.target.closest("[data-dup=fix]")) {
       const d = draft();
       const n = d.dupEntryGroups().length;
@@ -210,6 +214,7 @@ function mountOrganize(page) {
     }
   });
   search.addEventListener("input", () => {
+    if (!search.value.trim()) st.searchBody = false;
     st.query = search.value;
     render();
   });

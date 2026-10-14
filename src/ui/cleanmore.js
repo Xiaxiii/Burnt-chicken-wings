@@ -4,7 +4,9 @@
 // 酒馆自身的设置项，不能删
 var CORE_EXT_KEYS = new Set(["disabledExtensions", "autoConnect", "notifyUpdates", "apiUrl", "apiKey", "presetAtelier"]);
 // 酒馆内置功能存在 extension_settings 里的键
-var BUILTIN_EXT_KEYS = { note: "作者注释", caption: "图片描述", expressions: "表情", connectionManager: "连接配置", dice: "骰子", gallery: "图库", memory: "总结", quickReply: "快速回复（旧版）", quickReplyV2: "快速回复", regex: "正则", tts: "语音朗读", sd: "图片生成", chromadb: "ChromaDB", translate: "翻译", vectors: "向量存储", variables: "变量", attachments: "附件", character_attachments: "角色附件", disabledAttachments: "附件", cfg: "CFG", objective: "目标", rvc: "RVC", speech_recognition: "语音识别", hypebot: "HypeBot", idle: "空闲提醒", assets: "资源下载", tokenCounter: "Token 计数", gallery_folders: "图库" };
+var BUILTIN_EXT_KEYS = { note: "作者注释", caption: "图片描述", expressions: "表情", connectionManager: "连接配置", dice: "骰子", gallery: "图库", memory: "总结", quickReply: "快速回复（旧版）", quickReplyV2: "快速回复", regex: "正则", tts: "语音朗读", sd: "图片生成", chromadb: "ChromaDB", translate: "翻译", vectors: "向量存储", variables: "变量", attachments: "附件", character_attachments: "角色附件", disabledAttachments: "附件", cfg: "CFG", objective: "目标", rvc: "RVC", speech_recognition: "语音识别", hypebot: "HypeBot", idle: "空闲提醒", assets: "资源下载", tokenCounter: "Token 计数", gallery_folders: "图库", regex_presets: "正则预设", disabled_attachments: "附件", expressionOverrides: "表情", character_allowed_regex: "正则", preset_allowed_regex: "正则" };
+// 名字和扩展文件夹对不上、但已经核对过归属的键（扩展名见 maintenance/compat.js 的 PROVIDERS）
+var KNOWN_EXT_KEYS = { tavern_helper: "tavernHelper", baiBaiToolkit: "baibaiTools", presetAtelierMaintenance: "self" };
 var normKey = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9一-龥]/g, "");
 // 键排好序再转成文字：两本世界书字段顺序不同，内容一样时也能算出同一个指纹
 function stableJson(v) {
@@ -16,6 +18,14 @@ function stableJson(v) {
 // 按名称推测这个键属于哪个已安装的扩展（推测，可能不准）
 function guessOwner(key, exts) {
   if (BUILTIN_EXT_KEYS[key]) return { builtin: BUILTIN_EXT_KEYS[key] };
+  const kid = KNOWN_EXT_KEYS[key];
+  if (kid === "self") return { builtin: "本扩展" };
+  if (kid) {
+    const pv = PROVIDERS.find((x) => x.id === kid);
+    const ext = exts?.find((x) => pv.match?.(x)) || null;
+    return { known: pv.name, running: !!pv.running?.(), ext };
+  }
+  if (!exts) return null;
   const nk = normKey(key);
   if (nk.length < 2) return null;
   for (const x of exts) {
@@ -107,11 +117,14 @@ function mountCleanKind(kind, box) {
       const es = ctx().extensionSettings || {};
       return Object.keys(es).map((k) => {
         const size = jsonSize(es[k]);
-        const owner = exts ? guessOwner(k, exts) : null;
+        // 酒馆内置、已核对归属的键不依赖扩展列表；扩展列表读不到时也能标出来
+        const owner = guessOwner(k, exts);
         const users = scan?.used[k];
         let state, label;
         if (CORE_EXT_KEYS.has(k)) [state, label] = ["core", k === "presetAtelier" ? "本扩展" : "酒馆设置"];
-        else if (owner?.builtin) [state, label] = ["used", `酒馆内置：${owner.builtin}`];
+        else if (owner?.builtin) [state, label] = ["used", owner.builtin === "本扩展" ? "本扩展" : `酒馆内置：${owner.builtin}`];
+        else if (owner?.known && (owner.running || owner.ext)) [state, label] = ["used", `${owner.known}${owner.running ? "在用" : owner.ext?.enabled === false ? "（已停用）" : "（已安装）"}`];
+        else if (owner?.known && exts) [state, label] = ["maybe", `${owner.known}的数据，没有找到${owner.known}，可能已卸载`];
         else if (users?.length) [state, label] = ["used", `检测：${users.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}${users.some((x) => !x.enabled) ? "（已停用）" : ""}在用`];
         else if (scan && owner?.ext) [state, label] = ["maybe", `检测：未找到使用者，但名称像「${owner.ext.manifest?.display_name || owner.ext.base}」，请确认`];
         else if (scan && scan.partial.length) [state, label] = ["maybe", `检测：未找到使用者，但「${scan.partial.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}」没有查完，请确认`];

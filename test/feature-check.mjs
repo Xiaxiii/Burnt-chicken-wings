@@ -38,6 +38,21 @@ const order = await page.evaluate(() => window.__mock.live.prompt_order.find((o)
 assert.equal(order[order.indexOf(firstId) + 1], made.identifier, "放在选中的条目后面");
 ok("新建条目，编辑角色和插入位置");
 
+// 1b) 搜索：先列名称、标签、分组名匹配的；只在正文里出现的要点开才列，并显示正文里匹配的那一句
+await page.click('[data-tool="search"]').catch(() => {});
+await page.fill(".pa-search", "文风");
+await page.waitForTimeout(300);
+let sum = await page.$eval(".pa-qsum", (x) => x.textContent);
+assert.match(sum, /分组名匹配 \d+ 条/);
+assert.match(sum, /正文里还有 \d+ 条/);
+assert.equal(await page.locator(".pa-list .pa-hitline").count(), 0, "默认不列只在正文里出现的");
+await page.click(".pa-qsum [data-act=qbody]"); await page.waitForTimeout(200);
+assert.ok(await page.locator(".pa-list .pa-hitline").count() > 0, "点开后列出，并显示正文出处");
+assert.match(await page.locator(".pa-list .pa-hitline").first().textContent(), /^正文：.*文风/);
+await page.fill(".pa-search", ""); await page.waitForTimeout(200);
+await page.click('[data-tool="search"]').catch(() => {});
+ok("搜索分名称和正文两层");
+
 // 2) 复制：副本放在原条目后面
 await page.locator(".pa-list .pa-row", { hasText: "测试新条目" }).first().click();
 await page.click('[data-sel="more"]'); await page.waitForTimeout(200);

@@ -1,6 +1,6 @@
 var LEVEL = {
-  var: ["pa-lv-ok", "已读取"],
-  chain: ["pa-lv-ok", "间接读取"],
+  var: ["pa-lv-ok", "变量读到"],
+  chain: ["pa-lv-ok", "间接读到"],
   mention: ["pa-lv-maybe", "文字提及"],
   none: ["pa-lv-none", "未提及"]
 };
@@ -110,31 +110,41 @@ function mountCot(page, app) {
     const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字提及并用" : "以文字提及为主，不读取变量";
     page.querySelector("[data-repair-all]").disabled = !dead.length;
     let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
-            <p>${a.cotIds.length ? `思维链${style}。` : "未识别到开启的思维链，可在下方手动指定。"}${dead.length ? `有 <b>${dead.length}</b> 处变量写入后没有找到读取它的开启条目，相关内容可能不会发送。` : "变量读写一致。"}</p>
+            <p>${a.cotIds.length ? `思维链${style}。` : "未识别到开启的思维链，可在下方手动指定。"}${dead.length ? `有 <b>${dead.length}</b> 条内容没发出去，见下方。` : "存进变量的内容都有条目取出。"}</p>
         </div>
         <details class="pa-card pa-explain-card"><summary><b>说明</b></summary>
             <ul class="pa-legend">
-                <li><span class="pa-lv pa-lv-ok">已读取</span><span>思维链通过 {{getvar}} 读取该条目写入的变量。</span></li>
+                <li><span class="pa-lv pa-lv-ok">变量读到</span><span>思维链通过 {{getvar}} 读取该条目写入的变量。</span></li>
                 <li><span class="pa-lv pa-lv-maybe">文字提及</span><span>思维链中出现该条目的名称或标签。</span></li>
                 <li><span class="pa-lv pa-lv-none">未提及</span><span>思维链中没有出现该条目。</span></li>
-                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量未被读取</span><span>没有找到读取该变量的开启条目，内容可能不会发送。用脚本、条件宏或其他扩展读取的变量，这里识别不到。</span></li>
+                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">没发出</span><span>条目把内容存进变量（{{setvar}} 本身不输出文字），但没有开启的条目用 {{getvar}} 取出来，这段内容就不会出现在提示词里。用脚本、条件宏或其他扩展读取的变量，这里识别不到。</span></li>
                 <li><span class="pa-lv pa-lv-term">接入思维链</span><span>在思维链中加入对该条目的读取或提及，使模型思考时考虑这条内容。按本预设原有的写法添加（变量读取或文字提及），可撤销。规则类条目通常不需要接入；文风、人设、玩法等需要模型重点落实的条目可以接入。</span></li>
                 <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链条目名称特殊、未被自动识别时，在此手动指定；识别错误的，在对应思维链下点「不是思维链」。</span></li>
             </ul>
         </details>
         <div class="pa-cot-sum">
             <div><b>${a.cotIds.length}</b><span>思维链</span></div>
-            <div><b>${okN}</b><span>已读取</span></div>
+            <div><b>${okN}</b><span>变量读到</span></div>
             <div><b>${counts.mention}</b><span>文字提及</span></div>
             <div><b>${counts.none}</b><span>未提及</span></div>
-            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>未读变量</span></div>
+            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>没发出</span></div>
         </div>`;
     if (dead.length) {
-      html += `<h3 class="pa-h">变量未被读取</h3><div class="pa-cards">`;
+      // 一行写清是哪条、哪个变量、为什么；原因和操作收起，点开看
+      html += `<h3 class="pa-h">没发出去的内容（${dead.length}）</h3><div class="pa-cards">`;
       for (const i of dead) {
-        html += `<div class="pa-card pa-card-warn"><p>${i.ids.map((id) => `「${nm(id)}」`).join("")}${esc(i.text)}</p>
-                    <div class="pa-card-act">${i.readersOff?.length ? `<button class="pa-btn pa-btn-soft" data-fix="${esc(i.readersOff.join("|"))}">开启读取它的条目</button>` : ""}
-                    <button class="pa-btn" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></div>`;
+        const vn = esc(i.varName.replace(/^全局:/, ""));
+        const off = (i.readersOff || []).map((id) => `「${nm(id)}」`).join("");
+        const tag = i.kind === "cotfrag" ? "思维链没读" : off ? "读取它的条目关着" : "没有条目读取";
+        const why = i.kind === "cotfrag"
+          ? `这条是思维链的一部分，存进了变量「${vn}」，但开着的思维链没有读它，模型思考时看不到这段。`
+          : off
+            ? `这条把内容存进了变量「${vn}」，能把它取出来的 ${off} 没开，所以这段内容不会出现在提示词里。`
+            : `这条把内容存进了变量「${vn}」（{{setvar}} 本身不输出文字），预设里没有条目用 {{getvar::${vn}}} 把它取出来，所以这段内容不会出现在提示词里。如果是酒馆助手脚本、世界书或其他扩展在读，可以不管。`;
+        html += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main">${i.ids.map((id) => `「${nm(id)}」`).join("")} → 变量「${vn}」</span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
+                    <p class="pa-hint">${why}</p>
+                    <div class="pa-card-act">${off ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(i.readersOff.join("|"))}">开启读取它的条目</button>` : ""}
+                    <button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
       }
       html += "</div>";
     }
@@ -150,7 +160,7 @@ function mountCot(page, app) {
     html += "</div>";
     html += `<h3 class="pa-h">开启条目与思维链的关联</h3>
             <div class="pa-seg pa-seg-s" role="tablist">
-                ${[["none", `未提及 ${counts.none}`], ["mention", `文字提及 ${counts.mention}`], ["ok", `已读取 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
+                ${[["none", `未提及 ${counts.none}`], ["mention", `文字提及 ${counts.mention}`], ["ok", `变量读到 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
             </div>`;
     const groupsOrder = [];
     const byGroup = /* @__PURE__ */ new Map();

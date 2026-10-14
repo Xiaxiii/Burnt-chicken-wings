@@ -185,7 +185,7 @@ function mountCleanup(sec) {
         ${st.filter !== "arch" ? `<button type="button" class="pa-sortbtn" data-c="sort" aria-label="排序方式">↕ ${{ size: "大小", used: "最近使用", name: "名称" }[st.sort] || "大小"}</button>` : ""}
       </div>
       ${st.filter === "arch" ? arch.length ? `<div class="pa-clist">${arch.map(archRow).join("")}</div>` : '<p class="pa-empty">还没有归档的预设。</p>'
-        : `${list.length ? `<div class="pa-clist-head"><button class="pa-link" data-c="all">${list.filter((r) => !r.current).every((r) => st.sel.has(r.name)) ? "取消全选" : "全选本页"}</button></div><div class="pa-clist">${list.map(row).join("")}</div>` : '<p class="pa-empty">没有可清理的预设。</p>'}
+        : `${list.length ? `${list.some((r) => !r.current) ? `<div class="pa-clist-head"><button class="pa-link" data-c="all">${list.filter((r) => !r.current).every((r) => st.sel.has(r.name)) ? "取消全选" : "全选本页"}</button></div>` : ""}<div class="pa-clist">${list.map(row).join("")}</div>` : '<p class="pa-empty">没有可清理的预设。</p>'}
 `}`;
     drawBar();
   }

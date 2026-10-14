@@ -21,12 +21,29 @@ function renderList(draft, o) {
   const showHandle = showSwitch;
   const m = o.marker || null;
   const mark = `<div class="pa-insert-mark">${esc(o.markLabel || "插入位置")}</div>`;
-  const matches = (id) => {
-    if (!q) return true;
-    const p = draft.prompt(id);
-    // 名称和正文都搜
-    return (p?.name || id).toLowerCase().includes(q) || String(p?.content || "").toLowerCase().includes(q);
-  };
+  // 搜索：先看看得见的（条目名、标签、分组名）；只在正文里出现的另算，默认不列出，
+  // 打开「正文里还有 N 条」后列出来，并在名称下面显示正文里匹配的那一句，免得看不出为什么会搜到它
+  const hits = new Map();
+  let nameHits = 0, bodyHits = 0;
+  if (q) {
+    for (const o2 of draft.order) {
+      const id = o2.identifier;
+      const p = draft.prompt(id);
+      const gName = String(draft.group(draft.groupOf(id))?.name || "").toLowerCase();
+      if ((p?.name || id).toLowerCase().includes(q) || tagText(draft, id).toLowerCase().includes(q) || gName.includes(q)) {
+        hits.set(id, { body: false });
+        nameHits++;
+      } else {
+        const c = String(p?.content || "");
+        const i = c.toLowerCase().indexOf(q);
+        if (i >= 0) {
+          bodyHits++;
+          if (o.searchBody) hits.set(id, { body: true, snip: hitSnippet(c, i, q.length) });
+        }
+      }
+    }
+  }
+  const matches = (id) => !q || hits.has(id);
   const enabledMap = new Map(draft.order.map((x) => [x.identifier, x.enabled !== false]));
   const row = (id) => {
     if (!matches(id)) return "";
@@ -39,7 +56,7 @@ function renderList(draft, o) {
     if (o.badge) badge = o.badge(id);
     else if (!marker && !empty) {
       const s = detectShape(p?.content);
-      if (s.shape === "wrap" || s.shape === "tagname") badge = `<span class="pa-chip" title="写入变量">${esc(draft.preset.extensions.presetAtelierEntryLabels?.[id] || s.varName)}</span>`;
+      if (s.shape === "wrap" || s.shape === "tagname") badge = `<span class="pa-chip" title="写入变量">${markText(tagText(draft, id), q)}</span>`;
       else if (s.shape === "init") badge = '<span class="pa-chip pa-chip-dim">变量初始化</span>';
       if (isCotEntry(draft, id)) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
     }
@@ -48,13 +65,18 @@ function renderList(draft, o) {
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
     return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}" tabindex="0">
             <span class="pa-check" aria-hidden="true"></span>
-            <span class="pa-name">${esc(name)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}
+            ${hits.get(id)?.body ? `<span class="pa-namebox"><span class="pa-name">${esc(name)}</span><small class="pa-hitline">正文：${hits.get(id).snip}</small></span>` : `<span class="pa-name">${markText(name, q)}</span>`}${badge ? `<span class="pa-badges">${badge}</span>` : ""}
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="${o.mode === "organize" ? "查看或编辑" : "查看内容"}" title="${o.mode === "organize" ? "查看或编辑" : "查看内容"}">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" ${on ? "checked" : ""}><i></i></label>` : ""}
             ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="拖动">${ICON.grip}</span>` : ""}
         </div>${at ? mark : ""}`;
   };
   let html = "";
+  if (q) {
+    const more = bodyHits ? `<button class="pa-link" data-act="qbody">${o.searchBody ? `收起正文里出现的 ${bodyHits} 条` : `正文里还有 ${bodyHits} 条 ›`}</button>` : "";
+    html += `<div class="pa-qsum">${nameHits ? `名称、标签、分组名匹配 <b>${nameHits}</b> 条` : "名称、标签、分组名里没有"}${more ? " · " + more : ""}</div>`;
+    if (!nameHits && !(o.searchBody && bodyHits)) return html + (bodyHits ? "" : '<p class="pa-empty">没有匹配的条目</p>');
+  }
   if (place) html += m?.at === "top" ? mark : `<button class="pa-slot" data-act="top">↑ 最前面</button>`;
   for (const b of draft.blocks()) {
     if (b.empty && (q || o.mode === "source")) continue;
@@ -80,7 +102,7 @@ function renderList(draft, o) {
     html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${draft.groupOff(b.groupId) ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}" tabindex="0">
                 ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
-                <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>
+                <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${markText(g?.name || "分组", q)}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>
                 ${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
                 ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${draft.groupOff(b.groupId) || !onCount ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
@@ -90,6 +112,27 @@ function renderList(draft, o) {
         </section>${afterHere ? mark : ""}`;
   }
   return html || '<p class="pa-empty">没有匹配的条目</p>';
+}
+// 条目的标签（列表右侧显示的变量名）
+function tagText(draft, id) {
+  const p = draft.prompt(id);
+  if (!p || draft.isMarker(id) || !String(p.content || "").trim()) return "";
+  const s = detectShape(p.content);
+  return s.shape === "wrap" || s.shape === "tagname" ? String(draft.preset.extensions.presetAtelierEntryLabels?.[id] || s.varName || "") : "";
+}
+// 把文字里搜到的部分标出来（先拆开再分别转义，不会把转义后的 &amp; 之类拆坏）
+function markText(text, q) {
+  const t = String(text ?? "");
+  if (!q) return esc(t);
+  const i = t.toLowerCase().indexOf(q);
+  if (i < 0) return esc(t);
+  return esc(t.slice(0, i)) + `<mark>${esc(t.slice(i, i + q.length))}</mark>` + esc(t.slice(i + q.length));
+}
+// 正文里匹配的那一句：前后各取一点，换行压成空格
+function hitSnippet(content, i, len) {
+  const a = Math.max(0, i - 14), z = Math.min(content.length, i + len + 26);
+  const flat = (x) => x.replace(/\s+/g, " ");
+  return (a > 0 ? "…" : "") + esc(flat(content.slice(a, i))) + `<mark>${esc(content.slice(i, i + len))}</mark>` + esc(flat(content.slice(i + len, z))) + (z < content.length ? "…" : "");
 }
 /** 选好的位置 → 插入点 + 归属分组（null＝组外） */
 function placeOf(d, m) {

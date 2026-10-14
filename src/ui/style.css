@@ -1033,3 +1033,25 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-field-row > .pa-select, #pa-root .pa-field-row > .pa-input { flex: 1 1 auto; min-width: 0; width: auto; max-width: 100%; }
 #pa-root .pa-sheet-body p, #pa-root .pa-sheet-body small, #pa-root .pa-sheet-body li, #pa-root .pa-sheet-body summary, #pa-root .pa-sheet-body b, #pa-root .pa-sheet-body label, #pa-root .pa-sheet-body span { overflow-wrap: anywhere; }
 #pa-root .pa-sheet-body pre, #pa-root .pa-sheet-body code { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* 搜索：匹配的文字标出来；只在正文里出现的，名称下面显示出处 */
+#pa-root mark { background: color-mix(in srgb, var(--pa-thread) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+#pa-root .pa-qsum { font-size: .82em; color: var(--pa-dim); padding: 2px 6px 6px; }
+#pa-root .pa-qsum b { color: var(--pa-text); }
+#pa-root .pa-qsum .pa-link { padding: 0 2px; font-size: 1em; }
+#pa-root .pa-namebox { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; padding: 2px 0; }
+#pa-root .pa-namebox .pa-name { flex: none; }
+#pa-root .pa-hitline { color: var(--pa-dim); font-size: .78em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 缝合预览每条的标题：第一行名称和展开箭头，第二行「缝后开启」和标签。用网格固定，不随字号、美化换行错位 */
+#pa-root .pa-item .pa-item-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; row-gap: 4px; align-items: center; flex-wrap: nowrap; }
+#pa-root .pa-item-head .pa-item-name { grid-column: 1; }
+#pa-root .pa-item-head .pa-item-caret { grid-column: 2; }
+#pa-root .pa-item-meta { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+#pa-root .pa-item-head .pa-badges { max-width: none; flex-wrap: wrap; }
+
+/* 思维链页：没发出去的内容，一行摘要，点开看原因和操作 */
+#pa-root .pa-dead > summary { align-items: center; }
+#pa-root .pa-dead-main { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-dead .pa-chip { flex: none; max-width: none; }
+#pa-root .pa-dead > p { margin: 8px 0 0; }

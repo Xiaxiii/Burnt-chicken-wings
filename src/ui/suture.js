@@ -671,10 +671,8 @@ function mountSuture(page, app) {
       const hookLabel = it.hook.status !== "hook" ? "" : it.hookOn ? '<span class="pa-chip pa-chip-cot">接入思维链</span>' : it.hook.on ? '<span class="pa-chip pa-chip-dim">推荐接入</span>' : "";
       // 默认收起，只显示一行摘要；点开看详情
       return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
-                <header class="pa-item-head" data-c="toggle"><label class="pa-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}>缝后开启</label>
-                <span class="pa-item-name">${esc(nameOf(it))}</span>
-                <span class="pa-badges"><span class="pa-chip">${modeLabel}</span>${hookLabel}${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span>
-                <span class="pa-item-caret">${it.open ? "▾" : "▸"}</span></header>
+                <header class="pa-item-head" data-c="toggle"><span class="pa-item-name">${esc(nameOf(it))}</span><span class="pa-item-caret">${it.open ? "▾" : "▸"}</span>
+                <span class="pa-item-meta"><label class="pa-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}>缝后开启</label><span class="pa-badges"><span class="pa-chip">${modeLabel}</span>${hookLabel}${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span></span></header>
                 <div class="pa-item-body"${it.open ? "" : " hidden"}>
                 <label class="pa-field"><span>条目名称</span><input class="pa-input pa-input-s" data-c="name" value="${esc(nameOf(it))}"></label>
                 ${single ? "" : `<small class="pa-from">位置：${esc(placeText(d, it.pos.marker))}</small>`}
@@ -934,10 +932,8 @@ function mountSuture(page, app) {
             <pre class="pa-snip">${snip(content)}</pre>${mode === value && value === "fix" && plan.changes.length ? `<ul class="pa-notes">${plan.changes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
       const w = it.wb;
       return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
-        <header class="pa-item-head" data-c="toggle"><label class="pa-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}>缝后开启</label>
-          <span class="pa-item-name">${esc(it.name ?? it.src.name)}</span>
-          <span class="pa-badges"><span class="pa-chip">${w.constant ? "常驻" : "关键词"}</span><span class="pa-chip">${esc(posName(w.position))}${Number(w.position) === 4 ? ` ${w.depth}` : ""}</span>${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span>
-          <span class="pa-item-caret">${it.open ? "▾" : "▸"}</span></header>
+        <header class="pa-item-head" data-c="toggle"><span class="pa-item-name">${esc(it.name ?? it.src.name)}</span><span class="pa-item-caret">${it.open ? "▾" : "▸"}</span>
+                <span class="pa-item-meta"><label class="pa-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}>缝后开启</label><span class="pa-badges"><span class="pa-chip">${w.constant ? "常驻" : "关键词"}</span><span class="pa-chip">${esc(posName(w.position))}${Number(w.position) === 4 ? ` ${w.depth}` : ""}</span>${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span></span></header>
         <div class="pa-item-body"${it.open ? "" : " hidden"}>
           <label class="pa-field"><span>条目名称</span><input class="pa-input pa-input-s" data-c="name" value="${esc(it.name ?? it.src.name)}"></label>
           <small class="pa-from">来自 ${esc(it.src.from || "")}${w.from ? "，沿用原世界书中的触发和插入设置" : ""}</small>
