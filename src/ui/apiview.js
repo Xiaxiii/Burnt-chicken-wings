@@ -81,7 +81,7 @@ function mountApi(liveBox, sitesBox) {
         </article>`);
     const others = sites().filter((x) => x.id !== s.activeSiteId);
     sitesBox.innerHTML = `
-        <div class="pa-row-head"><h3 class="pa-h">${active ? "其他站点" : "API 站点"}</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 添加站点</button></div>
+        <div class="pa-row-head"><h3 class="pa-h">${active ? "其他站点" : "API 站点"}</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
         ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
         <div class="pa-card">
             <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后，自动连回「使用中」的站点</label>

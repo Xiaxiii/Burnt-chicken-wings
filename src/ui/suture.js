@@ -16,7 +16,6 @@ function mountSuture(page, app) {
     picked: /* @__PURE__ */ new Map(),
     // key -> {name, content, prompt, from}
     srcCollapsedMap: /* @__PURE__ */ new Map(),
-    srcQuery: "",
     dstCollapsed: null,
     dstFor: null,
     marker: null,
@@ -37,7 +36,6 @@ function mountSuture(page, app) {
                 <div class="pa-src-pick"></div>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
-            <div class="pa-searchrow"><input class="pa-input pa-search pa-src-q" type="search" placeholder="🔍 搜条目名称或正文" aria-label="搜索来源条目"></div>
             <div class="pa-scroll pa-src-list"></div>
         </div>
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整两栏大小" title="拖动调整大小"><span></span></div>
@@ -113,11 +111,8 @@ function mountSuture(page, app) {
   });
   // 来源类型：预设 / 世界书 / 文件 / 粘贴
   const SRC_TYPES = [["preset", "预设"], ["world", "世界书"], ["file", "文件"], ["paste", "粘贴"]];
-  const searchRow = page.querySelector(".pa-searchrow");
-  const srcQ = page.querySelector(".pa-src-q");
   function paintSrcHead() {
     page.querySelector('[data-st="srctype"] span').textContent = SRC_TYPES.find(([k]) => k === st.srcType)[1];
-    searchRow.hidden = st.srcType === "paste";
   }
   async function setSrcType(type) {
     if (!type || type === st.srcType) return;
@@ -125,10 +120,6 @@ function mountSuture(page, app) {
     renderSrcPick();
     renderSrc();
   }
-  srcQ.addEventListener("input", () => {
-    st.srcQuery = srcQ.value;
-    renderSrc();
-  });
   function renderSrcPick() {
     paintSrcHead();
     if (st.srcType === "preset") {
@@ -194,7 +185,7 @@ function mountSuture(page, app) {
       if (!st.srcCollapsedMap.has(ck)) st.srcCollapsedMap.set(ck, new Set(d.groups.groups.map((g) => g.id)));
       st.srcCollapsed = st.srcCollapsedMap.get(ck);
       const sel = new Set(d.order.map((o) => o.identifier).filter((id) => st.picked.has(keyOf(id))));
-      srcList.innerHTML = renderList(d, { mode: "source", selected: sel, collapsed: st.srcCollapsed, query: st.srcQuery });
+      srcList.innerHTML = renderList(d, { mode: "source", selected: sel, collapsed: st.srcCollapsed });
       srcList.dataset.kind = "draft";
       srcList._draft = d;
       srcList._keyOf = keyOf;
@@ -217,10 +208,9 @@ function mountSuture(page, app) {
         }
         if (st.srcType !== "world" || st.srcWorld !== wname) return;
       }
-      const q = st.srcQuery.trim().toLowerCase();
       srcList.dataset.kind = "world";
       srcList._items = items;
-      srcList.innerHTML = `<div class="pa-loose">${items.filter((it) => !q || it.name.toLowerCase().includes(q) || String(it.content || "").toLowerCase().includes(q)).map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${esc(it.name)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button></div>`).join("") || '<p class="pa-empty">没有条目</p>'}</div>`;
+      srcList.innerHTML = `<div class="pa-loose">${items.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${esc(it.name)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button></div>`).join("") || '<p class="pa-empty">没有条目</p>'}</div>`;
     } else {
       srcList.dataset.kind = "paste";
       const pasted = [...st.picked.entries()].filter(([k]) => k.startsWith("paste:"));

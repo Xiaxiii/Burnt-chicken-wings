@@ -70,6 +70,9 @@ async function scanExtensionCode(exts, keys, onProgress) {
   }
   return { used, partial };
 }
+// 角色卡同名提示里点了「忽略」的组。只记在内存里：这次打开酒馆期间不再提示；
+// 点「重新检测」或下次打开酒馆重新检测时清空，提示会再出现。组里的角色卡有增减时算新的一组。
+var ignoredCharDups = new Set();
 async function deleteCharacterKeepChats(avatar) {
   const r = await stPost("api/characters/delete", { avatar_url: avatar, delete_chats: false });
   if (!r.ok) throw new Error(`删除失败（${r.status}）`);
@@ -127,10 +130,10 @@ function mountCleanKind(kind, box) {
       const orphans = list.filter((r) => r.state === "orphan");
       box.innerHTML = `
         <div class="pa-sum"><p class="pa-sum-main">扩展数据 <b>${fmtSize(total)}</b> · ${list.length} 项${orphans.length ? ` · <span class="pa-warn">疑似残留 ${orphans.length}</span>` : ""}</p>
-          ${tip(`<p>设置文件每次打开酒馆都要下载，每次保存都要上传，删掉已卸载扩展的残留数据能减少这部分。</p>
+          <div class="pa-tiprow">${tip(`<p>设置文件每次打开酒馆都要下载，每次保存都要上传，删掉已卸载扩展的残留数据能减少这部分。</p>
             <p>「可能已卸载」只是按名称推测。「实际检测」会下载已安装扩展的脚本，查找谁在使用这些数据；扩展用拼接出来的名字读数据时查不出来，结果只能作参考。</p>
-            <p>正在使用的数据不能勾选。删除前会先下载一份备份（JSON），需要时可交给对应扩展重新导入。</p>`)}
-          <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${scan ? "重新检测" : "实际检测"}</button>${orphans.length ? `<button class="pa-btn pa-btn-s" data-x="pickorphans">勾选 ${orphans.length} 项疑似残留</button>` : ""}<span class="pa-hint pa-ck-prog"></span></div>
+            <p>正在使用的数据不能勾选。删除前会先下载一份备份（JSON），需要时可交给对应扩展重新导入。</p>`)}<span class="pa-golinks">${orphans.length ? `<button type="button" class="pa-golink" data-x="pickorphans">勾选 ${orphans.length} 项疑似残留</button>` : ""}<button type="button" class="pa-golink" data-x="scan" ${S.busy ? "disabled" : ""}>${S.busy ? "检测中…" : scan ? "重新检测 ›" : "实际检测 ›"}</button></span></div>
+          ${S.busy ? '<p class="pa-hint pa-ck-prog"></p>' : ""}
           ${scan ? `<p class="pa-hint">${orphans.length ? "勾选后请逐项确认名称再删除。" : "没有找到疑似残留的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」没有查完，标「请确认」的需要你自己判断。` : ""}</p>` : ""}</div>
         ${err ? `<p class="pa-warn">${esc(err)}</p>` : ""}
         <div class="pa-clist">${list.map((r) => `<label class="pa-crow${S.sel.has(r.k) ? " on" : ""}${r.state === "core" || r.state === "used" ? " pa-locked" : ""}">
@@ -203,7 +206,12 @@ function mountCleanKind(kind, box) {
         if (!k) continue;
         (groups.get(k) || groups.set(k, []).get(k)).push(ch);
       }
-      const dups = [...groups.values()].filter((g) => g.length > 1);
+      const dupKey = (g) => `${String(g[0].name || "").trim().toLowerCase()}\n${g.map((ch) => ch.avatar).sort().join("\n")}`;
+      const allDups = [...groups.values()].filter((g) => g.length > 1);
+      const dups = allDups.filter((g) => !ignoredCharDups.has(dupKey(g)));
+      const nIgnored = allDups.length - dups.length;
+      // 忽略的组里不留勾选
+      for (const g of allDups) if (ignoredCharDups.has(dupKey(g))) for (const ch of g) S.sel.delete(ch.avatar);
       // 指纹覆盖角色卡的全部内容字段；按需加载（shallow）的角色卡没有完整数据，不判断相同
       const FIELDS = ["description", "personality", "scenario", "first_mes", "mes_example", "alternate_greetings", "system_prompt", "post_history_instructions", "creator_notes", "character_book", "tags", "extensions"];
       const fp = (ch) => {
@@ -213,15 +221,16 @@ function mountCleanKind(kind, box) {
       };
       const pickList = chars.filter((ch) => S.sel.has(ch.avatar));
       box.innerHTML = `
-        <div class="pa-sum"><p class="pa-sum-main">角色卡 <b>${chars.length}</b> 张 · ${dups.length ? `<span class="pa-warn">同名 ${dups.length} 组</span>` : "没有同名"}</p>
-          ${tip(`<p>角色列表每次打开酒馆都要下载，删除重复的角色卡能减少一些。</p>
-            <p>「文字设定相同」比较的是描述、性格、场景、开场白、示例对话、角色书、标签等文字内容，不比较头像图片。删除时保留聊天记录；正在聊天的角色卡不能勾选。</p>`)}</div>
+        <div class="pa-sum"><p class="pa-sum-main">角色卡 <b>${chars.length}</b> 张 · ${dups.length ? `<span class="pa-warn">同名 ${dups.length} 组</span>` : allDups.length ? "同名的都已忽略" : "没有同名"}${nIgnored && dups.length ? ` · 已忽略 ${nIgnored} 组` : ""}</p>
+          <div class="pa-tiprow">${tip(`<p>角色列表每次打开酒馆都要下载，删除重复的角色卡能减少一些。</p>
+            <p>「文字设定相同」比较的是描述、性格、场景、开场白、示例对话、角色书、标签等文字内容，不比较头像图片。删除时保留聊天记录；正在聊天的角色卡不能勾选。</p>
+            <p>不想清理的同名组可以点「忽略」，这次打开酒馆期间不再提示；点「重新检测」或下次打开酒馆时会重新列出。</p>`)}<span class="pa-golinks">${dups.length > 1 ? '<button type="button" class="pa-golink" data-x="ignoreall">全部忽略</button>' : ""}${allDups.length || nIgnored ? `<button type="button" class="pa-golink" data-x="recheck" ${S.busy ? "disabled" : ""}>重新检测 ›</button>` : ""}</span></div></div>
         ${dups.map((g) => {
           const prints = g.map(fp);
           const unknown = prints.some((x) => x == null);
           const same = !unknown && new Set(prints).size === 1;
           const keep = g.reduce((a, b) => (Number(b.date_last_chat) || 0) > (Number(a.date_last_chat) || 0) ? b : a);
-          return `<h3 class="pa-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "文字设定相同（头像图片未比较）" : unknown ? "同名，未加载完整内容，无法比较" : "同名，文字设定不同"}</span></h3>
+          return `<h3 class="pa-h pa-dup-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "文字设定相同（头像图片未比较）" : unknown ? "同名，未加载完整内容，无法比较" : "同名，文字设定不同"}</span><button type="button" class="pa-golink pa-dup-ign" data-x="ignore" data-g="${esc(dupKey(g))}" title="这次打开酒馆期间不再提示这一组">忽略</button></h3>
           <div class="pa-clist">${g.map((ch) => `<label class="pa-crow${S.sel.has(ch.avatar) ? " on" : ""}${ch.avatar === cur ? " pa-locked" : ""}">${chk(ch.avatar, S.sel.has(ch.avatar), ch.avatar === cur)}
             <span class="pa-crow-main"><b>${esc(ch.avatar)}</b><span class="pa-crow-tags">${ch.avatar === cur ? '<span class="pa-chip pa-chip-cot">正在聊天</span>' : ""}${ch === keep && ch.date_last_chat ? '<span class="pa-chip pa-ctag-use">最近聊过</span>' : ""}${ch.date_last_chat ? `<span class="pa-chip pa-chip-dim">${relDay(Number(ch.date_last_chat)).replace("用过", "聊过")}</span>` : '<span class="pa-chip pa-chip-dim">没有聊过</span>'}${ch.chat_size ? `<span class="pa-chip pa-chip-dim">聊天 ${fmtSize(ch.chat_size)}</span>` : ""}</span></span>
             <span class="pa-crow-size"><em>${ch.data_size ? fmtSize(ch.data_size) : ""}</em></span></label>`).join("")}</div>`;
@@ -234,7 +243,30 @@ function mountCleanKind(kind, box) {
       draw();
     });
     box.addEventListener("click", async (e) => {
-      if (e.target.closest("[data-x]")?.dataset.x !== "del" || S.busy) return;
+      const xb = e.target.closest("[data-x]");
+      const x = xb?.dataset.x;
+      if (S.busy) return;
+      if (x === "ignore") {
+        e.preventDefault();
+        ignoredCharDups.add(xb.dataset.g);
+        return draw();
+      }
+      if (x === "ignoreall") {
+        for (const b of box.querySelectorAll('[data-x="ignore"]')) ignoredCharDups.add(b.dataset.g);
+        return draw();
+      }
+      if (x === "recheck") {
+        ignoredCharDups.clear();
+        S.busy = true;
+        draw();
+        try {
+          await ctx().getCharacters?.();
+        } catch {
+        }
+        S.busy = false;
+        return draw();
+      }
+      if (x !== "del") return;
       const list = [...S.sel];
       if (!await confirmBox("删除角色卡", `将删除 ${list.length} 张角色卡（${list.slice(0, 3).join("、")}${list.length > 3 ? " 等" : ""}），聊天记录保留在服务器上。角色卡删除后无法在酒馆中恢复。`, "删除", true)) return;
       S.busy = true;

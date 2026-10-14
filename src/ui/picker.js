@@ -1,4 +1,5 @@
 // 名称选择：一个小按钮「名称 ▾」，点开是带搜索的列表（预设、世界书多的时候好找）。
+// 预设、世界书的列表一律带搜索（不看数量），外面就不再另放搜索框；只有几个固定选项的（来源类型、排序）传 search:false。
 // 代替系统下拉框：系统下拉框在手机上又大又长，也不能搜索。
 
 /**
@@ -6,7 +7,7 @@
  * @returns {Promise<string|null>}
  */
 async function pickName({ title, items, current = null, search } = {}) {
-  const useSearch = search ?? items.length > 6;
+  const useSearch = search ?? true;
   const body = el(`<div class="pa-npick">${useSearch ? '<input class="pa-input pa-npick-q" type="search" placeholder="🔍 搜索" autocapitalize="off" autocomplete="off">' : ""}<div class="pa-npick-list" role="listbox"></div></div>`);
   const q = body.querySelector(".pa-npick-q");
   const box = body.querySelector(".pa-npick-list");

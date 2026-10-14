@@ -1012,3 +1012,24 @@ html.pa-open body { overflow: hidden; }
 #pa-root input[type=checkbox]:not(#pa-x):focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 2px; }
 #pa-root .pa-switch > input[type=checkbox]:not(#pa-x) { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; background: none; }
 #pa-root .pa-pane > .pa-searchrow { flex: none; padding: 2px 10px 4px; }
+
+/* 1.9 细调（二）：行内小链接成组；角色卡同名组的「忽略」；方案、站点标题旁的按钮改小 */
+#pa-root .pa-golinks { flex: none; display: flex; align-items: center; gap: 12px; }
+#pa-root .pa-golink:disabled { color: var(--pa-dim); cursor: default; text-decoration: none; }
+#pa-root .pa-dup-h { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 0; }
+#pa-root .pa-dup-h .pa-dup-ign { margin-left: auto; padding-left: 10px; font-weight: 400; }
+#pa-root .pa-row-head .pa-head-btn { flex: none; font-size: .85em; padding: 3px 10px; min-height: 0; border-radius: 8px; }
+@media (pointer: coarse) {
+    #pa-root .pa-row-head .pa-head-btn { min-height: 28px; }
+}
+
+/* 1.9 修正：缝合预览在手机上被撑宽、平板上左右乱滑。
+   原因：网格的列默认按内容最宽处排（分组下拉框里的长名称、长条目名），整张卡被撑出弹窗。
+   网格列改为可以收窄，下拉框不超过一行宽，长字符串可以断行，弹窗本身不再横向滚动。 */
+#pa-root .pa-sheet-body { overflow-x: hidden; }
+#pa-root .pa-sheet-body > * { min-width: 0; max-width: 100%; }
+#pa-root .pa-target-card, #pa-root .pa-items, #pa-root .pa-item, #pa-root .pa-hook, #pa-root .pa-explain-body { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+#pa-root .pa-target-card > *, #pa-root .pa-item > *, #pa-root .pa-hook > * { min-width: 0; }
+#pa-root .pa-field-row > .pa-select, #pa-root .pa-field-row > .pa-input { flex: 1 1 auto; min-width: 0; width: auto; max-width: 100%; }
+#pa-root .pa-sheet-body p, #pa-root .pa-sheet-body small, #pa-root .pa-sheet-body li, #pa-root .pa-sheet-body summary, #pa-root .pa-sheet-body b, #pa-root .pa-sheet-body label, #pa-root .pa-sheet-body span { overflow-wrap: anywhere; }
+#pa-root .pa-sheet-body pre, #pa-root .pa-sheet-body code { white-space: pre-wrap; overflow-wrap: anywhere; }
