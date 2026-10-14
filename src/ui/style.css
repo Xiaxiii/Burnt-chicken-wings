@@ -1059,3 +1059,22 @@ html.pa-open body { overflow: hidden; }
 /* 方案卡片：自动套用的绑定写成一行 */
 #pa-root .pa-bindline { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 6px; font-size: .86em; color: var(--pa-thread); }
 #pa-root .pa-bindline .pa-link { font-size: 1em; padding: 0 4px; }
+
+/* 方案：按角色卡（或预设、人设）分组，点小箭头展开 */
+#pa-root .pa-scheme-bar { display: flex; align-items: center; gap: 6px; margin: 2px 0 4px; font-size: .9em; }
+#pa-root .pa-namebtn-s { flex: none; }
+#pa-root .pa-nudge { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: .85em; color: var(--pa-dim); padding: 4px 2px; }
+#pa-root .pa-nudge .pa-link { font-size: 1em; padding: 0 2px; }
+#pa-root .pa-sgroup { border: 1px solid var(--pa-line); border-radius: var(--pa-r); background: var(--pa-card); margin-bottom: 8px; }
+#pa-root .pa-sghead { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; min-height: 40px; }
+#pa-root .pa-sghead b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-sghead small { margin-left: auto; color: var(--pa-dim); white-space: nowrap; }
+#pa-root .pa-sgcaret { color: var(--pa-thread); width: 1em; flex: none; }
+#pa-root .pa-sgbody { border-top: 1px dashed var(--pa-line); padding: 2px 6px 4px; }
+#pa-root .pa-srow { display: flex; align-items: center; gap: 6px; padding: 7px 4px; border-bottom: 1px solid var(--pa-line); }
+#pa-root .pa-srow:last-child { border-bottom: 0; }
+#pa-root .pa-srow-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+#pa-root .pa-srow-main b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+#pa-root .pa-srow-main small { flex: 1 1 100%; color: var(--pa-dim); font-size: .8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-srow-on b { color: var(--pa-thread); }
+#pa-root .pa-srow .pa-icon-btn { font-size: .95em; }

@@ -84,6 +84,8 @@ async function applyScheme(scheme, { quiet = false, why = "" } = {}) {
   } finally {
     if (site) applying = false;
   }
+  scheme.usedAt = Date.now();
+  saveSettings();
   toast(`${why ? `自动套用（${why}）：` : "已切换到"}「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}${site ? `，API：${site.name}` : ""}`, "success");
   return true;
 }
@@ -110,107 +112,179 @@ function boundSchemeId() {
   return bindingNow()?.id || null;
 }
 var BIND_LABEL = { chat: "本聊天", char: "本角色" };
+// 方案按角色卡归类（也可切到按预设、按人设看）。每条方案记：角色卡、预设、人设、API 站点、时间。
+// 归属角色卡：保存时在聊天里就记当前角色卡；旧方案没有记录的，看有没有绑定在某个角色上，否则归「未分角色」
+function schemeCharKey(s) {
+  if (s.charKey) return s.charKey;
+  const cb = settings().schemeCharBind || {};
+  return Object.keys(cb).find((k) => cb[k] === s.id) || "";
+}
+function charNameOf(key) {
+  if (!key) return "未分角色";
+  const c = ctx();
+  if (key.startsWith("group:")) return c.groups?.find((g) => "group:" + g.id === key)?.name || "群聊";
+  return c.characters?.find((x) => x.avatar === key)?.name || key.replace(/\.png$/i, "");
+}
+function shortTime(t) {
+  if (!t) return "";
+  const d = new Date(t), now = new Date();
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  if (d.toDateString() === now.toDateString()) return `今天 ${hm}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
+}
 function mountSchemes(page, { after } = {}) {
+  const VIEWS = [["char", "角色卡"], ["preset", "预设"], ["persona", "人设"]];
   page.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">方案</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">保存当前状态为方案</button></div>
-        <div class="pa-toolbar pa-toolbar-flat"><div class="pa-picker-slot"></div></div>
-        ${tip("方案记下一组条目开关，可同时记下人设和 API 站点。<br>「切换到此方案」：把预设、开关、人设、API 一次换成方案记的样子。<br>「用现在的覆盖」：把方案改成你现在的开关（和人设、API）。<br>「自动套用」：绑定本聊天或本角色后，进入那个聊天时自动切换一次；之后你手动换预设、改开关，不会被改回来。")}
+        <div class="pa-scheme-bar"><span class="pa-dim">按</span><button class="pa-namebtn pa-namebtn-s" data-s="view" type="button"><span></span><i aria-hidden="true">▾</i></button><span class="pa-dim">分组</span></div>
+        ${tip("方案记下预设、一组条目开关，可同时记下人设和 API 站点。<br>「切换」：把预设、开关、人设、API 一次换成方案记的样子。<br>✏️ 里可以重命名、用现在的状态覆盖、换 API 站点、改记录范围、设置自动套用、改归属角色、删除。<br>「自动套用」：绑定本聊天或本角色后，进入那个聊天时自动切换一次；之后你手动换预设、改开关，不会被改回来。")}
+        <div class="pa-scheme-nudge"></div>
         <div class="pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
-  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
+  const nudge = page.querySelector(".pa-scheme-nudge");
   const all = () => settings().schemes;
-  function card(s, d) {
+  const open = new Set();
+  let opened = false;
+  const view = () => VIEWS.some(([k]) => k === settings().schemeView) ? settings().schemeView : "char";
+  const groupKey = (s) => view() === "preset" ? s.preset : view() === "persona" ? s.persona ? s.personaName || s.persona : "" : schemeCharKey(s);
+  const groupName = (k) => view() === "char" ? charNameOf(k) : k || (view() === "persona" ? "没记人设" : "");
+  function row(s, d) {
     const bind = bindingNow();
     const bound = bind?.id === s.id ? bind.scope : null;
-    const scope = s.scope === "all" ? "全部条目" : `${s.scope.map((g) => d?.group(g)?.name).filter(Boolean).slice(0, 4).join("、")}${s.scope.length > 4 ? ` 等 ${s.scope.length} 个分组` : ""}`;
-    // 「使用中」要和酒馆实际生效的一致：预设正在用、开关一致、人设和 API 站点也对得上。只有开关一致时标「开关一致」
+    // 「使用中」要和酒馆实际生效的一致：预设正在用、开关一致、人设和 API 站点也对得上
     const switchesOk = !!d && s.preset === d.name && schemeMatches(d, s);
     const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
     const on = switchesOk && currentPresetName() === s.preset && (!s.persona || currentPersona() === s.persona) && (!site || !siteDiffers(site, { ...liveConnection(), online: true }));
-    return `<article class="pa-card pa-scheme${on ? " pa-scheme-on" : ""}" data-id="${esc(s.id)}">
-            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}</header>
-            <small>${esc(s.preset)}${!listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset) ? "（已归档，套用时自动恢复）" : ""} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}${s.siteId ? ` \xB7 API ${esc(settings().sites.find((x) => x.id === s.siteId)?.name || "（站点已删除）")}` : ""}</small>
-            ${bound ? `<div class="pa-bindline">🔗 自动套用：进入${bound === "chat" ? "这个聊天" : `「${esc(currentCharName())}」的聊天`}时切换到此方案<button class="pa-link" data-a="bind">改</button></div>` : ""}
-            <div class="pa-card-act">
-                <button class="pa-btn pa-btn-primary" data-a="apply" title="把预设、开关、人设、API 一次换成方案记的样子">切换到此方案</button>
-                <button class="pa-btn" data-a="update" title="把方案改成现在的开关（和人设、API）">用现在的覆盖</button>
-                ${bound ? "" : '<button class="pa-btn" data-a="bind" title="进入聊天时自动切换到此方案">🔗 自动套用…</button>'}
-                <button class="pa-icon-btn" data-a="more" aria-label="更多">⋯</button>
-            </div></article>`;
+    const archived = !listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset);
+    const meta = [
+      view() !== "preset" ? esc(s.preset) + (archived ? "（已归档）" : "") : "",
+      view() !== "persona" ? s.persona ? esc(s.personaName || s.persona) : "" : "",
+      view() !== "char" && schemeCharKey(s) ? esc(charNameOf(schemeCharKey(s))) : "",
+      site ? "API " + esc(site.name) : s.siteId ? "API（站点已删除）" : "",
+      shortTime(Math.max(s.usedAt || 0, s.at || 0))
+    ].filter(Boolean).join(" · ");
+    return `<div class="pa-srow${on ? " pa-srow-on" : ""}" data-id="${esc(s.id)}">
+        <div class="pa-srow-main"><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? `<span class="pa-chip pa-chip-cot" title="进入${bound === "chat" ? "这个聊天" : "这个角色的聊天"}时自动切换到它">🔗${BIND_LABEL[bound]}</span>` : ""}
+        <small>${meta}</small></div>
+        <button class="pa-btn pa-btn-s${on ? "" : " pa-btn-primary"}" data-a="apply" title="把预设、开关、人设、API 一次换成方案记的样子">切换</button>
+        <button class="pa-icon-btn" data-a="edit" aria-label="编辑方案" title="编辑">✏️</button></div>`;
   }
   function render() {
     let d = null;
     try {
-      d = getDraft(focusPreset());
+      d = getDraft(currentPresetName());
     } catch {
     }
-    if (d) picker.set(d.name);
-    const mine = all().filter((s) => d && s.preset === d.name);
-    const others = all().filter((s) => !d || s.preset !== d.name);
-    box.innerHTML = (mine.length ? mine.map((s) => card(s, d)).join("") : `<p class="pa-empty">「${esc(d?.name || "")}」暂无方案。先开启需要的条目、连好 API，再点「保存当前状态为方案」。</p>`) + (others.length ? `<h3 class="pa-h">其他预设的方案（套用时将切换预设）</h3>${others.map((s) => card(s, null)).join("")}` : "");
+    page.querySelector('[data-s="view"] span').textContent = VIEWS.find(([k]) => k === view())[1];
+    // 当前角色在用的预设还没有方案：提示一句
+    const ck = hasChat() ? currentCharKey() : null;
+    const cur = currentPresetName();
+    nudge.innerHTML = ck && cur && !all().some((s) => schemeCharKey(s) === ck && s.preset === cur)
+      ? `<div class="pa-nudge">「${esc(currentCharName())}」还没有「${esc(cur)}」的方案<button class="pa-link" data-s="new">保存一个</button></div>` : "";
+    if (!all().length) {
+      box.innerHTML = '<p class="pa-empty">还没有方案。先开启需要的条目、连好 API，再点「保存当前状态为方案」。</p>';
+      return after?.();
+    }
+    const groups = new Map();
+    for (const s of all()) {
+      const k = groupKey(s);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(s);
+    }
+    const t = (s) => Math.max(s.usedAt || 0, s.at || 0);
+    // 当前角色（或当前预设、当前人设）那一组排最前，其余按最近用过排；「未分角色」放最后
+    const mineKey = view() === "char" ? ck || "" : view() === "preset" ? cur : listPersonas().find((p) => p.avatar === currentPersona())?.name || "";
+    const keys = [...groups.keys()].sort((a, b) => (b === mineKey) - (a === mineKey) || (!a) - (!b) || Math.max(...groups.get(b).map(t)) - Math.max(...groups.get(a).map(t)));
+    if (!opened) {
+      opened = true;
+      if (groups.has(mineKey)) open.add(view() + "|" + mineKey);
+      else if (keys[0] !== void 0) open.add(view() + "|" + keys[0]);
+    }
+    box.innerHTML = keys.map((k) => {
+      const list = groups.get(k).sort((a, b) => t(b) - t(a));
+      const isOpen = open.has(view() + "|" + k);
+      return `<section class="pa-sgroup${isOpen ? " open" : ""}" data-k="${esc(k)}">
+          <header class="pa-sghead" data-a="fold" tabindex="0"><span class="pa-sgcaret">${isOpen ? "▾" : "▸"}</span><b>${esc(groupName(k))}</b>${k === mineKey && k ? '<span class="pa-chip pa-chip-dim">当前</span>' : ""}<small>${list.length} 个方案</small></header>
+          ${isOpen ? `<div class="pa-sgbody">${list.map((s) => row(s, d)).join("")}</div>` : ""}</section>`;
+    }).join("");
     after?.();
   }
-  page.querySelector("[data-s=new]").addEventListener("click", async () => {
-    const d = getDraft(focusPreset());
+  async function saveNew() {
+    let d;
+    try { d = getDraft(currentPresetName()); } catch (e) { return toast(e.message, "error"); }
     const persona = currentPersona();
     const personaName = listPersonas().find((p) => p.avatar === persona)?.name || "";
     const groups = d.groups.groups;
     const site = settings().sites.find((x) => x.id === settings().activeSiteId);
+    const ck = hasChat() ? currentCharKey() : null;
+    const cname = ck ? currentCharName() : "";
+    const prevBound = hasChat() ? all().find((x) => x.id === chatMeta()[META_KEY]) : null;
     const body = el(`<div class="pa-form">
-            <label class="pa-field"><span>方案名称</span><input class="pa-input" data-f="name" placeholder="例如：纯爱、年上"></label>
-            <fieldset class="pa-fieldset"><legend>记录范围</legend>
-                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="groups" ${groups.length ? "checked" : ""} ${groups.length ? "" : "disabled"}> 只记录勾选的分组（推荐，其他条目不受影响）</label>
-                <div class="pa-groups-pick">${groups.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${LIKELY.test(g.name) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || '<p class="pa-hint">此预设暂无分组，可在整理页新建</p>'}</div>
-                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="all" ${groups.length ? "" : "checked"}> 记录全部条目</label>
-            </fieldset>
-            ${persona ? `<label class="pa-inline-check"><input type="checkbox" data-f="persona" checked> 同时记录人设（当前为「${esc(personaName || persona)}」）</label>` : ""}
-            ${site ? `<label class="pa-inline-check"><input type="checkbox" data-f="site" checked> 同时记录 API 站点（当前为「${esc(site.name)}」）</label>` : '<p class="pa-hint">当前连接未保存为 API 站点，无法记录。可先在上方点「保存为站点」。</p>'}
+            <label class="pa-field"><span>方案名称</span><input class="pa-input" data-f="name" value="${esc(d.name)}" placeholder="例如：纯爱、年上"></label>
+            <p class="pa-hint">预设：${esc(d.name)}</p>
+            ${ck ? `<label class="pa-inline-check"><input type="checkbox" data-f="char" checked> 记到角色「${esc(cname)}」下面</label>
+            <label class="pa-inline-check"><input type="checkbox" data-f="bind"> 进入这个聊天时自动切换到它${prevBound ? `（会替换原来绑定的「${esc(prevBound.name)}」）` : ""}</label>` : '<p class="pa-hint">不在聊天里，方案会放在「未分角色」，之后可在 ✏️ 里改归属。</p>'}
+            ${persona ? `<label class="pa-inline-check"><input type="checkbox" data-f="persona" checked> 同时记下人设「${esc(personaName || persona)}」</label>` : ""}
+            ${site ? `<label class="pa-inline-check"><input type="checkbox" data-f="site" checked> 同时记下 API 站点「${esc(site.name)}」</label>` : '<p class="pa-hint">当前连接还没存成站点，不能记下 API。可先在上方点「保存为站点」。</p>'}
+            <details class="pa-tip"><summary>记录范围：${groups.length ? "勾选的分组" : "全部条目"}</summary><div class="pa-tip-body">
+                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="groups" ${groups.length ? "checked" : "disabled"}> 只记录勾选的分组（其他条目不受影响）</label>
+                <div class="pa-groups-pick">${groups.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${LIKELY.test(g.name) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || '<p class="pa-hint">此预设暂无分组</p>'}</div>
+                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="all" ${groups.length ? "" : "checked"}> 记录全部条目</label></div></details>
         </div>`);
     const r = await sheet({
-      title: "保存为方案",
-      body,
-      wide: true,
+      title: "保存为方案", body, wide: true,
       actions: [{ label: "取消", value: null }, {
-        label: "保存",
-        kind: "primary",
+        label: "保存", kind: "primary",
         validate: (w) => {
-          if (!w.querySelector("[data-f=name]").value.trim()) {
-            toast("请填写方案名称");
-            return false;
-          }
+          if (!w.querySelector("[data-f=name]").value.trim()) { toast("请填写方案名称"); return false; }
           return true;
         },
         value: (w) => ({
           name: w.querySelector("[data-f=name]").value.trim(),
           scope: w.querySelector("input[name=pa-scope]:checked")?.value === "all" ? "all" : [...w.querySelectorAll("[data-g]:checked")].map((x) => x.dataset.g),
           persona: !!w.querySelector("[data-f=persona]")?.checked,
-          site: !!w.querySelector("[data-f=site]")?.checked
+          site: !!w.querySelector("[data-f=site]")?.checked,
+          char: !!w.querySelector("[data-f=char]")?.checked,
+          bind: !!w.querySelector("[data-f=bind]")?.checked
         })
       }]
     });
     if (!r) return;
     if (Array.isArray(r.scope) && !r.scope.length) return toast("请至少勾选一个分组，或选择记录全部条目", "warning");
-    const s = { id: uid(), name: r.name, preset: d.name, scope: r.scope, persona: r.persona ? persona : null, personaName: r.persona ? personaName : "", siteId: r.site && site ? site.id : null };
+    const s = { id: uid(), name: r.name, preset: d.name, scope: r.scope, persona: r.persona ? persona : null, personaName: r.persona ? personaName : "", siteId: r.site && site ? site.id : null, charKey: r.char && ck ? ck : "", at: Date.now(), usedAt: Date.now() };
     Object.assign(s, schemeStates(d, s));
     all().push(s);
-    saveSettings();
-    toast(`已保存方案「${s.name}」`, "success");
-    render();
-  });
-  box.addEventListener("click", async (e) => {
-    const art = e.target.closest(".pa-scheme");
-    const a = e.target.closest("[data-a]")?.dataset.a;
-    if (!art || !a) return;
-    const s = all().find((x) => x.id === art.dataset.id);
-    if (!s) return;
-    if (a === "apply") {
-      await applyScheme(s);
-      setFocusPreset(s.preset);
-      render();
+    if (r.bind && hasChat()) {
+      chatMeta()[META_KEY] = s.id;
+      await saveChatMeta();
+      markChatHandled();
     }
-    if (a === "update") {
-      const d = getDraft(s.preset);
-      if (!await confirmBox("更新方案", `用当前的开关${s.persona ? "、人设" : ""}${s.siteId ? "、API 站点" : ""}覆盖方案「${s.name}」？`, "更新")) return;
+    saveSettings();
+    open.add(view() + "|" + groupKey(s));
+    toast(`已保存方案「${s.name}」${r.bind ? "，进入这个聊天时会自动切换到它" : ""}`, "success");
+    render();
+  }
+  async function editMenu(s) {
+    const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
+    const bind = bindingNow();
+    const v = await pickBox(`✏️ ${s.name}`, [
+      { label: "重命名", value: "rename" },
+      { label: "用现在的状态覆盖", sub: `把方案改成「${s.preset}」现在的开关${s.persona ? "、人设" : ""}${s.siteId ? "、API 站点" : ""}`, value: "update" },
+      { label: "换 API 站点", sub: site ? `现在：${site.name}` : "现在：不切换 API", value: "site" },
+      { label: "记录范围", sub: s.scope === "all" ? "现在：全部条目" : `现在：${s.scope.length} 个分组`, value: "scope" },
+      { label: "自动套用", sub: bind?.id === s.id ? `现在：${bind.scope === "chat" ? "进入这个聊天时" : "进入这个角色的聊天时"}` : "现在：不自动套用", value: "bind" },
+      { label: "改归属角色", sub: `现在：${charNameOf(schemeCharKey(s))}`, value: "char" },
+      { label: "删除方案", sub: "预设不受影响", value: "del" }
+    ]);
+    if (!v) return;
+    if (v === "rename") {
+      const n = await promptBox("方案名称", s.name);
+      if (n) { s.name = n; saveSettings(); }
+    }
+    if (v === "update") {
+      let d;
+      try { d = getDraft(s.preset); } catch (e) { return toast(e.message, "error"); }
+      if (!await confirmBox("用现在的状态覆盖", `用「${s.preset}」现在的开关${s.persona ? "、人设" : ""}${s.siteId ? "、API 站点" : ""}覆盖方案「${s.name}」？`, "覆盖")) return;
       Object.assign(s, schemeStates(d, s));
       const persona = currentPersona();
       if (s.persona && persona) {
@@ -218,59 +292,109 @@ function mountSchemes(page, { after } = {}) {
         s.personaName = listPersonas().find((p) => p.avatar === persona)?.name || "";
       }
       if (s.siteId && settings().activeSiteId) s.siteId = settings().activeSiteId;
+      s.at = Date.now();
       saveSettings();
       toast("方案已更新", "success");
-      render();
     }
-    if (a === "bind") {
-      if (!hasChat()) return toast("请先打开一个聊天");
-      const meta = chatMeta();
-      const ck = currentCharKey();
-      const cname = currentCharName();
-      const cur = meta[META_KEY] === s.id ? "chat" : ck && settings().schemeCharBind?.[ck] === s.id ? "char" : "none";
-      const v = await pickBox(`「${s.name}」什么时候自动套用`, [
-        { label: `${cur === "chat" ? "✓ " : ""}进入这个聊天时`, sub: "只对当前这个聊天生效", value: "chat" },
-        ...(ck ? [{ label: `${cur === "char" ? "✓ " : ""}进入「${cname}」的任何聊天时`, sub: "这个角色的新旧聊天都生效；单个聊天另有绑定时，以聊天的为准", value: "char" }] : []),
-        { label: `${cur === "none" ? "✓ " : ""}不自动套用`, sub: "只在你点「切换到此方案」时切换", value: "none" }
-      ], { hint: "自动套用只在进入聊天时切换一次。之后手动换预设、改开关，不会被改回来。" });
-      if (!v || v === cur) return;
-      if (!settings().schemeCharBind || typeof settings().schemeCharBind !== "object") settings().schemeCharBind = {};
-      const cb = settings().schemeCharBind;
-      // 先清掉这个方案在当前聊天、当前角色上的旧绑定
-      if (meta[META_KEY] === s.id) delete meta[META_KEY];
-      if (ck && cb[ck] === s.id) delete cb[ck];
-      if (v === "chat") meta[META_KEY] = s.id;
-      if (v === "char" && ck) cb[ck] = s.id;
-      await saveChatMeta();
+    if (v === "site") {
+      const sites = settings().sites;
+      const pick = await pickBox("切换方案时连哪个 API 站点", [...sites.map((x) => ({ label: `${x.id === s.siteId ? "✓ " : ""}${x.name}`, sub: x.model || "", value: x.id })), { label: `${s.siteId ? "" : "✓ "}不切换 API`, value: "__none" }]);
+      if (!pick) return;
+      s.siteId = pick === "__none" ? null : pick;
       saveSettings();
-      // 刚绑定的这个聊天算已经处理过，不会马上又切换一次
-      markChatHandled();
-      toast(v === "none" ? "已取消自动套用" : `已设置：进入${v === "chat" ? "这个聊天" : `「${cname}」的聊天`}时自动切换到「${s.name}」`, "success");
+    }
+    if (v === "scope") {
+      let d;
+      try { d = getDraft(s.preset); } catch (e) { return toast(`读不到预设「${s.preset}」：${e.message}`, "error"); }
+      const gs = d.groups.groups;
+      const body = el(`<div class="pa-form"><p class="pa-hint">改范围后，按「${esc(s.preset)}」现在的开关重新记录。</p>
+          <label class="pa-inline-check"><input type="radio" name="pa-scope2" value="groups" ${s.scope !== "all" ? "checked" : ""} ${gs.length ? "" : "disabled"}> 只记录勾选的分组</label>
+          <div class="pa-groups-pick">${gs.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${s.scope !== "all" && s.scope.includes(g.id) ? "checked" : ""}> ${esc(g.name)}</label>`).join("")}</div>
+          <label class="pa-inline-check"><input type="radio" name="pa-scope2" value="all" ${s.scope === "all" ? "checked" : ""}> 记录全部条目</label></div>`);
+      const r = await sheet({ title: "记录范围", body, wide: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => w.querySelector("input[name=pa-scope2]:checked")?.value === "all" ? "all" : [...w.querySelectorAll("[data-g]:checked")].map((x) => x.dataset.g) }] });
+      if (!r) return;
+      if (Array.isArray(r) && !r.length) return toast("请至少勾选一个分组，或选择记录全部条目", "warning");
+      s.scope = r;
+      Object.assign(s, schemeStates(d, s));
+      s.at = Date.now();
+      saveSettings();
+      toast("记录范围已更新", "success");
+    }
+    if (v === "bind") return bindMenu(s);
+    if (v === "char") {
+      const chars = (ctx().characters || []).filter((x) => x?.avatar);
+      const ck = schemeCharKey(s);
+      const pick = await pickName({ title: "归到哪个角色卡", current: ck || "__none", items: [{ value: "__none", label: "未分角色" }, ...chars.map((x) => ({ value: x.avatar, label: x.name }))] });
+      if (!pick) return;
+      s.charKey = pick === "__none" ? "" : pick;
+      saveSettings();
+    }
+    if (v === "del") {
+      if (!await confirmBox("删除方案", `删除「${s.name}」？预设不受影响。`, "删除", true)) return;
+      settings().schemes = all().filter((x) => x.id !== s.id);
+      const cb = settings().schemeCharBind || {};
+      for (const k of Object.keys(cb)) if (cb[k] === s.id) delete cb[k];
+      if (hasChat() && chatMeta()[META_KEY] === s.id) { delete chatMeta()[META_KEY]; await saveChatMeta(); }
+      saveSettings();
+    }
+    render();
+  }
+  async function bindMenu(s) {
+    if (!hasChat()) return toast("请先打开一个聊天");
+    const meta = chatMeta();
+    const ck = currentCharKey();
+    const cname = currentCharName();
+    const cur = meta[META_KEY] === s.id ? "chat" : ck && settings().schemeCharBind?.[ck] === s.id ? "char" : "none";
+    const v = await pickBox(`「${s.name}」什么时候自动套用`, [
+      { label: `${cur === "chat" ? "✓ " : ""}进入这个聊天时`, sub: "只对当前这个聊天生效", value: "chat" },
+      ...(ck ? [{ label: `${cur === "char" ? "✓ " : ""}进入「${cname}」的任何聊天时`, sub: "这个角色的新旧聊天都生效；单个聊天另有绑定时，以聊天的为准", value: "char" }] : []),
+      { label: `${cur === "none" ? "✓ " : ""}不自动套用`, sub: "只在你点「切换」时切换", value: "none" }
+    ], { hint: "自动套用只在进入聊天时切换一次。之后手动换预设、改开关，不会被改回来。" });
+    if (!v || v === cur) return;
+    if (!settings().schemeCharBind || typeof settings().schemeCharBind !== "object") settings().schemeCharBind = {};
+    const cb = settings().schemeCharBind;
+    if (meta[META_KEY] === s.id) delete meta[META_KEY];
+    if (ck && cb[ck] === s.id) delete cb[ck];
+    if (v === "chat") meta[META_KEY] = s.id;
+    if (v === "char" && ck) cb[ck] = s.id;
+    await saveChatMeta();
+    saveSettings();
+    markChatHandled();
+    toast(v === "none" ? "已取消自动套用" : `已设置：进入${v === "chat" ? "这个聊天" : `「${cname}」的聊天`}时自动切换到「${s.name}」`, "success");
+    render();
+  }
+  page.addEventListener("click", async (e) => {
+    const sv = e.target.closest("[data-s]")?.dataset.s;
+    if (sv === "new") return saveNew();
+    if (sv === "view") {
+      const v = await pickName({ title: "方案按什么分组", current: view(), search: false, items: VIEWS.map(([k, l]) => ({ value: k, label: l })) });
+      if (!v) return;
+      settings().schemeView = v;
+      saveSettings();
+      opened = false;
+      return render();
+    }
+    const a = e.target.closest("[data-a]")?.dataset.a;
+    if (a === "fold") {
+      const k = view() + "|" + e.target.closest(".pa-sgroup").dataset.k;
+      open.has(k) ? open.delete(k) : open.add(k);
+      return render();
+    }
+    const rowEl = e.target.closest(".pa-srow");
+    const s = rowEl && all().find((x) => x.id === rowEl.dataset.id);
+    if (!s) return;
+    if (a === "apply") {
+      await applyScheme(s);
+      setFocusPreset(s.preset);
       render();
     }
-    if (a === "more") {
-      const v = await pickBox(s.name, [{ label: "重命名", value: "rename" }, { label: "删除方案", value: "del" }]);
-      if (v === "rename") {
-        const n = await promptBox("方案名称", s.name);
-        if (n) {
-          s.name = n;
-          saveSettings();
-          render();
-        }
-      }
-      if (v === "del" && await confirmBox("删除方案", `删除「${s.name}」？预设不受影响。`, "删除", true)) {
-        settings().schemes = all().filter((x) => x.id !== s.id);
-        saveSettings();
-        render();
-      }
-    }
+    if (a === "edit") return editMenu(s);
+  });
+  page.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".pa-sghead")) { e.preventDefault(); e.target.click(); }
   });
   const off = onDraftChange(() => {
     if (page.isConnected && !page.hidden) render();
   });
-  return { render: () => {
-    picker.refresh();
-    render();
-  }, destroy: off };
+  return { render, destroy: off };
 }
-

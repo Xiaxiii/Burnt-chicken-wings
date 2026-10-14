@@ -89,8 +89,8 @@ await page.screenshot({ path: S + "c-4-archived.png" });
 // 套用方案 → 自动从归档恢复
 await page.click('[data-m="schemes"]');
 await page.waitForTimeout(200);
-const card = page.locator(".pa-scheme", { hasText: "旧文风" });
-assert.match(await card.innerText(), /已归档，套用时自动恢复/);
+const card = page.locator(".pa-srow", { hasText: "旧文风" });
+assert.match(await card.innerText(), /已归档/);
 await card.locator('[data-a="apply"]').click();
 await page.waitForTimeout(1200);
 assert.equal(calls.save.length, 1, "套用方案时恢复了归档");

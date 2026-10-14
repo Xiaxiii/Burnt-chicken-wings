@@ -1,0 +1,78 @@
+// 方案：按角色卡分组、点箭头展开；保存时记到当前角色并可绑定本聊天；同一聊天里自动套用只做一次。
+// 用法同 clean-check.mjs
+import { chromium } from "playwright";
+import assert from "node:assert";
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const errs = [];
+page.on("pageerror", (e) => errs.push(e.message));
+await page.goto("http://127.0.0.1:8765/test/site/index.html");
+await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+const ok = (m) => console.log("✓", m);
+const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier);
+
+await page.evaluate(() => {
+  const c = window.SillyTavern.getContext();
+  c.characters = [{ name: "沈砚", avatar: "shen.png" }, { name: "林栖", avatar: "lin.png" }];
+  c.characterId = "0";
+  const m = window.__mock;
+  c.extensionSettings.presetAtelier = { schemes: [{ id: "old", name: "旧方案", preset: m.names[0], scope: "all", states: {}, groupStates: {} }] };
+  window.__presetAtelier.open("more", "schemes");
+});
+await page.waitForTimeout(500);
+
+// 1) 当前角色还没有这个预设的方案：顶上提示；保存时记到角色下面，并绑定本聊天
+assert.match(await page.$eval(".pa-scheme-nudge", (x) => x.textContent), /沈砚.*还没有/);
+await page.click(".pa-scheme-nudge [data-s=new]"); await page.waitForTimeout(200);
+assert.ok(await page.locator(".pa-sheet [data-f=char]").isChecked(), "默认记到当前角色");
+await page.fill(".pa-sheet [data-f=name]", "沈砚·正剧");
+await page.check(".pa-sheet [data-f=bind]");
+await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
+let st = await S();
+const mine = st.schemes.find((x) => x.name === "沈砚·正剧");
+assert.equal(mine.charKey, "shen.png");
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chatMetadata.presetAtelierScheme), mine.id);
+ok("保存时记到当前角色，并绑定本聊天");
+
+// 2) 按角色卡分组：当前角色一组展开，「未分角色」收起，点箭头展开
+const heads = await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent));
+assert.deepEqual(heads, ["沈砚", "未分角色"]);
+assert.match(await page.locator(".pa-sgroup.open", { hasText: "沈砚" }).innerText(), /沈砚·正剧[\s\S]*🔗本聊天/);
+const other = page.locator(".pa-sgroup", { hasText: "未分角色" });
+if (await other.evaluate((x) => x.classList.contains("open"))) { await other.locator(".pa-sghead").click(); await page.waitForTimeout(150); }
+assert.equal(await other.locator(".pa-srow").count(), 0, "收起时不显示方案");
+await other.locator(".pa-sghead").click(); await page.waitForTimeout(150);
+assert.match(await page.locator(".pa-sgroup", { hasText: "未分角色" }).innerText(), /旧方案/);
+ok("按角色卡分组，点箭头展开");
+
+// 3) ✏️ 改归属角色
+await page.locator(".pa-srow", { hasText: "旧方案" }).locator("[data-a=edit]").click(); await page.waitForTimeout(200);
+await page.click(".pa-pick-item >> text=改归属角色"); await page.waitForTimeout(200);
+await page.click(".pa-npick-item >> text=林栖"); await page.waitForTimeout(300);
+st = await S();
+assert.equal(st.schemes.find((x) => x.id === "old").charKey, "lin.png");
+assert.ok((await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent))).includes("林栖"));
+ok("✏️ 里改归属角色");
+
+// 4) 同一个聊天里再次收到聊天切换事件：不再自动套用（手动换的预设不会被换回去）
+const before = await page.evaluate(() => window.__mock.live.preset_settings_openai);
+await page.evaluate(async () => {
+  const m = window.__mock, c = window.SillyTavern.getContext();
+  const sc = c.extensionSettings.presetAtelier.schemes.find((x) => x.name === "沈砚·正剧");
+  sc.preset = m.names.find((n) => n !== m.live.preset_settings_openai) || sc.preset;
+  await c.eventSource.emit("chat_changed", "c1");
+});
+await page.waitForTimeout(1000);
+assert.equal(await page.evaluate(() => window.__mock.live.preset_settings_openai), before, "同一聊天不重复套用");
+ok("同一聊天里不重复自动套用");
+
+// 5) 按预设看：同一批方案按预设分组
+await page.click("[data-s=view]"); await page.waitForTimeout(200);
+await page.click(".pa-npick-item >> text=预设"); await page.waitForTimeout(300);
+const ph = await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent));
+assert.ok(ph.length >= 1 && ph.every((x) => !/沈砚|林栖/.test(x)));
+ok("可以改成按预设分组");
+
+assert.deepEqual(errs, []);
+console.log("方案检查全部通过");
+await browser.close();
