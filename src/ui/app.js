@@ -439,8 +439,25 @@ var keepConnection = debounce(async () => {
     applying = false;
   }
 }, 700);
+// 自动套用只在「进入一个聊天」时做一次。酒馆和别的扩展在同一个聊天里也会反复发出聊天切换事件
+// （重新载入聊天、改角色卡等），以前每次都套用，手动换的预设会被立刻换回去。现在同一个聊天只处理一次。
+var handledChat = null;
+function chatKeyNow() {
+  try {
+    return String(ctx().getCurrentChatId?.() || ctx().chatId || "");
+  } catch {
+    return "";
+  }
+}
+function markChatHandled() {
+  handledChat = chatKeyNow();
+}
 var onChatChanged = debounce(async () => {
-  const id = boundSchemeId();
+  const key = chatKeyNow();
+  if (!key || key === handledChat) return;
+  handledChat = key;
+  const bind = bindingNow();
+  const id = bind?.id;
   if (!id) return;
   const sc = settings().schemes.find((x) => x.id === id);
   if (!sc) return;
@@ -456,7 +473,7 @@ var onChatChanged = debounce(async () => {
     const site = sc.siteId ? settings().sites.find((x) => x.id === sc.siteId) : null;
     const siteOk = !site || !siteDiffers(site);
     if (presetOk && personaOk && siteOk && schemeMatches(d, sc)) return;
-    await applyScheme(sc, { quiet: true });
+    await applyScheme(sc, { quiet: true, why: bind.scope === "chat" ? "这个聊天绑定了它" : `「${currentCharName()}」绑定了它` });
   } catch (e) {
     console.warn("[焦香鸡翅] 套用聊天绑定方案失败", e);
     toast(`套用本聊天绑定的方案「${sc.name}」失败：${e.message}`, "warning");

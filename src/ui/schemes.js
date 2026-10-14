@@ -19,7 +19,7 @@ function schemeMatches(d, scheme) {
   }
   return true;
 }
-async function applyScheme(scheme, { quiet = false } = {}) {
+async function applyScheme(scheme, { quiet = false, why = "" } = {}) {
   // 1.5.0：预设已归档的，先从归档恢复
   if (!listPresets().includes(scheme.preset) && archiveList().some((x) => x.name === scheme.preset)) {
     try {
@@ -84,35 +84,57 @@ async function applyScheme(scheme, { quiet = false } = {}) {
   } finally {
     if (site) applying = false;
   }
-  toast(`已套用「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}${site ? `，API：${site.name}` : ""}`, "success");
+  toast(`${why ? `自动套用（${why}）：` : "已切换到"}「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}${site ? `，API：${site.name}` : ""}`, "success");
   return true;
 }
-function boundSchemeId() {
-  return hasChat() ? chatMeta()[META_KEY] || null : null;
+// 自动套用的绑定：聊天绑定存在聊天文件里；角色绑定存在本扩展设置里（这个角色的任何聊天都算）。聊天绑定优先
+function currentCharKey() {
+  const c = ctx();
+  if (c.groupId) return "group:" + c.groupId;
+  return c.characters?.[Number(c.characterId)]?.avatar || null;
 }
+function currentCharName() {
+  const c = ctx();
+  if (c.groupId) return c.groups?.find((g) => g.id === c.groupId)?.name || "本群聊";
+  return c.characters?.[Number(c.characterId)]?.name || "";
+}
+function bindingNow() {
+  if (!hasChat()) return null;
+  const chatId = chatMeta()[META_KEY];
+  if (chatId) return { scope: "chat", id: chatId };
+  const k = currentCharKey();
+  const charId = k ? settings().schemeCharBind?.[k] : null;
+  return charId ? { scope: "char", id: charId } : null;
+}
+function boundSchemeId() {
+  return bindingNow()?.id || null;
+}
+var BIND_LABEL = { chat: "本聊天", char: "本角色" };
 function mountSchemes(page, { after } = {}) {
   page.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">方案</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">保存当前状态为方案</button></div>
         <div class="pa-toolbar pa-toolbar-flat"><div class="pa-picker-slot"></div></div>
-        ${tip("方案记录一组条目的开关，可同时记录人设和 API 站点，可绑定聊天。套用时一并切换。")}
+        ${tip("方案记下一组条目开关，可同时记下人设和 API 站点。<br>「切换到此方案」：把预设、开关、人设、API 一次换成方案记的样子。<br>「用现在的覆盖」：把方案改成你现在的开关（和人设、API）。<br>「自动套用」：绑定本聊天或本角色后，进入那个聊天时自动切换一次；之后你手动换预设、改开关，不会被改回来。")}
         <div class="pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
   const all = () => settings().schemes;
   function card(s, d) {
-    const bound = boundSchemeId() === s.id;
+    const bind = bindingNow();
+    const bound = bind?.id === s.id ? bind.scope : null;
     const scope = s.scope === "all" ? "全部条目" : `${s.scope.map((g) => d?.group(g)?.name).filter(Boolean).slice(0, 4).join("、")}${s.scope.length > 4 ? ` 等 ${s.scope.length} 个分组` : ""}`;
     // 「使用中」要和酒馆实际生效的一致：预设正在用、开关一致、人设和 API 站点也对得上。只有开关一致时标「开关一致」
     const switchesOk = !!d && s.preset === d.name && schemeMatches(d, s);
     const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
     const on = switchesOk && currentPresetName() === s.preset && (!s.persona || currentPersona() === s.persona) && (!site || !siteDiffers(site, { ...liveConnection(), online: true }));
     return `<article class="pa-card pa-scheme${on ? " pa-scheme-on" : ""}" data-id="${esc(s.id)}">
-            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">已绑定本聊天</span>' : ""}</header>
+            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}</header>
             <small>${esc(s.preset)}${!listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset) ? "（已归档，套用时自动恢复）" : ""} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}${s.siteId ? ` \xB7 API ${esc(settings().sites.find((x) => x.id === s.siteId)?.name || "（站点已删除）")}` : ""}</small>
+            ${bound ? `<div class="pa-bindline">🔗 自动套用：进入${bound === "chat" ? "这个聊天" : `「${esc(currentCharName())}」的聊天`}时切换到此方案<button class="pa-link" data-a="bind">改</button></div>` : ""}
             <div class="pa-card-act">
-                <button class="pa-btn pa-btn-primary" data-a="apply">套用</button>
-                <button class="pa-btn" data-a="update">更新为当前状态</button>
-                <button class="pa-btn" data-a="bind">${bound ? "解除绑定" : "绑定本聊天"}</button>
+                <button class="pa-btn pa-btn-primary" data-a="apply" title="把预设、开关、人设、API 一次换成方案记的样子">切换到此方案</button>
+                <button class="pa-btn" data-a="update" title="把方案改成现在的开关（和人设、API）">用现在的覆盖</button>
+                ${bound ? "" : '<button class="pa-btn" data-a="bind" title="进入聊天时自动切换到此方案">🔗 自动套用…</button>'}
                 <button class="pa-icon-btn" data-a="more" aria-label="更多">⋯</button>
             </div></article>`;
   }
@@ -203,10 +225,27 @@ function mountSchemes(page, { after } = {}) {
     if (a === "bind") {
       if (!hasChat()) return toast("请先打开一个聊天");
       const meta = chatMeta();
+      const ck = currentCharKey();
+      const cname = currentCharName();
+      const cur = meta[META_KEY] === s.id ? "chat" : ck && settings().schemeCharBind?.[ck] === s.id ? "char" : "none";
+      const v = await pickBox(`「${s.name}」什么时候自动套用`, [
+        { label: `${cur === "chat" ? "✓ " : ""}进入这个聊天时`, sub: "只对当前这个聊天生效", value: "chat" },
+        ...(ck ? [{ label: `${cur === "char" ? "✓ " : ""}进入「${cname}」的任何聊天时`, sub: "这个角色的新旧聊天都生效；单个聊天另有绑定时，以聊天的为准", value: "char" }] : []),
+        { label: `${cur === "none" ? "✓ " : ""}不自动套用`, sub: "只在你点「切换到此方案」时切换", value: "none" }
+      ], { hint: "自动套用只在进入聊天时切换一次。之后手动换预设、改开关，不会被改回来。" });
+      if (!v || v === cur) return;
+      if (!settings().schemeCharBind || typeof settings().schemeCharBind !== "object") settings().schemeCharBind = {};
+      const cb = settings().schemeCharBind;
+      // 先清掉这个方案在当前聊天、当前角色上的旧绑定
       if (meta[META_KEY] === s.id) delete meta[META_KEY];
-      else meta[META_KEY] = s.id;
+      if (ck && cb[ck] === s.id) delete cb[ck];
+      if (v === "chat") meta[META_KEY] = s.id;
+      if (v === "char" && ck) cb[ck] = s.id;
       await saveChatMeta();
-      toast(meta[META_KEY] ? `已绑定：进入本聊天时自动套用「${s.name}」` : "已解除绑定", "success");
+      saveSettings();
+      // 刚绑定的这个聊天算已经处理过，不会马上又切换一次
+      markChatHandled();
+      toast(v === "none" ? "已取消自动套用" : `已设置：进入${v === "chat" ? "这个聊天" : `「${cname}」的聊天`}时自动切换到「${s.name}」`, "success");
       render();
     }
     if (a === "more") {

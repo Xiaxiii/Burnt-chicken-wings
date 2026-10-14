@@ -1055,3 +1055,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-dead-main { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #pa-root .pa-dead .pa-chip { flex: none; max-width: none; }
 #pa-root .pa-dead > p { margin: 8px 0 0; }
+
+/* 方案卡片：自动套用的绑定写成一行 */
+#pa-root .pa-bindline { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-top: 6px; font-size: .86em; color: var(--pa-thread); }
+#pa-root .pa-bindline .pa-link { font-size: 1em; padding: 0 4px; }
