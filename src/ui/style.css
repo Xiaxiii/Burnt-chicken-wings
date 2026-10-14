@@ -1078,3 +1078,6 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-srow-main small { flex: 1 1 100%; color: var(--pa-dim); font-size: .8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #pa-root .pa-srow-on b { color: var(--pa-thread); }
 #pa-root .pa-srow .pa-icon-btn { font-size: .95em; }
+#pa-root .pa-scheme-pick { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+#pa-root .pa-srow-pick { cursor: pointer; }
+#pa-root .pa-srow-pick > input, #pa-root .pa-sghead > input { flex: none; margin: 0; }

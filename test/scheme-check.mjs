@@ -73,6 +73,24 @@ const ph = await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent))
 assert.ok(ph.length >= 1 && ph.every((x) => !/沈砚|林栖/.test(x)));
 ok("可以改成按预设分组");
 
+// 6) 🗑️ 勾选删除：整组勾选 + 单个勾选，删完绑定一起清掉
+await page.click("[data-s=view]"); await page.waitForTimeout(200);
+await page.click(".pa-npick-item >> text=角色卡"); await page.waitForTimeout(300);
+assert.ok(!/API/.test(await page.locator(".pa-srow small").first().innerText()), "方案行不显示 API");
+await page.click("[data-s=pickon]"); await page.waitForTimeout(150);
+assert.equal(await page.locator("[data-s=delpicked]").isDisabled(), true);
+await page.locator(".pa-srow", { hasText: "沈砚·正剧" }).click(); await page.waitForTimeout(150);
+assert.match(await page.locator(".pa-scheme-pick").innerText(), /已选 1 个/);
+await page.locator(".pa-sgroup", { hasText: "林栖" }).locator("[data-a=pickgroup]").check(); await page.waitForTimeout(150);
+assert.match(await page.locator(".pa-scheme-pick").innerText(), /已选 2 个/);
+await page.click("[data-s=delpicked]"); await page.waitForTimeout(200);
+await page.click(".pa-sheet-actions .pa-btn-danger, .pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
+st = await S();
+assert.equal(st.schemes.length, 0);
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chatMetadata.presetAtelierScheme), undefined);
+assert.equal(await page.locator("[data-s=pickon]").count(), 0, "没有方案时不显示 🗑️");
+ok("🗑️ 勾选删除（单个、整组），绑定一起清掉");
+
 assert.deepEqual(errs, []);
 console.log("方案检查全部通过");
 await browser.close();

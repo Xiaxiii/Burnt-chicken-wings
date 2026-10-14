@@ -64,7 +64,6 @@ function mountApi(liveBox, sitesBox) {
               <dt>密钥</dt><dd>${esc(x.keyMask || (x.secretId ? "已保存" : "使用当前密钥"))}</dd>
               <dt>模型</dt><dd>${modelBtn(isLive ? live.model : x.model, isLive ? 'data-a="livemodel"' : 'data-a="sitemodel"')}${x.source === "custom" && !isLive ? '<button class="pa-link" data-a="fetch">获取模型列表</button>' : ""}
                 ${isLive && modelDiff ? `<span class="pa-hint">站点记的是「${esc(x.model)}」。切换预设后会换回它。</span><button class="pa-link" data-a="keepmodel">改记为当前模型</button>` : ""}</dd>
-              ${usedBy(x.id).length ? `<dt>用于</dt><dd>${settings().schemes.filter((sc) => sc.siteId === x.id).map((sc) => `方案「${esc(sc.name)}」（${esc(sc.preset)}）`).join("、")}</dd>` : ""}
               ${x.note ? `<dt>备注</dt><dd>${esc(x.note)}</dd>` : ""}
             </dl>
             <div class="pa-card-act">${isLive ? '<button class="pa-btn" data-a="reconnect">重新连接</button>' : ""}<button class="pa-btn" data-a="edit">编辑</button>${x.source === "custom" && isLive ? '<button class="pa-btn" data-a="fetch">获取模型列表</button>' : ""}<button class="pa-btn pa-btn-danger-soft" data-a="del">删除</button></div>` : ""}

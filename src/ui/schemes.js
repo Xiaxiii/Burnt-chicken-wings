@@ -136,7 +136,7 @@ function mountSchemes(page, { after } = {}) {
   const VIEWS = [["char", "角色卡"], ["preset", "预设"], ["persona", "人设"]];
   page.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">方案</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">保存当前状态为方案</button></div>
-        <div class="pa-scheme-bar"><span class="pa-dim">按</span><button class="pa-namebtn pa-namebtn-s" data-s="view" type="button"><span></span><i aria-hidden="true">▾</i></button><span class="pa-dim">分组</span></div>
+        <div class="pa-scheme-bar"><span class="pa-dim">按</span><button class="pa-namebtn pa-namebtn-s" data-s="view" type="button"><span></span><i aria-hidden="true">▾</i></button><span class="pa-dim">分组</span><span class="pa-scheme-pick"></span></div>
         ${tip("方案记下预设、一组条目开关，可同时记下人设和 API 站点。<br>「切换」：把预设、开关、人设、API 一次换成方案记的样子。<br>✏️ 里可以重命名、用现在的状态覆盖、换 API 站点、改记录范围、设置自动套用、改归属角色、删除。<br>「自动套用」：绑定本聊天或本角色后，进入那个聊天时自动切换一次；之后你手动换预设、改开关，不会被改回来。")}
         <div class="pa-scheme-nudge"></div>
         <div class="pa-schemes"></div>`;
@@ -145,6 +145,9 @@ function mountSchemes(page, { after } = {}) {
   const all = () => settings().schemes;
   const open = new Set();
   let opened = false;
+  // 🗑️ 勾选删除
+  let picking = false;
+  const picked = new Set();
   const view = () => VIEWS.some(([k]) => k === settings().schemeView) ? settings().schemeView : "char";
   const groupKey = (s) => view() === "preset" ? s.preset : view() === "persona" ? s.persona ? s.personaName || s.persona : "" : schemeCharKey(s);
   const groupName = (k) => view() === "char" ? charNameOf(k) : k || (view() === "persona" ? "没记人设" : "");
@@ -160,9 +163,10 @@ function mountSchemes(page, { after } = {}) {
       view() !== "preset" ? esc(s.preset) + (archived ? "（已归档）" : "") : "",
       view() !== "persona" ? s.persona ? esc(s.personaName || s.persona) : "" : "",
       view() !== "char" && schemeCharKey(s) ? esc(charNameOf(schemeCharKey(s))) : "",
-      site ? "API " + esc(site.name) : s.siteId ? "API（站点已删除）" : "",
       shortTime(Math.max(s.usedAt || 0, s.at || 0))
     ].filter(Boolean).join(" · ");
+    if (picking) return `<label class="pa-srow pa-srow-pick" data-id="${esc(s.id)}"><input type="checkbox" data-a="pick" ${picked.has(s.id) ? "checked" : ""}>
+        <div class="pa-srow-main"><b>${esc(s.name)}</b>${bound ? `<span class="pa-chip pa-chip-cot">🔗${BIND_LABEL[bound]}</span>` : ""}<small>${meta}</small></div></label>`;
     return `<div class="pa-srow${on ? " pa-srow-on" : ""}" data-id="${esc(s.id)}">
         <div class="pa-srow-main"><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? `<span class="pa-chip pa-chip-cot" title="进入${bound === "chat" ? "这个聊天" : "这个角色的聊天"}时自动切换到它">🔗${BIND_LABEL[bound]}</span>` : ""}
         <small>${meta}</small></div>
@@ -176,6 +180,12 @@ function mountSchemes(page, { after } = {}) {
     } catch {
     }
     page.querySelector('[data-s="view"] span').textContent = VIEWS.find(([k]) => k === view())[1];
+    for (const id of [...picked]) if (!all().some((x) => x.id === id)) picked.delete(id);
+    if (picking && !all().length) picking = false;
+    page.querySelector(".pa-scheme-pick").innerHTML = picking
+      ? `<span class="pa-dim">已选 ${picked.size} 个</span><button class="pa-btn pa-btn-s pa-btn-danger" data-s="delpicked" ${picked.size ? "" : "disabled"}>删除</button><button class="pa-btn pa-btn-s" data-s="pickoff">取消</button>`
+      : all().length ? '<button class="pa-icon-btn" data-s="pickon" aria-label="勾选删除方案" title="勾选删除方案">🗑️</button>' : "";
+    page.classList.toggle("pa-schemes-picking", picking);
     // 当前角色在用的预设还没有方案：提示一句
     const ck = hasChat() ? currentCharKey() : null;
     const cur = currentPresetName();
@@ -204,7 +214,7 @@ function mountSchemes(page, { after } = {}) {
       const list = groups.get(k).sort((a, b) => t(b) - t(a));
       const isOpen = open.has(view() + "|" + k);
       return `<section class="pa-sgroup${isOpen ? " open" : ""}" data-k="${esc(k)}">
-          <header class="pa-sghead" data-a="fold" tabindex="0"><span class="pa-sgcaret">${isOpen ? "▾" : "▸"}</span><b>${esc(groupName(k))}</b>${k === mineKey && k ? '<span class="pa-chip pa-chip-dim">当前</span>' : ""}<small>${list.length} 个方案</small></header>
+          <header class="pa-sghead" data-a="fold" tabindex="0"><span class="pa-sgcaret">${isOpen ? "▾" : "▸"}</span>${picking ? `<input type="checkbox" data-a="pickgroup" aria-label="选中这一组" ${list.every((s) => picked.has(s.id)) ? "checked" : ""}>` : ""}<b>${esc(groupName(k))}</b>${k === mineKey && k ? '<span class="pa-chip pa-chip-dim">当前</span>' : ""}<small>${list.length} 个方案</small></header>
           ${isOpen ? `<div class="pa-sgbody">${list.map((s) => row(s, d)).join("")}</div>` : ""}</section>`;
     }).join("");
     after?.();
@@ -331,13 +341,17 @@ function mountSchemes(page, { after } = {}) {
     }
     if (v === "del") {
       if (!await confirmBox("删除方案", `删除「${s.name}」？预设不受影响。`, "删除", true)) return;
-      settings().schemes = all().filter((x) => x.id !== s.id);
-      const cb = settings().schemeCharBind || {};
-      for (const k of Object.keys(cb)) if (cb[k] === s.id) delete cb[k];
-      if (hasChat() && chatMeta()[META_KEY] === s.id) { delete chatMeta()[META_KEY]; await saveChatMeta(); }
-      saveSettings();
+      await removeSchemes([s.id]);
     }
     render();
+  }
+  async function removeSchemes(ids) {
+    const gone = new Set(ids);
+    settings().schemes = all().filter((x) => !gone.has(x.id));
+    const cb = settings().schemeCharBind || {};
+    for (const k of Object.keys(cb)) if (gone.has(cb[k])) delete cb[k];
+    if (hasChat() && gone.has(chatMeta()[META_KEY])) { delete chatMeta()[META_KEY]; await saveChatMeta(); }
+    saveSettings();
   }
   async function bindMenu(s) {
     if (!hasChat()) return toast("请先打开一个聊天");
@@ -366,6 +380,21 @@ function mountSchemes(page, { after } = {}) {
   page.addEventListener("click", async (e) => {
     const sv = e.target.closest("[data-s]")?.dataset.s;
     if (sv === "new") return saveNew();
+    if (sv === "pickon" || sv === "pickoff") {
+      picking = sv === "pickon";
+      picked.clear();
+      return render();
+    }
+    if (sv === "delpicked") {
+      const names = all().filter((x) => picked.has(x.id)).map((x) => `「${x.name}」`);
+      if (!names.length) return;
+      if (!await confirmBox("删除方案", `删除 ${names.length} 个方案：${names.slice(0, 6).join("、")}${names.length > 6 ? " 等" : ""}？预设不受影响。`, "删除", true)) return;
+      await removeSchemes([...picked]);
+      picking = false;
+      picked.clear();
+      toast(`已删除 ${names.length} 个方案`, "success");
+      return render();
+    }
     if (sv === "view") {
       const v = await pickName({ title: "方案按什么分组", current: view(), search: false, items: VIEWS.map(([k, l]) => ({ value: k, label: l })) });
       if (!v) return;
@@ -375,6 +404,19 @@ function mountSchemes(page, { after } = {}) {
       return render();
     }
     const a = e.target.closest("[data-a]")?.dataset.a;
+    if (a === "pickgroup") {
+      const k = e.target.closest(".pa-sgroup").dataset.k;
+      const ids = all().filter((x) => String(groupKey(x)) === k).map((x) => x.id);
+      for (const id of ids) e.target.checked ? picked.add(id) : picked.delete(id);
+      if (e.target.checked) open.add(view() + "|" + k);
+      return render();
+    }
+    if (a === "pick") {
+      const id = e.target.closest(".pa-srow").dataset.id;
+      e.target.checked ? picked.add(id) : picked.delete(id);
+      return render();
+    }
+    if (picking && e.target.closest(".pa-srow")) return;
     if (a === "fold") {
       const k = view() + "|" + e.target.closest(".pa-sgroup").dataset.k;
       open.has(k) ? open.delete(k) : open.add(k);
