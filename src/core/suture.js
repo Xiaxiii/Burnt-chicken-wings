@@ -175,7 +175,7 @@ function findInitEntry(draft) {
   return best;
 }
 function describeTarget(t) {
-  if (t.shape === "wrap") return `正文写入变量「${t.varName}」（${t.op === "set" ? "setvar 覆盖，单选" : "addvar 追加"}）`;
+  if (t.shape === "wrap") return `正文写入变量「${t.varName}」（${t.op === "set" ? "多选一" : "可叠加"}）`;
   if (t.shape === "tagname") return `正文直写，末尾将名称登记到变量「${t.varName}」`;
   return "正文直写，不使用变量";
 }
@@ -222,7 +222,7 @@ ${body}`;
 }
 // 1.2.0：用大白话说清楚"来源怎么写的 → 目标要怎么写 → 我改了什么"
 function opText(op) {
-  return op === "set" ? "setvar（同一变量只保留排在最后的开启条目，相当于单选）" : "addvar（开启的条目依次拼接，可多选）";
+  return op === "set" ? "多选一的写法（开启多条时只有最后一条生效）" : "可叠加的写法（开启的条目依次拼接）";
 }
 function explainConversion(s, want) {
   const from = s.shape === "init" || s.shape === "empty" ? "plain" : s.shape;
@@ -241,7 +241,7 @@ function explainConversion(s, want) {
   else if (from === "wrap" && to === "tagname") out.push(`来源将正文写入「${s.varName}」，目标为正文直写，末尾将名称登记到「${want.varName}」。已调整`);
   else out.push(`写法：${SHAPE_LABEL[from] || from} → ${SHAPE_LABEL[to] || to}`);
   if ((to === "wrap" || to === "tagname") && s.op === "add" && want.op === "set") {
-    out.push("注意：来源使用 addvar，可与其他条目叠加；目标使用 setvar，同时开启多条时只有最后一条生效。如需叠加，请在「高级」中将写入方式改为 addvar");
+    out.push("注意：来源的写法可以和其他条目叠加；目标是多选一，同时开启多条时只有最后一条生效。需要叠加时，请在「高级」中把写入方式改为「可叠加」");
   }
   return out;
 }
@@ -299,10 +299,10 @@ ${String(body).trim()}
     changes.push(`开头标题：${target.headerTpl.hashes} ${target.headerTpl.word}${target.headerTpl.sep} ${shortName}`);
   }
   if (target.slot && want.varName === target.slot.varName && want.shape === target.slot.shape) {
-    changes.push(`加入单选「${target.slot.varName}」：开启后替换同类中已开启的一条`);
+    changes.push(`加入多选一「${target.slot.varName}」：开启后替换同类中已开启的一条`);
   }
   if (target.slot && !slotAllowed && !choice.shape) {
-    notes.push(`附近是单选「${target.slot.varName}」（多条中只保留一条）。此条目与它们不属同类，未加入，以免替换已选项。如属同类，可在「高级」中调整写法`);
+    notes.push(`附近是多选一「${target.slot.varName}」（开启多条时只有一条生效）。此条目与它们不属同类，未加入，以免替换已选项。如属同类，可在「高级」中调整写法`);
   }
   const keepExtras = choice.keepExtras ?? false;
   const extras = keepExtras ? s.extras || [] : [];
@@ -321,7 +321,7 @@ ${String(body).trim()}
   }
   const content = buildContent(body, want, { label, extras });
   if (want.shape === "tagname" && target.labelTpl) {
-    notes.unshift(`目标的同类条目向变量「${want.varName}」登记问句（${want.op === "set" ? "setvar，同时开启多条时只保留最后一条，相当于单选" : "addvar，开启的条目依次拼接"}），由思维链读取。已按此登记：${label}`);
+    notes.unshift(`目标的同类条目向变量「${want.varName}」登记问句（${want.op === "set" ? "多选一：开启多条时只有最后一条生效" : "可叠加：开启的条目依次拼接"}），由思维链读取。已按此登记：${label}`);
   } else notes.unshift(...explainConversion(s, want));
   const warnings = [];
   if (want.varName && (want.shape === "wrap" || want.shape === "tagname")) {
@@ -451,7 +451,7 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   const content = String(item.content || "");
   const bodyText = String(detectShape(content).body || content).replace(/\{\{[^{}]*\}\}/g, "");
   if (bodyText.trim().length < 20) return { status: "skip", on: false, text: "内容过短（分隔或开关条目），无需接入" };
-  if (COT_NAME.test(item.name || "") || /<thinking>|<think>|##\s*phase|##\s*step/i.test(content)) return { status: "cot", on: false, text: "本身是思维链片段，无需接入" };
+  if (COT_NAME.test(item.name || "") || COT_BODY.test(content)) return { status: "cot", on: false, text: "本身是思维链片段，无需接入" };
   const a = analyze(draft);
   const cotSet = new Set(a.cotIds);
   const cotIds = a.cotIds.filter((id) => id !== item.selfId);
@@ -586,7 +586,7 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
     const late = lateWarn(pick.cotId);
     return {
       ...common, on: common.on && !late, warns: late ? [late] : [], clash: false, mode: "slot", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, question: q2,
-      text: `${why}附近 ${anchorWriters.length} 条向变量「${pick.anchorVar}」登记问句（setvar，同时开启多条时只保留最后一条，相当于单选），由「${cotName}」读取。按此登记`
+      text: `${why}附近 ${anchorWriters.length} 条向变量「${pick.anchorVar}」登记问句（多选一：开启多条时只有最后一条生效），由「${cotName}」读取。按此登记`
     };
   }
   if (pick.op === "add" && anchorWriters.length >= 2 && !wantVar) {

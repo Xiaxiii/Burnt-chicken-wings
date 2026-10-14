@@ -36,19 +36,20 @@ function mountSuture(page, app) {
                 <div class="pa-seg" role="tablist">
                     <button data-src="preset" class="on">预设</button><button data-src="world">世界书</button><button data-src="file">文件</button><button data-src="paste">粘贴</button>
                 </div>
+                <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
             <div class="pa-src-pick"></div>
             <div class="pa-scroll pa-src-list"></div>
         </div>
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整两栏大小" title="拖动调整大小"><span></span></div>
         <div class="pa-pane pa-dst">
-            <div class="pa-pane-head"><b>目标</b><div class="pa-seg pa-seg-s pa-dst-seg" role="tablist"><button data-dst="preset" class="on">预设</button><button data-dst="world">世界书</button></div><div class="pa-dst-picker"></div><select class="pa-select pa-dst-wb" aria-label="目标世界书" hidden></select><button class="pa-mini" data-st="newgroup">＋ 新建分组</button></div>
+            <div class="pa-pane-head"><b>目标</b><div class="pa-seg pa-seg-s pa-dst-seg" role="tablist"><button data-dst="preset" class="on">预设</button><button data-dst="world">世界书</button></div><div class="pa-dst-picker"></div><select class="pa-select pa-dst-wb" aria-label="目标世界书" hidden></select></div>
             <p class="pa-hint pa-dst-hint"></p>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
     </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><b class="pa-picked-n">未选条目</b><span class="pa-where">未选位置</span></div>
+        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><span class="pa-where">未选位置</span></div>
         <button class="pa-btn" data-st="wbundo" hidden>撤销</button>
         <button class="pa-btn" data-st="clear" title="清空已选的条目和缝合位置">清空</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
@@ -121,8 +122,7 @@ function mountSuture(page, app) {
       const names = listPresets();
       if (!st.srcPreset || !names.includes(st.srcPreset)) st.srcPreset = names.find((n) => n !== focusPreset()) || names[0];
       srcPick.innerHTML = `<select class="pa-select" aria-label="来源预设">${names.map((n) => `<option ${n === st.srcPreset ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
-                <input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" value="${esc(st.srcQuery)}">
-                ${st.dstType === "preset" ? '<button class="pa-mini" data-st="migrate" title="把来源（旧版）中你缝进去的条目，搬到目标（新版）的对应位置">搬到新版</button>' : ""}`;
+                <input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" value="${esc(st.srcQuery)}">`;
     } else if (st.srcType === "world") {
       const names = listWorldbooks();
       if (!st.srcWorld || !names.includes(st.srcWorld)) st.srcWorld = names[0] || null;
@@ -332,7 +332,6 @@ function mountSuture(page, app) {
     page.querySelectorAll(".pa-dst-seg button").forEach((x) => x.classList.toggle("on", x === b));
     page.querySelector(".pa-dst-picker").hidden = st.dstType !== "preset";
     page.querySelector(".pa-dst-wb").hidden = st.dstType !== "world";
-    page.querySelector("[data-st=newgroup]").hidden = st.dstType !== "preset";
     renderSrcPick();
     renderDst();
   });
@@ -360,7 +359,7 @@ function mountSuture(page, app) {
     st.marker = fixPlace(d, st.marker);
     const top = dstList.scrollTop;
     dstList.classList.add("pa-placing");
-    dstList.innerHTML = renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
+    dstList.innerHTML = (st.newName ? "" : '<button class="pa-slot pa-slot-new" data-st="newgroup">＋ 新建分组…</button>') + renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
     const hint = page.querySelector(".pa-dst-hint");
     hint.textContent = "点组名：缝到该组之后。展开分组后点条目：缝入组内。";
     hint.hidden = !!st.marker || !!st.newName;
@@ -421,7 +420,9 @@ function mountSuture(page, app) {
     } catch {
     }
     const m = st.dstType === "world" ? st.wbMarker : st.marker;
-    bar.querySelector(".pa-picked-n").textContent = n ? `已选 ${n} 条` : "未选条目";
+    const pn = bar.querySelector(".pa-picked-n");
+    pn.textContent = n ? `已选 ${n} 条 ▸` : "未选条目";
+    pn.disabled = !n;
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : "未选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
     bar.querySelector("[data-st=clear]").disabled = !(n || m);
@@ -442,6 +443,22 @@ function mountSuture(page, app) {
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
     if (a === "migrate") migrate();
+    if (a === "picked") return pickedSheet();
+    if (a === "srcmenu") {
+      const v = await pickBox("更多操作", [
+        { label: "搬到新版…", sub: "预设出了新版本时：来源选旧版、目标选新版，把旧版里你缝进去的条目按原位置搬过去", value: "migrate" },
+        { label: "清空已选条目", value: "clearpicked" }
+      ]);
+      if (v === "migrate") {
+        if (st.srcType !== "preset" || st.dstType !== "preset") return toast("请把来源和目标都切到「预设」：来源选旧版，目标选新版");
+        return migrate();
+      }
+      if (v === "clearpicked") {
+        st.picked.clear();
+        renderSrc();
+        return renderBar();
+      }
+    }
     if (a === "wbundo") undoWorld();
     if (a === "newgroup") {
       const n = await promptBox("新分组名称", "", "例如：文风");
@@ -454,6 +471,25 @@ function mountSuture(page, app) {
       renderDst();
     }
   });
+  // 已选条目清单：跨预设、世界书、粘贴选的都在这里，可以单独去掉
+  async function pickedSheet() {
+    if (!st.picked.size) return;
+    const body = el('<div class="pa-pick"></div>');
+    const paint = () => {
+      const rows = [...st.picked.entries()];
+      body.innerHTML = rows.map(([k, v]) => `<div class="pa-pick-item pa-picked-row"><span><b>${esc(v.name || "（无名）")}</b><small>${esc(v.from || "")}</small></span><button class="pa-btn pa-btn-s" data-k="${esc(k)}">去掉</button></div>`).join("") || '<p class="pa-hint">没有已选的条目</p>';
+    };
+    paint();
+    body.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      st.picked.delete(b.dataset.k);
+      paint();
+      renderSrc();
+    });
+    await sheet({ title: "已选的条目", body, actions: [{ label: "完成", kind: "primary", value: true }] });
+    renderSrc();
+  }
   // 这条材料所在的来源分组是不是整组都选了（酒馆位置条目不算）
   function wholeGroupOf(src) {
     const sd = src.srcDraft;
@@ -493,7 +529,7 @@ function mountSuture(page, app) {
           if (!srcProfs.has(src.srcDraft)) srcProfs.set(src.srcDraft, profilePreset(src.srcDraft));
           desc = describeEntry(src.srcDraft, src.srcId, srcProfs.get(src.srcDraft));
         } catch (e) {
-          console.warn("[裁缝铺] 来源分析失败", e);
+          console.warn("[焦香鸡翅] 来源分析失败", e);
         }
       }
       return { src: { ...src, sections: desc?.inside || [] }, desc, choice: hook ? { hook: true } : {}, autoHook: !!spec && !hook, manual: null, enabled: enabled ?? true, srcGroup: spec ? null : wholeGroupOf(src), pos: posOf(marker) };
@@ -529,12 +565,15 @@ function mountSuture(page, app) {
                 ${single ? `<div><b>位置：${esc(placeText(d, marker))}</b></div>
                 ${grpRow}
                 <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `。位于 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 之内` : ""}</small>` : `<div><b>缝到 ${posCache.size} 个位置</b></div><small>按各条目在来源中的位置，分别放在目标中对应条目之后。每条的位置见条目详情。</small>`}
-                ${tgtProf.lines.length ? `<details class="pa-explain"><summary>目标预设的写法（${tgtProf.lines.length} 条）</summary><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : ""}
-                ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<details class="pa-explain"><summary>来源「${esc(sd.name)}」的写法（${pr.lines.length} 条）</summary><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : "").join("")}
+                <details class="pa-explain"><summary>更多选项和两边写法的分析</summary>
+                <div class="pa-explain-body">
                 <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝合时，角色和插入位置与目标一致</label>
                 <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名称后加「（来自来源预设）」</label>
+                ${tgtProf.lines.length ? `<b class="pa-sub">目标预设怎样让条目生效</b><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""}
+                ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<b class="pa-sub">来源「${esc(sd.name)}」怎样让条目生效</b><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "").join("")}
+                </div></details>
                 <div class="pa-hookbar"><span class="pa-hookbar-n"></span><button class="pa-btn pa-btn-s" data-g="hook-all">全部接入</button><button class="pa-btn pa-btn-s" data-g="hook-rec">推荐接入</button><button class="pa-btn pa-btn-s" data-g="hook-none">全部不接入</button></div>
-                <small>接入思维链会让思维链多一个问题，条目多时思考时间会变长。默认不接入。</small>
+                <small>接入思维链：让模型思考时专门想一下这条。每接入一条，思考就多一个问题，默认不接入。</small>
             </div>
             <div class="pa-items"></div>
         </div>`);
@@ -593,7 +632,7 @@ function mountSuture(page, app) {
       try {
         it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null });
       } catch (e) {
-        console.warn("[裁缝铺] 思维链检查失败", e);
+        console.warn("[焦香鸡翅] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，已跳过" };
       }
       // 搬到新版：没有缝合记录的条目，原预设的思维链读取过它就默认接入
@@ -627,10 +666,10 @@ function mountSuture(page, app) {
       const modes = same && !planSlot ? card("raw", "原样缝合", "两边写法相同，无需调整", rawContent) : [
         card("raw", "原样缝合", "不调整写法", rawContent),
         card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["正文不变，位置和角色与目标一致"]), ...planFix.warnings.map((w) => "⚠ " + w)]),
-        planSlot ? card("slot", `按目标写法缝合，并加入单选「${t.slot.varName}」`, "开启后，同类中已开启的一条会被替换", planSlot.content, planSlot.changes) : ""
+        planSlot ? card("slot", `按目标写法缝合，并加入多选一「${t.slot.varName}」`, "开启后，同类中已开启的一条会被替换", planSlot.content, planSlot.changes) : ""
       ].join("");
       const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);
-      const modeLabel = { raw: "原样", fix: "按目标写法", slot: "加入单选" }[mode];
+      const modeLabel = { raw: "原样", fix: "按目标写法", slot: "加入多选一" }[mode];
       const hookLabel = it.hook.status !== "hook" ? "" : it.hookOn ? '<span class="pa-chip pa-chip-cot">接入思维链</span>' : it.hook.on ? '<span class="pa-chip pa-chip-dim">推荐接入</span>' : "";
       // 默认收起，只显示一行摘要；点开看详情
       return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
@@ -649,7 +688,7 @@ function mountSuture(page, app) {
                 <div class="pa-item-ctl">
                     <label class="pa-field"><span>标题或标签中的名称</span><input class="pa-input pa-input-s" data-c="label" value="${esc(planFix.label)}"></label>
                     ${chosen.want?.varName && (chosen.want.shape === "wrap" || chosen.want.shape === "tagname") ? `<label class="pa-field"><span>变量</span><input class="pa-input pa-input-s" data-c="var" value="${esc(chosen.want.varName)}"></label>
-                    <label class="pa-field"><span>写入方式</span><select class="pa-select" data-c="op"><option value="add" ${chosen.want.op !== "set" ? "selected" : ""}>addvar 追加（可多选）</option><option value="set" ${chosen.want.op === "set" ? "selected" : ""}>setvar 覆盖（单选）</option></select></label>` : ""}
+                    <label class="pa-field"><span>写入方式</span><select class="pa-select" data-c="op"><option value="add" ${chosen.want.op !== "set" ? "selected" : ""}>可叠加（开启几条就拼几条，addvar）</option><option value="set" ${chosen.want.op === "set" ? "selected" : ""}>多选一（只有最后一条开着的生效，setvar）</option></select></label>` : ""}
                     ${planFix.sourceShape.extras?.length ? `<label class="pa-inline-check"><input type="checkbox" data-c="extras" ${it.choice.keepExtras ? "checked" : ""}> 保留来源中的 ${planFix.sourceShape.extras.length} 个附加宏</label>` : ""}
                 </div></details>` : ""}
                 <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</summary>

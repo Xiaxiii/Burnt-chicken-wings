@@ -1,4 +1,4 @@
-/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用"缝线"虚线做标记。所有选择器都限定在 #pa-root 内。 */
+/* 焦香鸡翅样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用"缝线"虚线做标记。所有选择器都限定在 #pa-root 内。 */
 
 #pa-root {
     --pa-text: var(--SmartThemeBodyColor, #e6e1d8);
@@ -202,7 +202,7 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-tools { display: none; }
     #pa-root .pa-tools-more { display: inline-flex; }
     #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }
-    #pa-root .pa-chip { max-width: 5em; }
+    #pa-root .pa-chip { max-width: 7em; }
     #pa-root .pa-badges { max-width: 32%; }
 }
 
@@ -520,6 +520,7 @@ html.pa-open body { overflow: hidden; }
 #pa-settings .pa-set-btns .menu_button { flex: 1 1 0; min-width: 7.5em; }
 #pa-settings .pa-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
 #pa-settings .pa-set-k { opacity: .7; min-width: 2.5em; }
+#pa-settings .pa-set-input { flex: 1 1 8em; min-width: 0; margin: 0; }
 #pa-settings .pa-set-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; }
 #pa-settings .pa-set-mini { font-size: .88em; padding: 2px 8px; }
 #pa-settings .pa-set-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9em; margin: 2px 0 6px; padding: 6px 8px; border-radius: 6px; border: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }
@@ -814,12 +815,6 @@ html.pa-open body { overflow: hidden; }
 }
 #pa-root .pa-h .pa-chip { max-width: none; }
 
-/* 1.7.1 后台中断补救提示条（在酒馆页面上，用酒馆的颜色） */
-#pa-rescue { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 10005; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; width: min(520px, calc(100vw - 20px)); box-sizing: border-box; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(30,30,34,.95)); color: var(--SmartThemeBodyColor, #ddd); box-shadow: 0 6px 24px rgba(0,0,0,.25); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: .92em; }
-#pa-rescue > span { flex: 1 1 100%; }
-#pa-rescue .pa-rescue-x { margin-left: auto !important; }
-#pa-rescue .menu_button { width: auto; margin: 0; padding: 4px 12px; white-space: nowrap; }
-#pa-rescue .pa-rescue-x { padding: 4px 8px; opacity: .7; }
 #pa-root .pa-dupgroups { margin: 6px 0 8px; }
 
 /* 原来写在 app.js 里的几条，挪到这里集中管理 */
@@ -855,3 +850,14 @@ html.pa-open body { overflow: hidden; }
 @supports (-webkit-touch-callout: none) {
     #pa-root .pa-input, #pa-root .pa-select, #pa-root .pa-text, #pa-root textarea, #pa-root input:not([type=checkbox]):not([type=radio]):not([type=range]) { font-size: max(16px, 1em); }
 }
+
+/* 1.8.0 缝合页：已选清单、目标列表里的新建分组、来源的更多操作 */
+#pa-root .pa-stitch-info .pa-picked-n { padding: 0; text-align: left; font-weight: 600; color: var(--pa-text); text-decoration: none; }
+#pa-root .pa-stitch-info .pa-picked-n:disabled { color: var(--pa-dim); cursor: default; }
+#pa-root .pa-picked-row { display: flex; align-items: center; gap: 8px; }
+#pa-root .pa-picked-row > span { flex: 1 1 auto; min-width: 0; display: grid; }
+#pa-root .pa-picked-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+#pa-root .pa-slot-new { color: var(--pa-thread); border-color: var(--pa-thread); }
+#pa-root .pa-src-menu { margin-left: auto; font-size: 1.2em; }
+#pa-root .pa-explain-body { display: grid; gap: 6px; margin-top: 6px; }
+#pa-root .pa-sub { font-size: .88em; color: var(--pa-dim); font-weight: 600; margin-top: 4px; }

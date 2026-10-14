@@ -201,7 +201,7 @@ test("包进变量的单选（setvar 同一个变量）也要守卫；读它的�
   assert.equal(tIn.shape, "wrap"); assert.ok(tIn.slot.between); assert.ok(tIn.readersOff);
   const p1 = A.planItem({ name: "状态栏（轻盈）", content: L("生成前置状态栏，三段式。") }, tIn, {});
   assert.ok(p1.content.startsWith("{{setvar::顶栏规范::"));
-  assert.ok(p1.changes.some((c) => c.includes("加入单选「顶栏规范」")));
+  assert.ok(p1.changes.some((c) => c.includes("加入多选一「顶栏规范」")));
   assert.ok(p1.warnings.some((w) => w.includes("未开启")));
   const tEnd = A.inferTarget(d, { after: "t3" }, null);
   const p2 = A.planItem({ name: "无关条目", content: L("这条和顶栏无关，是别的规则。") }, tEnd, {});
@@ -395,6 +395,81 @@ test("改了正文以后，思维链区段重新计算（1.8.0）", () => {
   assert.ok(A.analyze(d).cotIds.includes("b"));
   d.prompt("a").content = "普通条目";
   assert.ok(!A.analyze(d).cotIds.includes("b"));
+});
+
+test("思维链识别：英文整词匹配，正文里顺口提到 <thinking> 不算（1.8.0）", () => {
+  const d = mk([["a", "Scott的人设", "一段人设。"], ["b", "输出规则", "不要输出<thinking>标签里的内容。"], ["c", "CoT", "思考步骤"], ["d", "步骤", "<thinking>\n1. 先想\n</thinking>"]]);
+  const cot = A.analyze(d).cotIds;
+  assert.ok(!cot.includes("a") && !cot.includes("b"));
+  assert.ok(cot.includes("c") && cot.includes("d"));
+});
+
+
+// ---- 1.8.0：用合成的「问句变量式」预设覆盖原来依赖 Ako 真实预设的场景，干净环境也能跑
+// 结构：初始化条目每轮清空问句变量；每条各自登记一个问句变量；思维链逐个 getvar 读取
+const mkQ = ({ baibai = true, eg = false } = {}) => {
+  const long = (s) => `${s}。写作时注意节奏和细节，人物的言行要符合设定，场景描写要具体可感，避免空泛的形容。`;
+  const list = [
+    ["init", "♻️初始化", "{{setvar::问甲::}}{{setvar::问乙::}}{{setvar::问丙::}}"],
+    ["e1", "风格·甲", long("甲风格") + "\n{{setvar::问甲::甲风格怎么落实？}}"],
+    ["e2", "风格·乙", long("乙风格") + "\n{{setvar::问乙::乙风格怎么落实？}}"],
+    ["e3", "风格·丙", long("丙风格") + "\n{{setvar::问丙::丙风格怎么落实？}}"],
+    ["cot", "✨思维链：推演", "<thinking>\n{{getvar::问甲}}\n{{getvar::问乙}}\n{{getvar::问丙}}\n</thinking>"]
+  ];
+  const ext = {};
+  if (baibai) ext.baibaiToolkit = { presetPromptGroups: { version: 1, groups: [{ id: "g1", name: "风格" }], prompts: { e1: { groupId: "g1" }, e2: { groupId: "g1" }, e3: { groupId: "g1" } } } };
+  if (eg) ext.entryGrouping = [{ id: baibai ? "g1" : "x1", name: "风格", memberIdentifiers: ["e1", "e2", "e3"] }];
+  return mk(list, { extensions: ext });
+};
+test("分组（合成）：有百宝箱时保存去掉同 id 的 entryGrouping 镜像，二次保存也干净", () => {
+  const out = mkQ({ eg: true }).toPreset();
+  assert.ok(!out.extensions.entryGrouping);
+  assert.equal(out.extensions.baibaiToolkit.presetPromptGroups.groups.length, 1);
+  assert.ok(!new A.Draft("x", out).toPreset().extensions.entryGrouping);
+});
+test("分组（合成）：只有 entryGrouping 时读得出成员列表式分组、只写回 entryGrouping", () => {
+  const d = mkQ({ baibai: false, eg: true });
+  assert.equal(d.groups.groups.length, 1);
+  assert.equal(d.groupOf("e2"), "x1");
+  const out = d.toPreset();
+  assert.ok(!out.extensions.baibaiToolkit);
+  assert.equal(out.extensions.entryGrouping.length, 1);
+});
+test("问句变量式（合成）：每条各登记各的问句时，推断写法不去占用邻居的变量", () => {
+  const d = mkQ();
+  assert.equal(A.inferTarget(d, { groupEnd: "g1" }, "g1").shape, "plain");
+});
+test("问句变量式（合成）：新条目接入思维链，紧跟邻居的读取，并补初始化", () => {
+  const d = mkQ();
+  const src = { name: "风格·丁", content: "丁风格。写作时注意节奏和细节，人物的言行要符合设定，场景描写要具体可感。" };
+  const t = A.inferTarget(d, { after: "e3" }, "g1");
+  const plan = A.planItem(src, t, {});
+  const h = A.planHook(d, { after: "e3" }, "g1", { content: plan.content, name: src.name, label: plan.label });
+  assert.equal(h.mode, "own"); assert.equal(h.on, true); assert.equal(h.anchorVar, "问丙");
+  const ids = d.insertPrompts([{ prompt: { identifier: undefined, name: src.name, content: A.contentWithHook(plan.content, h) }, enabled: true }], { after: "e3" }, "g1");
+  const r = A.applyHook(d, h);
+  assert.ok(r.inited);
+  assert.ok(d.prompt("cot").content.includes(`{{getvar::问丙}}\n{{getvar::${h.varName}}}`));
+  assert.ok(d.prompt("init").content.includes(`{{setvar::${h.varName}::}}`));
+  assert.equal(A.analyze(d).coverage.get(ids[0]).level, "var");
+});
+test("写法分析（合成）：认出初始化条目和问句变量写法", () => {
+  const p = A.profilePreset(mkQ());
+  assert.equal(p.initId, "init");
+  assert.ok(p.perEntry.length >= 3);
+  assert.equal(p.cotStyle, "vars");
+});
+test("变量修复：写了没人读的变量，补在最后一个写入它的条目后面；有读取时不改（1.8.0）", () => {
+  const d = mk([["a", "甲", "{{setvar::文风::细腻}}"], ["b", "乙", "{{addvar::文风::，克制}}"], ["c", "丙", "正文"]]);
+  const plan = A.variableRepairPlan(d, "文风");
+  assert.equal(plan.last, "b");
+  assert.equal(plan.macro, "{{getvar::文风}}");
+  const d2 = mk([["a", "甲", "{{setvar::文风::细腻}}"], ["c", "丙", "{{getvar::文风}}"]]);
+  assert.throws(() => A.variableRepairPlan(d2, "文风"), /已有开启的条目读取/);
+});
+test("按变量名排序：类别按给定先后，类别内按编号（1.8.0）", () => {
+  const d = mk([["a", "甲", "{{setvar::风格2::\n内容\n}}"], ["b", "乙", "{{setvar::人设1::\n内容\n}}"], ["c", "丙", "{{setvar::风格1::\n内容\n}}"]]);
+  assert.deepEqual(A.sortTagIds(d, ["a", "b", "c"], ["风格", "人设"]), ["c", "a", "b"]);
 });
 
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

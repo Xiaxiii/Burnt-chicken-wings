@@ -5,7 +5,9 @@
  "ui/state.js",
  "core/macros.js",
  "core/cot.js",
+ "core/varrepair.js",
  "ui/list.js",
+ "ui/sorttags.js",
  "core/smartgroup.js",
  "ui/picker.js",
  "ui/organize.js",
@@ -22,7 +24,6 @@
  "ui/cleanmore.js",
  "ui/more.js",
  "ui/style.css",
- "ui/rescue.js",
  "ui/app.js",
  "main.js"
 ]

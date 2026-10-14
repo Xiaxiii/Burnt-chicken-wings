@@ -2,7 +2,7 @@
 // 用法：在仓库根目录起静态服务（python3 -m http.server 8765）；node test/safety-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert";
-const exe = process.env.PW_CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const URL0 = "http://127.0.0.1:8765/test/site/index.html";
 const ok = (m) => console.log("✓", m);

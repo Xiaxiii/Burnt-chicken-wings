@@ -2,7 +2,7 @@
 import { chromium } from "playwright";
 import assert from "node:assert";
 const S = new URL("./shots/", import.meta.url).pathname;
-const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));

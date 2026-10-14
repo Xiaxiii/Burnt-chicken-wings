@@ -1,7 +1,7 @@
 // 选位置、空白分组、分组拖动、API 获取模型的端到端检查
 // 用法：npm run mock；在仓库根目录起静态服务（python3 -m http.server 8765）；node test/place-check.mjs
 import { chromium } from "playwright";
-const exe = process.env.PW_CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
@@ -62,7 +62,7 @@ check((await where()) === "位置：「正文规则」组之后（组外）", "�
 await page.screenshot({ path: "test/shots/p-1-after-group.png" });
 await page.click('[data-st="go"]'); await page.waitForTimeout(600);
 check((await page.evaluate(() => document.querySelector('.pa-sheet [data-g="grp"]')?.value)) === "keep", "预览默认「保留原分组」");
-check((await page.locator(".pa-sheet .pa-explain summary", { hasText: "来源「F1」的写法" }).count()) === 1, "预览里能看来源的写法");
+check((await page.locator(".pa-sheet .pa-explain .pa-sub", { hasText: "来源「F1」怎样让条目生效" }).count()) === 1, "预览里能看来源的写法（收在「更多选项」里）");
 check(await page.evaluate(() => [...document.querySelectorAll(".pa-sheet .pa-item")].every((x) => x.querySelector(".pa-item-body").hidden)), "预览中每条默认收起");
 check(await page.evaluate(() => !document.querySelectorAll('.pa-sheet [data-c="hook"]:checked').length && !document.querySelector(".pa-sheet .pa-chip-cot.pa-item-hooked")), "默认不接入思维链");
 await page.locator(".pa-sheet .pa-item-head").first().click(); await page.waitForTimeout(200);
@@ -132,10 +132,10 @@ check(L.includes("[新组B: 📏字数、🚫禁词]") && L.includes("[正文规
 console.log("after organize:", L.join(" | "));
 await page.screenshot({ path: "test/shots/p-6-organize.png" });
 
-// 6) 顶栏：有修改时显示「撤销」「确认」；确认后收起；备份按钮能列出备份
-check(await page.locator('.pa-top [data-g="confirm"]').isVisible(), "有修改时显示「确认」");
+// 6) 顶栏：有修改时显示「撤销」「完成」；点完成后收起；备份按钮能列出备份
+check(await page.locator('.pa-top [data-g="confirm"]').isVisible(), "有修改时显示「完成」");
 await page.click('.pa-top [data-g="confirm"]'); await page.waitForTimeout(600);
-check(!(await page.locator('.pa-top [data-g="confirm"]').isVisible()), "确认后收起撤销/确认");
+check(!(await page.locator('.pa-top [data-g="confirm"]').isVisible()), "点完成后收起撤销/完成");
 await page.click('.pa-top [data-g="backups"]'); await page.waitForTimeout(500);
 const nBk = await page.locator(".pa-sheet .pa-pick-item").count();
 check(nBk >= 1 && nBk <= 10, `备份列表 ${nBk} 份（不超过 10）`);

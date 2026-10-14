@@ -11,8 +11,7 @@ var DEFAULTS = {
   sutureSplit: 45,
   moreTab: "schemes",
   nameWithSource: false,
-  noPullRefresh: true,
-  rescue: true
+  noPullRefresh: true
 };
 function settings() {
   const all = ctx().extensionSettings;
@@ -275,7 +274,7 @@ function dropClean() {
   for (const [n, d] of drafts) {
     if (d.dirty || saveJobs.has(n)) continue;
     if (!d.history.length) { drafts.delete(n); continue; }
-    // 1.1.3：裁缝铺保存之后，用户又在酒馆里直接改了预设（比如解除分组、开关条目），
+    // 1.1.3：本扩展保存之后，用户又在酒馆里直接改了预设（比如解除分组、开关条目），
     // 旧版会继续拿内存里的旧草稿干活，下一次自动保存就把这些改动盖回去。
     // 现在发现酒馆里的预设和上次保存的不一样，就丢掉旧草稿重新读。
     let live = null;

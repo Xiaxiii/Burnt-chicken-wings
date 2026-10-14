@@ -238,3 +238,27 @@ function mountCot(page, app) {
   }, destroy: off };
 }
 
+// 单个变量的修复方案：先说明要加什么，确认后再加
+async function repairVariableDialog(d, key) {
+  let plan;
+  try {
+    plan = variableRepairPlan(d, key);
+  } catch (e) {
+    await sheet({ title: "需人工核对", body: `<p class="pa-p">${esc(e.message)}</p>`, actions: [{ label: "确定", value: true }] });
+    return;
+  }
+  const version = JSON.stringify(d.toPreset());
+  const p = d.prompt(plan.last);
+  const body = el(`<div><p class="pa-p">新增条目「变量读取 · ${esc(plan.name)}」，放在「${esc(p.name)}」之后（最后一个写入该变量的开启条目），角色为系统，正文：</p>
+    <pre class="pa-pre">${esc(plan.macro)}</pre>
+    <p class="pa-hint">思维链不改动。内容会进入上下文，模型是否采用需在实际发送的提示词中核对。</p></div>`);
+  const ok = await sheet({ title: "补充变量读取", body, wide: true, actions: [{ label: "取消", value: false }, { label: "添加", kind: "primary", value: true }] });
+  if (!ok) return;
+  if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开修复方案", "warning");
+  variableRepairPlan(d, key);
+  mutate(d, "补充变量读取", (x) => x.insertPrompts([{
+    prompt: { identifier: uid(), name: "变量读取 · " + plan.name, content: plan.macro, role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100 },
+    enabled: true
+  }], { after: plan.last }, d.groupOf(plan.last)));
+  toast("已添加读取条目", "success");
+}

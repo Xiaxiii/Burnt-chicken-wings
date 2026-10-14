@@ -2,7 +2,7 @@ var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<
 function toast(msg, type = "info") {
   const t = globalThis.toastr;
   if (t && t[type]) t[type](msg, "", { timeOut: type === "error" ? 6e3 : 2600, preventDuplicates: true });
-  else console.log("[裁缝铺]", msg);
+  else console.log("[焦香鸡翅]", msg);
 }
 var rootEl = null;
 function setRoot(el2) {

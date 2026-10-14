@@ -1,4 +1,7 @@
-var COT_NAME = /cot|思维链|思考|thinking|推理|内在思|reasoning|phase/i;
+// 英文词要整词匹配：Scott、mascot 这类名字里的 cot 不算
+var COT_NAME = /(^|[^a-z])e?cot(?![a-z])|思维链|思考|thinking|推理|内在思|reasoning|(^|[^a-z])phase(?![a-z])/i;
+// 正文里的思维链标记要在行首：规则条目里顺口提到的「不要输出 <thinking>」不算
+var COT_BODY = /^[ \t]*<\/?(?:thinking|think)>|^[ \t]*##\s*(?:phase|step)\b/im;
 // 1.3.0：思维链区段——从"思维链始/思考开始/打开 <thinking>"到"思维链终/思考结束/关上 </thinking>"之间的条目都算思维链
 // （Ariadne 这类预设的思维链步骤名字里不带"思维链"三个字，也没有分组）
 var COT_START = /(思维链|cot|ecot|思考|thinking)\s*[·・:：\-—_]?\s*(始|开始|开头|起|start|begin)/i;
@@ -47,7 +50,7 @@ function isCotEntry(draft, id, manual = draft.cotManual || {}) {
   const gname = gid ? draft.group(gid)?.name || "" : "";
   const name = p.name || "";
   if (COT_NAME.test(name)) return true;
-  if (/<thinking>|<think>|##\s*phase|##\s*step/i.test(p.content || "")) return true;
+  if (COT_BODY.test(p.content || "")) return true;
   if (gname && COT_NAME.test(gname) && !/锁|lock/i.test(name)) return true;
   return false;
 }

@@ -10,7 +10,7 @@ async function load(name, path) {
       stUrl(path)
     );
   } catch (e) {
-    console.warn("[裁缝铺] 无法加载", path, e);
+    console.warn("[焦香鸡翅] 无法加载", path, e);
     mods[name] = null;
   }
   return mods[name];
@@ -72,7 +72,7 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     try {
       await backupPut(name, presets[idx], reason);
     } catch (e) {
-      console.warn("[裁缝铺] 备份失败", e);
+      console.warn("[焦香鸡翅] 备份失败", e);
       throw Object.assign(new Error(String(e?.message || e || "未知错误")), { kind: "backup" });
     }
   }
@@ -102,7 +102,7 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
       try {
         await ctx().eventSource.emit(et2.OAI_PRESET_IMPORT_READY, { presetName: name, data: structuredClone(data) });
       } catch (e) {
-        console.warn("[裁缝铺] 通知百宝箱刷新分组失败", e);
+        console.warn("[焦香鸡翅] 通知百宝箱刷新分组失败", e);
       }
     }
     await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
@@ -227,6 +227,39 @@ function siteDiffers(site, live = liveConnection()) {
     || !!site.secretId && !!live.secretId && live.secretId !== site.secretId
     || !live.online;
 }
+// 旧版酒馆没有密钥库编号：密钥只存在这个浏览器里，不写进会上传到服务器的设置文件
+function localKeyName(siteId) {
+  return `presetAtelier:key:${userHandle()}:${siteId}`;
+}
+function getLocalKey(site) {
+  try {
+    return localStorage.getItem(localKeyName(site.id)) || site.legacyKey || null;
+  } catch {
+    return site.legacyKey || null;
+  }
+}
+function setLocalKey(siteId, key) {
+  try {
+    if (key) localStorage.setItem(localKeyName(siteId), key);
+    else localStorage.removeItem(localKeyName(siteId));
+    return true;
+  } catch {
+    return false;
+  }
+}
+// 以前存进设置文件的明文密钥，挪到本浏览器里并从设置文件删掉
+function migrateLegacyKeys(sites) {
+  let moved = 0;
+  for (const site of sites || []) {
+    if (!site?.legacyKey) continue;
+    if (setLocalKey(site.id, site.legacyKey)) {
+      delete site.legacyKey;
+      site.localKey = true;
+      moved++;
+    }
+  }
+  return moved;
+}
 function multiKeySupported() {
   return !!(mods.secrets?.rotateSecret && Object.values(mods.secrets.secret_state || {}).some((v) => v === null || Array.isArray(v)));
 }
@@ -257,7 +290,7 @@ async function dropKey(source, id) {
   try {
     await mods.secrets.deleteSecret(secretKey, id);
   } catch (e) {
-    console.warn("[裁缝铺] 删除密钥失败", e);
+    console.warn("[焦香鸡翅] 删除密钥失败", e);
   }
 }
 async function readSecretState() {
@@ -288,14 +321,14 @@ async function applyConnection(site, { connect = true } = {}) {
     const list = state[src.secret];
     if (Array.isArray(list) && list.some((x) => x.id === site.secretId)) {
       await activateSecret(src.secret, site.secretId);
-    } else if (site.legacyKey) {
-      const id = await mods.secrets.writeSecret(src.secret, site.legacyKey, site.name);
+    } else if (getLocalKey(site)) {
+      const id = await mods.secrets.writeSecret(src.secret, getLocalKey(site), site.name);
       if (typeof id !== "string" || !id) throw new Error("酒馆没有保存这个密钥");
     } else {
       throw new Error(`「${site.name}」的密钥在酒馆密钥库中已不存在，请重新填写`);
     }
-  } else if (site.legacyKey) {
-    await mods.secrets.writeSecret(src.secret, site.legacyKey);
+  } else if (getLocalKey(site)) {
+    await mods.secrets.writeSecret(src.secret, getLocalKey(site));
   }
   if (site.model) {
     if (site.source === "custom") {
