@@ -175,7 +175,20 @@
 - 安装和更新方式不变：扩展管理里「更新」，或扩展页设置框里「检查更新」。
 - 本版本没有新增设置字段，草稿、备份、方案、站点的保存格式都没变，可以直接回到 1.8.0。
 - 「加载与兼容」卡片和体检不接管任何请求，没有需要停用的加速；停用整个扩展用扩展管理里的开关即可，停用后不会留下 fetch 补丁、Service Worker 或启动桥接。
-- 回到 1.8.0：在服务器上进入 `public/scripts/extensions/third-party/Burnt-chicken-wings`（或对应的用户扩展目录），执行 `git checkout cef27cc`，刷新酒馆。要回到最新版，在同一目录执行 `git checkout main && git pull`（处在旧版本时扩展管理里的「更新」可能失败）。
+- 回到稳定版：见下面「切回稳定版」。
+
+### 在真实酒馆里安装测试版（不合并 main）
+
+测试版在 `claude/maintenance-diagnostics` 分支上。三种装法，任选一种：
+
+1. **已经装了焦香鸡翅（推荐）**：扩展管理 → 焦香鸡翅一行的「Switch branch／切换分支」按钮（分支图标）→ 选 `origin/claude/maintenance-diagnostics` → Switch → 刷新页面。较新的酒馆才有这个按钮。
+2. **新装或重装**：先在扩展管理里删除焦香鸡翅（预设、草稿、备份不会被删：预设在服务器上，草稿和备份在浏览器里，设置在设置文件里），然后「安装扩展」，网址填 `https://github.com/Xiaxiii/Burnt-chicken-wings`，「Branch or tag name」填 `claude/maintenance-diagnostics`。较新的酒馆才有这个输入框。
+3. **能进服务器命令行**：进入扩展目录（用户扩展一般在 `data/<用户名>/extensions/Burnt-chicken-wings`，全局扩展在 `public/scripts/extensions/third-party/Burnt-chicken-wings`），执行
+   `git fetch origin claude/maintenance-diagnostics && git checkout -B claude/maintenance-diagnostics origin/claude/maintenance-diagnostics`，再刷新酒馆。
+
+确认装的是哪一版：扩展页「焦香鸡翅」设置框标题显示 `v1.9.0`（稳定版是 1.8.0）；点「检查更新」，下面会显示「当前分支 claude/maintenance-diagnostics · 提交 xxxxxxx」，提交号应与 PR 里的最新提交一致。分支以后有新提交时，在同一处点「更新」即可。
+
+切回稳定版：用上面同样的方法切回 `main` 分支（切换分支选 `origin/main` 或 `main`；命令行执行 `git checkout main && git pull`），刷新页面，设置框显示 `v1.8.0`。1.9.0 没有改动保存格式，切回去不需要迁移。
 
 ## 后续拆分的准备情况（需求 12）
 

@@ -350,8 +350,10 @@ function addSettingsEntry() {
       if (a === "check") {
         say("正在检查更新…");
         const v = await extApi("version");
-        if (v.isUpToDate) say(`已是最新版本（${esc(VERSION)}）。`, "ok");
-        else say('有新版本。<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>更新</span></div>', "new");
+        // 酒馆返回当前分支和提交：测试版装在别的分支上时，用它确认装的是哪一版
+        const at = v.currentCommitHash ? `<br>当前分支 ${esc(v.currentBranchName || "（未知）")} · 提交 ${esc(String(v.currentCommitHash).slice(0, 7))}` : "";
+        if (v.isUpToDate) say(`已是最新版本（${esc(VERSION)}）。${at}`, "ok");
+        else say(`有新版本。${at}<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>更新</span></div>`, "new");
       } else if (a === "update") {
         say("正在更新…");
         const v = await extApi("update");
