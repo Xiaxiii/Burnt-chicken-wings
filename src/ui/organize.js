@@ -13,7 +13,7 @@ function mountOrganize(page) {
   page.innerHTML = `
         <div class="pa-toolbar">
             <div class="pa-picker-slot"></div>
-            <div class="pa-search-row"><input class="pa-input pa-search" type="search" placeholder="搜索条目" aria-label="搜索条目">
+            <div class="pa-search-row"><input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" aria-label="搜索条目">
             <button class="pa-btn" data-tool="newgroup">＋ 新建分组</button>
             <button class="pa-btn pa-tools-more" data-tool="menu">工具</button></div>
             <div class="pa-tools">
@@ -23,7 +23,7 @@ function mountOrganize(page) {
         </div>
         <div class="pa-movebar" hidden><b class="pa-move-n"></b>
             <button class="pa-btn pa-sq" data-mv="up" aria-label="上移一位">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一位">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">移到最后</button>
-            <button class="pa-btn pa-btn-primary" data-mv="cancel">取消</button><small class="pa-move-hint"></small></div>
+            <button class="pa-btn" data-mv="cancel">退出移动</button><small class="pa-move-hint"></small></div>
         <div class="pa-scroll pa-list" role="list"></div>
         <div class="pa-selbar" hidden>
             <div class="pa-selbar-top"><b class="pa-selcount"></b>
@@ -251,7 +251,10 @@ function mountOrganize(page) {
       return render();
     }
     if (a === "all") {
-      list.querySelectorAll(".pa-row").forEach((r) => st.selected.add(r.dataset.id));
+      // 只选看得见的：折叠分组里的条目不选，免得接着「关闭」「删除」动到看不见的条目
+      list.querySelectorAll(".pa-row").forEach((r) => {
+        if (!r.closest(".pa-collapsed")) st.selected.add(r.dataset.id);
+      });
       return render();
     }
     if (a === "more") {
@@ -370,17 +373,24 @@ function mountOrganize(page) {
             <p class="pa-hint">写法：${esc(info)} \xB7 角色：${esc(p.role || "system")}${p.injection_position === 1 ? ` \xB7 插入聊天记录，深度 ${esc(p.injection_depth)}` : ""}</p>
             ${marker ? '<p class="pa-hint">系统位置条目，无正文。</p>' : `<textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
         </div>`);
-    body.addEventListener("input", (e) => {
-      if (!e.target.matches("[data-f=name], [data-f=content]")) return;
-      if (!body._edited) {
-        d.snapshot("编辑条目");
-        body._edited = true;
-      }
-      d.prompt(id)[e.target.dataset.f] = e.target.value;
-      d.dirty = true;
-      emitChange(d.name);
+    // 输入时不保存；点「保存」才写进预设，点「取消」或 ✕ 不改动
+    const r = await sheet({
+      title: "编辑条目", body, wide: true, noFocus: true,
+      actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => ({ name: w.querySelector("[data-f=name]").value, content: w.querySelector("[data-f=content]")?.value }) }]
     });
-    await sheet({ title: "编辑条目", body, wide: true, noFocus: true, actions: [{ label: "完成", kind: "primary", value: true }] });
+    if (!r) return;
+    // 弹窗开着时草稿可能被换过（切换预设、别处修改），按名称重新取
+    const dd = getDraft(d.name);
+    const cur = dd.prompt(id);
+    if (!cur) return toast("条目已不存在，未保存", "warning");
+    const changed = r.name !== (cur.name || "") || r.content !== void 0 && r.content !== (cur.content || "");
+    if (!changed) return;
+    mutate(dd, "编辑条目", (x) => {
+      const q = x.prompt(id);
+      q.name = r.name;
+      if (r.content !== void 0) q.content = r.content;
+    });
+    toast("已保存", "success");
   }
   async function smartGroups(d) {
     const sug = suggestGroups(d);
@@ -549,7 +559,10 @@ function mountOrganize(page) {
   const off = onDraftChange(() => {
     if (page.isConnected && !page.hidden) render();
   });
-  return { render, destroy: off, focusIds: (ids) => {
+  return { render: () => {
+    picker.refresh();
+    render();
+  }, destroy: off, focusIds: (ids) => {
     const d = draft();
     ids.forEach((i) => {
       const g = d.groupOf(i);

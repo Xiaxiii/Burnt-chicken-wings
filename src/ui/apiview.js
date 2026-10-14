@@ -83,8 +83,9 @@ function mountApi(liveBox, sitesBox) {
         <div class="pa-row-head"><h3 class="pa-h">${active ? "其他站点" : "API 站点"}</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 添加站点</button></div>
         ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
         <div class="pa-card">
-            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后恢复当前站点</label>
-            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时不改变连接设置</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后，自动连回「使用中」的站点</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时，不让预设带着的连接设置覆盖当前连接</label>
+            <p class="pa-hint">第二项是酒馆自己的「预设绑定连接」设置（勾选＝关闭绑定）。两项都勾选时，换预设不会换 API。</p>
         </div>`;
   }
   async function getModels(site) {
@@ -124,10 +125,13 @@ function mountApi(liveBox, sitesBox) {
       model: readModel(w),
       note: w.querySelector("[data-f=note]").value.trim()
     });
+    // 这个对话框里存进密钥库的新密钥。取消时删掉；同一个对话框里换过密钥，旧的也删掉
+    const madeKeys = [];
     const persistKey = async (v) => {
       if (!v.key) return;
       if (multiKeySupported()) {
         const id = await storeKey(v.source, v.key, `裁缝铺\xB7${v.name || "站点"}`);
+        madeKeys.push({ source: v.source, id });
         s.secretId = id;
         delete s.legacyKey;
       } else {
@@ -191,12 +195,17 @@ function mountApi(liveBox, sitesBox) {
         value: read
       }]
     });
-    if (!r) return;
+    if (!r) {
+      for (const k of madeKeys) await dropKey(k.source, k.id);
+      return;
+    }
     try {
       await persistKey(r);
     } catch (e) {
-      return toast("密钥保存失败：" + e.message, "error");
+      for (const k of madeKeys) await dropKey(k.source, k.id);
+      return toast("密钥保存失败，站点未保存：" + e.message, "error");
     }
+    for (const k of madeKeys) if (k.id !== s.secretId) await dropKey(k.source, k.id);
     Object.assign(s, { name: r.name, source: r.source, url: r.source === "custom" ? r.url : "", model: r.model, note: r.note });
     const list = sites();
     const i = list.findIndex((x) => x.id === s.id);

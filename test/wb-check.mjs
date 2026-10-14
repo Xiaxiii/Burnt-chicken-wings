@@ -73,7 +73,7 @@ await page.locator(".pa-sheet .pa-item-head").first().click(); await page.waitFo
 assert.match(await page.$eval(".pa-sheet .pa-item", (x) => x.textContent), /按关键词触发（示例、例子），缝进预设后会一直生效/);
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(1200);
 const rec = await page.evaluate((T) => { const m = window.__mock; return m.presets[m.names.indexOf(T)].extensions.presetAtelier?.stitched; }, T);
-assert.ok(rec?.length >= 1 && rec[rec.length - 1].from.includes("示例世界书"), "缝合时记录了来源");
+assert.ok(rec?.length >= 1 && !("from" in rec[rec.length - 1]), "缝合时记录了条目，但不记录来源名");
 
 // 4) 搬到新版：旧版 = T（刚缝进「示例条目」），新版 = 没有缝过的原版
 await page.evaluate((T) => {

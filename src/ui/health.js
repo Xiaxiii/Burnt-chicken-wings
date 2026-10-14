@@ -3,8 +3,12 @@
 // 角色卡列表、上次的聊天、各个扩展的脚本也都在打开时加载。这里把这些量出来，按占用排好，给出能做的事。
 
 var PA_T = globalThis.__paTiming || (globalThis.__paTiming = { evalAt: performance.now(), readyAt: null });
+// 浏览器默认只记 250 条请求，记满后的会丢掉。先看扩展加载前是不是已经记满，再把上限调大
 try {
-  performance.setResourceTimingBufferSize?.(4000);
+  const RT_LIMIT = 4000;
+  if (PA_T.bufFullBefore === void 0) PA_T.bufFullBefore = performance.getEntriesByType("resource").length >= 250;
+  performance.setResourceTimingBufferSize?.(RT_LIMIT);
+  performance.addEventListener?.("resourcetimingbufferfull", () => { PA_T.bufFullLater = true; });
 } catch {
 }
 function fmtSize(n) {
@@ -35,7 +39,7 @@ function categorize(url) {
   if (u.origin !== location.origin) return { cat: `外部：${u.host}`, key: `ext:${u.host}` };
   let m = /\/scripts\/extensions\/third-party\/([^/]+)\//.exec(p);
   if (m) return { cat: `扩展「${m[1]}」`, key: `tp:${m[1]}`, ext: m[1] };
-  // 1.5.0：柏宝箱等扩展会用自己的接口代替 /api/settings/get，下载的是同一份数据
+  // 1.5.0：百宝箱等扩展会用自己的接口代替 /api/settings/get，下载的是同一份数据
   if (/\/api\/settings\/get|\/settings\/fast-get/.test(p)) return { cat: "设置与全部预设", key: "settings" };
   if (/\/api\/settings\/save|\/settings\/fast-save/.test(p)) return { cat: "保存设置", key: "settingsSave" };
   if (/\/api\/characters\/(all|get)/.test(p)) return { cat: "角色列表", key: "chars" };
@@ -108,7 +112,7 @@ async function collectHealth() {
   out.worldCount = (mods.wi?.world_names || []).length;
   // ---- 扩展数量
   try {
-    const r = await fetch("/api/extensions/discover", { headers: c2.getRequestHeaders?.() || {} });
+    const r = await fetch(stUrl("api/extensions/discover"), { headers: c2.getRequestHeaders?.() || {} });
     if (r.ok) {
       const list = await r.json();
       const disabled = new Set(es.disabledExtensions || []);
@@ -150,7 +154,7 @@ async function collectHealth() {
   const MB = 1024 * 1024;
   const bw = out.bandwidth;
   const sec = (bytes) => bw ? fmtMs(bytes / bw * 1000) : null;
-  if (out.settingsCount > 1) out.warn.push({ t: `「设置与全部预设」本次下载了 ${out.settingsCount} 次（共 ${fmtSize(out.settingsBytes)}）。`, d: "正常只需下载一次。常见原因是同时开启了两个「启动加速」类功能，例如柏宝箱的「Settings get/save 加速」和鸡尾酒的「启动加载优化」，保留其中一个即可；两个都关闭时，酒馆本身也可能下载两次。" });
+  if (out.settingsCount > 1) out.warn.push({ t: `「设置与全部预设」本次下载了 ${out.settingsCount} 次（共 ${fmtSize(out.settingsBytes)}）。`, d: "正常只需下载一次。常见原因是同时开启了两个「启动加速」类功能，例如百宝箱的「Settings get/save 加速」和鸡尾酒的「启动加载优化」，保留其中一个即可；两个都关闭时，酒馆本身也可能下载两次。" });
   // 预设在设置下载里大约占多少（按未压缩大小的比例估算）
   const est = wireEstimate(out.presetTotal);
   const byApi = out.presetByApi.length > 1 ? `（${out.presetByApi.map((x) => `${x.label} ${x.n} 个 ${fmtSize(x.size)}`).join("，")}）` : `（${out.presets.length} 个）`;
@@ -204,7 +208,7 @@ function measureLoad() {
   const settingsRate = big && dl > 500 && sizeOf(big) > 512 * 1024 ? sizeOf(big) / (dl / 1000) : null;
   return {
     res,
-    bufferFull: all.length === 250,
+    bufferFull: !!(PA_T.bufFullBefore || PA_T.bufFullLater),
     settingsCount: settings2.length,
     settingsBytes,
     settingsOnce: settings2.length ? Math.max(...settings2.map(sizeOf)) : 0,
@@ -252,7 +256,7 @@ function mountHealth(sec, { goClean } = {}) {
       <h3 class="pa-h">本次打开时最慢的请求</h3>
       ${r.slow.length ? `<div class="pa-rank">${r.slow.map((s) => `<div title="${esc(s.url)}"><span>${esc(s.cat)}</span>${bar(s.dur, r.slow[0].dur)}<em>${fmtMs(s.dur)}${s.size ? ` · ${fmtSize(s.size)}` : ""}</em></div>`).join("")}</div>` : '<p class="pa-hint">没有超过 0.3 秒的请求，或未记录到。</p>'}
       ${r.queued.length ? `<p class="pa-hint">另有 ${r.queued.length} 个小请求因排队等待较久，未列入上表。</p>` : ""}
-      ${r.bufferFull ? '<p class="pa-hint">浏览器只记录前 250 个请求，其余请求未计入。</p>' : ""}
+      ${r.bufferFull ? '<p class="pa-hint">浏览器的请求记录满过，有一部分请求没有记下来，上面的统计不完整。</p>' : ""}
       <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：已开启 ${r.extEnabled} 个，共安装 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。检查只在本浏览器中进行，不上传任何数据。</p>
       <p class="pa-hint">如仅在长时间未使用后首次打开较慢，通常是云服务器休眠后重新启动，与预设和扩展无关，需更换不休眠的套餐或设置保活。</p>`;
   }

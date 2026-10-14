@@ -32,7 +32,7 @@ https://github.com/Xiaxiii/Burnt-chicken-wings
 - 扩展页「焦香鸡翅」设置框 →「打开」
 - 在输入框发送 `/atelier`
 
-修改即时自动保存，有修改时可「撤销」或「确认」。每批修改开始前自动备份一次，每个预设保留最近 10 份，可在顶栏的时钟按钮中查看、恢复或下载。
+修改即时自动保存，有修改时可「撤销」，或点「完成」结束这一批修改。保存前会核对预设有没有在别处被改过，改过就先问你。每批修改开始前自动备份一次，每个预设保留最近 10 份，可在顶栏的时钟按钮中查看、恢复或下载。
 
 ## 基本操作
 
@@ -79,6 +79,7 @@ https://github.com/Xiaxiii/Burnt-chicken-wings
 ```
 node build.mjs          # 生成 index.js（扩展版）；dist/ 中的脚本版暂不提交
 node test/run-core.cjs  # 核心逻辑测试
+node test/safety-check.mjs  # 保存冲突、备份失败、密钥等数据安全检查（需先在仓库根目录 python3 -m http.server 8765，并装好 playwright）
 ```
 
 仓库中不包含任何真实预设。测试用的「众生相风格」预设为代码生成的测试数据（`test/fixtures/make-zsx-like.cjs`）。使用真实预设测试时，放入 `test/site/local/`（已加入 .gitignore）。

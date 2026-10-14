@@ -45,6 +45,7 @@ function initRescue() {
   if (!et?.GENERATION_STARTED || !c.eventSource) return () => {};
   let live = null; // 进行中的生成：{ chatId, hidden }
   let pending = null; // 后台结束、等你回来再提醒
+  let shownAt = document.hidden ? 0 : Date.now(); // 页面最近一次回到前台的时间
   const save = (v) => {
     try {
       v ? localStorage.setItem(RESCUE_KEY, JSON.stringify(v)) : localStorage.removeItem(RESCUE_KEY);
@@ -54,17 +55,29 @@ function initRescue() {
   const onStart = (type, _opt, dryRun) => {
     if (dryRun || type === "quiet" || !rescueOn()) return;
     document.getElementById("pa-rescue")?.remove();
-    live = { chatId: curChatId(), hidden: document.hidden, at: Date.now() };
+    live = { chatId: curChatId(), hidden: document.hidden, at: Date.now(), len: (ctx().chat || []).length };
     save(live);
+  };
+  // 最后一条是不是一条有内容的 AI 回复
+  const gotReply = () => {
+    const chat = ctx().chat || [];
+    const last = chat[chat.length - 1];
+    return !!last && !last.is_user && String(last.mes || "").trim().length > 0;
   };
   const onEnd = () => {
     if (!live) return;
     const wasHidden = live.hidden || document.hidden;
     const chatId = live.chatId;
+    const endedHidden = document.hidden;
     live = null;
     save(null);
     if (!wasHidden || !rescueOn()) return;
-    pending = { chatId };
+    // 在后台安安稳稳生成完、而且回复已经到了（电脑上切标签页常见），不打扰
+    if (endedHidden && gotReply()) return;
+    // 回到前台后很快才结束：多半是后台时连接被断，回来才报错收尾
+    const justBack = !endedHidden && Date.now() - shownAt < 4000;
+    if (!justBack && gotReply()) return;
+    pending = { chatId, noReply: !gotReply() };
     if (!document.hidden) setTimeout(remind, 600);
   };
   const onStop = () => {
@@ -77,7 +90,7 @@ function initRescue() {
     const p = pending;
     pending = null;
     if (p.chatId !== curChatId()) return;
-    rescueBar("刚才的回复是在后台生成的，可能被中断了。", rescueActions());
+    rescueBar(p.noReply ? "刚才切到后台时，回复没有收到。" : "刚才切到后台时，回复可能被截断了。如果回复是完整的，关掉这条提示即可。", rescueActions());
   }
   const onVis = () => {
     if (document.hidden) {
@@ -85,7 +98,10 @@ function initRescue() {
         live.hidden = true;
         save(live);
       }
-    } else if (pending) setTimeout(remind, 600);
+    } else {
+      shownAt = Date.now();
+      if (pending) setTimeout(remind, 600);
+    }
   };
   // 页面被重新加载：上次的生成没有结束记录
   const checkReload = () => {

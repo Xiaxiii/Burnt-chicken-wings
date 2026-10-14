@@ -459,6 +459,12 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   const varCots = cotIds.filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.op === "get" && m.name));
   const order = draft.order.map((o) => o.identifier);
   const idx = insertionIndex(draft, where);
+  // 酒馆按条目顺序处理变量宏：写变量的条目排在读它的思维链后面时，思维链读到的是上一轮的值
+  const lateWarn = (cid) => {
+    const ci = order.indexOf(cid);
+    if (ci < 0 || idx <= ci) return null;
+    return `条目排在「${draft.prompt(cid)?.name || cid}」之后。酒馆按条目顺序处理变量，思维链读到的会是上一轮的内容，请把条目放到思维链前面`;
+  };
   const before = order.slice(0, idx).filter((id) => id !== item.selfId && draft.isActive(id));
   const after = order.slice(idx).filter((id) => id !== item.selfId && draft.isActive(id));
   if (before.length && after.length && cotSet.has(before[before.length - 1]) && cotSet.has(after[0])) {
@@ -577,16 +583,18 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   if (pick.op === "set" && anchorWriters.length >= 2 && !wantVar && allowSlot) {
     const mim = mimicValue(neighborValue(draft, pick.neighbor, pick.anchorVar, "set"), draft.prompt(pick.neighbor)?.name, item.name);
     const q2 = wantQ ?? (reuse ? reuse.value.trim() : mim != null ? mim.trim() : question);
+    const late = lateWarn(pick.cotId);
     return {
-      ...common, clash: false, mode: "slot", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, question: q2,
+      ...common, on: common.on && !late, warns: late ? [late] : [], clash: false, mode: "slot", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, question: q2,
       text: `${why}附近 ${anchorWriters.length} 条向变量「${pick.anchorVar}」登记问句（setvar，同时开启多条时只保留最后一条，相当于单选），由「${cotName}」读取。按此登记`
     };
   }
   if (pick.op === "add" && anchorWriters.length >= 2 && !wantVar) {
     const raw = neighborValue(draft, pick.neighbor, pick.anchorVar, "add");
     const mim = wantQ == null && !reuse ? mimicValue(raw, draft.prompt(pick.neighbor)?.name, item.name) : null;
+    const late = lateWarn(pick.cotId);
     return {
-      ...common, clash: false, mode: "append", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, lead: mim != null ? "" : pick.lead, question: mim != null ? mim : question,
+      ...common, on: common.on && !late, warns: late ? [late] : [], clash: false, mode: "append", cotId: pick.cotId, anchorVar: pick.anchorVar, varName: pick.anchorVar, scope: pick.scope, lead: mim != null ? "" : pick.lead, question: mim != null ? mim : question,
       text: `${why}附近 ${anchorWriters.length} 条用 addvar 向变量「${pick.anchorVar}」追加思维链内容，由「${cotName}」统一读取。按此追加一句`
     };
   }
@@ -606,8 +614,12 @@ function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), 
   const ownMim = wantQ == null && !reuse && pick.anchorVar ? mimicValue(neighborValue(draft, pick.neighbor, pick.anchorVar), draft.prompt(pick.neighbor)?.name, item.name) : null;
   // 思维链有好几个"选一"版本、都读同一组变量时（V2.61），每个版本都加上，换版本也不会丢
   const cotList = pick.anchorVar ? cotVersionsReading(draft, pick.anchorVar, pick.cotId) : [pick.cotId];
+  const warns = [];
+  const late = lateWarn(pick.cotId);
+  if (late) warns.push(late);
+  if (!findInitEntry(draft)) warns.push("预设里没有每轮清空变量的初始化条目，问句变量不会被清空：之后关掉这条，思维链里仍会一直出现它的问句");
   return {
-    ...common, clash, mode: "own", cotIds: cotList, scope: pick.anchorVar ? pick.scope : "local", cotId: pick.cotId, anchorVar: pick.anchorVar, varName, question: ownMim != null ? ownMim.trim() : question,
+    ...common, on: common.on && !late, warns, clash, mode: "own", cotIds: cotList, scope: pick.anchorVar ? pick.scope : "local", cotId: pick.cotId, anchorVar: pick.anchorVar, varName, question: ownMim != null ? ownMim.trim() : question,
     text: pick.anchorVar
       ? `${why}思维链无法读取此条目。附近的「${draft.prompt(pick.neighbor)?.name}」通过变量「${pick.anchorVar}」由「${cotName}」读取，按相同方式接入${cotList.length > 1 ? `（${cotList.length} 个思维链版本同时添加）` : ""}`
       : `${why}思维链无法读取此条目，附近条目也未接入思维链。可接入读取变量最多的「${cotName}」`

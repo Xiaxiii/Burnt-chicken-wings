@@ -246,9 +246,14 @@ function mountCleanup(sec) {
         if (drafts.get(n)?.dirty) await saveDraft(n, "归档前保存");
         const text = presetText(n);
         const gz = await gzipText(text);
-        const fname = `pa-preset-${hashStr(n + text).slice(0, 12)}-${Date.now().toString(36)}.json${gz ? ".gz" : ""}`;
+        // 文件名带上预设名：万一设置文件里的归档清单丢了，也认得出是哪个预设
+        const safe = String(n).replace(/[\\/:*?"<>|\s]+/g, "_").slice(0, 40);
+        const fname = `pa-preset-${safe}-${hashStr(n + text).slice(0, 8)}-${Date.now().toString(36)}.json${gz ? ".gz" : ""}`;
         path = await userFilePut(fname, gz || new Blob([text], { type: "application/json" }));
-        if (await userFileExists(path) === false) throw new Error("上传后在服务器上找不到文件");
+        // 读回来逐字核对，核对不上（包括读不到）就不删原预设
+        let back = null;
+        try { back = await userFileGetText(path, !!gz); } catch (e) { throw new Error(`上传后无法读回核对（${e.message}）`); }
+        if (back !== text) throw new Error("上传后读回的内容和原预设不一致");
         await deletePresetFile(n);
         const list = archiveList();
         const old = list.filter((x) => x.name === n);
@@ -275,9 +280,11 @@ function mountCleanup(sec) {
     render();
   }
   async function doDelete(names) {
+    const users = usersOf(names);
     const ok = await sheet({
       title: `删除 ${names.length} 个预设`,
       body: `<p class="pa-p">将从服务器上删除这些预设，<b>删除后无法在酒馆中恢复</b>。如果以后可能还会用到，建议改用「归档」。</p>
+        ${users.length ? `<p class="pa-p pa-warn">${esc(users.slice(0, 4).join("、"))}${users.length > 4 ? ` 等 ${users.length} 处` : ""}正在使用这些预设，删除后它们将无法套用。</p>` : ""}
         <label class="pa-cbox"><input type="checkbox" data-zip checked> 删除前先下载一份到本地（zip）</label>`,
       actions: [{ label: "取消", value: null }, { label: "删除", kind: "danger", value: (w) => ({ zip: w.querySelector("[data-zip]").checked }) }]
     });

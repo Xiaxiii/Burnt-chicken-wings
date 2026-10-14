@@ -99,19 +99,47 @@ var Draft = class {
     if (gid && this.group(gid)?.enabled === false) return false;
     return true;
   }
+  /** 整份换成另一个版本（恢复备份、恢复草稿）。分组格式等读入时的信息也一起换 */
+  replaceWith(preset) {
+    const tmp = new Draft(this.name, preset);
+    this.preset = tmp.preset;
+    this.groups = tmp.groups;
+    this.hadBaibai = tmp.hadBaibai;
+    this.hadEntryGrouping = tmp.hadEntryGrouping;
+    this.loadedGroupIds = tmp.loadedGroupIds;
+  }
   // ---------- 撤销 ----------
   snapshot(label) {
-    this.history.push({ label, order: clone(this.order), prompts: clone(this.preset.prompts), groups: clone(this.groups), extensions: clone(this.preset.extensions) });
-    if (this.history.length > 60) this.history.shift();
+    // 除条目外，预设的其他设置（温度等参数、各角色的条目顺序）和分组格式也记下：恢复备份这类整份替换的操作才能完整撤销
+    const { prompts: _p, extensions: _e, ...rest } = this.preset;
+    const h = {
+      label, prompts: clone(this.preset.prompts), groups: clone(this.groups), extensions: clone(this.preset.extensions), rest: clone(rest),
+      flags: { hadBaibai: this.hadBaibai, hadEntryGrouping: this.hadEntryGrouping, loadedGroupIds: [...(this.loadedGroupIds || [])] }
+    };
+    this.history.push(h);
+    // 每份快照都是整份预设。大预设少留几份，免得手机内存吃紧整页重载
+    if (!this._snapSize) {
+      try { this._snapSize = JSON.stringify(h.prompts).length; } catch { this._snapSize = 0; }
+    }
+    const cap = this._snapSize > 1e6 ? 15 : this._snapSize > 3e5 ? 30 : 60;
+    while (this.history.length > cap) this.history.shift();
     this.dirty = true;
   }
   undo() {
     const h = this.history.pop();
     if (!h) return null;
-    findOrderList(this.preset).order = h.order;
-    this.preset.prompts = h.prompts;
+    if (h.rest) {
+      this.preset = { ...h.rest, prompts: h.prompts, extensions: h.extensions || {} };
+      this.hadBaibai = h.flags.hadBaibai;
+      this.hadEntryGrouping = h.flags.hadEntryGrouping;
+      this.loadedGroupIds = new Set(h.flags.loadedGroupIds);
+    } else {
+      // 旧格式的快照（只记了全局顺序）
+      findOrderList(this.preset).order = h.order;
+      this.preset.prompts = h.prompts;
+      if (h.extensions) this.preset.extensions = h.extensions;
+    }
     this.groups = h.groups;
-    if(h.extensions) this.preset.extensions = h.extensions;
     this.dirty = true;
     return h.label;
   }
@@ -355,9 +383,24 @@ var Draft = class {
     for (const [k, v] of Object.entries(this.groups.prompts)) if (v.groupId === gid) delete this.groups.prompts[k];
     this.groups.groups = this.groups.groups.filter((g) => g.id !== gid);
   }
+  /**
+   * 整组开关：同时改组内条目自己的开关（酒馆只看条目开关，分组上的标记只有百宝箱认）。
+   * 关组时记下原来开着的条目，再开组时只开回这些。
+   */
   setGroupEnabled(gid, on) {
     const g = this.group(gid);
-    if (g) g.enabled = !!on;
+    if (!g) return;
+    const members = this.order.filter((o) => this.groupOf(o.identifier) === gid);
+    if (!on) {
+      if (g.enabled !== false) g.restoreOn = members.filter((o) => o.enabled !== false).map((o) => o.identifier);
+      for (const o of members) o.enabled = false;
+      g.enabled = false;
+    } else {
+      const keep = Array.isArray(g.restoreOn) && g.restoreOn.length ? new Set(g.restoreOn) : null;
+      for (const o of members) if (!keep || keep.has(o.identifier)) o.enabled = true;
+      delete g.restoreOn;
+      g.enabled = true;
+    }
   }
   /** 把分散成几段的分组收拢到第一段的位置 */
   gatherGroup(gid) {
@@ -429,8 +472,9 @@ var Draft = class {
         const a = ids.indexOf(g.startIdentifier), b = ids.indexOf(g.endIdentifier);
         mem = a >= 0 && b >= a ? ids.slice(a, b + 1) : [];
       }
-      const live = mem.filter((x) => has.has(x));
-      return live.length > 0 && live.every((x) => set.has(x));
+      // 成员必须完全相同才算重复；成员只是其中一部分的，是另一个分组，不能删
+      const live = new Set(mem.filter((x) => has.has(x)));
+      return live.size > 0 && live.size === set.size && [...live].every((x) => set.has(x));
     });
   }
   /** 插入新条目（缝合用） */

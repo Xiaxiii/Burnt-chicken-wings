@@ -375,9 +375,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-optional { margin-top: 16px; }
 
 #pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }
-#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }
-#pa-root .pa-live .pa-dot::before { content: "●"; margin-right: 4px; }
-#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }
+#pa-root .pa-site .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }
+#pa-root .pa-site .pa-dot::before { content: "●"; margin-right: 4px; }
+#pa-root .pa-site .pa-dot-on { color: var(--pa-ok); }
 #pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 #pa-root .pa-plan { padding-top: 10px; }
 #pa-root .pa-plan .pa-card .pa-inline-check { display: flex; margin: 4px 0; }
@@ -759,7 +759,7 @@ html.pa-open body { overflow: hidden; }
 
 /* 1.5.0 手机：更紧凑。平板、电脑不变 */
 @media (max-width: 599px) {
-    #pa-root { --pa-base: min(var(--mainFontSize, 14px), 14px); --pa-r: 9px; --pa-row-h: 40px; }
+    #pa-root { --pa-base: clamp(15px, var(--mainFontSize, 15px), 16px); --pa-r: 9px; --pa-row-h: 42px; }
     #pa-root .pa-ghead { min-height: 38px; padding: 2px 4px; }
     #pa-root .pa-group { margin: 5px 0; }
     #pa-root .pa-pane-head { padding: 6px 8px 2px; gap: 6px; }
@@ -821,3 +821,37 @@ html.pa-open body { overflow: hidden; }
 #pa-rescue .menu_button { width: auto; margin: 0; padding: 4px 12px; white-space: nowrap; }
 #pa-rescue .pa-rescue-x { padding: 4px 8px; opacity: .7; }
 #pa-root .pa-dupgroups { margin: 6px 0 8px; }
+
+/* 原来写在 app.js 里的几条，挪到这里集中管理 */
+#pa-root .pa-group-select .pa-check { display:block; width:20px; height:20px; border:2px solid var(--pa-line); border-radius:50%; }
+#pa-root .pa-group-select[aria-pressed=true] .pa-check { background:var(--pa-thread); border-color:var(--pa-thread); }
+#pa-root .pa-group-select[aria-pressed=true] .pa-check::after { content:'✓'; display:block; text-align:center; line-height:16px; }
+#pa-root .pa-inline-content { padding:12px 20px; margin:0 8px 8px; background:var(--pa-card); max-height:50vh; overflow:auto; }
+#pa-root .pa-gname { cursor:pointer; }
+
+/* 提醒文字 */
+#pa-root .pa-warn { color: var(--pa-warn); }
+#pa-root p.pa-warn { margin: 4px 0; }
+/* 缝合预览：「缝后开启」开关带文字，避免被当成「选中这条」 */
+#pa-root .pa-item-on { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: .82em; color: var(--pa-dim); cursor: pointer; white-space: nowrap; }
+#pa-root .pa-item-on input { margin: 0; }
+/* 键盘焦点 */
+#pa-root .pa-row:focus-visible, #pa-root .pa-ghead:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }
+#pa-root .pa-sheet:focus { outline: none; }
+
+/* 触屏：控件不小于 36px，复选框 18px 以上 */
+@media (pointer: coarse) {
+    #pa-root .pa-btn { min-height: 38px; }
+    #pa-root .pa-btn-s { min-height: 34px; }
+    #pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 38px; }
+    #pa-root .pa-compact .pa-seg button, #pa-root .pa-seg button { min-height: 36px; }
+    #pa-root .pa-compact .pa-row { min-height: 42px; }
+    #pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 18px; height: 18px; }
+    #pa-root .pa-compact .pa-mini, #pa-root .pa-mini { min-height: 34px; }
+    #pa-root .pa-item-head input[type=checkbox], #pa-root .pa-crow input[type=checkbox], #pa-root .pa-inline-check input { width: 20px; height: 20px; }
+}
+
+/* iOS：输入框字号小于 16px 时，点进去会放大整个页面。放在最后，盖过上面各处的字号 */
+@supports (-webkit-touch-callout: none) {
+    #pa-root .pa-input, #pa-root .pa-select, #pa-root .pa-text, #pa-root textarea, #pa-root input:not([type=checkbox]):not([type=radio]):not([type=range]) { font-size: max(16px, 1em); }
+}

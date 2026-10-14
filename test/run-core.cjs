@@ -322,4 +322,79 @@ test("双层分组 entryGrouping 里与百宝箱同名同成员的分组算重�
   assert.equal(new A.Draft("p", out).dupEntryGroups().length, 0);
 });
 
+test("双层分组——成员只是同名分组的一部分时不算重复（1.8.0）", () => {
+  const d = mk([["a", "甲", "x"], ["b", "乙", "y"]], { extensions: {
+    baibaiToolkit: { presetPromptGroups: { version: 1, groups: [{ id: "g1", name: "文风" }], prompts: { a: { groupId: "g1" }, b: { groupId: "g1" } } } },
+    entryGrouping: [{ id: "x1", name: "文风", memberIdentifiers: ["a"] }]
+  } });
+  assert.equal(d.dupEntryGroups().length, 0);
+  assert.deepEqual(d.toPreset().extensions.entryGrouping.map((g) => g.id), ["x1"]);
+});
+
+test("整组开关会开关组内条目，再开时只开回原来开着的（1.8.0）", () => {
+  const d = mk([["a", "甲", "x"], ["b", "乙", "y"], ["c", "丙", "z"]]);
+  const gid = d.createGroup("组", ["a", "b", "c"]);
+  d.setEnabled(["c"], false);
+  d.setGroupEnabled(gid, false);
+  assert.deepEqual(d.order.map((o) => o.enabled), [false, false, false]);
+  d.setGroupEnabled(gid, true);
+  assert.deepEqual(d.order.map((o) => o.enabled), [true, true, false]);
+  // 只有 entryGrouping 的预设：分组标记存不下来，但条目开关存下来了
+  const eg = mk([["a", "甲", "x"], ["b", "乙", "y"]], { extensions: { entryGrouping: [{ id: "x1", name: "组", startIdentifier: "a", endIdentifier: "b" }] } });
+  eg.setGroupEnabled("x1", false);
+  const back = new A.Draft("p", eg.toPreset());
+  assert.deepEqual(back.order.map((o) => o.enabled), [false, false]);
+  // 全部关着时打开整组：全部打开
+  back.setGroupEnabled("x1", true);
+  assert.deepEqual(back.order.map((o) => o.enabled), [true, true]);
+});
+
+test("replaceWith 整份换掉内容和分组格式（1.8.0）", () => {
+  const d = mk([["a", "甲", "x"]]);
+  d.replaceWith({ prompts: [{ identifier: "z", name: "新", content: "n" }], prompt_order: [{ character_id: 100001, order: [{ identifier: "z", enabled: true }] }], extensions: { entryGrouping: [{ id: "g", name: "组", memberIdentifiers: ["z"] }] } });
+  assert.deepEqual(d.order.map((o) => o.identifier), ["z"]);
+  assert.equal(d.hadEntryGrouping, true);
+  assert.equal(d.groupOf("z"), "g");
+});
+
+test("接入思维链：条目排在读变量的思维链之后时给出提醒，默认不接入（1.8.0）", () => {
+  const d = mk([
+    ["cot", "思维链", "<thinking>\n{{getvar::文风问}}\n</thinking>"],
+    ["w1", "文风·甲", "写得细腻一些，多用比喻和感官描写，节奏放慢。\n{{setvar::文风问::甲怎么落实？}}"]
+  ]);
+  const h = A.planHook(d, { after: "w1" }, null, { content: "这是一段足够长的新文风正文，用来测试接入思维链的提醒。", name: "文风·乙" });
+  assert.equal(h.status, "hook");
+  assert.ok((h.warns || []).some((w) => /之后/.test(w)), "排在思维链之后要提醒");
+  assert.equal(h.on, false, "排在后面时默认不接入");
+});
+
+test("恢复备份后撤销，温度等参数也一起回来（1.8.0）", () => {
+  const d = mk([["a", "甲", "x"]], { temperature: 0.8 });
+  d.snapshot("恢复备份");
+  d.replaceWith({ temperature: 0.2, prompts: [{ identifier: "a", name: "甲", content: "旧" }], prompt_order: [{ character_id: 100001, order: [{ identifier: "a", enabled: true }] }] });
+  assert.equal(d.toPreset().temperature, 0.2);
+  d.undo();
+  const out = d.toPreset();
+  assert.equal(out.temperature, 0.8);
+  assert.equal(out.prompts[0].content, "x");
+});
+
+test("手动指定的思维链，缝合时的接入检查也认（1.8.0）", () => {
+  const d = mk([
+    ["w1", "文风·甲", "写得细腻一些，多用比喻和感官描写，节奏放慢。\n{{setvar::文风问::甲怎么落实？}}"],
+    ["step", "最后检查", "回复前逐条确认：\n{{getvar::文风问}}"]
+  ]);
+  const item = { content: "这是一段足够长的新文风正文，用来测试手动指定的思维链。", name: "文风·乙" };
+  assert.equal(A.planHook(d, { after: "w1" }, null, item).status, "nocot");
+  d.cotManual = { step: true };
+  assert.notEqual(A.planHook(d, { after: "w1" }, null, item).status, "nocot");
+});
+
+test("改了正文以后，思维链区段重新计算（1.8.0）", () => {
+  const d = mk([["a", "开头", "<thinking>"], ["b", "中间", "想一想"], ["c", "结尾", "</thinking>"]]);
+  assert.ok(A.analyze(d).cotIds.includes("b"));
+  d.prompt("a").content = "普通条目";
+  assert.ok(!A.analyze(d).cotIds.includes("b"));
+});
+
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

@@ -17,12 +17,15 @@ assert.equal(await bar(), null, "打开时没有提示");
 // 1) 前台生成完：不提示
 await emit("generation_started", "normal", {}, false); await emit("generation_ended"); await page.waitForTimeout(900);
 assert.equal(await bar(), null);
-// 2) 生成中切到后台，在后台结束，回来时提示
+// 2a) 在后台安稳生成完、回复已经到了：不提示
 await emit("generation_started", "normal", {}, false); await setHidden(true); await emit("generation_ended"); await page.waitForTimeout(900);
 assert.equal(await bar(), null, "后台时不弹");
 await setHidden(false); await page.waitForTimeout(900);
+assert.equal(await bar(), null, "回复完整收到时不提示");
+// 2b) 切到后台，回到前台后很快才结束（连接被断、回来才收尾）：提示可能截断
+await emit("generation_started", "normal", {}, false); await setHidden(true); await setHidden(false); await emit("generation_ended"); await page.waitForTimeout(900);
 const t = await bar();
-assert.match(t, /后台生成的，可能被中断/); assert.match(t, /续写/); assert.match(t, /重新生成/);
+assert.match(t, /可能被截断/); assert.match(t, /续写/); assert.match(t, /重新生成/);
 await page.screenshot({ path: S + "r-1-bar.png" });
 await page.click("#pa-rescue [data-i='0']"); await page.waitForTimeout(200);
 assert.deepEqual(await page.evaluate(() => window.__gen), ["continue"]);

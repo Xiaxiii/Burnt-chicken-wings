@@ -24,7 +24,8 @@ function renderList(draft, o) {
   const matches = (id) => {
     if (!q) return true;
     const p = draft.prompt(id);
-    return (p?.name || id).toLowerCase().includes(q);
+    // 名称和正文都搜
+    return (p?.name || id).toLowerCase().includes(q) || String(p?.content || "").toLowerCase().includes(q);
   };
   const enabledMap = new Map(draft.order.map((x) => [x.identifier, x.enabled !== false]));
   const row = (id) => {
@@ -45,7 +46,7 @@ function renderList(draft, o) {
     if (marker) badge = '<span class="pa-chip pa-chip-dim">系统位置</span>';
     const at = m?.at === "row" && m.id === id;
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
-    return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}">
+    return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}" tabindex="0">
             <span class="pa-check" aria-hidden="true"></span>
             <span class="pa-name">${esc(name)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button>
@@ -77,11 +78,11 @@ function renderList(draft, o) {
     const startSlot = inside && !isCol && b.part === 1 ? atStart ? mark : `<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(b.groupId)}">${b.empty ? "↓ 放入此组" : "↑ 组内最前"}</button>` : "";
     const emptyNote = b.empty && !startSlot ? '<p class="pa-gempty">空分组</p>' : "";
     html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
-            <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}">
+            <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}" tabindex="0">
                 ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
                 <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>
                 ${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
-                ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false ? "" : "checked"}><i></i></label>
+                ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false || !onCount ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
                 <span class="pa-handle" data-act="gdrag" aria-label="拖动分组">${ICON.grip}</span>` : ""}
             </header>

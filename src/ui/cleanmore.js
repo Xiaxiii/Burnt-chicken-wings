@@ -6,6 +6,12 @@ var CORE_EXT_KEYS = new Set(["disabledExtensions", "autoConnect", "notifyUpdates
 // 酒馆内置功能存在 extension_settings 里的键
 var BUILTIN_EXT_KEYS = { note: "作者注释", caption: "图片描述", expressions: "表情", connectionManager: "连接配置", dice: "骰子", gallery: "图库", memory: "总结", quickReply: "快速回复（旧版）", quickReplyV2: "快速回复", regex: "正则", tts: "语音朗读", sd: "图片生成", chromadb: "ChromaDB", translate: "翻译", vectors: "向量存储", variables: "变量", attachments: "附件", character_attachments: "角色附件", disabledAttachments: "附件", cfg: "CFG", objective: "目标", rvc: "RVC", speech_recognition: "语音识别", hypebot: "HypeBot", idle: "空闲提醒", assets: "资源下载", tokenCounter: "Token 计数", gallery_folders: "图库" };
 var normKey = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9一-龥]/g, "");
+// 键排好序再转成文字：两本世界书字段顺序不同，内容一样时也能算出同一个指纹
+function stableJson(v) {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
+  if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stableJson(v[k])}`).join(",")}}`;
+  return JSON.stringify(v ?? null);
+}
 async function discoverExtensions() {
   const r = await fetch(stUrl("api/extensions/discover"), { headers: ctx().getRequestHeaders?.() || {} });
   if (!r.ok) throw new Error(`读取扩展列表失败（${r.status}）`);
@@ -55,16 +61,16 @@ async function scanExtensionCode(exts, keys, onProgress) {
       if (seen.has(u)) continue;
       seen.add(u);
       let text = "";
+      // 任何一个文件没读到，这个扩展都算没查完
       try {
         const r = await fetch(u);
         if (!r.ok) {
-          // 入口文件都读不到，这个扩展就算没查
-          if (seen.size === 1) failed = true;
+          failed = true;
           continue;
         }
         text = await r.text();
       } catch {
-        if (seen.size === 1) failed = true;
+        failed = true;
         continue;
       }
       for (const [k, re] of res) if (re.test(text) && !used[k].includes(x)) used[k].push(x);
@@ -92,7 +98,7 @@ async function deleteWorldbook(name) {
   if (!r.ok) throw new Error(`删除失败（${r.status}）`);
 }
 async function backupAll() {
-  return (await tx("backups", "readonly", (s) => s.getAll())) || [];
+  return ((await tx("backups", "readonly", (s) => s.getAll())) || []).filter(backupMine);
 }
 async function backupDel(id) {
   await tx("backups", "readwrite", (s) => s.delete(id));
@@ -120,7 +126,7 @@ function mountCleanKind(kind, box) {
         else if (users?.length) [state, label] = ["used", `检测：${users.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}${users.some((x) => !x.enabled) ? "（已停用）" : ""}在用`];
         else if (scan && owner?.ext) [state, label] = ["maybe", `检测：未找到使用者，但名称像「${owner.ext.manifest?.display_name || owner.ext.base}」，请确认`];
         else if (scan && scan.partial.length) [state, label] = ["maybe", `检测：未找到使用者，但「${scan.partial.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}」没有查完，请确认`];
-        else if (scan) [state, label] = ["orphan", "检测：没有已安装的扩展使用，可以删除"];
+        else if (scan) [state, label] = ["orphan", "检测：已安装扩展的代码里没找到它，多半是卸载残留"];
         else if (owner?.ext) [state, label] = ["used", `推测属于：${owner.ext.manifest?.display_name || owner.ext.base}${owner.ext.enabled ? "" : "（已停用）"}`];
         else [state, label] = ["maybe", "可能已卸载"];
         return { k, size, state, label };
@@ -134,9 +140,9 @@ function mountCleanKind(kind, box) {
       const orphans = list.filter((r) => r.state === "orphan");
       box.innerHTML = `
         <div class="pa-verdict"><p>设置文件中各扩展的数据共 <b>${fmtSize(total)}</b>。设置文件每次打开酒馆都要下载，每次保存都要上传，删掉已卸载扩展的残留数据能减少这部分。</p>
-          <p class="pa-hint">「可能已卸载」只是按名称推测。点「实际检测」会下载已安装扩展的脚本，逐个查找谁在使用这些数据，结果更准，但需要一些时间。</p>
-          <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${scan ? "重新检测" : "实际检测"}</button>${orphans.length ? `<button class="pa-btn pa-btn-danger pa-btn-s" data-x="cleanall">一键清理 ${orphans.length} 项（${fmtSize(orphans.reduce((n, r) => n + r.size, 0))}）</button>` : ""}<span class="pa-hint pa-ck-prog"></span></div>
-          ${scan ? `<p class="pa-hint">${orphans.length ? "「一键清理」只删除检测确认没有扩展使用的数据，删除前先下载备份。" : "没有检测确认可删除的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」的文件太多或读取失败，没有查完，标为「请确认」的数据需要你自己判断。` : ""}</p>` : ""}</div>
+          <p class="pa-hint">「可能已卸载」只是按名称推测。点「实际检测」会下载已安装扩展的脚本，查找谁在使用这些数据，但扩展用拼接出来的名字读数据时查不出来，结果只能作参考。</p>
+          <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${scan ? "重新检测" : "实际检测"}</button>${orphans.length ? `<button class="pa-btn pa-btn-s" data-x="pickorphans">勾选 ${orphans.length} 项疑似残留</button>` : ""}<span class="pa-hint pa-ck-prog"></span></div>
+          ${scan ? `<p class="pa-hint">${orphans.length ? "勾选后请逐项确认名称，再删除；删除前会先下载备份。" : "没有找到疑似残留的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」有文件没读到或文件太多，没有查完，标为「请确认」的数据需要你自己判断。` : ""}</p>` : ""}</div>
         ${err ? `<p class="pa-warn">${esc(err)}</p>` : ""}
         <div class="pa-clist">${list.map((r) => `<label class="pa-crow${S.sel.has(r.k) ? " on" : ""}${r.state === "core" || r.state === "used" ? " pa-locked" : ""}">
           ${chk(r.k, S.sel.has(r.k), r.state === "core" || r.state === "used")}
@@ -170,8 +176,12 @@ function mountCleanKind(kind, box) {
         S.busy = false;
         return draw();
       }
-      if (x === "del" || x === "cleanall") {
-        const keys = x === "cleanall" ? rows().filter((r) => r.state === "orphan").map((r) => r.k) : [...S.sel];
+      if (x === "pickorphans") {
+        for (const r of rows()) if (r.state === "orphan") S.sel.add(r.k);
+        return draw();
+      }
+      if (x === "del") {
+        const keys = [...S.sel];
         if (!keys.length) return;
         if (!await confirmBox("删除扩展数据", `将从设置文件中删除 ${keys.length} 项数据：${keys.slice(0, 5).join("、")}${keys.length > 5 ? " 等" : ""}。删除前会先下载备份。如果对应的扩展其实还在使用，它会恢复成默认设置。`, "下载备份并删除", true)) return;
         const es = ctx().extensionSettings;
@@ -203,15 +213,23 @@ function mountCleanKind(kind, box) {
         (groups.get(k) || groups.set(k, []).get(k)).push(ch);
       }
       const dups = [...groups.values()].filter((g) => g.length > 1);
-      const fp = (ch) => ch.shallow ? `s${ch.data_size ?? ""}` : hashStr(String(ch.description ?? ch.data?.description ?? "") + String(ch.first_mes ?? ch.data?.first_mes ?? ""));
+      // 指纹覆盖角色卡的全部内容字段；按需加载（shallow）的角色卡没有完整数据，不判断相同
+      const FIELDS = ["description", "personality", "scenario", "first_mes", "mes_example", "alternate_greetings", "system_prompt", "post_history_instructions", "creator_notes", "character_book", "tags", "extensions"];
+      const fp = (ch) => {
+        if (ch.shallow) return null;
+        const src = ch.data && typeof ch.data === "object" ? ch.data : ch;
+        return hashStr(stableJson(FIELDS.map((k) => src[k] ?? ch[k] ?? null)));
+      };
       const pickList = chars.filter((ch) => S.sel.has(ch.avatar));
       box.innerHTML = `
         <div class="pa-verdict"><p>共 ${chars.length} 张角色卡，${dups.length ? `其中 <b>${dups.length}</b> 组同名` : "没有同名的角色卡"}。角色列表每次打开酒馆都要下载，删除重复的角色卡能减少一些。</p>
           <p class="pa-hint">删除角色卡时保留聊天记录（服务器上的聊天文件不删）。正在聊天的角色卡不能勾选。</p></div>
         ${dups.map((g) => {
-          const same = new Set(g.map(fp)).size === 1 && !g.some((ch) => ch.shallow && ch.data_size == null);
+          const prints = g.map(fp);
+          const unknown = prints.some((x) => x == null);
+          const same = !unknown && new Set(prints).size === 1;
           const keep = g.reduce((a, b) => (Number(b.date_last_chat) || 0) > (Number(a.date_last_chat) || 0) ? b : a);
-          return `<h3 class="pa-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "内容相同" : "同名，内容不同"}</span></h3>
+          return `<h3 class="pa-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "内容相同" : unknown ? "同名，未加载完整内容，无法比较" : "同名，内容不同"}</span></h3>
           <div class="pa-clist">${g.map((ch) => `<label class="pa-crow${S.sel.has(ch.avatar) ? " on" : ""}${ch.avatar === cur ? " pa-locked" : ""}">${chk(ch.avatar, S.sel.has(ch.avatar), ch.avatar === cur)}
             <span class="pa-crow-main"><b>${esc(ch.avatar)}</b><span class="pa-crow-tags">${ch.avatar === cur ? '<span class="pa-chip pa-chip-cot">正在聊天</span>' : ""}${ch === keep && ch.date_last_chat ? '<span class="pa-chip pa-ctag-use">最近聊过</span>' : ""}${ch.date_last_chat ? `<span class="pa-chip pa-chip-dim">${relDay(Number(ch.date_last_chat)).replace("用过", "聊过")}</span>` : '<span class="pa-chip pa-chip-dim">没有聊过</span>'}${ch.chat_size ? `<span class="pa-chip pa-chip-dim">聊天 ${fmtSize(ch.chat_size)}</span>` : ""}</span></span>
             <span class="pa-crow-size"><em>${ch.data_size ? fmtSize(ch.data_size) : ""}</em></span></label>`).join("")}</div>`;
@@ -304,7 +322,11 @@ function mountCleanKind(kind, box) {
             const list = wiSorted(data);
             const w = { name: n, n: list.length, size: jsonSize(data) };
             if (!list.length) { empty.push(w); continue; }
-            const h = hashStr(JSON.stringify(list.map((e2) => [e2.comment || "", e2.content || "", (e2.key || []).join(","), !!e2.constant])));
+            // 比较条目的全部设置（启用、概率、位置、深度……），只忽略编号和排列下标
+            const h = hashStr(JSON.stringify(list.map((e2) => {
+              const { uid: _u, displayIndex: _d, ...rest } = e2;
+              return stableJson(rest);
+            })));
             (byHash.get(h) || byHash.set(h, []).get(h)).push(w);
           } catch {
           }
@@ -320,15 +342,21 @@ function mountCleanKind(kind, box) {
         if (!await confirmBox("删除世界书", `将删除 ${list.length} 本世界书：${list.slice(0, 4).join("、")}${list.length > 4 ? " 等" : ""}。删除前会先下载一份 zip。${bound.length ? `其中 ${bound.join("、")} 正被使用，删除后对应的角色或聊天将失去它。` : ""}`, "下载后删除", true)) return;
         S.busy = true;
         const files = [];
+        const unread = [];
         for (const n of list) {
           try {
-            files.push({ name: `${n}.json`, data: JSON.stringify(await mods.wi.loadWorldInfo(n), null, 2) });
+            const data = await mods.wi.loadWorldInfo(n);
+            if (!data || typeof data !== "object") throw new Error("读取结果为空");
+            files.push({ name: `${n}.json`, data: JSON.stringify(data, null, 2) });
           } catch {
+            unread.push(n);
           }
         }
-        downloadBlob(makeZip(files), `worldbooks-backup-${stamp()}.zip`);
+        if (files.length) downloadBlob(makeZip(files), `worldbooks-backup-${stamp()}.zip`);
+        // 没备份下来的不删
+        if (unread.length) toast(`${unread.join("、")} 读取失败、没有备份下来，这些不删除`, "warning");
         let ok = 0;
-        for (const n of list) {
+        for (const n of list.filter((x) => !unread.includes(x))) {
           try {
             await deleteWorldbook(n);
             S.sel.delete(n);

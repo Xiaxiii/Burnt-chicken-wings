@@ -15,7 +15,7 @@ function el(html) {
 }
 function sheet(opt) {
   return new Promise((resolve) => {
-    const wrap = el(`<div class="pa-sheet-mask"><div class="pa-sheet ${opt.wide ? "pa-sheet-wide" : ""}" role="dialog" aria-label="${esc(opt.title)}">
+    const wrap = el(`<div class="pa-sheet-mask"><div class="pa-sheet ${opt.wide ? "pa-sheet-wide" : ""}" role="dialog" aria-modal="true" tabindex="-1" aria-label="${esc(opt.title)}">
             <div class="pa-sheet-head"><b>${esc(opt.title)}</b><button class="pa-icon-btn pa-sheet-x" aria-label="关闭">✕</button></div>
             <div class="pa-sheet-body"></div>
             <div class="pa-sheet-actions"></div></div></div>`);
@@ -24,9 +24,11 @@ function sheet(opt) {
     else if (opt.body) body.append(opt.body);
     const acts = wrap.querySelector(".pa-sheet-actions");
     const done = (v) => {
+      if (wrap.classList.contains("pa-out")) return;
       wrap.classList.add("pa-out");
       setTimeout(() => wrap.remove(), 160);
       document.removeEventListener("keydown", onKey, true);
+      wrap.dispatchEvent(new Event("pa-closed"));
       resolve(v);
     };
     for (const a of opt.actions || [{ label: "确定", kind: "primary", value: true }]) {
@@ -45,17 +47,42 @@ function sheet(opt) {
     wrap.addEventListener("click", (e) => {
       if (e.target === wrap) done(null);
     });
+    // 叠着好几个弹窗时，Esc 和 Tab 只给最上面那个
+    const isTop = () => {
+      const all = (rootEl || document.body).querySelectorAll(".pa-sheet-mask:not(.pa-out)");
+      return all[all.length - 1] === wrap;
+    };
     const onKey = (e) => {
+      if (!isTop()) return;
       if (e.key === "Escape") {
-        e.stopPropagation();
+        e.stopImmediatePropagation();
+        e.preventDefault();
         done(null);
+        return;
+      }
+      if (e.key === "Tab") {
+        // 焦点留在弹窗里
+        const f = [...wrap.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
+        if (!f.length) return;
+        const i = f.indexOf(document.activeElement);
+        if (e.shiftKey && (i <= 0)) {
+          e.preventDefault();
+          f[f.length - 1].focus();
+        } else if (!e.shiftKey && (i === -1 || i === f.length - 1)) {
+          e.preventDefault();
+          f[0].focus();
+        }
       }
     };
     document.addEventListener("keydown", onKey, true);
+    const back = document.activeElement;
+    const restoreFocus = () => { try { if (back?.isConnected) back.focus({ preventScroll: true }); } catch {} };
+    wrap.addEventListener("pa-closed", restoreFocus);
     (rootEl || document.body).append(wrap);
     opt.onMount?.(wrap);
     const first = wrap.querySelector("input:not([type=checkbox]):not([type=radio]), textarea");
     if (first && !opt.noFocus && matchMedia("(pointer:fine)").matches) first.focus();
+    else wrap.querySelector(".pa-sheet")?.focus({ preventScroll: true });
   });
 }
 async function confirmBox(title, text, okLabel = "确定", danger = false) {
