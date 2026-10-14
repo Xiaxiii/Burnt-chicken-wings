@@ -36,7 +36,7 @@ async function boot({ globals = {}, routes = true } = {}) {
   });
   return { ctx, page, errs, hits };
 }
-const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.innerText);
+const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.textContent);
 
 // ---- 1) 没有其他加速扩展：显示未发现；本扩展不提供加速，「应用推荐配置」「停用加速」不可用；启动时不发请求
 {
@@ -46,8 +46,8 @@ const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.innerT
   const t = await quick(page);
   assert.match(t, /已在运行的相关扩展\s*未发现/);
   assert.match(t, /本扩展的读取加速\s*未提供/);
-  assert.equal(await page.$eval('#pa-settings .menu_button:has-text("应用推荐配置")', (x) => x.getAttribute("aria-disabled")), "true");
-  assert.equal(await page.$eval('#pa-settings .menu_button:has-text("停用加速")', (x) => x.getAttribute("aria-disabled")), "true");
+  assert.equal(await page.$$eval('#pa-settings .menu_button.disabled', (x) => x.length), 0, "不再放用不了的按钮");
+  assert.match(await page.$eval("#pa-settings .pa-set-maint .pa-set-sum", (x) => x.textContent), /没发现相关扩展/);
   assert.deepEqual(errs, []);
   ok("没有加速扩展时：不发请求，显示未发现，本扩展不提供加速");
   await ctx.close();
@@ -68,6 +68,7 @@ const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.innerT
   assert.match(await quick(page), /柏宝箱、鸡尾酒/);
   assert.match(await quick(page), /启动桥接\s*柏宝库（已加载）/);
   await page.$eval("#pa-settings", (b) => b.scrollIntoView());
+  await page.click("#pa-settings .pa-set-maint summary");
   await page.click('#pa-settings [data-c="check"]');
   await page.waitForSelector("#pa-settings .pa-set-table");
   const tbl = await page.$$eval("#pa-settings .pa-set-table tbody tr", (rs) => rs.map((r) => r.innerText.replace(/\s+/g, " ").trim()));

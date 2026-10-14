@@ -6,9 +6,12 @@
  * @param {{title:string, items:{value:string,label?:string,sub?:string}[], current?:string, search?:boolean}} o
  * @returns {Promise<string|null>}
  */
-async function pickName({ title, items, current = null, search } = {}) {
+// extra：搜索框旁边的一个按钮（例如「取消归属」），点了就返回它的 value
+async function pickName({ title, items, current = null, search, extra = null } = {}) {
   const useSearch = search ?? true;
-  const body = el(`<div class="pa-npick">${useSearch ? '<input class="pa-input pa-npick-q" type="search" placeholder="🔍 搜索" autocapitalize="off" autocomplete="off">' : ""}<div class="pa-npick-list" role="listbox"></div></div>`);
+  const q0 = useSearch ? '<input class="pa-input pa-npick-q" type="search" placeholder="🔍 搜索" autocapitalize="off" autocomplete="off">' : "";
+  const ex = extra ? `<button class="pa-btn pa-btn-s pa-npick-extra${extra.value === current ? " on" : ""}" type="button" data-v="${esc(extra.value)}">${esc(extra.label)}</button>` : "";
+  const body = el(`<div class="pa-npick">${ex ? `<div class="pa-npick-top">${q0}${ex}</div>` : q0}<div class="pa-npick-list" role="listbox"></div></div>`);
   const q = body.querySelector(".pa-npick-q");
   const box = body.querySelector(".pa-npick-list");
   let picked = null;
@@ -20,6 +23,10 @@ async function pickName({ title, items, current = null, search } = {}) {
   q?.addEventListener("input", paint);
   paint();
   await sheet({ title, body, noFocus: true, actions: [], onMount: (w) => {
+    body.querySelector(".pa-npick-extra")?.addEventListener("click", (e) => {
+      picked = e.currentTarget.dataset.v;
+      w.querySelector(".pa-sheet-x").click();
+    });
     box.addEventListener("click", (e) => {
       const b = e.target.closest("[data-v]");
       if (!b) return;

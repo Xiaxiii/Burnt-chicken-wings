@@ -24,6 +24,16 @@ await page.click("[data-opt=noPullRefresh]");
 assert.ok(!(await page.$("#pa-pull-guard")), "关闭后移除");
 await page.click("[data-opt=noPullRefresh]");
 assert.ok(await page.$("#pa-pull-guard"));
+// 魔棒菜单：别的扩展晚加进来，本项也留在最下面
+const last = await page.evaluate(async () => {
+  const m = document.getElementById("extensionsMenu");
+  if (!m) return "skip";
+  const x = document.createElement("div"); x.textContent = "后加载的扩展"; m.append(x);
+  await new Promise((r) => setTimeout(r, 50));
+  return m.lastElementChild.id;
+});
+assert.ok(last === "skip" || last === "pa-menu-entry", "魔棒菜单里始终在最下面");
+await page.screenshot({ path: S + "s-2-settings.png", clip: await page.$eval("#pa-settings", (b) => { const r = b.getBoundingClientRect(); return { x: r.x, y: r.y + scrollY, width: r.width, height: Math.min(r.height, 1100) }; }) });
 assert.deepEqual(errs, []);
 console.log("设置框检查通过");
 await browser.close();

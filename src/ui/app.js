@@ -231,6 +231,12 @@ function addMenuEntry() {
     }
   });
   menu.append(item);
+  // 别的扩展加载有先有后，有的晚于本扩展才往魔棒菜单里加，本项的位置就会跟着变。始终把它挪回最下面
+  const keepLast = new MutationObserver(() => {
+    if (item.isConnected && item.parentElement === menu && menu.lastElementChild !== item) menu.append(item);
+  });
+  keepLast.observe(menu, { childList: true });
+  cleanups.push(() => keepLast.disconnect());
 }
 // 1.3.4：扩展页里的设置框，照酒馆扩展的标准样子做：标题带版本号，按钮横排，能检查更新、看更新说明
 var EXT_DIR = (() => {
@@ -266,6 +272,14 @@ async function extApi(path) {
   if (!r.ok) throw new Error((await r.text().catch(() => "")) || r.statusText || `HTTP ${r.status}`);
   return r.json();
 }
+async function manifestVersion(url) {
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    return r.ok ? String((await r.json())?.version || "") : "";
+  } catch {
+    return "";
+  }
+}
 function addSettingsEntry() {
   if (document.getElementById("pa-settings")) return;
   const host2 = document.getElementById("extensions_settings2") || document.getElementById("extensions_settings");
@@ -284,20 +298,22 @@ function addSettingsEntry() {
           <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开<span class="pa-appname">${esc(appName())}</span></span></div>
           <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>加载体检</span></div>
         </div>
-        <hr class="sysHR">
-        <div class="pa-set-row pa-set-namerow">${nameRowHtml()}</div>
-        <div class="pa-set-row">
-          <span class="pa-set-k">版本</span>
-          <span class="pa-set-v">${esc(VERSION)} · ${kind}</span>
-          ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
+        <div class="pa-set-card">
+          <div class="pa-set-row pa-set-namerow">${nameRowHtml()}</div>
+          <div class="pa-set-row">
+            <span class="pa-set-k">版本</span>
+            <span class="pa-set-v">${esc(VERSION)} · ${kind}</span>
+            ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
+          </div>
+          <div class="pa-set-status" hidden></div>
+          <div class="pa-set-row pa-set-optrow">
+            <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="noPullRefresh" ${settings().noPullRefresh !== false ? "checked" : ""}><span>防止下拉误刷新</span></label>
+            <div class="pa-set-why" data-a="why" tabindex="0" role="button" aria-label="说明" title="说明">?</div>
+          </div>
+          <div class="pa-set-note pa-set-whynote" hidden>在页面顶部往下拖时，浏览器会刷新整个酒馆（iPhone、iPad 的 Safari 最常见，安卓 Chrome 也会）。开启后阻止这种刷新；浏览器的刷新按钮照常可用。</div>
         </div>
-        <div class="pa-set-status" hidden></div>
-        <hr class="sysHR">
         <div class="pa-set-maint"></div>
-        <hr class="sysHR">
-        <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="noPullRefresh" ${settings().noPullRefresh !== false ? "checked" : ""}><span>防止下拉误刷新</span></label>
-        <div class="pa-set-note">在页面顶部往下拖时，浏览器会刷新整个酒馆（iPhone、iPad 的 Safari 最常见，安卓 Chrome 也会）。开启后对所有设备阻止这种刷新；浏览器的刷新按钮照常可用。</div>
-        ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 1).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
+        ${log.length ? `<details class="pa-set-log pa-set-fold"><summary><span class="pa-set-fold-t">更新说明</span><small class="pa-set-sum">${esc(log[0].head)}</small></summary><div class="pa-set-logs">${log.slice(0, 1).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
         <div class="pa-set-foot">打开方式：点上方按钮，或从魔棒菜单打开，或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>
@@ -316,6 +332,11 @@ function addSettingsEntry() {
     if (a === "open") return open();
     if (a === "health") return open("more", "health");
     if (a === "reload") return location.reload();
+    if (a === "why") {
+      const n = box.querySelector(".pa-set-whynote");
+      n.hidden = !n.hidden;
+      return;
+    }
     // 改名就在这一行里改，不弹浏览器自带的输入框
     if (a === "rename") {
       const row = box.querySelector(".pa-set-namerow");
@@ -350,15 +371,19 @@ function addSettingsEntry() {
       if (a === "check") {
         say("正在检查更新…");
         const v = await extApi("version");
-        // 酒馆返回当前分支和提交：测试版装在别的分支上时，用它确认装的是哪一版
-        const at = v.currentCommitHash ? `<br>当前分支 ${esc(v.currentBranchName || "（未知）")} · 提交 ${esc(String(v.currentCommitHash).slice(0, 7))}` : "";
-        if (v.isUpToDate) say(`已是最新版本（${esc(VERSION)}）。${at}`, "ok");
-        else say(`有新版本。${at}<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>更新</span></div>`, "new");
+        if (v.isUpToDate) {
+          // 已经更新过但还没刷新页面时，磁盘上的版本比正在运行的新：显示磁盘上的，并提示刷新
+          const disk = await manifestVersion(stUrl(`scripts/extensions/third-party/${EXT_DIR}/manifest.json`)) || VERSION;
+          say(disk !== VERSION ? `已是最新版本（${esc(disk)}），刷新页面后生效。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>` : `已是最新版本（${esc(VERSION)}）。`, "ok");
+        } else {
+          const remote = await manifestVersion(`https://raw.githubusercontent.com/Xiaxiii/Burnt-chicken-wings/${encodeURIComponent(v.currentBranchName || "main")}/manifest.json`);
+          say(`检测到新版本${remote ? `（${esc(remote)}）` : ""}。<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>更新</span></div>`, "new");
+        }
       } else if (a === "update") {
         say("正在更新…");
         const v = await extApi("update");
         if (v.isUpToDate) say("已是最新版本。", "ok");
-        else say('更新完成，刷新页面后生效。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>', "ok");
+        else say(`已更新${await manifestVersion(stUrl(`scripts/extensions/third-party/${EXT_DIR}/manifest.json`)).then((x) => x ? `到 ${esc(x)}` : "")}，刷新页面后生效。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>`, "ok");
       }
     } catch (e) {
       say(`更新失败：${esc(e.message).slice(0, 200)}<br>可在「扩展管理」中更新。`, "bad");

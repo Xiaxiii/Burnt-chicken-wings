@@ -165,11 +165,12 @@ function mountSchemes(page, { after } = {}) {
       view() !== "char" && schemeCharKey(s) ? esc(charNameOf(schemeCharKey(s))) : "",
       shortTime(Math.max(s.usedAt || 0, s.at || 0))
     ].filter(Boolean).join(" · ");
+    const apiLine = site ? `<small class="pa-srow-api">API 站点：${esc(site.name)}</small>` : s.siteId ? '<small class="pa-srow-api">API 站点：已删除</small>' : "";
     if (picking) return `<label class="pa-srow pa-srow-pick" data-id="${esc(s.id)}"><input type="checkbox" data-a="pick" ${picked.has(s.id) ? "checked" : ""}>
-        <div class="pa-srow-main"><b>${esc(s.name)}</b>${bound ? `<span class="pa-chip pa-chip-cot">🔗${BIND_LABEL[bound]}</span>` : ""}<small>${meta}</small></div></label>`;
+        <div class="pa-srow-main"><b>${esc(s.name)}</b>${bound ? `<span class="pa-chip pa-chip-cot">🔗${BIND_LABEL[bound]}</span>` : ""}<small>${meta}</small>${apiLine}</div></label>`;
     return `<div class="pa-srow${on ? " pa-srow-on" : ""}" data-id="${esc(s.id)}">
         <div class="pa-srow-main"><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? `<span class="pa-chip pa-chip-cot" title="进入${bound === "chat" ? "这个聊天" : "这个角色的聊天"}时自动切换到它">🔗${BIND_LABEL[bound]}</span>` : ""}
-        <small>${meta}</small></div>
+        <small>${meta}</small>${apiLine}</div>
         <button class="pa-btn pa-btn-s${on ? "" : " pa-btn-primary"}" data-a="apply" title="把预设、开关、人设、API 一次换成方案记的样子">切换</button>
         <button class="pa-icon-btn" data-a="edit" aria-label="编辑方案" title="编辑">✏️</button></div>`;
   }
@@ -274,10 +275,12 @@ function mountSchemes(page, { after } = {}) {
     toast(`已保存方案「${s.name}」${r.bind ? "，进入这个聊天时会自动切换到它" : ""}`, "success");
     render();
   }
+  // ✏️ 菜单：做完一项（或在子窗口里取消）回到这个菜单，方便接着改；点 ✕ 或删除后才关掉
   async function editMenu(s) {
-    const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
-    const bind = bindingNow();
-    const v = await pickBox(`✏️ ${s.name}`, [
+    while (all().includes(s)) {
+      const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
+      const bind = bindingNow();
+      const v = await pickBox(`✏️ ${s.name}`, [
       { label: "重命名", value: "rename" },
       { label: "用现在的状态覆盖", sub: `把方案改成「${s.preset}」现在的开关${s.persona ? "、人设" : ""}${s.siteId ? "、API 站点" : ""}`, value: "update" },
       { label: "换 API 站点", sub: site ? `现在：${site.name}` : "现在：不切换 API", value: "site" },
@@ -286,7 +289,13 @@ function mountSchemes(page, { after } = {}) {
       { label: "改归属角色", sub: `现在：${charNameOf(schemeCharKey(s))}`, value: "char" },
       { label: "删除方案", sub: "预设不受影响", value: "del" }
     ]);
-    if (!v) return;
+      if (!v) break;
+      await editAction(s, v);
+      render();
+    }
+    render();
+  }
+  async function editAction(s, v) {
     if (v === "rename") {
       const n = await promptBox("方案名称", s.name);
       if (n) { s.name = n; saveSettings(); }
@@ -334,7 +343,7 @@ function mountSchemes(page, { after } = {}) {
     if (v === "char") {
       const chars = (ctx().characters || []).filter((x) => x?.avatar);
       const ck = schemeCharKey(s);
-      const pick = await pickName({ title: "归到哪个角色卡", current: ck || "__none", items: [{ value: "__none", label: "未分角色" }, ...chars.map((x) => ({ value: x.avatar, label: x.name }))] });
+      const pick = await pickName({ title: "归到哪个角色卡", current: ck || "__none", extra: { value: "__none", label: "取消归属" }, items: chars.map((x) => ({ value: x.avatar, label: x.name })) });
       if (!pick) return;
       s.charKey = pick === "__none" ? "" : pick;
       saveSettings();
@@ -343,7 +352,6 @@ function mountSchemes(page, { after } = {}) {
       if (!await confirmBox("删除方案", `删除「${s.name}」？预设不受影响。`, "删除", true)) return;
       await removeSchemes([s.id]);
     }
-    render();
   }
   async function removeSchemes(ids) {
     const gone = new Set(ids);

@@ -52,7 +52,27 @@ await page.click(".pa-npick-item >> text=林栖"); await page.waitForTimeout(300
 st = await S();
 assert.equal(st.schemes.find((x) => x.id === "old").charKey, "lin.png");
 assert.ok((await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent))).includes("林栖"));
+await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+{ const g = page.locator(".pa-sgroup", { hasText: "林栖" }); if (!(await g.evaluate((x) => x.classList.contains("open")))) { await g.locator(".pa-sghead").click(); await page.waitForTimeout(150); } }
 ok("✏️ 里改归属角色");
+
+// 3b) ✏️ 做完一项回到菜单；改归属里「取消归属」按钮；方案行显示 API 站点名
+await page.locator(".pa-srow", { hasText: "旧方案" }).locator("[data-a=edit]").click(); await page.waitForTimeout(200);
+await page.click(".pa-pick-item >> text=改归属角色"); await page.waitForTimeout(200);
+await page.click(".pa-npick-extra"); await page.waitForTimeout(300);
+assert.equal((await S()).schemes.find((x) => x.id === "old").charKey, "", "取消归属");
+assert.ok(await page.locator(".pa-pick-item >> text=改归属角色").isVisible(), "做完回到 ✏️ 菜单");
+await page.click(".pa-pick-item >> text=改归属角色"); await page.waitForTimeout(200);
+await page.click(".pa-npick-item >> text=林栖"); await page.waitForTimeout(300);
+await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+assert.equal(await page.locator(".pa-pick-item").count(), 0, "点 ✕ 才关掉");
+await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings.presetAtelier; st.sites = [{ id: "s1", name: "tree", source: "custom", url: "https://t/v1" }]; st.schemes.find((x) => x.id === "old").siteId = "s1"; });
+await page.click("[data-s=view]"); await page.waitForTimeout(200);
+await page.click(".pa-npick-item >> text=角色卡"); await page.waitForTimeout(300);
+const lin = page.locator(".pa-sgroup", { hasText: "林栖" });
+if (!(await lin.evaluate((x) => x.classList.contains("open")))) { await lin.locator(".pa-sghead").click(); await page.waitForTimeout(150); }
+assert.equal(await page.locator(".pa-srow", { hasText: "旧方案" }).locator(".pa-srow-api").innerText(), "API 站点：tree");
+ok("✏️ 做完一项回到菜单；取消归属；方案行显示 API 站点名");
 
 // 4) 同一个聊天里再次收到聊天切换事件：不再自动套用（手动换的预设不会被换回去）
 const before = await page.evaluate(() => window.__mock.live.preset_settings_openai);
@@ -76,7 +96,7 @@ ok("可以改成按预设分组");
 // 6) 🗑️ 勾选删除：整组勾选 + 单个勾选，删完绑定一起清掉
 await page.click("[data-s=view]"); await page.waitForTimeout(200);
 await page.click(".pa-npick-item >> text=角色卡"); await page.waitForTimeout(300);
-assert.ok(!/API/.test(await page.locator(".pa-srow small").first().innerText()), "方案行不显示 API");
+assert.ok(!/API/.test(await page.locator(".pa-srow small").first().innerText()), "预设那一行不混进 API");
 await page.click("[data-s=pickon]"); await page.waitForTimeout(150);
 assert.equal(await page.locator("[data-s=delpicked]").isDisabled(), true);
 await page.locator(".pa-srow", { hasText: "沈砚·正剧" }).click(); await page.waitForTimeout(150);
