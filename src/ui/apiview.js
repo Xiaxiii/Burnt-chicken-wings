@@ -84,6 +84,7 @@ function mountApi(liveBox, sitesBox) {
         ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
         <div class="pa-card">
             <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后，自动连回「使用中」的站点</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="chattoast" ${s.chatToast !== false ? "checked" : ""}> 换角色、换聊天时，弹出小提示：当前预设和模型（3 秒后消失）</label>
             <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时，不让预设带着的连接设置覆盖当前连接</label>
             ${tip("第二项是酒馆自己的「预设绑定连接」设置（勾选＝关闭绑定）。两项都勾选时，换预设不会换 API。")}
         </div>`;
@@ -223,6 +224,10 @@ function mountApi(liveBox, sitesBox) {
     const o = e.target.dataset.o;
     if (o === "keep") {
       settings().keepApi = e.target.checked;
+      saveSettings();
+    }
+    if (o === "chattoast") {
+      settings().chatToast = e.target.checked;
       saveSettings();
     }
     if (o === "unbind") setBindPresetToConnection(!e.target.checked);

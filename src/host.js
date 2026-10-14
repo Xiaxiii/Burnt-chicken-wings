@@ -67,6 +67,10 @@ function readPreset(name) {
   }
   return base;
 }
+function replaceInPlace(target, src) {
+  for (const k of Object.keys(target)) if (!(k in src)) delete target[k];
+  Object.assign(target, src);
+}
 // backup：写之前把服务器上的旧版本存一份备份（每批修改只存一次，由调用方决定）
 async function writePreset(name, data, reason = "保存", { backup = true } = {}) {
   const { presets } = pm().getPresetList();
@@ -88,7 +92,12 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
   };
   const restChanged = idx !== void 0 && idx >= 0 && presets[idx] && restOf(presets[idx]) !== restOf(data);
   await pm().savePreset(name, data, { skipUpdate: true });
-  if (idx !== void 0 && idx >= 0) presets[idx] = structuredClone(data);
+  if (idx !== void 0 && idx >= 0) {
+    // 原地替换：别的扩展可能拿着旧对象的引用，换成新对象的话它下次保存会把旧内容写回去
+    const cur = presets[idx];
+    if (cur && typeof cur === "object") replaceInPlace(cur, structuredClone(data));
+    else presets[idx] = structuredClone(data);
+  }
   if (name === currentPresetName() && restChanged) {
     toast(`「${name}」的温度等参数已写入预设文件。正在使用的参数要在酒馆里重新选一次这个预设才会更新`, "warning");
   }
@@ -96,7 +105,8 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     const s = mods.openai.oai_settings;
     s.prompts = structuredClone(data.prompts);
     s.prompt_order = structuredClone(data.prompt_order);
-    s.extensions = structuredClone(data.extensions || {});
+    if (s.extensions && typeof s.extensions === "object" && !Array.isArray(s.extensions)) replaceInPlace(s.extensions, structuredClone(data.extensions || {}));
+    else s.extensions = structuredClone(data.extensions || {});
     ctx().saveSettingsDebounced();
     const et2 = ctx().eventTypes || ctx().event_types;
     // 1.3.5：柏宝箱会把「当前预设」的分组缓存在内存里，只在换预设、导入、改名时才重新读。

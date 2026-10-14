@@ -39,6 +39,9 @@
 @media (pointer: coarse) { #pa-root { --pa-row-h: 46px; } }
 #pa-root[hidden] { display: none; }
 html.pa-open body { overflow: hidden; }
+#toast-container > .toast.pa-chat-toast { width: auto; min-width: 0; max-width: min(300px, calc(100vw - 32px)); padding: 7px 12px 7px 38px; background-position: 11px center; background-size: 18px; font-size: 13px; line-height: 1.35; }
+#toast-container > .toast.pa-chat-toast .toast-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#toast-container > .toast.pa-chat-toast .toast-message { white-space: pre-line; overflow-wrap: anywhere; opacity: .85; }
 
 #pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }
 #pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }

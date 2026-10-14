@@ -473,8 +473,11 @@ var Draft = class {
       const mem = new Set(ids.filter((x) => this.groupOf(x) === g.id));
       if (k) byName.set(k, byName.has(k) ? new Set([...byName.get(k), ...mem]) : mem);
     }
+    const baiIds = new Set(this.groups.groups.map((g) => g.id));
     return eg.filter((g) => {
       if (!g) return false;
+      // 和柏宝箱分组同 id 的是旧版本镜像出来的副本（成员可能是旧的），保存时本来就会去掉
+      if (g.id && baiIds.has(g.id)) return true;
       const set = byName.get(String(g.name || "").trim());
       if (!set) return false;
       let mem;

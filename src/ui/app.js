@@ -452,33 +452,93 @@ function chatKeyNow() {
 function markChatHandled() {
   handledChat = chatKeyNow();
 }
+// 换角色、换聊天时弹一个小提示：现在用的预设和模型（3 秒后消失）
+function chatInfoToast(scheme) {
+  if (settings().chatToast === false) return;
+  try {
+    if ((ctx().mainApi || $("#main_api").val()) !== "openai") return;
+    const t = globalThis.toastr;
+    const preset = currentPresetName() || "（未选预设）";
+    const model = liveConnection().model || "（未选模型）";
+    const msg = `模型：${model}${scheme ? `\n方案：${scheme.name}` : ""}`;
+    if (t?.info) t.info(msg, `预设：${preset}`, { timeOut: 3e3, extendedTimeOut: 1e3, preventDuplicates: false, toastClass: "toast pa-chat-toast", escapeHtml: true });
+  } catch (e) {
+    console.warn("[焦香鸡翅] 提示当前预设失败", e);
+  }
+}
 var onChatChanged = debounce(async () => {
   const key = chatKeyNow();
   if (!key || key === handledChat) return;
   handledChat = key;
+  let applied = null;
+  try {
+    applied = await autoApplyBinding();
+  } finally {
+    // 等自动连回站点、预设切换的事件处理完，再读当前的预设和模型
+    setTimeout(() => { if (chatKeyNow() === key) chatInfoToast(applied); }, 900);
+  }
+}, 600);
+async function autoApplyBinding() {
   const bind = bindingNow();
   const id = bind?.id;
-  if (!id) return;
+  if (!id) return null;
   const sc = settings().schemes.find((x) => x.id === id);
-  if (!sc) return;
+  if (!sc) return null;
   try {
     // 预设已归档：读不到，直接交给 applyScheme，它会先从归档恢复
     if (!listPresets().includes(sc.preset)) {
-      await applyScheme(sc, { quiet: true });
-      return;
+      return await applyScheme(sc, { quiet: true, silent: true }) ? sc : null;
     }
     const d = getDraft(sc.preset, { fresh: true });
     const presetOk = currentPresetName() === sc.preset;
     const personaOk = !sc.persona || currentPersona() === sc.persona;
     const site = sc.siteId ? settings().sites.find((x) => x.id === sc.siteId) : null;
     const siteOk = !site || !siteDiffers(site);
-    if (presetOk && personaOk && siteOk && schemeMatches(d, sc)) return;
-    await applyScheme(sc, { quiet: true, why: bind.scope === "chat" ? "这个聊天绑定了它" : `「${currentCharName()}」绑定了它` });
+    if (presetOk && personaOk && siteOk && schemeMatches(d, sc)) return sc;
+    return await applyScheme(sc, { quiet: true, silent: true }) ? sc : null;
   } catch (e) {
     console.warn("[焦香鸡翅] 套用聊天绑定方案失败", e);
     toast(`套用本聊天绑定的方案「${sc.name}」失败：${e.message}`, "warning");
+    return null;
   }
-}, 600);
+}
+function whoFromStack(stack) {
+  const names = [...String(stack || "").matchAll(/extensions\/third-party\/([^/?#]+)\//g)].map((m) => decodeURIComponent(m[1]));
+  const other = names.find((n) => !/burnt|chicken|atelier|焦香/i.test(n));
+  if (other) return other;
+  const scripts = [...String(stack || "").matchAll(/scripts\/extensions\/([^/?#]+)\//g)].map((m) => m[1]).find((n) => n !== "third-party");
+  return scripts ? `酒馆内置扩展 ${scripts}` : "";
+}
+function watchMirrorWrites() {
+  const orig = window.fetch;
+  if (typeof orig !== "function" || orig.__paWatch) return;
+  const wrapped = function(input, init) {
+    try {
+      const url = typeof input === "string" ? input : input?.url || "";
+      const body = init?.body;
+      if (/api\/presets\/save/.test(url) && typeof body === "string" && body.includes("entryGrouping")) {
+        const b = JSON.parse(body);
+        const ext = b?.preset?.extensions;
+        const bai = ext?.baibaiToolkit?.presetPromptGroups?.groups;
+        if (b?.name && Array.isArray(ext?.entryGrouping) && Array.isArray(bai)) {
+          const ids = new Set(bai.map((g) => g?.id).filter(Boolean));
+          if (ext.entryGrouping.some((g) => g && ids.has(g.id)) && settings().mirrorFixed?.[b.name]) {
+            const by = whoFromStack(new Error().stack);
+            if (!settings().mirrorWrites || typeof settings().mirrorWrites !== "object") settings().mirrorWrites = {};
+            settings().mirrorWrites[b.name] = { at: Date.now(), by };
+            saveSettings();
+            console.warn("[焦香鸡翅] 有人把旧的重复分组写回了预设", b.name, by || "(酒馆保存预设)", new Error().stack);
+          }
+        }
+      }
+    } catch {
+    }
+    return orig.apply(this, arguments);
+  };
+  wrapped.__paWatch = true;
+  window.fetch = wrapped;
+  cleanups.push(() => { if (window.fetch === wrapped) window.fetch = orig; });
+}
 function bindEvents() {
   const c2 = ctx();
   const et2 = c2.eventTypes || c2.event_types;
@@ -510,6 +570,7 @@ async function start() {
     }
   }
   await initHost();
+  watchMirrorWrites();
   const checkpointAll = () => { for (const d of dirtyDrafts()) checkpoint(d); };
   window.addEventListener("pagehide", checkpointAll);
   const hiddenCheckpoint = () => { if (document.hidden) checkpointAll(); };

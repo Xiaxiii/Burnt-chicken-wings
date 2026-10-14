@@ -19,7 +19,7 @@ function schemeMatches(d, scheme) {
   }
   return true;
 }
-async function applyScheme(scheme, { quiet = false, why = "" } = {}) {
+async function applyScheme(scheme, { quiet = false, why = "", silent = false } = {}) {
   // 1.5.0：预设已归档的，先从归档恢复
   if (!listPresets().includes(scheme.preset) && archiveList().some((x) => x.name === scheme.preset)) {
     try {
@@ -86,7 +86,7 @@ async function applyScheme(scheme, { quiet = false, why = "" } = {}) {
   }
   scheme.usedAt = Date.now();
   saveSettings();
-  toast(`${why ? `自动套用（${why}）：` : "已切换到"}「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}${site ? `，API：${site.name}` : ""}`, "success");
+  if (!silent) toast(`${why ? `自动套用（${why}）：` : "已切换到"}「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}${site ? `，API：${site.name}` : ""}`, "success");
   return true;
 }
 // 自动套用的绑定：聊天绑定存在聊天文件里；角色绑定存在本扩展设置里（这个角色的任何聊天都算）。聊天绑定优先

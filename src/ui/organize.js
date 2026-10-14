@@ -1,3 +1,15 @@
+// 1.7.5 双层分组提示。去掉过一次又出现，说明有别的地方拿旧版本写回来了：说清楚是谁（本机能抓到时）、该怎么办
+function dupBannerHtml(d, dups) {
+  const fixed = settings().mirrorFixed?.[d.name];
+  const w = settings().mirrorWrites?.[d.name];
+  const when = (t) => { const x = new Date(t); return `${x.getMonth() + 1}/${x.getDate()} ${String(x.getHours()).padStart(2, "0")}:${String(x.getMinutes()).padStart(2, "0")}`; };
+  const names = esc(dups.slice(0, 4).map((g) => g.name).join("、")) + (dups.length > 4 ? " 等" : "");
+  if (!fixed) return `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>这个预设的分组存了两份，所以每个分组里又套了一层同名分组。</b></p><small>预设里同时有柏宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。共 ${dups.length} 个分组重复：${names}。去掉重复的一层后，条目和分组都不变。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">去掉重复的一层</button></div></div>`;
+  const who = w && w.at > fixed
+    ? `${when(w.at)} 在这台设备上，是${w.by ? `「${esc(w.by)}」` : "酒馆的「保存预设」"}把旧分组写回了预设。`
+    : "这台设备上没看到谁写回来的，多半是另一台设备或另一个浏览器标签页里开着的酒馆：它内存里还是旧版本，一保存就把旧分组写回去了。";
+  return `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>重复的一层去掉过（${when(fixed)}），又被写回来了。</b></p><small>${who}<br>先把其他设备、其他标签页里的酒馆刷新一下（或关掉），再点下面的按钮。共 ${dups.length} 个分组重复：${names}。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">再去掉一次</button></div></div>`;
+}
 function mountOrganize(page) {
   const st = {
     selected: /* @__PURE__ */ new Set(),
@@ -71,7 +83,7 @@ function mountOrganize(page) {
     const top = list.scrollTop;
     // 1.7.5 双层分组提示
     const dups = placing || st.query ? [] : d.dupEntryGroups();
-    const dupBanner = dups.length ? `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>这个预设的分组存了两份，所以每个分组里又套了一层同名分组。</b></p><small>预设里同时有柏宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。共 ${dups.length} 个分组重复：${esc(dups.slice(0, 4).map((g) => g.name).join("、"))}${dups.length > 4 ? " 等" : ""}。去掉重复的一层后，条目和分组都不变。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">去掉重复的一层</button></div></div>` : "";
+    const dupBanner = dups.length ? dupBannerHtml(d, dups) : "";
     list.innerHTML = dupBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight });
     list.scrollTop = top;
     list.classList.toggle("pa-placing", placing);
@@ -153,6 +165,9 @@ function mountOrganize(page) {
         if (eg.length) x.preset.extensions.entryGrouping = eg;
         else delete x.preset.extensions.entryGrouping;
       });
+      if (!settings().mirrorFixed || typeof settings().mirrorFixed !== "object") settings().mirrorFixed = {};
+      settings().mirrorFixed[d.name] = Date.now();
+      saveSettings();
       toast(`已去掉 ${n} 个重复的分组`, "success");
       return;
     }

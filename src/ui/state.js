@@ -3,6 +3,7 @@ var DEFAULTS = {
   sites: [],
   activeSiteId: null,
   keepApi: true,
+  chatToast: true,
   schemes: [],
   cotManual: {},
   keepClickOrder: true,
