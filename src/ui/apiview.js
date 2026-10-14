@@ -43,13 +43,13 @@ function mountApi(liveBox, sitesBox) {
     const active = sites().find((x) => x.id === s.activeSiteId);
     const src = SOURCES[live.source];
     const liveModels = liveModelOptions();
-    // 使用中的站点跟随实际连接：记下模型列表，酒馆里换了模型也同步过来
-    if (active && active.source === live.source && (active.source !== "custom" || (active.url || "") === (live.url || ""))) {
-      let changed = false;
-      if (liveModels.length && JSON.stringify(active.models || []) !== JSON.stringify(liveModels)) active.models = liveModels, changed = true;
-      if (live.model && active.model !== live.model) active.model = live.model, changed = true;
-      if (changed) saveSettings();
+    // 使用中的站点只同步可选的模型列表；在酒馆里临时换的模型不悄悄写进站点，由用户决定要不要记下
+    const sameSite = active && active.source === live.source && (active.source !== "custom" || (active.url || "") === (live.url || ""));
+    if (sameSite && liveModels.length && JSON.stringify(active.models || []) !== JSON.stringify(liveModels)) {
+      active.models = liveModels;
+      saveSettings();
     }
+    const modelDiff = sameSite && live.model && active.model && live.model !== active.model;
     const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => sc.siteId === id).map((sc) => sc.preset))];
     const dot = `<span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span>`;
     // 1.4.1：「当前连接」就是使用中的站点卡片，不再单独一块；当前连接还没存成站点时，用同样样式显示
@@ -62,7 +62,8 @@ function mountApi(liveBox, sitesBox) {
               <dt>类型</dt><dd>${esc(SOURCES[x.source]?.label || x.source)}</dd>
               ${x.url ? `<dt>网址</dt><dd>${esc(x.url)}</dd>` : ""}
               <dt>密钥</dt><dd>${esc(x.keyMask || (x.secretId ? "已保存" : "使用当前密钥"))}</dd>
-              <dt>模型</dt><dd>${modelBtn(isLive ? live.model : x.model, isLive ? 'data-a="livemodel"' : 'data-a="sitemodel"')}${x.source === "custom" && !isLive ? '<button class="pa-link" data-a="fetch">获取模型列表</button>' : ""}</dd>
+              <dt>模型</dt><dd>${modelBtn(isLive ? live.model : x.model, isLive ? 'data-a="livemodel"' : 'data-a="sitemodel"')}${x.source === "custom" && !isLive ? '<button class="pa-link" data-a="fetch">获取模型列表</button>' : ""}
+                ${isLive && modelDiff ? `<span class="pa-hint">站点记的是「${esc(x.model)}」。切换预设后会换回它。</span><button class="pa-link" data-a="keepmodel">改记为当前模型</button>` : ""}</dd>
               ${usedBy(x.id).length ? `<dt>用于</dt><dd>${settings().schemes.filter((sc) => sc.siteId === x.id).map((sc) => `方案「${esc(sc.name)}」（${esc(sc.preset)}）`).join("、")}</dd>` : ""}
               ${x.note ? `<dt>备注</dt><dd>${esc(x.note)}</dd>` : ""}
             </dl>
@@ -83,8 +84,9 @@ function mountApi(liveBox, sitesBox) {
         <div class="pa-row-head"><h3 class="pa-h">${active ? "其他站点" : "API 站点"}</h3><button class="pa-btn pa-btn-primary" data-a="new">＋ 添加站点</button></div>
         ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
         <div class="pa-card">
-            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后恢复当前站点</label>
-            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时不改变连接设置</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后，自动连回「使用中」的站点</label>
+            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时，不让预设带着的连接设置覆盖当前连接</label>
+            <p class="pa-hint">第二项是酒馆自己的「预设绑定连接」设置（勾选＝关闭绑定）。两项都勾选时，换预设不会换 API。</p>
         </div>`;
   }
   async function getModels(site) {
@@ -97,11 +99,11 @@ function mountApi(liveBox, sitesBox) {
             <label class="pa-field"><span>名称</span><input class="pa-input" data-f="name" value="${esc(s.name)}" placeholder="例如：某中转站"></label>
             <label class="pa-field"><span>类型</span><select class="pa-select" data-f="source">${Object.entries(SOURCES).map(([k, v]) => `<option value="${k}" ${k === s.source ? "selected" : ""}>${esc(v.label)}</option>`).join("")}</select></label>
             <label class="pa-field" data-show="custom"><span>网址</span><input class="pa-input" data-f="url" value="${esc(s.url)}" placeholder="https://…/v1" inputmode="url" autocapitalize="off"></label>
-            <label class="pa-field"><span>密钥</span><input class="pa-input" data-f="key" type="password" autocomplete="off" placeholder="${s.secretId || s.legacyKey ? "不修改请留空" : "留空则使用酒馆当前密钥"}"></label>
+            <label class="pa-field"><span>密钥</span><input class="pa-input" data-f="key" type="password" autocomplete="off" placeholder="${s.secretId || s.localKey || s.legacyKey ? "不修改请留空" : "留空则使用酒馆当前密钥"}"></label>
             <div class="pa-field"><span>模型</span>${modelBtn(s.model, 'data-f="modelbtn" type="button"')}<input type="hidden" data-f="model" value="${esc(s.model || "")}"></div>
             <button class="pa-btn pa-btn-soft" data-f="fetch" type="button" data-show="custom">获取模型列表</button>
             <label class="pa-field"><span>备注</span><input class="pa-input" data-f="note" value="${esc(s.note || "")}" placeholder="例如：月卡至 11 月"></label>
-            <p class="pa-hint">${multiKeySupported() ? "密钥存入酒馆密钥库，本扩展只记录编号。" : "酒馆版本较旧，密钥存入酒馆设置文件。"}</p>
+            <p class="pa-hint">${multiKeySupported() ? "密钥存入酒馆密钥库，本扩展只记录编号。" : "酒馆版本较旧，没有密钥库。密钥只保存在这个浏览器里，不写进酒馆设置文件；换设备、换浏览器需要重新填写。"}</p>
         </div>`);
     const sync = (w) => {
       const custom = w.querySelector("[data-f=source]").value === "custom";
@@ -124,14 +126,21 @@ function mountApi(liveBox, sitesBox) {
       model: readModel(w),
       note: w.querySelector("[data-f=note]").value.trim()
     });
+    // 这个对话框里存进密钥库的新密钥。取消时删掉；同一个对话框里换过密钥，旧的也删掉
+    const madeKeys = [];
+    let madeLocal = false;
     const persistKey = async (v) => {
       if (!v.key) return;
       if (multiKeySupported()) {
-        const id = await storeKey(v.source, v.key, `裁缝铺\xB7${v.name || "站点"}`);
+        const id = await storeKey(v.source, v.key, `焦香鸡翅\xB7${v.name || "站点"}`);
+        madeKeys.push({ source: v.source, id });
         s.secretId = id;
         delete s.legacyKey;
       } else {
-        s.legacyKey = v.key;
+        if (!setLocalKey(s.id, v.key)) throw new Error("浏览器不允许保存密钥（可能是无痕模式）");
+        madeLocal = true;
+        s.localKey = true;
+        delete s.legacyKey;
       }
       s.keyMask = v.key.length > 8 ? `${v.key.slice(0, 3)}…${v.key.slice(-4)}` : "已保存";
       v.key = "";
@@ -191,12 +200,18 @@ function mountApi(liveBox, sitesBox) {
         value: read
       }]
     });
-    if (!r) return;
+    if (!r) {
+      for (const k of madeKeys) await dropKey(k.source, k.id);
+      if (madeLocal && isNew) setLocalKey(s.id, null);
+      return;
+    }
     try {
       await persistKey(r);
     } catch (e) {
-      return toast("密钥保存失败：" + e.message, "error");
+      for (const k of madeKeys) await dropKey(k.source, k.id);
+      return toast("密钥保存失败，站点未保存：" + e.message, "error");
     }
+    for (const k of madeKeys) if (k.id !== s.secretId) await dropKey(k.source, k.id);
     Object.assign(s, { name: r.name, source: r.source, url: r.source === "custom" ? r.url : "", model: r.model, note: r.note });
     const list = sites();
     const i = list.findIndex((x) => x.id === s.id);
@@ -228,6 +243,16 @@ function mountApi(liveBox, sitesBox) {
       if (a === "livemodel" || target?.id === settings().activeSiteId) setLiveModel(m);
       saveSettings();
       toast(`模型已切换为 ${m}`, "success");
+      return render();
+    }
+    if (a === "keepmodel") {
+      const t = sites().find((x) => x.id === settings().activeSiteId);
+      const m = liveConnection().model;
+      if (t && m) {
+        t.model = m;
+        saveSettings();
+        toast(`站点「${t.name}」的模型已改为 ${m}`, "success");
+      }
       return render();
     }
     if (a === "toggle") {

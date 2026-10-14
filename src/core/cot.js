@@ -1,4 +1,7 @@
-var COT_NAME = /cot|思维链|思考|thinking|推理|内在思|reasoning|phase/i;
+// 英文词要整词匹配：Scott、mascot 这类名字里的 cot 不算
+var COT_NAME = /(^|[^a-z])e?cot(?![a-z])|思维链|思考|thinking|推理|内在思|reasoning|(^|[^a-z])phase(?![a-z])/i;
+// 正文里的思维链标记要在行首：规则条目里顺口提到的「不要输出 <thinking>」不算
+var COT_BODY = /^[ \t]*<\/?(?:thinking|think)>|^[ \t]*##\s*(?:phase|step)\b/im;
 // 1.3.0：思维链区段——从"思维链始/思考开始/打开 <thinking>"到"思维链终/思考结束/关上 </thinking>"之间的条目都算思维链
 // （Ariadne 这类预设的思维链步骤名字里不带"思维链"三个字，也没有分组）
 var COT_START = /(思维链|cot|ecot|思考|thinking)\s*[·・:：\-—_]?\s*(始|开始|开头|起|start|begin)/i;
@@ -6,9 +9,14 @@ var COT_END = /(思维链|cot|ecot|思考|thinking)\s*[·・:：\-—_]?\s*(终|
 var cotRegionCache = /* @__PURE__ */ new WeakMap();
 function cotRegion(draft) {
   const order = draft.order;
-  const sig = order.length + ":" + order.map((o) => (o.enabled === false ? 0 : 1)).join("") + ":" + (draft.history?.length || 0);
+  // 缓存按「每条的编号、开关、名称、正文」逐项核对：改了正文（比如删掉 <thinking>）也会重算
+  const sig = [];
+  for (const o of order) {
+    const p = draft.prompt(o.identifier);
+    sig.push(o.identifier, o.enabled !== false, p?.name, p?.content);
+  }
   const hit = cotRegionCache.get(order);
-  if (hit && hit.sig === sig) return hit.set;
+  if (hit && hit.sig.length === sig.length && hit.sig.every((v, i) => v === sig[i])) return hit.set;
   const set = /* @__PURE__ */ new Set();
   let cur = null;
   for (const o of order) {
@@ -33,7 +41,7 @@ function cotRegion(draft) {
   cotRegionCache.set(order, { sig, set });
   return set;
 }
-function isCotEntry(draft, id, manual = {}) {
+function isCotEntry(draft, id, manual = draft.cotManual || {}) {
   if (manual[id] !== void 0) return !!manual[id];
   const p = draft.prompt(id);
   if (!p) return false;
@@ -42,7 +50,7 @@ function isCotEntry(draft, id, manual = {}) {
   const gname = gid ? draft.group(gid)?.name || "" : "";
   const name = p.name || "";
   if (COT_NAME.test(name)) return true;
-  if (/<thinking>|<think>|##\s*phase|##\s*step/i.test(p.content || "")) return true;
+  if (COT_BODY.test(p.content || "")) return true;
   if (gname && COT_NAME.test(gname) && !/锁|lock/i.test(name)) return true;
   return false;
 }
@@ -139,7 +147,7 @@ function mentionedTags(content) {
   return set;
 }
 var IGNORE_TAGS = /* @__PURE__ */ new Set(["thinking", "think", "details", "summary", "section", "content", "user", "char", "style", "div", "span", "br", "html", "body", "phase", "step", "note", "rule", "rules", "system", "output", "format", "the", "and", "with", "this", "that", "must", "from", "your", "each", "into", "only", "when", "what", "will", "should", "after", "before", "about", "which", "there", "their", "have", "then", "than", "more", "less", "also", "such", "over", "under", "core", "main", "text", "time", "name", "type", "list", "item", "items", "true", "false", "none", "null"]);
-function analyze(draft, manual = {}) {
+function analyze(draft, manual = draft.cotManual || {}) {
   const order = draft.order.map((o) => o.identifier);
   const active = order.filter((id) => draft.isActive(id));
   const activeSet = new Set(active);
@@ -295,10 +303,10 @@ function analyze(draft, manual = {}) {
   for (const [name, v] of vars) {
     if (v.writers.length && !v.readers.length && !/cot$/i.test(name)) {
       const off = [...allReaders.get(name) || []].map((x) => draft.prompt(x)?.name || x);
-      const why = off.length ? `。读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等条目" : ""}未开启` : "。预设中没有条目读取它";
+      const why = off.length ? `。读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等条目" : ""}未开启` : "。预设中没有找到读取它的条目（用脚本、条件宏或其他扩展读取的，这里看不出来）";
       const registrationOnly = v.writers.every(id => detectShape(draft.prompt(id)?.content).shape === "tagname");
       if (registrationOnly) continue;
-      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], text: `写入变量「${name}」，但未被读取，内容不会发送${why}` });
+      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], text: `写入变量「${name}」，但没有找到读取它的开启条目，这部分内容可能不会发送${why}` });
     }
     if (v.readers.length && !v.writers.length) {
       optional.push({ varName: name, ids: v.readers });

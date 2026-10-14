@@ -36,38 +36,53 @@ async function applyScheme(scheme, { quiet = false } = {}) {
   // 1.4.0：方案可记录 API 站点。先改「使用中的站点」，切换预设后的自动恢复连接就会连到这个站点
   const site = scheme.siteId ? settings().sites.find((x) => x.id === scheme.siteId) : null;
   if (scheme.siteId && !site) toast(`方案「${scheme.name}」记录的 API 站点已删除，本次不切换 API`, "warning");
-  if (site) {
-    settings().activeSiteId = site.id;
-    saveSettings();
+  // 先处理这个预设上没存完的修改，再切换（切换后会丢掉旧草稿重新读）
+  const old = drafts.get(scheme.preset);
+  if (old?.dirty) {
+    if (!quiet && !await confirmBox("有未保存的修改", `「${scheme.preset}」有未保存的修改，套用方案前会先保存。是否继续？`, "继续")) return false;
+    try {
+      await saveDraft(scheme.preset, "套用方案前保存");
+    } catch (e) {
+      handleSaveError(scheme.preset, e);
+      toast(`「${scheme.preset}」的修改没有保存成功，未套用方案`, "error");
+      return false;
+    }
   }
-  if (currentPresetName() !== scheme.preset) {
-    await selectPreset(scheme.preset);
-    dropDraft(scheme.preset);
-  }
-  const d = getDraft(scheme.preset);
-  if (d.dirty && !quiet) {
-    if (!await confirmBox("有未保存的修改", `「${scheme.preset}」有未保存的修改，套用方案时将一并保存。是否继续？`, "继续")) return false;
-  }
-  if (!schemeMatches(d, scheme)) {
-    d.snapshot("套用方案");
-    for (const [id, on] of Object.entries(scheme.states || {})) d.setEnabled([id], on);
-    for (const [gid, on] of Object.entries(scheme.groupStates || {})) d.setGroupEnabled(gid, on);
-    await saveDraft(scheme.preset, `套用方案 ${scheme.name}`);
-  }
-  if (scheme.persona) await setPersona(scheme.persona);
-  if (site) {
-    const live = liveConnection();
-    const differs = live.source !== site.source || site.source === "custom" && (live.url || "") !== (site.url || "") || site.model && live.model !== site.model || !live.online;
-    if (differs) {
-      applying = true;
+  // 整个套用过程中由这里负责连接，避免「切换预设后恢复站点」同时再连一次
+  if (site) applying = true;
+  try {
+    if (site) {
+      settings().activeSiteId = site.id;
+      saveSettings();
+    }
+    if (currentPresetName() !== scheme.preset) {
+      await selectPreset(scheme.preset);
+      dropDraft(scheme.preset);
+    }
+    const d = getDraft(scheme.preset);
+    if (!schemeMatches(d, scheme)) {
+      d.snapshot("套用方案");
+      // 先整组、后单条：整组开关会带动组内条目，单条的记录要最后生效
+      for (const [gid, on] of Object.entries(scheme.groupStates || {})) d.setGroupEnabled(gid, on);
+      for (const [id, on] of Object.entries(scheme.states || {})) d.setEnabled([id], on);
       try {
-        await applyConnection(site);
+        await saveDraft(scheme.preset, `套用方案 ${scheme.name}`);
       } catch (e) {
-        toast(`API 站点「${site.name}」连接失败：${e.message}`, "error");
-      } finally {
-        applying = false;
+        handleSaveError(scheme.preset, e);
+        return false;
       }
     }
+    if (scheme.persona) await setPersona(scheme.persona);
+    if (site && siteDiffers(site)) {
+      try {
+        const live = await applyConnection(site);
+        if (!live.online) toast(`已切换到「${site.name}」，但没有连上，请检查网址和密钥`, "warning");
+      } catch (e) {
+        toast(`API 站点「${site.name}」连接失败：${e.message}`, "error");
+      }
+    }
+  } finally {
+    if (site) applying = false;
   }
   toast(`已套用「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}${site ? `，API：${site.name}` : ""}`, "success");
   return true;

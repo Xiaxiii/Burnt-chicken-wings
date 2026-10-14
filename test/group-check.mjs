@@ -1,7 +1,7 @@
 // 装了百宝箱时建分组：百宝箱会用内存里的旧分组覆盖保存结果，新分组必须保存后仍然存在
 // 用法：node test/group-check.mjs [预设名]，默认用仓库自带的众生相风格测试预设
 import { chromium } from "playwright";
-const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");

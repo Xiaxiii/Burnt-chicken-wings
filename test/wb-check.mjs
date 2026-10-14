@@ -3,7 +3,7 @@
 import { chromium } from "playwright";
 import assert from "node:assert";
 const S = new URL("./shots/", import.meta.url).pathname;
-const exe = process.env.PW_CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = [];
@@ -23,7 +23,7 @@ await page.selectOption(".pa-src-pick select", "F1"); await page.waitForTimeout(
 await rowClick(".pa-src-list", "开场白");
 await rowClick(".pa-src-list", "深度提醒");
 await page.click('.pa-dst-seg [data-dst="world"]'); await page.waitForTimeout(300);
-assert.ok(await page.$eval("[data-st=newgroup]", (b) => b.hidden), "世界书目标不显示新建分组");
+assert.equal(await page.$$eval(".pa-dst-list [data-st=newgroup]", (b) => b.length), 0, "世界书目标不显示新建分组");
 await page.selectOption(".pa-dst-wb", "示例世界书"); await page.waitForTimeout(300);
 await rowClick(".pa-dst-list", "示例条目"); await page.waitForTimeout(150);
 assert.match(await page.$eval(".pa-where", (x) => x.textContent), /世界书「示例世界书」，「示例条目」之后/);
@@ -73,7 +73,7 @@ await page.locator(".pa-sheet .pa-item-head").first().click(); await page.waitFo
 assert.match(await page.$eval(".pa-sheet .pa-item", (x) => x.textContent), /按关键词触发（示例、例子），缝进预设后会一直生效/);
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(1200);
 const rec = await page.evaluate((T) => { const m = window.__mock; return m.presets[m.names.indexOf(T)].extensions.presetAtelier?.stitched; }, T);
-assert.ok(rec?.length >= 1 && rec[rec.length - 1].from.includes("示例世界书"), "缝合时记录了来源");
+assert.ok(rec?.length >= 1 && !("from" in rec[rec.length - 1]), "缝合时记录了条目，但不记录来源名");
 
 // 4) 搬到新版：旧版 = T（刚缝进「示例条目」），新版 = 没有缝过的原版
 await page.evaluate((T) => {
@@ -89,7 +89,8 @@ await page.waitForTimeout(400);
 await page.click('.pa-src .pa-seg [data-src="preset"]'); await page.waitForTimeout(200);
 await page.selectOption(".pa-src-pick select", T); await page.waitForTimeout(200);
 await page.selectOption(".pa-dst-picker select", "众生相-v1.9"); await page.waitForTimeout(300);
-await page.click('[data-st="migrate"]'); await page.waitForTimeout(500);
+await page.click('[data-st="srcmenu"]'); await page.waitForTimeout(200);
+await page.click(".pa-pick-item >> text=搬到新版…"); await page.waitForTimeout(500);
 const mig = await page.$$eval(".pa-sheet .pa-mig .pa-crow", (xs) => xs.map((x) => `${x.querySelector("input").checked ? "☑" : "☐"} ${x.textContent.replace(/\s+/g, " ").trim()}`));
 console.log(mig.join("\n"));
 assert.ok(mig.some((x) => x.startsWith("☑ 示例条目") && x.includes("缝合记录") && x.includes("「正文规则」组之后")), "有记录的条目已勾选，位置对应");

@@ -7,42 +7,40 @@ var LEVEL = {
 async function repairAllVariables(d, manual = {}) {
   const work = new Draft(d.name, d.toPreset());
   const normalized = applyWrapperNormalization(work);
-  const issues = analyze(work, manual).issues.filter(i => i.kind === 'dead' || i.kind === 'cotfrag');
-  const keys = [...new Set(issues.map(i => i.varName))];
+  const issues = analyze(work, manual).issues.filter((i) => i.kind === "dead" || i.kind === "cotfrag");
+  const keys = [...new Set(issues.map((i) => i.varName))];
   const plans = [], skipped = [];
   for (const key of keys) {
     try { plans.push(variableRepairPlan(work, key)); }
-    catch(e) { skipped.push({ key, reason:e.message }); }
+    catch (e) { skipped.push({ key, reason: e.message }); }
   }
-  if (!keys.length && !normalized.length) return toast('没有需要修复的变量问题');
-  if (plans.length || normalized.length) {
-    const byAnchor = new Map();
-    for (const plan of plans) {
-      if (!byAnchor.has(plan.last)) byAnchor.set(plan.last, []);
-      byAnchor.get(plan.last).push(plan);
+  if (!keys.length && !normalized.length) return toast("没有需要修复的变量问题");
+  const byAnchor = new Map();
+  for (const plan of plans) {
+    if (!byAnchor.has(plan.last)) byAnchor.set(plan.last, []);
+    byAnchor.get(plan.last).push(plan);
+  }
+  const nm = (id) => esc(work.prompt(id)?.name || id);
+  // 先列出要改什么，确认后再改
+  const can = plans.length || normalized.length;
+  const body = el(`<div>
+    ${normalized.length ? `<h3 class="pa-h">整理外层包裹（${normalized.length}）</h3><ul class="pa-notes">${normalized.map((x) => `<li>「${nm(x.id)}」去掉没人读取的外层 {{setvar::${esc(x.outer.name)}}}，保留里面的写入</li>`).join("")}</ul>` : ""}
+    ${byAnchor.size ? `<h3 class="pa-h">新增读取条目（${byAnchor.size}）</h3><ul class="pa-notes">${[...byAnchor].map(([last, list]) => `<li>在「${nm(last)}」之后新增「变量读取 · ${esc(list.map((p) => p.name).join("、"))}」，正文：${esc(list.map((p) => p.macro).join(" "))}</li>`).join("")}</ul>` : ""}
+    ${skipped.length ? `<h3 class="pa-h">不自动修改，需人工核对（${skipped.length}）</h3>${skipped.map((x) => `<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join("")}` : ""}
+    <p class="pa-hint">思维链不改动。修改后可在顶栏撤销。</p></div>`);
+  const ok = await sheet({ title: "修复变量问题", body, wide: true, noFocus: true, actions: can ? [{ label: "取消", value: false }, { label: "修改", kind: "primary", value: true }] : [{ label: "知道了", kind: "primary", value: false }] });
+  if (!ok) return;
+  mutate(d, "修复变量问题", (x) => {
+    applyWrapperNormalization(x);
+    for (const [last, list] of byAnchor) {
+      x.insertPrompts([{ prompt: {
+        identifier: uid(), name: "变量读取 · " + list.map((p) => p.name).join("、"),
+        content: list.map((p) => p.macro).join("\n"), role: "system",
+        system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100
+      }, enabled: true }], { after: last }, x.groupOf(last));
     }
-    mutate(d, '修复变量问题', x => {
-      applyWrapperNormalization(x);
-      for (const [last, list] of byAnchor) {
-        x.insertPrompts([{prompt:{
-          identifier:uid(), name:'变量读取 · '+list.map(p=>p.name).join('、'),
-          content:list.map(p=>p.macro).join('\n'), role:'system',
-          system_prompt:false, marker:false, injection_position:0, injection_depth:4, injection_order:100
-        },enabled:true}], {after:last}, x.groupOf(last));
-      }
-    });
-  }
-  let saveError = null;
-  if (plans.length || normalized.length) {
-    try { await saveDraft(d.name, '修复变量问题'); }
-    catch(e) { saveError=e.message; saveErrors.set(d.name,e.message); checkpoint(d); notifyDraft(d.name); }
-  }
-  const body=el(`<div><p class="pa-p">整理冗余外层包裹 <b>${normalized.length}</b> 个，补充变量读取 <b>${plans.length}</b> 个，跳过 <b>${skipped.length}</b> 个。${saveError?'写回失败，草稿已保留。':(plans.length||normalized.length?'已保存。':'预设未修改。')}</p>
-    ${saveError?`<p class="pa-hint">保存失败：${esc(saveError)}</p>`:''}
-    ${plans.length?`<details><summary>已修复的变量</summary><p class="pa-p">${plans.map(p=>esc(p.key)).join('、')}</p></details>`:''}
-    ${skipped.length?`<h3 class="pa-h">需人工核对</h3>${skipped.map(x=>`<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join('')}`:''}
-    <p class="pa-hint">读取条目放在最后一个写入该变量的开启条目之后，思维链不改动。只整理来自缝合、无读取依赖、只包含一个赋值宏的外层包裹。</p></div>`);
-  await sheet({title:'修复结果',body,wide:true,noFocus:true,actions:[{label:'完成',kind:'primary',value:true}]});
+  });
+  toast(`已修改：整理包裹 ${normalized.length} 个，新增读取 ${byAnchor.size} 条`, "success");
 }
 
 async function hookExistingDialog(d, id) {
@@ -64,7 +62,7 @@ async function hookExistingDialog(d, id) {
   else how = `<label class="pa-field"><span>问句变量</span><input class="pa-input" data-h="v" value="${esc(plan0.varName)}"></label>
       <label class="pa-field"><span>思维链中的问句</span><input class="pa-input" data-h="q" value="${esc(plan0.question)}"></label>
       <p class="pa-hint">「${esc(p.name)}」末尾添加 {{setvar::变量::问句}}；${initId ? `「${esc(d.prompt(initId)?.name)}」中添加一行清空` : "未找到初始化条目，不添加清空"}；「${cotName}」中${plan0.anchorVar ? `在 {{getvar::${esc(plan0.anchorVar)}}} 之后` : ""}添加一行读取。${plan0.removeRange ? "沿用条目里原有的问句。" : ""}</p>`;
-  const body = el(`<div class="pa-form"><p class="pa-p">${esc(plan0.text)}。</p>${how}</div>`);
+  const body = el(`<div class="pa-form"><p class="pa-p">${esc(plan0.text)}。</p>${(plan0.warns || []).map((w) => `<p class="pa-warn">${esc(w)}</p>`).join("")}${how}</div>`);
   const ok = await sheet({ title: `将「${p.name}」接入思维链`, body, wide: true, actions: [{ label: "取消", value: null }, { label: "接入", kind: "primary", value: (w) => ({ v: (w.querySelector("[data-h=v]")?.value || "").replace(/[{}:：\s]/g, ""), q: (w.querySelector("[data-h=q]")?.value || "").trim() }) }] });
   if (!ok) return;
   const plan = planHook(d, { after: id }, gid, { content: p.content, name: p.name, selfId: id }, { varName: ok.v && ok.v !== plan0.varName ? ok.v : void 0, question: ok.q || void 0 });
@@ -112,14 +110,14 @@ function mountCot(page, app) {
     const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字提及并用" : "以文字提及为主，不读取变量";
     page.querySelector("[data-repair-all]").disabled = !dead.length;
     let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
-            <p>${a.cotIds.length ? `思维链${style}。` : "未识别到开启的思维链，可在下方手动指定。"}${dead.length ? `有 <b>${dead.length}</b> 处变量写入后未被读取，相关内容不会发送。` : "变量读写一致。"}</p>
+            <p>${a.cotIds.length ? `思维链${style}。` : "未识别到开启的思维链，可在下方手动指定。"}${dead.length ? `有 <b>${dead.length}</b> 处变量写入后没有找到读取它的开启条目，相关内容可能不会发送。` : "变量读写一致。"}</p>
         </div>
         <details class="pa-card pa-explain-card"><summary><b>说明</b></summary>
             <ul class="pa-legend">
                 <li><span class="pa-lv pa-lv-ok">已读取</span><span>思维链通过 {{getvar}} 读取该条目写入的变量。</span></li>
                 <li><span class="pa-lv pa-lv-maybe">文字提及</span><span>思维链中出现该条目的名称或标签。</span></li>
                 <li><span class="pa-lv pa-lv-none">未提及</span><span>思维链中没有出现该条目。</span></li>
-                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量未被读取</span><span>条目写入的变量没有被任何开启条目读取，内容不会发送。</span></li>
+                <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">变量未被读取</span><span>没有找到读取该变量的开启条目，内容可能不会发送。用脚本、条件宏或其他扩展读取的变量，这里识别不到。</span></li>
                 <li><span class="pa-lv pa-lv-term">接入思维链</span><span>在思维链中加入对该条目的读取或提及，使模型思考时考虑这条内容。按本预设原有的写法添加（变量读取或文字提及），可撤销。规则类条目通常不需要接入；文风、人设、玩法等需要模型重点落实的条目可以接入。</span></li>
                 <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链条目名称特殊、未被自动识别时，在此手动指定；识别错误的，在对应思维链下点「不是思维链」。</span></li>
             </ul>
@@ -199,7 +197,17 @@ function mountCot(page, app) {
     const fix = e.target.closest("[data-fix]");
     if (fix) {
       const ids = fix.dataset.fix.split("|");
-      mutate(d, "开启读取条目", (x) => { x.setEnabled(ids, true); for(const id of ids) { const gid=x.groupOf(id); if(gid) x.setGroupEnabled(gid,true); } });
+      // 只开这几条，并去掉所在分组的「关」标记；不带动组里其他条目
+      mutate(d, "开启读取条目", (x) => {
+        x.setEnabled(ids, true);
+        for (const id of ids) {
+          const g = x.group(x.groupOf(id));
+          if (g && g.enabled === false) {
+            g.enabled = true;
+            delete g.restoreOn;
+          }
+        }
+      });
       toast(`已开启 ${ids.length} 条`, "success");
       return;
     }
@@ -230,3 +238,27 @@ function mountCot(page, app) {
   }, destroy: off };
 }
 
+// 单个变量的修复方案：先说明要加什么，确认后再加
+async function repairVariableDialog(d, key) {
+  let plan;
+  try {
+    plan = variableRepairPlan(d, key);
+  } catch (e) {
+    await sheet({ title: "需人工核对", body: `<p class="pa-p">${esc(e.message)}</p>`, actions: [{ label: "确定", value: true }] });
+    return;
+  }
+  const version = JSON.stringify(d.toPreset());
+  const p = d.prompt(plan.last);
+  const body = el(`<div><p class="pa-p">新增条目「变量读取 · ${esc(plan.name)}」，放在「${esc(p.name)}」之后（最后一个写入该变量的开启条目），角色为系统，正文：</p>
+    <pre class="pa-pre">${esc(plan.macro)}</pre>
+    <p class="pa-hint">思维链不改动。内容会进入上下文，模型是否采用需在实际发送的提示词中核对。</p></div>`);
+  const ok = await sheet({ title: "补充变量读取", body, wide: true, actions: [{ label: "取消", value: false }, { label: "添加", kind: "primary", value: true }] });
+  if (!ok) return;
+  if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开修复方案", "warning");
+  variableRepairPlan(d, key);
+  mutate(d, "补充变量读取", (x) => x.insertPrompts([{
+    prompt: { identifier: uid(), name: "变量读取 · " + plan.name, content: plan.macro, role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100 },
+    enabled: true
+  }], { after: plan.last }, d.groupOf(plan.last)));
+  toast("已添加读取条目", "success");
+}

@@ -10,7 +10,7 @@ async function load(name, path) {
       stUrl(path)
     );
   } catch (e) {
-    console.warn("[裁缝铺] 无法加载", path, e);
+    console.warn("[焦香鸡翅] 无法加载", path, e);
     mods[name] = null;
   }
   return mods[name];
@@ -20,9 +20,18 @@ async function initHost() {
     load("openai", "scripts/openai.js"),
     load("secrets", "scripts/secrets.js"),
     load("wi", "scripts/world-info.js"),
-    load("personas", "scripts/personas.js")
+    load("personas", "scripts/personas.js"),
+    load("user", "scripts/user.js")
   ]);
   if (!mods.openai) throw new Error("无法读取酒馆的聊天补全模块，酒馆版本可能过旧");
+}
+// 酒馆账号。同一浏览器切换账号时，本地草稿和备份按账号分开
+function userHandle() {
+  try {
+    return String(mods.user?.getCurrentUserHandle?.() || "default-user");
+  } catch {
+    return "default-user";
+  }
 }
 function ctx() {
   return globalThis.SillyTavern.getContext();
@@ -58,11 +67,27 @@ function readPreset(name) {
 async function writePreset(name, data, reason = "保存", { backup = true } = {}) {
   const { presets } = pm().getPresetList();
   const idx = presetIndex(name);
+  // 备份失败就不写：顶栏承诺了「可以恢复到修改前」，没备份时由调用方问用户怎么办
   if (backup && idx !== void 0 && idx >= 0 && presets[idx]) {
-    await backupPut(name, presets[idx], reason).catch((e) => console.warn("[裁缝铺] 备份失败", e));
+    try {
+      await backupPut(name, presets[idx], reason);
+    } catch (e) {
+      console.warn("[焦香鸡翅] 备份失败", e);
+      throw Object.assign(new Error(String(e?.message || e || "未知错误")), { kind: "backup" });
+    }
   }
+  // 条目以外的设置（温度等参数）有没有变：当前预设的这些设置在酒馆内存里，这里写文件不会同步过去
+  const restOf = (p) => {
+    if (!p) return "";
+    const { prompts: _a, prompt_order: _b, extensions: _c, ...rest } = p;
+    try { return JSON.stringify(rest); } catch { return ""; }
+  };
+  const restChanged = idx !== void 0 && idx >= 0 && presets[idx] && restOf(presets[idx]) !== restOf(data);
   await pm().savePreset(name, data, { skipUpdate: true });
   if (idx !== void 0 && idx >= 0) presets[idx] = structuredClone(data);
+  if (name === currentPresetName() && restChanged) {
+    toast(`「${name}」的温度等参数已写入预设文件。正在使用的参数要在酒馆里重新选一次这个预设才会更新`, "warning");
+  }
   if (name === currentPresetName()) {
     const s = mods.openai.oai_settings;
     s.prompts = structuredClone(data.prompts);
@@ -77,7 +102,7 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
       try {
         await ctx().eventSource.emit(et2.OAI_PRESET_IMPORT_READY, { presetName: name, data: structuredClone(data) });
       } catch (e) {
-        console.warn("[裁缝铺] 通知百宝箱刷新分组失败", e);
+        console.warn("[焦香鸡翅] 通知百宝箱刷新分组失败", e);
       }
     }
     await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
@@ -194,14 +219,79 @@ function liveConnection() {
     online: !!ctx().onlineStatus && ctx().onlineStatus !== "no_connection"
   };
 }
+// 当前连接和站点记录的是否不一致（类型、网址、模型、密钥，或者没连上）
+function siteDiffers(site, live = liveConnection()) {
+  return live.source !== site.source
+    || site.source === "custom" && (live.url || "") !== (site.url || "")
+    || !!site.model && live.model !== site.model
+    || !!site.secretId && !!live.secretId && live.secretId !== site.secretId
+    || !live.online;
+}
+// 旧版酒馆没有密钥库编号：密钥只存在这个浏览器里，不写进会上传到服务器的设置文件
+function localKeyName(siteId) {
+  return `presetAtelier:key:${userHandle()}:${siteId}`;
+}
+function getLocalKey(site) {
+  try {
+    return localStorage.getItem(localKeyName(site.id)) || site.legacyKey || null;
+  } catch {
+    return site.legacyKey || null;
+  }
+}
+function setLocalKey(siteId, key) {
+  try {
+    if (key) localStorage.setItem(localKeyName(siteId), key);
+    else localStorage.removeItem(localKeyName(siteId));
+    return true;
+  } catch {
+    return false;
+  }
+}
+// 以前存进设置文件的明文密钥，挪到本浏览器里并从设置文件删掉
+function migrateLegacyKeys(sites) {
+  let moved = 0;
+  for (const site of sites || []) {
+    if (!site?.legacyKey) continue;
+    if (setLocalKey(site.id, site.legacyKey)) {
+      delete site.legacyKey;
+      site.localKey = true;
+      moved++;
+    }
+  }
+  return moved;
+}
 function multiKeySupported() {
   return !!(mods.secrets?.rotateSecret && Object.values(mods.secrets.secret_state || {}).some((v) => v === null || Array.isArray(v)));
 }
+// 把密钥存进酒馆密钥库。酒馆写入新密钥时会把它设为同类型的「使用中」，
+// 这里写完再切回原来在用的那把，免得添加站点时把当前连接的密钥换掉。
 async function storeKey(source, key, label) {
   const secretKey = SOURCES[source]?.secret;
   if (!secretKey) throw new Error("不支持的连接类型");
+  const before = (await readSecretState())[secretKey];
+  const prevActive = Array.isArray(before) ? before.find((x) => x.active)?.id || null : null;
   const id = await mods.secrets.writeSecret(secretKey, key, label);
-  return typeof id === "string" ? id : null;
+  if (typeof id !== "string" || !id) throw new Error("酒馆没有保存这个密钥，请检查网络或酒馆后台");
+  if (prevActive && prevActive !== id) await activateSecret(secretKey, prevActive);
+  return id;
+}
+// 切换「使用中」的密钥，并确认真的切过去了（酒馆的 rotateSecret 出错时不会报错）
+async function activateSecret(secretKey, id) {
+  const cur = (await readSecretState())[secretKey];
+  if (Array.isArray(cur) && cur.find((x) => x.active)?.id === id) return;
+  await mods.secrets.rotateSecret(secretKey, id);
+  const after = (await readSecretState())[secretKey];
+  if (!Array.isArray(after) || after.find((x) => x.active)?.id !== id) throw new Error("切换密钥没有成功");
+}
+// 删掉一把密钥（添加站点时取消了，刚存进去的密钥不留在密钥库里）
+async function dropKey(source, id) {
+  const secretKey = SOURCES[source]?.secret;
+  if (!secretKey || !id || typeof mods.secrets?.deleteSecret !== "function") return;
+  try {
+    await mods.secrets.deleteSecret(secretKey, id);
+  } catch (e) {
+    console.warn("[焦香鸡翅] 删除密钥失败", e);
+  }
 }
 async function readSecretState() {
   await mods.secrets?.readSecretState?.();
@@ -230,14 +320,15 @@ async function applyConnection(site, { connect = true } = {}) {
     const state = await readSecretState();
     const list = state[src.secret];
     if (Array.isArray(list) && list.some((x) => x.id === site.secretId)) {
-      if (!list.find((x) => x.id === site.secretId)?.active) await mods.secrets.rotateSecret(src.secret, site.secretId);
-    } else if (site.legacyKey) {
-      await mods.secrets.writeSecret(src.secret, site.legacyKey, site.name);
+      await activateSecret(src.secret, site.secretId);
+    } else if (getLocalKey(site)) {
+      const id = await mods.secrets.writeSecret(src.secret, getLocalKey(site), site.name);
+      if (typeof id !== "string" || !id) throw new Error("酒馆没有保存这个密钥");
     } else {
       throw new Error(`「${site.name}」的密钥在酒馆密钥库中已不存在，请重新填写`);
     }
-  } else if (site.legacyKey) {
-    await mods.secrets.writeSecret(src.secret, site.legacyKey);
+  } else if (getLocalKey(site)) {
+    await mods.secrets.writeSecret(src.secret, getLocalKey(site));
   }
   if (site.model) {
     if (site.source === "custom") {
@@ -292,7 +383,7 @@ async function fetchModelList(site) {
     body.custom_url = site.url;
     body.custom_include_headers = s.custom_include_headers;
   }
-  const r = await fetch("/api/backends/chat-completions/status", {
+  const r = await fetch(stUrl("api/backends/chat-completions/status"), {
     method: "POST",
     headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
     body: JSON.stringify(body),
@@ -315,7 +406,7 @@ async function withSiteKey(site, fn) {
       if (!list.some((x) => x.id === site.secretId)) throw new Error(`「${site.name || "站点"}」的密钥在酒馆密钥库中已不存在，请重新填写`);
       const cur = list.find((x) => x.active)?.id || null;
       if (cur !== site.secretId) {
-        await mods.secrets.rotateSecret(src.secret, site.secretId);
+        await activateSecret(src.secret, site.secretId);
         restore = cur;
       }
     }
@@ -323,8 +414,13 @@ async function withSiteKey(site, fn) {
   try {
     return await fn();
   } finally {
-    if (restore) await mods.secrets.rotateSecret(src.secret, restore).catch(() => {
-    });
+    if (restore) {
+      try {
+        await activateSecret(src.secret, restore);
+      } catch (e) {
+        toast(`没能切回原来在用的密钥，请到酒馆的 API 设置里检查：${e.message}`, "error");
+      }
+    }
   }
 }
 async function waitOnline(ms) {
@@ -376,14 +472,18 @@ function tx(store, mode, fn) {
     t.onerror = () => reject(t.error);
   }));
 }
+// 旧版没有记账号的备份，只给默认账号看
+function backupMine(b) {
+  return b.user ? b.user === userHandle() : userHandle() === "default-user";
+}
 async function backupPut(preset, data, reason) {
-  await tx("backups", "readwrite", (s) => s.add({ preset, reason, time: Date.now(), data: structuredClone(data) }));
+  await tx("backups", "readwrite", (s) => s.add({ preset, user: userHandle(), reason, time: Date.now(), data: structuredClone(data) }));
   const list = await backupList(preset);
   for (const old of list.slice(BACKUP_MAX)) await tx("backups", "readwrite", (s) => s.delete(old.id));
 }
 async function backupList(preset) {
   const all = await tx("backups", "readonly", (s) => s.index("preset").getAll(preset));
-  return (all || []).sort((a, b) => b.time - a.time);
+  return (all || []).filter(backupMine).sort((a, b) => b.time - a.time);
 }
 async function backupGet(id) {
   return tx("backups", "readonly", (s) => s.get(id));
@@ -427,16 +527,6 @@ async function userFilePut(name, blob) {
   const j = await r.json().catch(() => ({}));
   return String(j.path || `user/files/${name}`).replace(/\\/g, "/").replace(/^\/+/, "");
 }
-async function userFileExists(path) {
-  try {
-    const r = await stPost("api/files/verify", { urls: [path] });
-    if (!r.ok) return null;
-    const j = await r.json();
-    return !!(j[path] ?? Object.values(j)[0]);
-  } catch {
-    return null;
-  }
-}
 async function userFileDel(path) {
   const r = await stPost("api/files/delete", { path });
   if (!r.ok && r.status !== 404) throw new Error(`删除文件失败（${r.status}）`);
@@ -457,16 +547,14 @@ async function userFileGetText(path, gz) {
 // 从服务器删除预设（只删预设文件夹里的那个文件），并从酒馆的预设下拉框里去掉。不能删当前预设。
 async function deletePresetFile(name) {
   if (name === currentPresetName()) throw new Error("不能删除正在使用的预设");
+  // 名称列表是数组时，下标和预设数据一一对应，只删名称会让后面的全部错位，这种情况不处理
+  if (Array.isArray(pm().getPresetList().preset_names)) throw new Error("当前酒馆版本不支持在这里删除预设");
   let r = await stPost("api/presets/delete", { name, apiId: "openai" });
   if (r.status === 404 || r.status === 405) r = await stPost("api/presets/delete-openai", { name });
   if (!r.ok && r.status !== 404) throw new Error(`删除预设失败（${r.status}）`);
   const { preset_names } = pm().getPresetList();
   const idx = presetIndex(name);
-  if (Array.isArray(preset_names)) {
-    if (idx >= 0) preset_names.splice(idx, 1);
-  } else {
-    delete preset_names[name];
-  }
+  delete preset_names[name];
   // 预设数组本身不动：酒馆下拉框的值是数组下标，删掉中间一个会让后面的全部错位
   if (idx !== void 0 && idx >= 0) $(`#settings_preset_openai option[value="${idx}"]`).remove();
 }

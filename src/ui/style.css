@@ -1,4 +1,4 @@
-/* 预设裁缝铺样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用"缝线"虚线做标记。所有选择器都限定在 #pa-root 内。 */
+/* 焦香鸡翅样式：默认跟随酒馆美化（自动补成不透明），也可以换成内置的莫兰迪色卡；分组框用"缝线"虚线做标记。所有选择器都限定在 #pa-root 内。 */
 
 #pa-root {
     --pa-text: var(--SmartThemeBodyColor, #e6e1d8);
@@ -202,7 +202,7 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-tools { display: none; }
     #pa-root .pa-tools-more { display: inline-flex; }
     #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }
-    #pa-root .pa-chip { max-width: 5em; }
+    #pa-root .pa-chip { max-width: 7em; }
     #pa-root .pa-badges { max-width: 32%; }
 }
 
@@ -375,9 +375,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-optional { margin-top: 16px; }
 
 #pa-root .pa-scheme-on, #pa-root .pa-site-on { border-color: var(--pa-thread); border-style: dashed; }
-#pa-root .pa-live .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }
-#pa-root .pa-live .pa-dot::before { content: "●"; margin-right: 4px; }
-#pa-root .pa-live .pa-dot-on { color: var(--pa-ok); }
+#pa-root .pa-site .pa-dot { margin-left: auto; font-size: .82em; color: var(--pa-dim); }
+#pa-root .pa-site .pa-dot::before { content: "●"; margin-right: 4px; }
+#pa-root .pa-site .pa-dot-on { color: var(--pa-ok); }
 #pa-root .pa-row-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 #pa-root .pa-plan { padding-top: 10px; }
 #pa-root .pa-plan .pa-card .pa-inline-check { display: flex; margin: 4px 0; }
@@ -520,6 +520,7 @@ html.pa-open body { overflow: hidden; }
 #pa-settings .pa-set-btns .menu_button { flex: 1 1 0; min-width: 7.5em; }
 #pa-settings .pa-set-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0; }
 #pa-settings .pa-set-k { opacity: .7; min-width: 2.5em; }
+#pa-settings .pa-set-input { flex: 1 1 8em; min-width: 0; margin: 0; }
 #pa-settings .pa-set-v { flex: 1 1 auto; font-variant-numeric: tabular-nums; }
 #pa-settings .pa-set-mini { font-size: .88em; padding: 2px 8px; }
 #pa-settings .pa-set-status { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9em; margin: 2px 0 6px; padding: 6px 8px; border-radius: 6px; border: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.4)); }
@@ -759,7 +760,7 @@ html.pa-open body { overflow: hidden; }
 
 /* 1.5.0 手机：更紧凑。平板、电脑不变 */
 @media (max-width: 599px) {
-    #pa-root { --pa-base: min(var(--mainFontSize, 14px), 14px); --pa-r: 9px; --pa-row-h: 40px; }
+    #pa-root { --pa-base: clamp(15px, var(--mainFontSize, 15px), 16px); --pa-r: 9px; --pa-row-h: 42px; }
     #pa-root .pa-ghead { min-height: 38px; padding: 2px 4px; }
     #pa-root .pa-group { margin: 5px 0; }
     #pa-root .pa-pane-head { padding: 6px 8px 2px; gap: 6px; }
@@ -814,10 +815,49 @@ html.pa-open body { overflow: hidden; }
 }
 #pa-root .pa-h .pa-chip { max-width: none; }
 
-/* 1.7.1 后台中断补救提示条（在酒馆页面上，用酒馆的颜色） */
-#pa-rescue { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 10005; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; width: min(520px, calc(100vw - 20px)); box-sizing: border-box; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(30,30,34,.95)); color: var(--SmartThemeBodyColor, #ddd); box-shadow: 0 6px 24px rgba(0,0,0,.25); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); font-size: .92em; }
-#pa-rescue > span { flex: 1 1 100%; }
-#pa-rescue .pa-rescue-x { margin-left: auto !important; }
-#pa-rescue .menu_button { width: auto; margin: 0; padding: 4px 12px; white-space: nowrap; }
-#pa-rescue .pa-rescue-x { padding: 4px 8px; opacity: .7; }
 #pa-root .pa-dupgroups { margin: 6px 0 8px; }
+
+/* 原来写在 app.js 里的几条，挪到这里集中管理 */
+#pa-root .pa-group-select .pa-check { display:block; width:20px; height:20px; border:2px solid var(--pa-line); border-radius:50%; }
+#pa-root .pa-group-select[aria-pressed=true] .pa-check { background:var(--pa-thread); border-color:var(--pa-thread); }
+#pa-root .pa-group-select[aria-pressed=true] .pa-check::after { content:'✓'; display:block; text-align:center; line-height:16px; }
+#pa-root .pa-inline-content { padding:12px 20px; margin:0 8px 8px; background:var(--pa-card); max-height:50vh; overflow:auto; }
+#pa-root .pa-gname { cursor:pointer; }
+
+/* 提醒文字 */
+#pa-root .pa-warn { color: var(--pa-warn); }
+#pa-root p.pa-warn { margin: 4px 0; }
+/* 缝合预览：「缝后开启」开关带文字，避免被当成「选中这条」 */
+#pa-root .pa-item-on { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: .82em; color: var(--pa-dim); cursor: pointer; white-space: nowrap; }
+#pa-root .pa-item-on input { margin: 0; }
+/* 键盘焦点 */
+#pa-root .pa-row:focus-visible, #pa-root .pa-ghead:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }
+#pa-root .pa-sheet:focus { outline: none; }
+
+/* 触屏：控件不小于 36px，复选框 18px 以上 */
+@media (pointer: coarse) {
+    #pa-root .pa-btn { min-height: 38px; }
+    #pa-root .pa-btn-s { min-height: 34px; }
+    #pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 38px; }
+    #pa-root .pa-compact .pa-seg button, #pa-root .pa-seg button { min-height: 36px; }
+    #pa-root .pa-compact .pa-row { min-height: 42px; }
+    #pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 18px; height: 18px; }
+    #pa-root .pa-compact .pa-mini, #pa-root .pa-mini { min-height: 34px; }
+    #pa-root .pa-item-head input[type=checkbox], #pa-root .pa-crow input[type=checkbox], #pa-root .pa-inline-check input { width: 20px; height: 20px; }
+}
+
+/* iOS：输入框字号小于 16px 时，点进去会放大整个页面。放在最后，盖过上面各处的字号 */
+@supports (-webkit-touch-callout: none) {
+    #pa-root .pa-input, #pa-root .pa-select, #pa-root .pa-text, #pa-root textarea, #pa-root input:not([type=checkbox]):not([type=radio]):not([type=range]) { font-size: max(16px, 1em); }
+}
+
+/* 1.8.0 缝合页：已选清单、目标列表里的新建分组、来源的更多操作 */
+#pa-root .pa-stitch-info .pa-picked-n { padding: 0; text-align: left; font-weight: 600; color: var(--pa-text); text-decoration: none; }
+#pa-root .pa-stitch-info .pa-picked-n:disabled { color: var(--pa-dim); cursor: default; }
+#pa-root .pa-picked-row { display: flex; align-items: center; gap: 8px; }
+#pa-root .pa-picked-row > span { flex: 1 1 auto; min-width: 0; display: grid; }
+#pa-root .pa-picked-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+#pa-root .pa-slot-new { color: var(--pa-thread); border-color: var(--pa-thread); }
+#pa-root .pa-src-menu { margin-left: auto; font-size: 1.2em; }
+#pa-root .pa-explain-body { display: grid; gap: 6px; margin-top: 6px; }
+#pa-root .pa-sub { font-size: .88em; color: var(--pa-dim); font-weight: 600; margin-top: 4px; }

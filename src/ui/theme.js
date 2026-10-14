@@ -73,7 +73,7 @@ async function applyBackground(root) {
     root.style.setProperty("--pa-bg-veil", `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${veil})`);
     root.classList.add("pa-has-bg");
   } catch (e) {
-    console.warn("[裁缝铺] 背景图读取失败", e);
+    console.warn("[焦香鸡翅] 背景图读取失败", e);
     root.classList.remove("pa-has-bg");
   }
 }

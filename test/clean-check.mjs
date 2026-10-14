@@ -3,7 +3,7 @@
 import { chromium } from "playwright";
 const S = new URL("./shots/", import.meta.url).pathname;
 import assert from "node:assert";
-const exe = process.env.PW_CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, acceptDownloads: true });
 const page = await ctx.newPage();

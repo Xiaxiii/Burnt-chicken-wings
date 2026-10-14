@@ -1,8 +1,8 @@
 {
-  "name": "little-tailor-shop",
-  "version": "1.1.0",
+  "name": "burnt-chicken-wings",
+  "version": "1.8.0",
   "private": true,
-  "description": "预设裁缝铺：SillyTavern 预设整理、跨预设缝合、思维链检查",
+  "description": "焦香鸡翅：SillyTavern 预设整理、跨预设缝合、思维链检查",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",

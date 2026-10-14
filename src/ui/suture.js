@@ -36,20 +36,22 @@ function mountSuture(page, app) {
                 <div class="pa-seg" role="tablist">
                     <button data-src="preset" class="on">预设</button><button data-src="world">世界书</button><button data-src="file">文件</button><button data-src="paste">粘贴</button>
                 </div>
+                <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
             <div class="pa-src-pick"></div>
             <div class="pa-scroll pa-src-list"></div>
         </div>
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整两栏大小" title="拖动调整大小"><span></span></div>
         <div class="pa-pane pa-dst">
-            <div class="pa-pane-head"><b>目标</b><div class="pa-seg pa-seg-s pa-dst-seg" role="tablist"><button data-dst="preset" class="on">预设</button><button data-dst="world">世界书</button></div><div class="pa-dst-picker"></div><select class="pa-select pa-dst-wb" aria-label="目标世界书" hidden></select><button class="pa-mini" data-st="newgroup">＋ 新建分组</button></div>
+            <div class="pa-pane-head"><b>目标</b><div class="pa-seg pa-seg-s pa-dst-seg" role="tablist"><button data-dst="preset" class="on">预设</button><button data-dst="world">世界书</button></div><div class="pa-dst-picker"></div><select class="pa-select pa-dst-wb" aria-label="目标世界书" hidden></select></div>
             <p class="pa-hint pa-dst-hint"></p>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
     </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><b class="pa-picked-n">未选条目</b><span class="pa-where">未选位置</span></div>
-        <button class="pa-btn" data-st="clear">取消</button>
+        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><span class="pa-where">未选位置</span></div>
+        <button class="pa-btn" data-st="wbundo" hidden>撤销</button>
+        <button class="pa-btn" data-st="clear" title="清空已选的条目和缝合位置">清空</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
     </div>
     <div class="pa-stitchbar pa-ngbar" hidden>
@@ -120,17 +122,16 @@ function mountSuture(page, app) {
       const names = listPresets();
       if (!st.srcPreset || !names.includes(st.srcPreset)) st.srcPreset = names.find((n) => n !== focusPreset()) || names[0];
       srcPick.innerHTML = `<select class="pa-select" aria-label="来源预设">${names.map((n) => `<option ${n === st.srcPreset ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
-                <input class="pa-input pa-search" type="search" placeholder="搜索条目" value="${esc(st.srcQuery)}">
-                ${st.dstType === "preset" ? '<button class="pa-mini" data-st="migrate" title="把来源（旧版）中你缝进去的条目，搬到目标（新版）的对应位置">搬到新版</button>' : ""}`;
+                <input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" value="${esc(st.srcQuery)}">`;
     } else if (st.srcType === "world") {
       const names = listWorldbooks();
       if (!st.srcWorld || !names.includes(st.srcWorld)) st.srcWorld = names[0] || null;
       srcPick.innerHTML = names.length ? `<select class="pa-select" aria-label="来源世界书">${names.map((n) => `<option ${n === st.srcWorld ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
-                <input class="pa-input pa-search" type="search" placeholder="搜索条目" value="${esc(st.srcQuery)}">` : '<p class="pa-hint">没有世界书</p>';
+                <input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" value="${esc(st.srcQuery)}">` : '<p class="pa-hint">没有世界书</p>';
     } else if (st.srcType === "file") {
       srcPick.innerHTML = `<label class="pa-btn pa-btn-soft pa-file">选择预设文件（JSON）<input type="file" accept=".json,application/json" hidden></label>
                 ${st.fileDraft ? `<span class="pa-hint">${esc(st.fileDraft.name)}</span>` : ""}
-                <input class="pa-input pa-search" type="search" placeholder="搜索条目" value="${esc(st.srcQuery)}">`;
+                <input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" value="${esc(st.srcQuery)}">`;
     } else {
       srcPick.innerHTML = "";
     }
@@ -138,7 +139,10 @@ function mountSuture(page, app) {
   srcPick.addEventListener("change", async (e) => {
     if (e.target.matches("select")) {
       if (st.srcType === "preset") st.srcPreset = e.target.value;
-      else st.srcWorld = e.target.value;
+      else {
+        st.srcWorld = e.target.value;
+        st.worldCache.delete(st.srcWorld); // 换书时重新读，酒馆里改过的内容才能看到
+      }
       renderSrc();
     }
     if (e.target.matches("input[type=file]")) {
@@ -188,21 +192,24 @@ function mountSuture(page, app) {
         srcList.innerHTML = '<p class="pa-empty">没有世界书</p>';
         return;
       }
-      let items = st.worldCache.get(st.srcWorld);
+      // 记下发请求时选的是哪本：网慢时用户可能已经换了别的书，旧结果不能记到新书名下
+      const wname = st.srcWorld;
+      let items = st.worldCache.get(wname);
       if (!items) {
         srcList.innerHTML = '<p class="pa-empty">读取中…</p>';
         try {
-          items = await readWorldbook(st.srcWorld);
-          st.worldCache.set(st.srcWorld, items);
+          items = await readWorldbook(wname);
+          st.worldCache.set(wname, items);
         } catch (e) {
-          srcList.innerHTML = `<p class="pa-empty">读取失败：${esc(e.message)}</p>`;
+          if (st.srcType === "world" && st.srcWorld === wname) srcList.innerHTML = `<p class="pa-empty">读取失败：${esc(e.message)}</p>`;
           return;
         }
+        if (st.srcType !== "world" || st.srcWorld !== wname) return;
       }
       const q = st.srcQuery.trim().toLowerCase();
       srcList.dataset.kind = "world";
       srcList._items = items;
-      srcList.innerHTML = `<div class="pa-loose">${items.filter((it) => !q || it.name.toLowerCase().includes(q)).map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}"><span class="pa-check"></span><span class="pa-name">${esc(it.name)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button></div>`).join("") || '<p class="pa-empty">没有条目</p>'}</div>`;
+      srcList.innerHTML = `<div class="pa-loose">${items.filter((it) => !q || it.name.toLowerCase().includes(q) || String(it.content || "").toLowerCase().includes(q)).map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${esc(it.name)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button></div>`).join("") || '<p class="pa-empty">没有条目</p>'}</div>`;
     } else {
       srcList.dataset.kind = "paste";
       const pasted = [...st.picked.entries()].filter(([k]) => k.startsWith("paste:"));
@@ -278,12 +285,15 @@ function mountSuture(page, app) {
       return;
     }
     if (!force && st.wbDraft?.name === st.dstWorld) return;
-    const data = await mods.wi.loadWorldInfo(st.dstWorld);
+    const wname = st.dstWorld;
+    const data = await mods.wi.loadWorldInfo(wname);
+    // 读的时候用户换了别的书：丢掉这次结果
+    if (st.dstWorld !== wname) return;
     const list = wiSorted(data);
     const prompts = list.map((e) => ({ identifier: `wb${e.uid}`, name: e.comment || (e.key || []).join(",") || `条目${e.uid}`, content: e.content || "", role: "system", system_prompt: false, marker: false, injection_position: 0 }));
-    const dd = new Draft(st.dstWorld, { prompts, prompt_order: [{ character_id: 100001, order: list.map((e) => ({ identifier: `wb${e.uid}`, enabled: !e.disable })) }] });
+    const dd = new Draft(wname, { prompts, prompt_order: [{ character_id: 100001, order: list.map((e) => ({ identifier: `wb${e.uid}`, enabled: !e.disable })) }] });
     dd.wb = Object.fromEntries(list.map((e) => [`wb${e.uid}`, e]));
-    if (st.wbDraft?.name !== st.dstWorld) st.wbMarker = null;
+    if (st.wbDraft?.name !== wname) st.wbMarker = null;
     st.wbDraft = dd;
     st.wbMarker = fixPlace(dd, st.wbMarker);
   }
@@ -322,7 +332,6 @@ function mountSuture(page, app) {
     page.querySelectorAll(".pa-dst-seg button").forEach((x) => x.classList.toggle("on", x === b));
     page.querySelector(".pa-dst-picker").hidden = st.dstType !== "preset";
     page.querySelector(".pa-dst-wb").hidden = st.dstType !== "world";
-    page.querySelector("[data-st=newgroup]").hidden = st.dstType !== "preset";
     renderSrcPick();
     renderDst();
   });
@@ -350,7 +359,7 @@ function mountSuture(page, app) {
     st.marker = fixPlace(d, st.marker);
     const top = dstList.scrollTop;
     dstList.classList.add("pa-placing");
-    dstList.innerHTML = renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
+    dstList.innerHTML = (st.newName ? "" : '<button class="pa-slot pa-slot-new" data-st="newgroup">＋ 新建分组…</button>') + renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
     const hint = page.querySelector(".pa-dst-hint");
     hint.textContent = "点组名：缝到该组之后。展开分组后点条目：缝入组内。";
     hint.hidden = !!st.marker || !!st.newName;
@@ -411,10 +420,15 @@ function mountSuture(page, app) {
     } catch {
     }
     const m = st.dstType === "world" ? st.wbMarker : st.marker;
-    bar.querySelector(".pa-picked-n").textContent = n ? `已选 ${n} 条` : "未选条目";
+    const pn = bar.querySelector(".pa-picked-n");
+    pn.textContent = n ? `已选 ${n} 条 ▸` : "未选条目";
+    pn.disabled = !n;
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : "未选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
     bar.querySelector("[data-st=clear]").disabled = !(n || m);
+    const undo = bar.querySelector("[data-st=wbundo]");
+    undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
+    if (!undo.hidden) undo.textContent = `撤销刚缝的 ${st.lastWb.uids.length} 条`;
   }
   page.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-st]")?.dataset.st;
@@ -429,6 +443,23 @@ function mountSuture(page, app) {
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
     if (a === "migrate") migrate();
+    if (a === "picked") return pickedSheet();
+    if (a === "srcmenu") {
+      const v = await pickBox("更多操作", [
+        { label: "搬到新版…", sub: "预设出了新版本时：来源选旧版、目标选新版，把旧版里你缝进去的条目按原位置搬过去", value: "migrate" },
+        { label: "清空已选条目", value: "clearpicked" }
+      ]);
+      if (v === "migrate") {
+        if (st.srcType !== "preset" || st.dstType !== "preset") return toast("请把来源和目标都切到「预设」：来源选旧版，目标选新版");
+        return migrate();
+      }
+      if (v === "clearpicked") {
+        st.picked.clear();
+        renderSrc();
+        return renderBar();
+      }
+    }
+    if (a === "wbundo") undoWorld();
     if (a === "newgroup") {
       const n = await promptBox("新分组名称", "", "例如：文风");
       if (!n) return;
@@ -440,6 +471,25 @@ function mountSuture(page, app) {
       renderDst();
     }
   });
+  // 已选条目清单：跨预设、世界书、粘贴选的都在这里，可以单独去掉
+  async function pickedSheet() {
+    if (!st.picked.size) return;
+    const body = el('<div class="pa-pick"></div>');
+    const paint = () => {
+      const rows = [...st.picked.entries()];
+      body.innerHTML = rows.map(([k, v]) => `<div class="pa-pick-item pa-picked-row"><span><b>${esc(v.name || "（无名）")}</b><small>${esc(v.from || "")}</small></span><button class="pa-btn pa-btn-s" data-k="${esc(k)}">去掉</button></div>`).join("") || '<p class="pa-hint">没有已选的条目</p>';
+    };
+    paint();
+    body.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      st.picked.delete(b.dataset.k);
+      paint();
+      renderSrc();
+    });
+    await sheet({ title: "已选的条目", body, actions: [{ label: "完成", kind: "primary", value: true }] });
+    renderSrc();
+  }
   // 这条材料所在的来源分组是不是整组都选了（酒馆位置条目不算）
   function wholeGroupOf(src) {
     const sd = src.srcDraft;
@@ -472,17 +522,17 @@ function mountSuture(page, app) {
       return posCache.get(k);
     };
     const srcProfs = /* @__PURE__ */ new Map();
-    const items = entries.map(({ src, marker, hook }) => {
+    const items = entries.map(({ src, marker, hook, enabled }) => {
       let desc = null;
       if (src.srcDraft && src.srcId) {
         try {
           if (!srcProfs.has(src.srcDraft)) srcProfs.set(src.srcDraft, profilePreset(src.srcDraft));
           desc = describeEntry(src.srcDraft, src.srcId, srcProfs.get(src.srcDraft));
         } catch (e) {
-          console.warn("[裁缝铺] 来源分析失败", e);
+          console.warn("[焦香鸡翅] 来源分析失败", e);
         }
       }
-      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: hook ? { hook: true } : {}, autoHook: !!spec && !hook, manual: null, enabled: true, srcGroup: spec ? null : wholeGroupOf(src), pos: posOf(marker) };
+      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: hook ? { hook: true } : {}, autoHook: !!spec && !hook, manual: null, enabled: enabled ?? true, srcGroup: spec ? null : wholeGroupOf(src), pos: posOf(marker) };
     });
     const single = posCache.size === 1;
     const P0 = items[0].pos;
@@ -515,12 +565,15 @@ function mountSuture(page, app) {
                 ${single ? `<div><b>位置：${esc(placeText(d, marker))}</b></div>
                 ${grpRow}
                 <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `。位于 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 之内` : ""}</small>` : `<div><b>缝到 ${posCache.size} 个位置</b></div><small>按各条目在来源中的位置，分别放在目标中对应条目之后。每条的位置见条目详情。</small>`}
-                ${tgtProf.lines.length ? `<details class="pa-explain"><summary>目标预设的写法（${tgtProf.lines.length} 条）</summary><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : ""}
-                ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<details class="pa-explain"><summary>来源「${esc(sd.name)}」的写法（${pr.lines.length} 条）</summary><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul></details>` : "").join("")}
+                <details class="pa-explain"><summary>更多选项和两边写法的分析</summary>
+                <div class="pa-explain-body">
                 <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝合时，角色和插入位置与目标一致</label>
                 <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名称后加「（来自来源预设）」</label>
+                ${tgtProf.lines.length ? `<b class="pa-sub">目标预设怎样让条目生效</b><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""}
+                ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<b class="pa-sub">来源「${esc(sd.name)}」怎样让条目生效</b><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "").join("")}
+                </div></details>
                 <div class="pa-hookbar"><span class="pa-hookbar-n"></span><button class="pa-btn pa-btn-s" data-g="hook-all">全部接入</button><button class="pa-btn pa-btn-s" data-g="hook-rec">推荐接入</button><button class="pa-btn pa-btn-s" data-g="hook-none">全部不接入</button></div>
-                <small>接入思维链会让思维链多一个问题，条目多时思考时间会变长。默认不接入。</small>
+                <small>接入思维链：让模型思考时专门想一下这条。每接入一条，思考就多一个问题，默认不接入。</small>
             </div>
             <div class="pa-items"></div>
         </div>`);
@@ -557,7 +610,7 @@ function mountSuture(page, app) {
       }
       return `<div class="pa-hook">
             <label class="pa-inline-check"><input type="checkbox" data-c="hook" ${it.hookOn ? "checked" : ""}> <b>接入思维链</b>${h.on ? '<span class="pa-chip pa-chip-cot">推荐</span>' : ""}</label>
-            <small>${esc(h.text)}${it.hookOn || h.on ? "" : "。" + esc(h.offHint || "")}</small>${detail}</div>`;
+            <small>${esc(h.text)}${it.hookOn || h.on ? "" : "。" + esc(h.offHint || "")}</small>${(h.warns || []).map((w) => `<p class="pa-warn">${esc(w)}</p>`).join("")}${detail}</div>`;
     };
     const renderItem = (it, i) => {
       const { t, where, gid, tgtWr } = it.pos;
@@ -579,7 +632,7 @@ function mountSuture(page, app) {
       try {
         it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null });
       } catch (e) {
-        console.warn("[裁缝铺] 思维链检查失败", e);
+        console.warn("[焦香鸡翅] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，已跳过" };
       }
       // 搬到新版：没有缝合记录的条目，原预设的思维链读取过它就默认接入
@@ -613,14 +666,14 @@ function mountSuture(page, app) {
       const modes = same && !planSlot ? card("raw", "原样缝合", "两边写法相同，无需调整", rawContent) : [
         card("raw", "原样缝合", "不调整写法", rawContent),
         card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["正文不变，位置和角色与目标一致"]), ...planFix.warnings.map((w) => "⚠ " + w)]),
-        planSlot ? card("slot", `按目标写法缝合，并加入单选「${t.slot.varName}」`, "开启后，同类中已开启的一条会被替换", planSlot.content, planSlot.changes) : ""
+        planSlot ? card("slot", `按目标写法缝合，并加入多选一「${t.slot.varName}」`, "开启后，同类中已开启的一条会被替换", planSlot.content, planSlot.changes) : ""
       ].join("");
       const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);
-      const modeLabel = { raw: "原样", fix: "按目标写法", slot: "加入单选" }[mode];
+      const modeLabel = { raw: "原样", fix: "按目标写法", slot: "加入多选一" }[mode];
       const hookLabel = it.hook.status !== "hook" ? "" : it.hookOn ? '<span class="pa-chip pa-chip-cot">接入思维链</span>' : it.hook.on ? '<span class="pa-chip pa-chip-dim">推荐接入</span>' : "";
       // 默认收起，只显示一行摘要；点开看详情
       return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
-                <header class="pa-item-head" data-c="toggle"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""} title="缝合后开启" aria-label="缝合后开启">
+                <header class="pa-item-head" data-c="toggle"><label class="pa-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}>缝后开启</label>
                 <span class="pa-item-name">${esc(nameOf(it))}</span>
                 <span class="pa-badges"><span class="pa-chip">${modeLabel}</span>${hookLabel}${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span>
                 <span class="pa-item-caret">${it.open ? "▾" : "▸"}</span></header>
@@ -635,7 +688,7 @@ function mountSuture(page, app) {
                 <div class="pa-item-ctl">
                     <label class="pa-field"><span>标题或标签中的名称</span><input class="pa-input pa-input-s" data-c="label" value="${esc(planFix.label)}"></label>
                     ${chosen.want?.varName && (chosen.want.shape === "wrap" || chosen.want.shape === "tagname") ? `<label class="pa-field"><span>变量</span><input class="pa-input pa-input-s" data-c="var" value="${esc(chosen.want.varName)}"></label>
-                    <label class="pa-field"><span>写入方式</span><select class="pa-select" data-c="op"><option value="add" ${chosen.want.op !== "set" ? "selected" : ""}>addvar 追加（可多选）</option><option value="set" ${chosen.want.op === "set" ? "selected" : ""}>setvar 覆盖（单选）</option></select></label>` : ""}
+                    <label class="pa-field"><span>写入方式</span><select class="pa-select" data-c="op"><option value="add" ${chosen.want.op !== "set" ? "selected" : ""}>可叠加（开启几条就拼几条，addvar）</option><option value="set" ${chosen.want.op === "set" ? "selected" : ""}>多选一（只有最后一条开着的生效，setvar）</option></select></label>` : ""}
                     ${planFix.sourceShape.extras?.length ? `<label class="pa-inline-check"><input type="checkbox" data-c="extras" ${it.choice.keepExtras ? "checked" : ""}> 保留来源中的 ${planFix.sourceShape.extras.length} 个附加宏</label>` : ""}
                 </div></details>` : ""}
                 <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</summary>
@@ -722,7 +775,7 @@ function mountSuture(page, app) {
     });
     box.addEventListener("click", (e) => {
       const head = e.target.closest("[data-c=toggle]");
-      if (head && !e.target.closest("input")) {
+      if (head && !e.target.closest("input, .pa-item-on")) {
         const art = head.closest(".pa-item");
         const it = items[Number(art.dataset.i)];
         it.open = !it.open;
@@ -810,7 +863,9 @@ function mountSuture(page, app) {
       const rec = ext.presetAtelier && typeof ext.presetAtelier === "object" ? ext.presetAtelier : (ext.presetAtelier = {});
       const live = new Set(x.order.map((o) => o.identifier));
       rec.stitched = (Array.isArray(rec.stitched) ? rec.stitched : []).filter((r) => live.has(r.id));
-      items.forEach((it, i) => rec.stitched.push({ id: newIds[i], from: String(it.src.from || "").slice(0, 80), at: Date.now(), ...(hookedIdx.has(i) ? { cot: 1 } : {}) }));
+      // 只记编号、时间、是否接入思维链；不记来源预设名，分享预设时不会带出你缝过哪些预设
+      items.forEach((it, i) => rec.stitched.push({ id: newIds[i], at: Date.now(), ...(hookedIdx.has(i) ? { cot: 1 } : {}) }));
+      for (const r of rec.stitched) delete r.from;
     });
     if (!spec) st.picked.clear();
     // 下次接着往后缝：落在新分组里就放在这组后面，否则接在最后一条后面
@@ -881,7 +936,7 @@ function mountSuture(page, app) {
             <pre class="pa-snip">${snip(content)}</pre>${mode === value && value === "fix" && plan.changes.length ? `<ul class="pa-notes">${plan.changes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
       const w = it.wb;
       return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
-        <header class="pa-item-head" data-c="toggle"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""} title="缝合后开启" aria-label="缝合后开启">
+        <header class="pa-item-head" data-c="toggle"><label class="pa-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}>缝后开启</label>
           <span class="pa-item-name">${esc(it.name ?? it.src.name)}</span>
           <span class="pa-badges"><span class="pa-chip">${w.constant ? "常驻" : "关键词"}</span><span class="pa-chip">${esc(posName(w.position))}${Number(w.position) === 4 ? ` ${w.depth}` : ""}</span>${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span>
           <span class="pa-item-caret">${it.open ? "▾" : "▸"}</span></header>
@@ -930,7 +985,7 @@ function mountSuture(page, app) {
     });
     box.addEventListener("click", (e) => {
       const head = e.target.closest("[data-c=toggle]");
-      if (!head || e.target.closest("input")) return;
+      if (!head || e.target.closest("input, .pa-item-on")) return;
       const art = head.closest(".pa-item");
       const it = items[Number(art.dataset.i)];
       it.open = !it.open;
@@ -956,8 +1011,15 @@ function mountSuture(page, app) {
         disable: !it.enabled
       };
     });
+    // 写之前备份整本世界书（存在本浏览器，「更多 → 清理 → 本地备份」可见）
+    try {
+      await backupPut(`世界书：${d.name}`, await mods.wi.loadWorldInfo(d.name), "缝合前");
+    } catch (e) {
+      if (!await confirmBox("备份失败", `缝合前备份世界书「${d.name}」没有成功（${e.message}）。仍可在缝合后用底栏的「撤销」删掉刚缝进去的条目。继续缝合吗？`, "继续缝合")) return;
+    }
     try {
       const uids = await writeWorldEntries(d.name, fields, afterId ? d.wb[afterId]?.uid : null);
+      st.lastWb = { name: d.name, uids };
       st.worldCache.delete(d.name);
       st.picked.clear();
       await loadWbDraft(true);
@@ -970,6 +1032,28 @@ function mountSuture(page, app) {
       setTimeout(() => { st.highlight = null; }, 1500);
     } catch (e) {
       toast("写入世界书失败：" + e.message, "error");
+    }
+  }
+  // 世界书不在撤销记录里：单独记下刚缝进去的条目，可以删回去
+  async function undoWorld() {
+    const last = st.lastWb;
+    if (!last) return;
+    if (!await confirmBox("撤销缝合", `从世界书「${last.name}」删掉刚缝进去的 ${last.uids.length} 条？`, "删除", true)) return;
+    try {
+      const data = await mods.wi.loadWorldInfo(last.name);
+      const gone = new Set(last.uids.map(String));
+      for (const k of Object.keys(data.entries || {})) if (gone.has(String(data.entries[k].uid))) delete data.entries[k];
+      wiSorted(data).forEach((e, i) => { e.displayIndex = i; });
+      await mods.wi.saveWorldInfo(last.name, data, true);
+      try { mods.wi.reloadEditor?.(last.name); } catch {}
+      st.lastWb = null;
+      st.worldCache.delete(last.name);
+      st.wbMarker = null;
+      await loadWbDraft(true);
+      toast("已撤销", "success");
+      renderDst();
+    } catch (e) {
+      toast("撤销失败：" + e.message, "error");
     }
   }
   // ---- 1.6.0 搬到新版：来源 = 旧版，目标 = 新版。把旧版里缝进去的条目按原位置搬过去
@@ -1024,7 +1108,8 @@ function mountSuture(page, app) {
     if (!pick.length) return toast("没有勾选条目");
     await review({
       title: `搬 ${pick.length} 条到「${neu.name}」`,
-      entries: pick.map((c) => ({ src: { name: c.p.name, content: c.p.content, prompt: c.p, from: old.name, srcDraft: old, srcId: c.id }, marker: c.marker, hook: c.hook || void 0 }))
+      // 开关沿用旧版里的状态（旧版保留了几种文风只开一种，搬过去也只开那一种）
+      entries: pick.map((c) => ({ src: { name: c.p.name, content: c.p.content, prompt: c.p, from: old.name, srcDraft: old, srcId: c.id }, marker: c.marker, hook: c.hook || void 0, enabled: old.order.find((o) => o.identifier === c.id)?.enabled !== false }))
     });
   }
   const off = onDraftChange(() => {

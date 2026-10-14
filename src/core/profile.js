@@ -115,11 +115,11 @@ function profilePreset(draft) {
     else lines.push(`${g.n} 条将正文写入 ${vars}，由 ${namesOf(draft, g.readers, 2)} 统一发送${off ? "。该条目目前关闭，这些条目开启后也不会发送" : ""}。`);
   }
   for (const s of shared.filter((x) => x.slot).slice(0, 4)) {
-    lines.push(`${s.writers.length} 条向「${s.name}」登记问句（setvar，同时开启多条时只保留最后一条，相当于单选），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读取。缝合的同类条目按此方式登记。`);
+    lines.push(`${s.writers.length} 条向「${s.name}」登记问句（多选一：开启多条时只有最后一条生效），由「${P(s.readers.find((r) => cotSet.has(r)))?.name}」读取。缝合的同类条目按此方式登记。`);
   }
   for (const s of shared.filter((x) => !x.slot && !x.wrap).slice(0, 3)) {
     const who = s.readers.length ? namesOf(draft, s.readers, 1) : "";
-    if (s.names) lines.push(`${s.writers.length} 条将名称登记到「${s.name}」（${s.op === "set" ? "setvar，只保留最后一条，相当于单选" : "addvar，列出全部开启的条目"}）${who ? `，由 ${who} 读取` : ""}。`);
+    if (s.names) lines.push(`${s.writers.length} 条将名称登记到「${s.name}」（${s.op === "set" ? "多选一：只有最后一条生效" : "可叠加：列出全部开启的条目"}）${who ? `，由 ${who} 读取` : ""}。`);
     else if (s.op === "add" && s.cotReads) lines.push(`${s.writers.length} 条用 addvar 向「${s.name}」追加思维链内容，思维链统一读取。`);
     else lines.push(`${s.writers.length} 条写入同一变量「${s.name}」（${s.op}var）${who ? `，由 ${who} 读取` : ""}。`);
   }

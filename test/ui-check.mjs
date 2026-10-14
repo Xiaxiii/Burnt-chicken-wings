@@ -1,8 +1,12 @@
-// 1.3.7 整理页（点行选中→移动→点位置）、思维链页、API 页、缝合位置标记
+// 整理页（点行选中 → 移动 → 点位置）、思维链页、API 站点换模型、缝合位置标记。
+// 用合成的「众生相风格」预设，干净环境可跑。用法同 clean-check.mjs
 import { chromium } from "playwright";
-const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome" });
-const page = await browser.newPage({ viewport: { width: 1024, height: 1366 }, deviceScaleFactor: 1, hasTouch: true });
-const errs = []; page.on("pageerror", (e) => errs.push(e.message));
+import assert from "node:assert";
+const exe = process.env.PW_CHROME || undefined;
+const browser = await chromium.launch({ executablePath: exe });
+const page = await browser.newPage({ viewport: { width: 1024, height: 1366 }, hasTouch: true });
+const errs = [];
+page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
 await page.evaluate(() => {
@@ -12,40 +16,47 @@ await page.evaluate(() => {
   window.__presetAtelier.open("organize");
 });
 await page.waitForTimeout(400);
-const T = "众生相-真实版";
-await page.selectOption(".pa-picker-slot select", T); await page.waitForTimeout(300);
 await page.click("text=全部展开"); await page.waitForTimeout(200);
 const names = () => page.evaluate(() => [...document.querySelectorAll(".pa-list .pa-row .pa-name")].map((x) => x.textContent.trim()));
+
+// 1) 整理：点两行选中，移动到第 6 行之后
 const before = await names();
-// 点第 3、4 行（整行）选中
-await page.locator(".pa-list .pa-row").nth(3).click(); await page.locator(".pa-list .pa-row").nth(4).click();
-const picked = [before[3], before[4]];
-console.log("selbar:", await page.evaluate(() => document.querySelector(".pa-selbar").innerText.replace(/\s+/g, " ")));
+await page.locator(".pa-list .pa-row").nth(1).click();
+await page.locator(".pa-list .pa-row").nth(2).click();
+assert.match(await page.$eval(".pa-selcount", (x) => x.textContent), /已选 2 条/);
 await page.click('[data-sel="moveto"]'); await page.waitForTimeout(200);
-await page.screenshot({ path: "test/shots/u-1-move.png" });
-await page.locator(".pa-list .pa-row").nth(10).click(); await page.waitForTimeout(300);
+const target = before[6];
+await page.locator(".pa-list .pa-row").nth(6).click(); await page.waitForTimeout(300);
 const after = await names();
-console.log("moved:", picked, "→ now at", after.indexOf(picked[0]), after.indexOf(picked[1]), "target was", before[10], "at", after.indexOf(before[10]));
-// 思维链页
+const ti = after.indexOf(target);
+assert.deepEqual(after.slice(ti + 1, ti + 3), [before[1], before[2]], "移到目标条目之后");
+console.log("✓ 选中两条并移到指定位置");
+
+// 2) 思维链页能打开，有手动指定入口
 await page.click('[data-tab="cot"]'); await page.waitForTimeout(400);
-console.log("cot 设为思维链 buttons:", await page.locator('[data-mark][data-v="1"]').count(), "markpick:", await page.locator("[data-markpick]").count());
-await page.screenshot({ path: "test/shots/u-2-cot.png" });
-// API 页
+assert.ok(await page.$(".pa-cot .pa-verdict"));
+assert.equal(await page.locator("[data-markpick]").count(), 1);
+console.log("✓ 思维链页");
+
+// 3) API：当前连接换模型（带搜索的列表），站点记录跟着改
 await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
-await page.click('[data-m="api"]'); await page.waitForTimeout(300);
-await page.click(".pa-site > header"); await page.waitForTimeout(200);
-await page.screenshot({ path: "test/shots/u-3-api.png" });
-await page.selectOption('[data-a="livemodel"]', "claude-sonnet"); await page.waitForTimeout(200);
-console.log("live model now:", await page.evaluate(() => [document.getElementById("custom_model_id").value, window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model]));
-// 缝合位置标记
+await page.click('[data-m="schemes"]'); await page.waitForTimeout(300);
+await page.click('[data-a="livemodel"]'); await page.waitForTimeout(200);
+await page.click('.pa-mpick-item >> text=claude-sonnet'); await page.waitForTimeout(300);
+const m = await page.evaluate(() => [document.getElementById("custom_model_id").value, window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model]);
+assert.deepEqual(m, ["claude-sonnet", "claude-sonnet"]);
+console.log("✓ 当前连接换模型");
+
+// 4) 缝合位置：点展开的组里的条目＝放进组里，它的后面
 await page.click('[data-tab="suture"]'); await page.waitForTimeout(300);
-await page.selectOption(".pa-dst-picker select", T); await page.waitForTimeout(300);
-await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-caret")[2].click()); await page.waitForTimeout(150);
-await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-group")[2].querySelectorAll(".pa-row")[2].click()); await page.waitForTimeout(150);
-await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-caret")[2].click()); await page.waitForTimeout(150);
-await page.screenshot({ path: "test/shots/u-4-marker-collapsed.png" });
-await page.evaluate(() => document.querySelectorAll(".pa-dst-list .pa-ghead .pa-caret")[2].click()); await page.waitForTimeout(150);
-await page.screenshot({ path: "test/shots/u-5-marker.png" });
-console.log("where:", await page.evaluate(() => document.querySelector(".pa-where").textContent));
-console.log(errs.length ? errs : "no page errors");
+const g = page.locator(".pa-dst-list .pa-group").nth(1);
+await g.locator(".pa-caret").click(); await page.waitForTimeout(150);
+const rowName = (await g.locator(".pa-row .pa-name").first().textContent()).trim();
+await g.locator(".pa-row").first().click(); await page.waitForTimeout(150);
+const where = await page.$eval(".pa-where", (x) => x.textContent);
+assert.ok(where.includes("组内") && where.includes(rowName), where);
+console.log("✓ 缝合位置：", where);
+
+assert.deepEqual(errs, []);
+console.log("界面检查全部通过");
 await browser.close();

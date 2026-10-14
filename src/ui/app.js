@@ -12,13 +12,7 @@ function injectStyle() {
   document.getElementById("pa-style")?.remove();
   const s = document.createElement("style");
   s.id = "pa-style";
-  s.textContent = style_default + `
-#pa-root .pa-group-select .pa-check { display:block; width:20px; height:20px; border:2px solid var(--pa-line); border-radius:50%; }
-#pa-root .pa-group-select[aria-pressed=true] .pa-check { background:var(--pa-thread); border-color:var(--pa-thread); }
-#pa-root .pa-group-select[aria-pressed=true] .pa-check::after { content:'✓'; display:block; text-align:center; line-height:16px; }
-#pa-root .pa-inline-content { padding:12px 20px; margin:0 8px 8px; background:var(--pa-card); max-height:50vh; overflow:auto; }
-#pa-root .pa-gname { cursor:pointer; }
-`;
+  s.textContent = style_default;
   document.head.append(s);
 }
 function buildRoot() {
@@ -30,10 +24,10 @@ function buildRoot() {
                 <div class="pa-savebar" hidden>
                     <span class="pa-dirty-text"></span>
                     <button class="pa-btn" data-g="undo">撤销</button>
-                    <button class="pa-btn pa-btn-primary" data-g="confirm">确认</button>
+                    <button class="pa-btn pa-btn-primary" data-g="confirm" title="修改已自动保存。点「完成」结束这一批修改，之后不能再撤销">完成</button>
                     <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
                 </div>
-                <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg></button>
+                <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份（只存在这个浏览器里）"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg></button>
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭">✕</button>
             </header>
             <nav class="pa-tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</nav>
@@ -56,6 +50,14 @@ function buildRoot() {
     more: mountMore(pageEl("more"), app)
   };
   applyTheme(rootEl2);
+  // 键盘：在条目行、分组头上按回车或空格，等于点一下
+  rootEl2.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const t = e.target;
+    if (!(t instanceof HTMLElement) || !t.matches(".pa-row, .pa-ghead")) return;
+    e.preventDefault();
+    t.click();
+  });
   rootEl2.querySelector(".pa-tabs").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab]");
     if (t) show(t.dataset.tab);
@@ -74,24 +76,26 @@ function buildRoot() {
     if (g === "confirm") {
       try {
         await confirmDraft(focusPreset());
-        toast("已确认", "success");
+        toast("已完成，这批修改已保存", "success");
       } catch (err) {
-        toast("保存失败：" + err.message, "error");
+        handleSaveError(focusPreset(), err);
       }
     }
     if (g === "backups") return backupsSheet(focusPreset());
     if (g === "save") {
+      const name = focusPreset();
+      if (saveBlocked.has(name)) return resolveSaveProblem(name);
       const btn = e.target.closest("button");
       btn.disabled = true;
       btn.textContent = "保存中…";
       try {
-        await saveDraft(focusPreset(), "裁缝铺保存");
+        await saveDraft(name, "保存");
         toast("已保存", "success");
       } catch (err) {
-        toast("保存失败：" + err.message, "error");
+        handleSaveError(name, err);
       }
       btn.disabled = false;
-      btn.textContent = "重试保存";
+      updateSavebar();
     }
   });
   cleanups.push(onDraftChange(updateSavebar));
@@ -106,10 +110,15 @@ function updateSavebar() {
   }
   // 修改即时自动保存；有未确认的修改时显示「撤销」「确认」
   const err = saveErrors.has(d?.name);
+  const blocked = d ? saveBlocked.get(d.name) : null;
   const pending = !!d?.history.length;
   bar.hidden = !d || !pending && !err && !saveJobs.has(d.name);
-  rootEl2.querySelector(".pa-dirty-text").textContent = err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty ? "保存中…" : "已自动保存";
-  rootEl2.querySelector("[data-g=save]").hidden = !err;
+  rootEl2.querySelector(".pa-dirty-text").textContent = blocked
+    ? (blocked.kind === "conflict" ? "已暂停保存：预设在别处被改过" : "已暂停保存：备份失败")
+    : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty ? "保存中…" : "已自动保存";
+  const saveBtn = rootEl2.querySelector("[data-g=save]");
+  saveBtn.hidden = !err;
+  saveBtn.textContent = blocked ? "处理" : "重试保存";
   rootEl2.querySelector("[data-g=undo]").hidden = !pending;
   rootEl2.querySelector("[data-g=confirm]").hidden = !pending || err;
 }
@@ -136,10 +145,47 @@ function open(tab, sub) {
   rootEl2.hidden = false;
   document.documentElement.classList.add("pa-open");
   show(tab || current);
+  pushBackState();
+  setTimeout(flushAsks, 0);
 }
-async function close() {
-  const dirty = dirtyDrafts();
+// 安卓返回手势 / 浏览器返回键：先关面板，而不是离开酒馆
+var backArmed = false;
+function pushBackState() {
+  if (backArmed) return;
+  try {
+    history.pushState({ ...(history.state || {}), paOpen: true }, "");
+    backArmed = true;
+  } catch {}
+}
+function onPopState() {
+  if (!backArmed) return;
+  backArmed = false;
+  if (!rootEl2 || rootEl2.hidden) return;
+  // 有弹窗时，返回只关弹窗
+  const masks = rootEl2.querySelectorAll(".pa-sheet-mask:not(.pa-out)");
+  if (masks.length) {
+    masks[masks.length - 1].querySelector(".pa-sheet-x")?.click();
+    pushBackState();
+    return;
+  }
+  close({ fromBack: true });
+}
+function onRootKey(e) {
+  if (e.key !== "Escape" || !rootEl2 || rootEl2.hidden) return;
+  if (rootEl2.querySelector(".pa-sheet-mask")) return; // 弹窗自己处理
+  e.preventDefault();
+  close();
+}
+async function close({ fromBack = false } = {}) {
+  const dirty = dirtyDrafts().filter((d) => !saveBlocked.has(d.name));
+  const blocked = dirtyDrafts().filter((d) => saveBlocked.has(d.name));
+  if (blocked.length) {
+    if (fromBack) pushBackState();
+    for (const d of blocked) await resolveSaveProblem(d.name);
+    if (dirtyDrafts().some((d) => saveBlocked.has(d.name))) return;
+  }
   if (dirty.length) {
+    if (fromBack) pushBackState();
     const r = await sheet({
       title: "有未保存的修改",
       body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有未保存的修改。</p>`,
@@ -148,16 +194,23 @@ async function close() {
     if (!r) return;
     if (r === "drop") dirty.forEach((d) => dropDraft(d.name));
     if (r === "save") {
-      try {
-        for (const d of dirty) await saveDraft(d.name, "裁缝铺保存");
-        toast("已全部保存", "success");
-      } catch (e) {
-        return toast("保存失败：" + e.message, "error");
+      for (const d of dirty) {
+        try {
+          await saveDraft(d.name, "保存");
+        } catch (e) {
+          handleSaveError(d.name, e);
+          return;
+        }
       }
+      toast("已全部保存", "success");
     }
   }
   rootEl2.hidden = true;
   document.documentElement.classList.remove("pa-open");
+  if (backArmed) {
+    backArmed = false;
+    try { history.back(); } catch {}
+  }
 }
 function addMenuEntry() {
   if (document.getElementById("pa-menu-entry")) return;
@@ -166,6 +219,12 @@ function addMenuEntry() {
   const item = el(`<div id="pa-menu-entry" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem">
         <div class="fa-solid fa-scissors extensionsMenuExtensionButton"></div><span class="pa-appname">${esc(appName())}</span></div>`);
   item.addEventListener("click", () => open());
+  item.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  });
   menu.append(item);
 }
 // 1.3.4：扩展页里的设置框，照酒馆扩展的标准样子做：标题带版本号，按钮横排，能检查更新、看更新说明
@@ -186,7 +245,7 @@ function changelogSections() {
 }
 async function extensionType() {
   try {
-    const r = await fetch("/api/extensions/discover", { headers: ctx().getRequestHeaders?.() || {} });
+    const r = await fetch(stUrl("api/extensions/discover"), { headers: ctx().getRequestHeaders?.() || {} });
     const list = r.ok ? await r.json() : [];
     return list.find((x) => x.name === `third-party/${EXT_DIR}`)?.type || "local";
   } catch {
@@ -194,7 +253,7 @@ async function extensionType() {
   }
 }
 async function extApi(path) {
-  const r = await fetch(`/api/extensions/${path}`, {
+  const r = await fetch(stUrl(`api/extensions/${path}`), {
     method: "POST",
     headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
     body: JSON.stringify({ extensionName: EXT_DIR, global: await extensionType() === "global" })
@@ -221,21 +280,15 @@ function addSettingsEntry() {
           <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>加载体检</span></div>
         </div>
         <hr class="sysHR">
-        <div class="pa-set-row">
-          <span class="pa-set-k">名称</span>
-          <span class="pa-set-v pa-appname">${esc(appName())}</span>
-          <div class="menu_button menu_button_icon pa-set-mini" data-a="rename" tabindex="0" role="button" title="修改名称"><i class="fa-solid fa-pencil"></i><span>修改</span></div>
-        </div>
+        <div class="pa-set-row pa-set-namerow">${nameRowHtml()}</div>
         <div class="pa-set-row">
           <span class="pa-set-k">版本</span>
           <span class="pa-set-v">${esc(VERSION)} · ${kind}</span>
           ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
         </div>
         <div class="pa-set-status" hidden></div>
-        <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="noPullRefresh" ${settings().noPullRefresh !== false ? "checked" : ""}><span>防止下拉误刷新（苹果设备）</span></label>
-        <div class="pa-set-note">在页面顶部往下拖时，Safari 会刷新整个酒馆。开启后阻止这种刷新；刷新按钮照常可用。</div>
-        <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="rescue" ${settings().rescue !== false ? "checked" : ""}><span>后台中断补救</span></label>
-        <div class="pa-set-note">切到别的 App 时，手机可能中断正在生成的回复，或把酒馆整页重新加载。开启后，回来时提醒你，并可一键续写或重新生成。</div>
+        <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="noPullRefresh" ${settings().noPullRefresh !== false ? "checked" : ""}><span>防止下拉误刷新</span></label>
+        <div class="pa-set-note">在页面顶部往下拖时，浏览器会刷新整个酒馆（iPhone、iPad 的 Safari 最常见，安卓 Chrome 也会）。开启后对所有设备阻止这种刷新；浏览器的刷新按钮照常可用。</div>
         ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 1).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
         <div class="pa-set-foot">打开方式：点上方按钮，或从魔棒菜单打开，或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
       </div>
@@ -252,12 +305,31 @@ function addSettingsEntry() {
     if (a === "open") return open();
     if (a === "health") return open("more", "health");
     if (a === "reload") return location.reload();
+    // 改名就在这一行里改，不弹浏览器自带的输入框
     if (a === "rename") {
-      const n = window.prompt("扩展名称（留空恢复默认）", appName());
-      if (n === null) return;
-      settings().appName = n.trim() || "";
-      saveSettings();
-      return refreshAppName();
+      const row = box.querySelector(".pa-set-namerow");
+      row.innerHTML = `<span class="pa-set-k">名称</span><input class="text_pole pa-set-input" maxlength="30" value="${esc(appName())}" placeholder="${esc(DEFAULT_APP_NAME)}" aria-label="扩展名称">
+        <div class="menu_button menu_button_icon pa-set-mini" data-a="rename-ok" tabindex="0" role="button"><i class="fa-solid fa-check"></i><span>保存</span></div>
+        <div class="menu_button menu_button_icon pa-set-mini" data-a="rename-cancel" tabindex="0" role="button"><i class="fa-solid fa-xmark"></i><span>取消</span></div>`;
+      const input = row.querySelector("input");
+      input.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") { ev.preventDefault(); act("rename-ok", null); }
+        if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); act("rename-cancel", null); }
+      });
+      input.focus();
+      input.select();
+      return;
+    }
+    if (a === "rename-ok" || a === "rename-cancel") {
+      const row = box.querySelector(".pa-set-namerow");
+      if (a === "rename-ok") {
+        const v = String(row.querySelector("input")?.value || "").trim();
+        settings().appName = v && v !== DEFAULT_APP_NAME ? v : "";
+        saveSettings();
+      }
+      row.innerHTML = nameRowHtml();
+      refreshAppName();
+      return;
     }
     if (busy) return;
     busy = true;
@@ -292,11 +364,6 @@ function addSettingsEntry() {
   box.addEventListener("click", handler);
   box.addEventListener("keydown", handler);
   box.addEventListener("change", (e) => {
-    const r = e.target.closest("[data-opt=rescue]");
-    if (r) {
-      settings().rescue = r.checked;
-      return saveSettings();
-    }
     const t = e.target.closest("[data-opt=noPullRefresh]");
     if (!t) return;
     settings().noPullRefresh = t.checked;
@@ -323,8 +390,8 @@ function registerSlash() {
     if (c2.SlashCommandParser && c2.SlashCommand) {
       c2.SlashCommandParser.addCommandObject(c2.SlashCommand.fromProps({
         name: "atelier",
-        aliases: ["裁缝铺", "焦香鸡翅"],
-        helpString: "打开焦香鸡翅（预设裁缝铺）",
+        aliases: ["焦香鸡翅"],
+        helpString: "打开焦香鸡翅",
         callback: () => {
           open();
           return "";
@@ -334,10 +401,10 @@ function registerSlash() {
       c2.registerSlashCommand("atelier", () => {
         open();
         return "";
-      }, ["裁缝铺"], "打开焦香鸡翅（预设裁缝铺）");
+      }, ["焦香鸡翅"], "打开焦香鸡翅");
     }
   } catch (e) {
-    console.warn("[裁缝铺] 注册斜杠命令失败", e);
+    console.warn("[焦香鸡翅] 注册斜杠命令失败", e);
   }
 }
 var applying = false;
@@ -346,15 +413,15 @@ var keepConnection = debounce(async () => {
   if (!s.keepApi || !s.activeSiteId || applying) return;
   const site = s.sites.find((x) => x.id === s.activeSiteId);
   if (!site) return;
-  const live = liveConnection();
-  const differs = live.source !== site.source || site.source === "custom" && (live.url || "") !== (site.url || "") || site.model && live.model !== site.model;
-  if (!differs && live.online) return;
+  if (!siteDiffers(site)) return;
   applying = true;
   try {
-    await applyConnection(site);
-    toast(`已恢复连接「${site.name}」`);
+    const live = await applyConnection(site);
+    if (live.online) toast(`已恢复连接「${site.name}」`);
+    else toast(`已切回「${site.name}」，但没有连上，请检查网址和密钥`, "warning");
   } catch (e) {
-    console.warn("[裁缝铺] 自动恢复连接失败", e);
+    console.warn("[焦香鸡翅] 自动恢复连接失败", e);
+    toast(`恢复连接「${site.name}」失败：${e.message}`, "warning");
   } finally {
     applying = false;
   }
@@ -365,13 +432,21 @@ var onChatChanged = debounce(async () => {
   const sc = settings().schemes.find((x) => x.id === id);
   if (!sc) return;
   try {
+    // 预设已归档：读不到，直接交给 applyScheme，它会先从归档恢复
+    if (!listPresets().includes(sc.preset)) {
+      await applyScheme(sc, { quiet: true });
+      return;
+    }
     const d = getDraft(sc.preset, { fresh: true });
     const presetOk = currentPresetName() === sc.preset;
     const personaOk = !sc.persona || currentPersona() === sc.persona;
-    if (presetOk && personaOk && schemeMatches(d, sc)) return;
+    const site = sc.siteId ? settings().sites.find((x) => x.id === sc.siteId) : null;
+    const siteOk = !site || !siteDiffers(site);
+    if (presetOk && personaOk && siteOk && schemeMatches(d, sc)) return;
     await applyScheme(sc, { quiet: true });
   } catch (e) {
-    console.warn("[裁缝铺] 套用聊天绑定方案失败", e);
+    console.warn("[焦香鸡翅] 套用聊天绑定方案失败", e);
+    toast(`套用本聊天绑定的方案「${sc.name}」失败：${e.message}`, "warning");
   }
 }, 600);
 function bindEvents() {
@@ -387,14 +462,15 @@ function bindEvents() {
     try { notePresetUse(currentPresetName()); } catch {}
     keepConnection();
     dropClean();
-    if (rootEl2 && !rootEl2.hidden) emitChange(focusPreset());
+    // 整页重画（含预设下拉框里的「使用中」标记）
+    if (rootEl2 && !rootEl2.hidden) show(current);
   });
   on(et2.CHAT_CHANGED, () => onChatChanged());
 }
 async function start() {
   const prev = globalThis.__presetAtelier;
   if (prev && prev.kind === "extension" && BUILD_KIND === "script") {
-    console.info("[裁缝铺] 已经装了扩展版，脚本版不再启动");
+    console.info("[焦香鸡翅] 已经装了扩展版，脚本版不再启动");
     return;
   }
   if (prev?.destroy) {
@@ -409,9 +485,15 @@ async function start() {
   const hiddenCheckpoint = () => { if (document.hidden) checkpointAll(); };
   document.addEventListener("visibilitychange", hiddenCheckpoint);
   cleanups.push(() => { checkpointAll(); window.removeEventListener("pagehide", checkpointAll); document.removeEventListener("visibilitychange", hiddenCheckpoint); for(const t of autoTimers.values()) clearTimeout(t); });
+  window.addEventListener("popstate", onPopState);
+  document.addEventListener("keydown", onRootKey);
+  cleanups.push(() => { window.removeEventListener("popstate", onPopState); document.removeEventListener("keydown", onRootKey); });
   injectStyle();
   try { applyPullGuard(); } catch {}
-  try { cleanups.push(initRescue()); } catch (e) { console.warn("[裁缝铺] 后台中断补救启动失败", e); }
+  // 1.8.0 去掉了后台中断补救，清掉它留下的记录
+  try { localStorage.removeItem("presetAtelier:generating"); } catch {}
+  try { delete settings().rescue; } catch {}
+  try { if (migrateLegacyKeys(settings().sites)) saveSettings(); } catch {}
   cleanups.push(() => document.getElementById("pa-pull-guard")?.remove());
   addMenuEntry();
   addSettingsEntry();
@@ -443,7 +525,7 @@ async function start() {
       rootEl2 = null;
     }
   };
-  console.log(`[裁缝铺] ${VERSION} 已加载`);
+  console.log(`[焦香鸡翅] ${VERSION} 已加载`);
 }
 // 备份：每批修改开始前自动备份一次修改前的版本，每个预设保留最近 10 份
 async function backupsSheet(name) {
@@ -455,7 +537,7 @@ async function backupsSheet(name) {
   }
   if (!list.length) return toast(`「${name}」暂无备份`);
   const items = list.map((b) => ({ label: new Date(b.time).toLocaleString(), sub: b.reason, value: b.id }));
-  const id = await pickBox(`「${name}」的备份（最近 ${BACKUP_MAX} 份）`, items, { hint: "每批修改开始前自动备份一次。点一份备份可恢复或下载。" });
+  const id = await pickBox(`「${name}」的备份（最近 ${BACKUP_MAX} 份）`, items, { hint: "每批修改开始前自动备份一次。备份只存在这个浏览器里，换设备、清除浏览器数据后就没有了；重要的版本请下载保存。点一份备份可恢复或下载。" });
   if (!id) return;
   const b = await backupGet(id);
   const how = await pickBox("选择操作", [{ label: "恢复", sub: "恢复后自动保存，可撤销", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
@@ -464,11 +546,7 @@ async function backupsSheet(name) {
   }
   if (how === "restore") {
     const d = getDraft(name);
-    mutate(d, "恢复备份", (x) => {
-      const tmp = new x.constructor(name, b.data);
-      x.preset = tmp.preset;
-      x.groups = tmp.groups;
-    });
+    mutate(d, "恢复备份", (x) => x.replaceWith(b.data));
     toast("已恢复", "success");
   }
 }
@@ -480,6 +558,11 @@ function appName() {
   } catch {
     return DEFAULT_APP_NAME;
   }
+}
+function nameRowHtml() {
+  return `<span class="pa-set-k">名称</span>
+          <span class="pa-set-v pa-appname">${esc(appName())}</span>
+          <div class="menu_button menu_button_icon pa-set-mini" data-a="rename" tabindex="0" role="button" title="修改名称（留空恢复默认）"><i class="fa-solid fa-pencil"></i><span>修改</span></div>`;
 }
 function refreshAppName() {
   document.querySelectorAll(".pa-appname").forEach((x) => { x.textContent = appName(); });

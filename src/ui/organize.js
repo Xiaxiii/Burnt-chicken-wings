@@ -13,17 +13,19 @@ function mountOrganize(page) {
   page.innerHTML = `
         <div class="pa-toolbar">
             <div class="pa-picker-slot"></div>
-            <div class="pa-search-row"><input class="pa-input pa-search" type="search" placeholder="搜索条目" aria-label="搜索条目">
+            <div class="pa-search-row"><input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" aria-label="搜索条目">
             <button class="pa-btn" data-tool="newgroup">＋ 新建分组</button>
             <button class="pa-btn pa-tools-more" data-tool="menu">工具</button></div>
             <div class="pa-tools">
+                <button class="pa-btn pa-btn-soft" data-tool="newentry">＋ 新建条目</button>
                 <button class="pa-btn pa-btn-soft" data-tool="smart">智能分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="fold">全部折叠</button>
+                <button class="pa-btn pa-btn-soft" data-tool="clickorder"></button>
             </div>
         </div>
         <div class="pa-movebar" hidden><b class="pa-move-n"></b>
             <button class="pa-btn pa-sq" data-mv="up" aria-label="上移一位">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一位">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">移到最后</button>
-            <button class="pa-btn pa-btn-primary" data-mv="cancel">取消</button><small class="pa-move-hint"></small></div>
+            <button class="pa-btn" data-mv="cancel">退出移动</button><small class="pa-move-hint"></small></div>
         <div class="pa-scroll pa-list" role="list"></div>
         <div class="pa-selbar" hidden>
             <div class="pa-selbar-top"><b class="pa-selcount"></b>
@@ -80,6 +82,9 @@ function mountOrganize(page) {
     page.querySelector(".pa-move-hint").textContent = st.mode === "newgroup" ? "点组名：放在该组之后。点条目：放在该条目之后。" : "点组名：移到该组之后。展开分组后点条目：移入组内。";
     movebar.querySelectorAll("[data-mv=up], [data-mv=down], [data-mv=end]").forEach((b) => { b.hidden = st.mode === "newgroup"; });
     page.querySelector("[data-tool=fold]").textContent = allFolded(d) ? "全部展开" : "全部折叠";
+    const co = page.querySelector("[data-tool=clickorder]");
+    co.textContent = `多选排列：${settings().keepClickOrder ? "按点选先后" : "保持原顺序"}`;
+    co.title = "移动、建组时，多选条目按什么先后排列。点击切换";
     if (st.highlight.size) {
       const first = list.querySelector(".pa-flash");
       first?.scrollIntoView({ block: "center" });
@@ -211,13 +216,23 @@ function mountOrganize(page) {
     if (!t) return;
     const d = draft();
     if (t === "menu") {
+      const keep = settings().keepClickOrder;
       t = await pickBox("工具", [
+        { label: "＋ 新建条目", sub: "放在选中的条目之后；没选时放在最后", value: "newentry" },
         { label: "智能分组", sub: "把相邻的同类条目建成分组", value: "smart" },
-        { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" }
+        { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
+        { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" }
       ]);
       if (!t) return;
     }
     if (t === "newgroup") return startNewGroup();
+    if (t === "newentry") return newEntry();
+    if (t === "clickorder") {
+      settings().keepClickOrder = !settings().keepClickOrder;
+      saveSettings();
+      toast(`多选排列：${settings().keepClickOrder ? "按点选先后" : "保持原顺序"}`);
+      return render();
+    }
     if (t === "fold") {
       if (allFolded(d)) st.collapsed.clear();
       else d.groups.groups.forEach((g) => st.collapsed.add(g.id));
@@ -251,24 +266,21 @@ function mountOrganize(page) {
       return render();
     }
     if (a === "all") {
-      list.querySelectorAll(".pa-row").forEach((r) => st.selected.add(r.dataset.id));
+      // 只选看得见的：折叠分组里的条目不选，免得接着「关闭」「删除」动到看不见的条目
+      list.querySelectorAll(".pa-row").forEach((r) => {
+        if (!r.closest(".pa-collapsed")) st.selected.add(r.dataset.id);
+      });
       return render();
     }
     if (a === "more") {
-      const keep = settings().keepClickOrder;
       const v = await pickBox(`已选 ${ids.length} 条`, [
         { label: "移入分组…", value: "intogroup" },
         { label: "移出分组", value: "ungroup" },
-        { label: "按标签排序…", value: "sorttags" },
-        { label: `排列方式：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时条目的先后。点击切换", value: "clickorder" },
+        { label: "复制", sub: "每条的副本放在原条目后面", value: "copy" },
+        { label: "按变量名排序…", sub: "按条目登记的变量名（如 文风1、文风2）分类，类别内按编号排", value: "sorttags" },
         { label: "删除", value: "delete" }
       ]);
       if (!v) return;
-      if (v === "clickorder") {
-        settings().keepClickOrder = !keep;
-        saveSettings();
-        return toast(`排列方式：${!keep ? "按点选先后" : "保持原顺序"}`);
-      }
       return selAction(v);
     }
     return selAction(a);
@@ -310,6 +322,21 @@ function mountOrganize(page) {
     if (a === "on" || a === "off") {
       mutate(d, a === "on" ? "批量开启" : "批量关闭", (x) => x.setEnabled(ids, a === "on"));
       return;
+    }
+    if (a === "copy") {
+      if (ids.some((id) => d.isMarker(id))) return toast("系统位置条目（如聊天记录、角色描述）不能复制", "warning");
+      let made = [];
+      mutate(d, `复制 ${ids.length} 条`, (x) => {
+        for (const id of [...ids].reverse()) {
+          const p = x.prompt(id);
+          const on = x.order.find((o) => o.identifier === id)?.enabled !== false;
+          made.push(...x.insertPrompts([{ prompt: { ...clone(p), identifier: uid(), name: `${p.name || id}（副本）` }, enabled: on }], { after: id }, x.groupOf(id)));
+        }
+      });
+      st.selected.clear();
+      flash(made);
+      toast(`已复制 ${made.length} 条`, "success");
+      return render();
     }
     if (a === "ungroup") {
       mutate(d, "移出分组", (x) => x.removeFromGroup(ids));
@@ -359,28 +386,74 @@ function mountOrganize(page) {
     if (v === "up" || v === "down") mutate(d, "移动分组", (x) => x.moveGroupBlock(gid, v === "up" ? -1 : 1));
     if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留在原位置。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
   }
+  // 新建条目：先起名，放在选中的那条后面（没选就放最后），然后打开编辑
+  async function newEntry() {
+    const d = draft();
+    const name = await promptBox("新条目名称", "", "例如：文风·简洁");
+    if (!name) return;
+    const sel = ordered();
+    const after = sel.length ? sel[sel.length - 1] : null;
+    let id = null;
+    mutate(d, `新建条目「${name}」`, (x) => {
+      const where = after ? { after } : { index: x.order.length };
+      [id] = x.insertPrompts([{ prompt: { identifier: uid(), name, content: "", role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100, injection_trigger: [], forbid_overrides: false }, enabled: true }], where, after ? x.groupOf(after) : null);
+    });
+    st.selected.clear();
+    const g = d.groupOf(id);
+    if (g) st.collapsed.delete(g);
+    flash([id]);
+    render();
+    return peek(getDraft(d.name), id);
+  }
   async function peek(d, id) {
     const p = d.prompt(id);
     if (!p) return;
     const s = detectShape(p.content);
     const info = s.shape === "wrap" || s.shape === "tagname" ? `${SHAPE_LABEL[s.shape]}「${s.varName}」` : SHAPE_LABEL[s.shape];
     const marker = d.isMarker(id);
+    const depthPos = p.injection_position === 1;
     const body = el(`<div class="pa-form">
             <label class="pa-field"><span>名称</span><input class="pa-input" data-f="name" value="${esc(p.name || "")}"></label>
-            <p class="pa-hint">写法：${esc(info)} \xB7 角色：${esc(p.role || "system")}${p.injection_position === 1 ? ` \xB7 插入聊天记录，深度 ${esc(p.injection_depth)}` : ""}</p>
-            ${marker ? '<p class="pa-hint">系统位置条目，无正文。</p>' : `<textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
+            ${marker ? '<p class="pa-hint">系统位置条目，正文由酒馆填入，这里只能改名称。</p>' : `
+            <div class="pa-item-ctl">
+              <label class="pa-field"><span>角色</span><select class="pa-select" data-f="role">${[["system", "系统"], ["user", "用户"], ["assistant", "AI"]].map(([k, l]) => `<option value="${k}" ${(p.role || "system") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+              <label class="pa-field"><span>位置</span><select class="pa-select" data-f="pos"><option value="0" ${depthPos ? "" : "selected"}>按条目顺序</option><option value="1" ${depthPos ? "selected" : ""}>插入聊天记录（按深度）</option></select></label>
+              <label class="pa-field" data-show="depth" ${depthPos ? "" : "hidden"}><span>深度</span><input class="pa-input" type="number" min="0" data-f="depth" value="${esc(p.injection_depth ?? 4)}"></label>
+              <label class="pa-field" data-show="depth" ${depthPos ? "" : "hidden"}><span>同深度时的顺序</span><input class="pa-input" type="number" data-f="order" value="${esc(p.injection_order ?? 100)}"></label>
+            </div>
+            <p class="pa-hint">写法：${esc(info)}</p>
+            <textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
         </div>`);
-    body.addEventListener("input", (e) => {
-      if (!e.target.matches("[data-f=name], [data-f=content]")) return;
-      if (!body._edited) {
-        d.snapshot("编辑条目");
-        body._edited = true;
-      }
-      d.prompt(id)[e.target.dataset.f] = e.target.value;
-      d.dirty = true;
-      emitChange(d.name);
+    body.querySelector("[data-f=pos]")?.addEventListener("change", (e) => {
+      body.querySelectorAll("[data-show=depth]").forEach((x) => { x.hidden = e.target.value !== "1"; });
     });
-    await sheet({ title: "编辑条目", body, wide: true, noFocus: true, actions: [{ label: "完成", kind: "primary", value: true }] });
+    // 输入时不保存；点「保存」才写进预设，点「取消」或 ✕ 不改动
+    const r = await sheet({
+      title: "编辑条目", body, wide: true, noFocus: true,
+      actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => {
+        const v = (k) => w.querySelector(`[data-f=${k}]`)?.value;
+        return { name: v("name"), content: v("content"), role: v("role"), pos: v("pos"), depth: v("depth"), order: v("order") };
+      } }]
+    });
+    if (!r) return;
+    // 弹窗开着时草稿可能被换过（切换预设、别处修改），按名称重新取
+    const dd = getDraft(d.name);
+    const cur = dd.prompt(id);
+    if (!cur) return toast("条目已不存在，未保存", "warning");
+    const next = { name: r.name };
+    if (r.content !== void 0) {
+      next.content = r.content;
+      next.role = r.role || "system";
+      next.injection_position = r.pos === "1" ? 1 : 0;
+      if (next.injection_position === 1) {
+        next.injection_depth = Math.max(0, Math.floor(Number(r.depth) || 0));
+        next.injection_order = Math.floor(Number(r.order) || 100);
+      }
+    }
+    const changed = Object.entries(next).some(([k, v]) => (cur[k] ?? (k === "role" ? "system" : k === "injection_position" ? 0 : "")) !== v);
+    if (!changed) return;
+    mutate(dd, "编辑条目", (x) => Object.assign(x.prompt(id), next));
+    toast("已保存", "success");
   }
   async function smartGroups(d) {
     const sug = suggestGroups(d);
@@ -549,7 +622,10 @@ function mountOrganize(page) {
   const off = onDraftChange(() => {
     if (page.isConnected && !page.hidden) render();
   });
-  return { render, destroy: off, focusIds: (ids) => {
+  return { render: () => {
+    picker.refresh();
+    render();
+  }, destroy: off, focusIds: (ids) => {
     const d = draft();
     ids.forEach((i) => {
       const g = d.groupOf(i);

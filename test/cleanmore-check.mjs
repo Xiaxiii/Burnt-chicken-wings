@@ -2,7 +2,7 @@
 import { chromium } from "playwright";
 import assert from "node:assert";
 const S = new URL("./shots/", import.meta.url).pathname;
-const exe = process.env.PW_CHROME || "/opt/pw-browsers/chromium-1194/chrome-linux/chrome";
+const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true, acceptDownloads: true });
 const page = await ctx.newPage();
@@ -46,12 +46,14 @@ await page.click('[data-x="scan"]');
 await page.waitForFunction(() => document.querySelector(".pa-clean-other")?.innerText.includes("重新检测"), null, { timeout: 10000 });
 txt = await page.$eval(".pa-clean-other", (x) => x.innerText);
 assert.match(txt, /myHiddenKey[\s\S]*检测：好扩展在用/, "跟进相对 import 后找到使用者");
-assert.match(txt, /oldUninstalled[\s\S]*检测：没有已安装的扩展使用，可以删除/);
-assert.match(txt, /一键清理 1 项/);
+assert.match(txt, /oldUninstalled[\s\S]*检测：已安装扩展的代码里没找到它，多半是卸载残留/);
+assert.match(txt, /勾选 1 项疑似残留/);
 assert.match(txt, /goodext[\s\S]*名称像「好扩展」，请确认/);
 assert.ok(await page.$eval('.pa-clean-other input[data-k="presetAtelier"]', (x) => x.disabled));
 await page.screenshot({ path: S + "m-1-ext.png" });
-await page.click('[data-x="cleanall"]'); await page.waitForTimeout(200);
+await page.click('[data-x="pickorphans"]'); await page.waitForTimeout(200);
+assert.ok(await page.$eval('.pa-clean-other input[data-k="oldUninstalled"]', (x) => x.checked), "疑似残留被勾选");
+await page.click('[data-x="del"]'); await page.waitForTimeout(200);
 const dl = page.waitForEvent("download");
 await page.click(".pa-sheet .pa-btn-danger");
 assert.match((await dl).suggestedFilename(), /^extension-data-backup-\d+\.json$/);
@@ -60,7 +62,7 @@ assert.ok(!(await page.evaluate(() => "oldUninstalled" in window.SillyTavern.get
 // 角色卡
 await page.click('[data-kind="char"]'); await page.waitForTimeout(300);
 txt = await page.$eval(".pa-clean-other", (x) => x.innerText);
-assert.match(txt, /1 组同名/); assert.match(txt, /内容相同/);
+assert.match(txt, /1 组同名/); assert.match(txt, /未加载完整内容，无法比较/);
 assert.ok(await page.$eval('.pa-clean-other input[data-k="jiang.png"]', (x) => x.disabled), "正在聊天的不能勾选");
 await page.screenshot({ path: S + "m-2-char.png" });
 await page.click('.pa-clean-other input[data-k="jiang1.png"]'); await page.waitForTimeout(100);
