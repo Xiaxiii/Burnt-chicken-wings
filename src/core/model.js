@@ -559,7 +559,7 @@ var Draft = class {
         if (!ext.baibaiToolkit || typeof ext.baibaiToolkit !== "object") ext.baibaiToolkit = {};
         ext.baibaiToolkit.presetPromptGroups = groups;
       }
-      if (Array.isArray(ext.entryGrouping)) {
+      if (Array.isArray(ext.entryGrouping) && !this.keepEntryGrouping) {
         // 去掉和柏宝箱分组同 id 的镜像、同名且成员相同的重复分组（1.7.5），以及成员已经不存在的旧分组；别的插件自己建的分组保留
         const dupKeys = new Set(this.dupEntryGroups().map((g) => `${g.id}|${g.name}`));
         ext.entryGrouping = ext.entryGrouping.filter((g) => !g || !dupKeys.has(`${g.id}|${g.name}`));

@@ -547,7 +547,7 @@ function watchMirrorWrites() {
         const bai = ext?.baibaiToolkit?.presetPromptGroups?.groups;
         if (b?.name && Array.isArray(ext?.entryGrouping) && Array.isArray(bai)) {
           const ids = new Set(bai.map((g) => g?.id).filter(Boolean));
-          if (ext.entryGrouping.some((g) => g && ids.has(g.id)) && settings().mirrorFixed?.[b.name]) {
+          if (ext.entryGrouping.some((g) => g && ids.has(g.id)) && settings().mirrorFixed?.[b.name] && !settings().mirrorIgnore?.[b.name]) {
             const by = whoFromStack(new Error().stack);
             if (!settings().mirrorWrites || typeof settings().mirrorWrites !== "object") settings().mirrorWrites = {};
             settings().mirrorWrites[b.name] = { at: Date.now(), by };

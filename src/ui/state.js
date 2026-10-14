@@ -319,6 +319,7 @@ async function saveDraft(name, reason = "保存") {
         }
       }
       d.forceOnce = false;
+      d.keepEntryGrouping = !!settings().mirrorIgnore?.[name];
       const data = d.toPreset(); const sent = JSON.stringify(data);
       // 1.4.0：每批修改（从上次「完成」或打开之后）只在第一次保存前备份一次修改前的版本
       const first = !d.batchSaved && !d.skipBackupOnce;

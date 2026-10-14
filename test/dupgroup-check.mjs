@@ -48,11 +48,26 @@ await choose(page, ".pa-picker-slot .pa-namebtn", "双层"); await page.waitForT
 const txt = await page.$eval(".pa-list", (x) => x.innerText);
 assert.match(txt, /又被写回来了/);
 assert.match(txt, /FakeGroupSync/);
-assert.match(txt, /关掉它的条目分组功能/);
+assert.match(txt, /保留，不再提示/);
 await page.screenshot({ path: S + "d-2-back.png" });
 await page.click("[data-dup=fix]"); await page.waitForTimeout(1200);
 assert.ok(!(await page.evaluate(() => window.__mock.presets[window.__mock.names.indexOf("双层")].extensions.entryGrouping)), "旧镜像也去掉");
 console.log("✓ 同 id 旧镜像算重复；写回来时说明是哪个扩展");
+
+// 它又写回来：选「保留，不再提示」后不再提示，之后保存也不再去掉它（不和它来回改）
+await page.evaluate(async (p) => {
+  await window.fakeGroupSyncWriteBack("双层", p);
+  const m = window.__mock; m.presets[m.names.indexOf("双层")] = p;
+}, p2);
+await page.waitForTimeout(300);
+await page.evaluate(() => { window.__presetAtelier.close?.(); });
+await page.evaluate(() => window.__presetAtelier.open("organize")); await page.waitForTimeout(300);
+await choose(page, ".pa-picker-slot .pa-namebtn", "双层"); await page.waitForTimeout(400);
+await page.click("[data-dup=keep]"); await page.waitForTimeout(300);
+assert.ok(!(await page.$(".pa-dupgroups")), "保留后不再提示");
+await page.locator(".pa-row", { hasText: "丙" }).locator("[data-act=toggle]").click({ force: true }); await page.waitForTimeout(1500);
+assert.ok(await page.evaluate(() => window.__mock.presets[window.__mock.names.indexOf("双层")].extensions.entryGrouping?.length === 1), "保存时保留 entryGrouping");
+console.log("✓ 保留，不再提示：保存时也不再动它");
 
 // 换聊天时弹小提示：预设和模型
 await page.evaluate(async () => {
