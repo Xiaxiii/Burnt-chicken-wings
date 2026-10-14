@@ -8,7 +8,10 @@ function dupBannerHtml(d, dups) {
   const who = w && w.at > fixed
     ? `${when(w.at)} 在这台设备上，是${w.by ? `「${esc(w.by)}」` : "酒馆的「保存预设」"}把旧分组写回了预设。`
     : "这台设备上没看到谁写回来的，多半是另一台设备或另一个浏览器标签页里开着的酒馆：它内存里还是旧版本，一保存就把旧分组写回去了。";
-  return `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>重复的一层去掉过（${when(fixed)}），又被写回来了。</b></p><small>${who}<br>先把其他设备、其他标签页里的酒馆刷新一下（或关掉），再点下面的按钮。共 ${dups.length} 个分组重复：${names}。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">再去掉一次</button></div></div>`;
+  const todo = w && w.at > fixed && w.by
+    ? `「${esc(w.by)}」自己也管条目分组（存在 entryGrouping 里），和柏宝箱各显示一层。只留一个管分组：关掉它的条目分组功能后，再点下面的按钮。`
+    : "先把其他设备、其他标签页里的酒馆刷新一下（或关掉），再点下面的按钮。";
+  return `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>重复的一层去掉过（${when(fixed)}），又被写回来了。</b></p><small>${who}<br>${todo}共 ${dups.length} 个分组重复：${names}。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">再去掉一次</button></div></div>`;
 }
 function mountOrganize(page) {
   const st = {

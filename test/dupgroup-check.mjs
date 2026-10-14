@@ -48,6 +48,7 @@ await choose(page, ".pa-picker-slot .pa-namebtn", "双层"); await page.waitForT
 const txt = await page.$eval(".pa-list", (x) => x.innerText);
 assert.match(txt, /又被写回来了/);
 assert.match(txt, /FakeGroupSync/);
+assert.match(txt, /关掉它的条目分组功能/);
 await page.screenshot({ path: S + "d-2-back.png" });
 await page.click("[data-dup=fix]"); await page.waitForTimeout(1200);
 assert.ok(!(await page.evaluate(() => window.__mock.presets[window.__mock.names.indexOf("双层")].extensions.entryGrouping)), "旧镜像也去掉");
