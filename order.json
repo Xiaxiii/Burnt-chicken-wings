@@ -2,6 +2,8 @@
  "ui/dom.js",
  "host.js",
  "maintenance/diagnostics.js",
+ "maintenance/compat.js",
+ "maintenance/card.js",
  "core/model.js",
  "ui/state.js",
  "core/macros.js",

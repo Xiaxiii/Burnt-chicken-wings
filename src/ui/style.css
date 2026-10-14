@@ -528,6 +528,22 @@ html.pa-open body { overflow: hidden; }
   #pa-root .pa-rtable:not(.pa-rt-detail) .pa-rt-head span:nth-child(4), #pa-root .pa-rtable:not(.pa-rt-detail) .pa-rt-row span:nth-child(4) { display: none; }
   #pa-root .pa-rt-detail { min-width: 560px; grid-template-columns: minmax(0, 2fr) auto auto auto auto; }
 }
+/* 1.9.0 扩展页设置框：加载与兼容（在 #pa-root 之外，跟随酒馆主题） */
+#pa-settings .pa-set-sec-h { font-weight: 600; margin: 2px 0 6px; }
+#pa-settings .pa-set-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; font-size: .92em; }
+#pa-settings .pa-set-kv span { opacity: .75; }
+#pa-settings .pa-set-kv b { font-weight: 500; overflow-wrap: anywhere; }
+#pa-settings .pa-set-tablewrap { overflow-x: auto; margin: 6px 0; }
+#pa-settings .pa-set-table { border-collapse: collapse; font-size: .88em; min-width: 100%; }
+#pa-settings .pa-set-table th, #pa-settings .pa-set-table td { padding: 3px 6px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(128,128,128,.3)); }
+#pa-settings .pa-set-table thead th { opacity: .7; font-weight: 500; }
+#pa-settings .pa-set-table td small { display: block; opacity: .7; white-space: normal; min-width: 5.5em; }
+#pa-settings .pa-set-areas { margin: 6px 0; padding-left: 1.1em; font-size: .9em; }
+#pa-settings .pa-set-areas li { margin: 4px 0; }
+#pa-settings .pa-set-areas small { display: block; opacity: .7; }
+#pa-settings .pa-set-areas em { display: block; font-style: normal; }
+#pa-settings .pa-set-bad { color: var(--warning, #c0392b); }
+#pa-settings .menu_button.disabled { opacity: .5; cursor: not-allowed; }
 #pa-root .pa-narrow-only { display: none; }
 @media (max-width: 560px) { #pa-root .pa-narrow-only { display: inline; } }
 #pa-root .pa-hscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }

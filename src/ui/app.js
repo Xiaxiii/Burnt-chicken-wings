@@ -291,6 +291,9 @@ function addSettingsEntry() {
           ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
         </div>
         <div class="pa-set-status" hidden></div>
+        <hr class="sysHR">
+        <div class="pa-set-maint"></div>
+        <hr class="sysHR">
         <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="noPullRefresh" ${settings().noPullRefresh !== false ? "checked" : ""}><span>防止下拉误刷新</span></label>
         <div class="pa-set-note">在页面顶部往下拖时，浏览器会刷新整个酒馆（iPhone、iPad 的 Safari 最常见，安卓 Chrome 也会）。开启后对所有设备阻止这种刷新；浏览器的刷新按钮照常可用。</div>
         ${log.length ? `<details class="pa-set-log"><summary>更新说明</summary><div class="pa-set-logs">${log.slice(0, 1).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
@@ -298,6 +301,9 @@ function addSettingsEntry() {
       </div>
     </div>
   </div>`);
+  // 维护模块的卡片自己处理点击（data-c），和这里的 data-a 分开
+  const card = mountCompatCard(box.querySelector(".pa-set-maint"), { openHealth: () => open("more", "health") });
+  box.querySelector(".inline-drawer-toggle")?.addEventListener("click", () => setTimeout(() => card.refresh(), 0));
   const status = box.querySelector(".pa-set-status");
   const say = (html, cls = "") => {
     status.hidden = false;

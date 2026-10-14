@@ -12,21 +12,7 @@ function stableJson(v) {
   if (v && typeof v === "object") return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stableJson(v[k])}`).join(",")}}`;
   return JSON.stringify(v ?? null);
 }
-async function discoverExtensions() {
-  const r = await fetch(stUrl("api/extensions/discover"), { headers: ctx().getRequestHeaders?.() || {} });
-  if (!r.ok) throw new Error(`读取扩展列表失败（${r.status}）`);
-  const list = await r.json();
-  const disabled = new Set(ctx().extensionSettings?.disabledExtensions || []);
-  const out = list.map((x) => ({ name: x.name, type: x.type, base: String(x.name).split("/").pop(), enabled: !disabled.has(x.name), manifest: null }));
-  await Promise.all(out.map(async (x) => {
-    try {
-      const m = await fetch(stUrl(`scripts/extensions/${x.name}/manifest.json`));
-      if (m.ok) x.manifest = await m.json();
-    } catch {
-    }
-  }));
-  return out;
-}
+// discoverExtensions 在 maintenance/compat.js
 // 按名称推测这个键属于哪个已安装的扩展（推测，可能不准）
 function guessOwner(key, exts) {
   if (BUILTIN_EXT_KEYS[key]) return { builtin: BUILTIN_EXT_KEYS[key] };
