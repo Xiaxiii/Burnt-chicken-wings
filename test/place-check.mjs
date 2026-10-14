@@ -1,6 +1,7 @@
 // 选位置、空白分组、分组拖动、API 获取模型的端到端检查
 // 用法：npm run mock；在仓库根目录起静态服务（python3 -m http.server 8765）；node test/place-check.mjs
 import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
@@ -20,8 +21,8 @@ const F1 = {
 const T = "【众生相】Claude-Lite-v1.8";
 await page.evaluate((F1) => { window.__mock.names.push("F1"); window.__mock.presets.push(F1); window.__presetAtelier.open("suture"); }, F1);
 await page.waitForTimeout(400);
-await page.selectOption(".pa-dst-picker select", T); await page.waitForTimeout(300);
-await page.selectOption(".pa-src-pick select", "F1"); await page.waitForTimeout(300);
+await choose(page, ".pa-dst-picker .pa-namebtn", T); await page.waitForTimeout(300);
+await choose(page, ".pa-src-name", "F1"); await page.waitForTimeout(300);
 
 // 预设的顶层结构：分组写成 [组名: 成员…]，空分组按 anchor 排进去，散条目直接写名字
 const layout = () => page.evaluate((T) => {
@@ -101,7 +102,7 @@ await page.screenshot({ path: "test/shots/p-4-suture-done.png" });
 
 // 4) 整理页：整组「顶部」用把手拖到「思维链」下半 ＝ 思维链之后，保持成组
 await page.click('[data-tab="organize"]'); await page.waitForTimeout(300);
-await page.selectOption(".pa-picker-slot select", T); await page.waitForTimeout(300);
+await choose(page, ".pa-picker-slot .pa-namebtn", T); await page.waitForTimeout(300);
 const dragTo = async (fromSel, toSel, frac) => {
   const hb = await page.locator(fromSel).first().boundingBox();
   const tb = await page.locator(toSel).first().boundingBox();
@@ -114,7 +115,9 @@ L = await layout();
 check(L[L.findIndex((x) => x.startsWith("[思维链:")) + 1] === "[顶部: 🎭身份、📜破限]", "拖动分组把手：顶部移到思维链之后");
 
 // 5) 整理页「＋ 新建分组」→ 点「正文规则」组名 → 选两条 → 移动 → 「放入此组」
-await page.click('[data-tool="newgroup"]'); await page.waitForTimeout(250);
+// 手机上「新建分组」在「＋」菜单里
+await page.click('[data-tool="add"]'); await page.waitForTimeout(200);
+await page.click(".pa-pick-item >> text=＋ 新建分组"); await page.waitForTimeout(250);
 await fillPrompt("新组B");
 await page.screenshot({ path: "test/shots/p-5-organize-newgroup.png" });
 await clickHead("正文规则", ".pa-list");

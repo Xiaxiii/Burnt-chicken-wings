@@ -32,19 +32,22 @@ function mountSuture(page, app) {
   page.innerHTML = `
     <div class="pa-suture pa-compact">
         <div class="pa-pane pa-src">
-            <div class="pa-pane-head"><b>来源</b>
-                <div class="pa-seg" role="tablist">
-                    <button data-src="preset" class="on">预设</button><button data-src="world">世界书</button><button data-src="file">文件</button><button data-src="paste">粘贴</button>
-                </div>
+            <div class="pa-pane-head pa-fromto"><b class="pa-ft">从</b>
+                <button class="pa-typebtn" data-st="srctype" type="button" aria-label="来源类型"><span>预设</span><i aria-hidden="true">▾</i></button>
+                <div class="pa-src-pick"></div>
+                <button class="pa-icon-btn pa-srcsearch-btn" data-st="srcsearch" aria-label="搜索条目" title="搜索名称或正文">🔍</button>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
-            <div class="pa-src-pick"></div>
+            <div class="pa-searchrow" hidden><input class="pa-input pa-search pa-src-q" type="search" placeholder="🔍 搜索名称或正文" aria-label="搜索来源条目"></div>
             <div class="pa-scroll pa-src-list"></div>
         </div>
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整两栏大小" title="拖动调整大小"><span></span></div>
         <div class="pa-pane pa-dst">
-            <div class="pa-pane-head"><b>目标</b><div class="pa-seg pa-seg-s pa-dst-seg" role="tablist"><button data-dst="preset" class="on">预设</button><button data-dst="world">世界书</button></div><div class="pa-dst-picker"></div><select class="pa-select pa-dst-wb" aria-label="目标世界书" hidden></select></div>
-            <p class="pa-hint pa-dst-hint"></p>
+            <div class="pa-pane-head pa-fromto"><b class="pa-ft">到</b>
+                <button class="pa-typebtn" data-st="dsttype" type="button" aria-label="目标类型"><span>预设</span><i aria-hidden="true">▾</i></button>
+                <div class="pa-dst-picker"></div>
+                <div class="pa-dst-wbslot" hidden></div>
+            </div>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
     </div>
@@ -55,7 +58,7 @@ function mountSuture(page, app) {
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
     </div>
     <div class="pa-stitchbar pa-ngbar" hidden>
-        <div class="pa-stitch-info"><b class="pa-ng-n"></b><span>点组名：放在该组之后。点条目：放在该条目之后。</span></div>
+        <div class="pa-stitch-info"><b class="pa-ng-n"></b><span>点组名或条目，放在它后面</span></div>
         <button class="pa-btn" data-st="ngcancel">取消</button>
     </div>`;
   const srcPick = page.querySelector(".pa-src-pick");
@@ -109,42 +112,60 @@ function mountSuture(page, app) {
     settings().sutureSplit = applySplit((settings().sutureSplit ?? 45) + k);
     saveSettings();
   });
-  page.querySelector(".pa-src .pa-seg").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-src]");
-    if (!b) return;
-    st.srcType = b.dataset.src;
-    page.querySelectorAll(".pa-src .pa-seg button").forEach((x) => x.classList.toggle("on", x === b));
+  // 来源类型：预设 / 世界书 / 文件 / 粘贴
+  const SRC_TYPES = [["preset", "预设"], ["world", "世界书"], ["file", "文件"], ["paste", "粘贴"]];
+  const searchRow = page.querySelector(".pa-searchrow");
+  const srcQ = page.querySelector(".pa-src-q");
+  function paintSrcHead() {
+    page.querySelector('[data-st="srctype"] span').textContent = SRC_TYPES.find(([k]) => k === st.srcType)[1];
+    const canSearch = st.srcType !== "paste";
+    page.querySelector(".pa-srcsearch-btn").hidden = !canSearch;
+    searchRow.hidden = !canSearch || (!st.searchOpen && !st.srcQuery);
+    page.querySelector(".pa-srcsearch-btn").classList.toggle("on", !searchRow.hidden);
+  }
+  async function setSrcType(type) {
+    if (!type || type === st.srcType) return;
+    st.srcType = type;
     renderSrcPick();
+    renderSrc();
+  }
+  srcQ.addEventListener("input", () => {
+    st.srcQuery = srcQ.value;
     renderSrc();
   });
   function renderSrcPick() {
+    paintSrcHead();
     if (st.srcType === "preset") {
       const names = listPresets();
       if (!st.srcPreset || !names.includes(st.srcPreset)) st.srcPreset = names.find((n) => n !== focusPreset()) || names[0];
-      srcPick.innerHTML = `<select class="pa-select" aria-label="来源预设">${names.map((n) => `<option ${n === st.srcPreset ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
-                <input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" value="${esc(st.srcQuery)}">`;
+      srcPick.innerHTML = nameBtnHtml(st.srcPreset, "pa-src-name");
     } else if (st.srcType === "world") {
       const names = listWorldbooks();
       if (!st.srcWorld || !names.includes(st.srcWorld)) st.srcWorld = names[0] || null;
-      srcPick.innerHTML = names.length ? `<select class="pa-select" aria-label="来源世界书">${names.map((n) => `<option ${n === st.srcWorld ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("")}</select>
-                <input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" value="${esc(st.srcQuery)}">` : '<p class="pa-hint">没有世界书</p>';
+      srcPick.innerHTML = names.length ? nameBtnHtml(st.srcWorld, "pa-src-name") : '<span class="pa-hint">没有世界书</span>';
     } else if (st.srcType === "file") {
-      srcPick.innerHTML = `<label class="pa-btn pa-btn-soft pa-file">选择预设文件（JSON）<input type="file" accept=".json,application/json" hidden></label>
-                ${st.fileDraft ? `<span class="pa-hint">${esc(st.fileDraft.name)}</span>` : ""}
-                <input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" value="${esc(st.srcQuery)}">`;
+      srcPick.innerHTML = `<label class="pa-namebtn pa-file" title="${esc(st.fileDraft?.name || "")}"><span>${esc(st.fileDraft ? st.fileDraft.name : "选择预设文件…")}</span><i aria-hidden="true">📂</i><input type="file" accept=".json,application/json" hidden></label>`;
     } else {
-      srcPick.innerHTML = "";
+      srcPick.innerHTML = '<span class="pa-hint pa-src-paste">粘贴一段文字</span>';
     }
   }
-  srcPick.addEventListener("change", async (e) => {
-    if (e.target.matches("select")) {
-      if (st.srcType === "preset") st.srcPreset = e.target.value;
-      else {
-        st.srcWorld = e.target.value;
-        st.worldCache.delete(st.srcWorld); // 换书时重新读，酒馆里改过的内容才能看到
-      }
-      renderSrc();
+  srcPick.addEventListener("click", async (e) => {
+    if (!e.target.closest(".pa-src-name")) return;
+    if (st.srcType === "preset") {
+      const using = currentPresetName();
+      const v = await pickName({ title: "从哪个预设", current: st.srcPreset, items: listPresets().map((n) => ({ value: n, sub: n === using ? "使用中" : n === focusPreset() ? "目标" : "" })) });
+      if (!v || v === st.srcPreset) return;
+      st.srcPreset = v;
+    } else if (st.srcType === "world") {
+      const v = await pickName({ title: "从哪本世界书", current: st.srcWorld, items: listWorldbooks().map((n) => ({ value: n })) });
+      if (!v) return;
+      st.srcWorld = v;
+      st.worldCache.delete(v); // 每次选择都重新读，酒馆里改过的内容才能看到
     }
+    renderSrcPick();
+    renderSrc();
+  });
+  srcPick.addEventListener("change", async (e) => {
     if (e.target.matches("input[type=file]")) {
       const f = e.target.files[0];
       if (!f) return;
@@ -157,12 +178,6 @@ function mountSuture(page, app) {
       } catch (err) {
         toast("无法读取文件：" + err.message, "error");
       }
-    }
-  });
-  srcPick.addEventListener("input", (e) => {
-    if (e.target.matches(".pa-search")) {
-      st.srcQuery = e.target.value;
-      renderSrc();
     }
   });
   async function renderSrc() {
@@ -298,45 +313,43 @@ function mountSuture(page, app) {
     st.wbMarker = fixPlace(dd, st.wbMarker);
   }
   async function renderDstWorld() {
-    const sel = page.querySelector(".pa-dst-wb");
+    const slot = page.querySelector(".pa-dst-wbslot");
     try {
       await loadWbDraft();
     } catch (e) {
       dstList.innerHTML = `<p class="pa-empty">读取失败：${esc(e.message)}</p>`;
       return;
     }
-    const names = listWorldbooks();
-    sel.innerHTML = names.map((n) => `<option ${n === st.dstWorld ? "selected" : ""} value="${esc(n)}">${esc(n)}</option>`).join("");
+    slot.innerHTML = st.dstWorld ? nameBtnHtml(st.dstWorld, "pa-dst-wb") : '<span class="pa-hint">没有世界书</span>';
     const d = st.wbDraft;
-    const hint = page.querySelector(".pa-dst-hint");
     if (!d) {
       dstList.innerHTML = '<p class="pa-empty">没有世界书</p>';
-      hint.hidden = true;
       return renderBar();
     }
     const top = dstList.scrollTop;
     dstList.classList.add("pa-placing");
     dstList.innerHTML = renderList(d, { mode: "target", place: true, inside: false, collapsed: new Set(), marker: st.wbMarker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
-    hint.textContent = "点条目：缝到该条目之后。世界书没有分组，插入位置、顺序等设置在预览中调整。";
-    hint.hidden = !!st.wbMarker;
     bar.hidden = false;
     ngbar.hidden = true;
     dstList.scrollTop = top;
     renderBar();
   }
-  page.querySelector(".pa-dst-seg").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-dst]");
-    if (!b || b.dataset.dst === st.dstType) return;
-    st.dstType = b.dataset.dst;
+  // 目标类型：预设 / 世界书
+  function setDstType(type) {
+    if (!type || type === st.dstType) return;
+    st.dstType = type;
     st.newName = null;
-    page.querySelectorAll(".pa-dst-seg button").forEach((x) => x.classList.toggle("on", x === b));
-    page.querySelector(".pa-dst-picker").hidden = st.dstType !== "preset";
-    page.querySelector(".pa-dst-wb").hidden = st.dstType !== "world";
+    page.querySelector('[data-st="dsttype"] span').textContent = type === "world" ? "世界书" : "预设";
+    page.querySelector(".pa-dst-picker").hidden = type !== "preset";
+    page.querySelector(".pa-dst-wbslot").hidden = type !== "world";
     renderSrcPick();
     renderDst();
-  });
-  page.querySelector(".pa-dst-wb").addEventListener("change", (e) => {
-    st.dstWorld = e.target.value;
+  }
+  page.querySelector(".pa-dst-wbslot").addEventListener("click", async (e) => {
+    if (!e.target.closest(".pa-dst-wb")) return;
+    const v = await pickName({ title: "到哪本世界书", current: st.dstWorld, items: listWorldbooks().map((n) => ({ value: n })) });
+    if (!v || v === st.dstWorld) return;
+    st.dstWorld = v;
     st.wbMarker = null;
     renderDst();
   });
@@ -360,9 +373,6 @@ function mountSuture(page, app) {
     const top = dstList.scrollTop;
     dstList.classList.add("pa-placing");
     dstList.innerHTML = (st.newName ? "" : '<button class="pa-slot pa-slot-new" data-st="newgroup">＋ 新建分组…</button>') + renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
-    const hint = page.querySelector(".pa-dst-hint");
-    hint.textContent = "点组名：缝到该组之后。展开分组后点条目：缝入组内。";
-    hint.hidden = !!st.marker || !!st.newName;
     bar.hidden = !!st.newName;
     ngbar.hidden = !st.newName;
     ngbar.querySelector(".pa-ng-n").textContent = st.newName ? `新分组「${st.newName}」的位置` : "";
@@ -423,7 +433,7 @@ function mountSuture(page, app) {
     const pn = bar.querySelector(".pa-picked-n");
     pn.textContent = n ? `已选 ${n} 条 ▸` : "未选条目";
     pn.disabled = !n;
-    bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : "未选位置";
+    bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "点下方条目选位置" : "点下方组名或条目选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
     bar.querySelector("[data-st=clear]").disabled = !(n || m);
     const undo = bar.querySelector("[data-st=wbundo]");
@@ -444,6 +454,19 @@ function mountSuture(page, app) {
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
     if (a === "migrate") migrate();
     if (a === "picked") return pickedSheet();
+    if (a === "srctype") return setSrcType(await pickName({ title: "从哪里缝", current: st.srcType, search: false, items: SRC_TYPES.map(([k, l]) => ({ value: k, label: l })) }));
+    if (a === "dsttype") return setDstType(await pickName({ title: "缝到哪里", current: st.dstType, search: false, items: [{ value: "preset", label: "预设" }, { value: "world", label: "世界书" }] }));
+    if (a === "srcsearch") {
+      st.searchOpen = searchRow.hidden;
+      if (!st.searchOpen) {
+        st.srcQuery = "";
+        srcQ.value = "";
+        renderSrc();
+      }
+      paintSrcHead();
+      if (st.searchOpen) srcQ.focus();
+      return;
+    }
     if (a === "srcmenu") {
       const v = await pickBox("更多操作", [
         { label: "搬到新版…", sub: "预设出了新版本时：来源选旧版、目标选新版，把旧版里你缝进去的条目按原位置搬过去", value: "migrate" },

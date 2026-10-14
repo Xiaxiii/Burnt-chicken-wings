@@ -1,6 +1,7 @@
 // 1.8.0 新功能的端到端检查：新建、复制、编辑角色和位置，已选清单，设置框改名，站点模型，缝进世界书后撤销。
 // 用法同 clean-check.mjs
 import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
 import assert from "node:assert";
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
@@ -60,8 +61,8 @@ assert.equal(await page.locator(".pa-dst-list [data-st=newgroup]").count(), 1);
 ok("已选清单逐条去掉；新建分组在目标列表里");
 
 // 4) 缝进世界书后可以撤销
-await page.click('.pa-dst-seg [data-dst="world"]'); await page.waitForTimeout(400);
-await page.selectOption(".pa-dst-wb", "示例世界书"); await page.waitForTimeout(400);
+await chooseDstType(page, "world"); await page.waitForTimeout(400);
+await choose(page, ".pa-dst-wb", "示例世界书"); await page.waitForTimeout(400);
 const wbCount = () => page.evaluate(async () => Object.keys((await import("/test/site/scripts/world-info.js")).loadWorldInfo ? (await (await import("/test/site/scripts/world-info.js")).loadWorldInfo("示例世界书")).entries : {}).length);
 const n0 = await wbCount();
 await page.locator(".pa-dst-list .pa-row").first().click(); await page.waitForTimeout(150);

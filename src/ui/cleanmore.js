@@ -126,16 +126,17 @@ function mountCleanKind(kind, box) {
       const pick = list.filter((r) => S.sel.has(r.k));
       const orphans = list.filter((r) => r.state === "orphan");
       box.innerHTML = `
-        <div class="pa-verdict"><p>设置文件中各扩展的数据共 <b>${fmtSize(total)}</b>。设置文件每次打开酒馆都要下载，每次保存都要上传，删掉已卸载扩展的残留数据能减少这部分。</p>
-          <p class="pa-hint">「可能已卸载」只是按名称推测。点「实际检测」会下载已安装扩展的脚本，查找谁在使用这些数据，但扩展用拼接出来的名字读数据时查不出来，结果只能作参考。</p>
+        <div class="pa-sum"><p class="pa-sum-main">扩展数据 <b>${fmtSize(total)}</b> · ${list.length} 项${orphans.length ? ` · <span class="pa-warn">疑似残留 ${orphans.length}</span>` : ""}</p>
+          ${tip(`<p>设置文件每次打开酒馆都要下载，每次保存都要上传，删掉已卸载扩展的残留数据能减少这部分。</p>
+            <p>「可能已卸载」只是按名称推测。「实际检测」会下载已安装扩展的脚本，查找谁在使用这些数据；扩展用拼接出来的名字读数据时查不出来，结果只能作参考。</p>
+            <p>正在使用的数据不能勾选。删除前会先下载一份备份（JSON），需要时可交给对应扩展重新导入。</p>`)}
           <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${scan ? "重新检测" : "实际检测"}</button>${orphans.length ? `<button class="pa-btn pa-btn-s" data-x="pickorphans">勾选 ${orphans.length} 项疑似残留</button>` : ""}<span class="pa-hint pa-ck-prog"></span></div>
-          ${scan ? `<p class="pa-hint">${orphans.length ? "勾选后请逐项确认名称，再删除；删除前会先下载备份。" : "没有找到疑似残留的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」有文件没读到或文件太多，没有查完，标为「请确认」的数据需要你自己判断。` : ""}</p>` : ""}</div>
+          ${scan ? `<p class="pa-hint">${orphans.length ? "勾选后请逐项确认名称再删除。" : "没有找到疑似残留的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」没有查完，标「请确认」的需要你自己判断。` : ""}</p>` : ""}</div>
         ${err ? `<p class="pa-warn">${esc(err)}</p>` : ""}
         <div class="pa-clist">${list.map((r) => `<label class="pa-crow${S.sel.has(r.k) ? " on" : ""}${r.state === "core" || r.state === "used" ? " pa-locked" : ""}">
           ${chk(r.k, S.sel.has(r.k), r.state === "core" || r.state === "used")}
           <span class="pa-crow-main"><b>${esc(r.k)}</b><span class="pa-crow-tags"><span class="pa-chip ${r.state === "orphan" ? "pa-ctag-same" : r.state === "maybe" ? "pa-ctag-old" : r.state === "used" ? "pa-ctag-use" : "pa-chip-dim"}">${esc(r.label)}</span></span></span>
           <span class="pa-crow-size"><i class="pa-bar"><b style="width:${Math.max(2, Math.round(r.size / max * 100))}%"></b></i><em>${fmtSize(r.size)}</em></span></label>`).join("")}</div>
-        <p class="pa-hint">正在使用的数据不能勾选。删除前会先下载一份备份（JSON），需要时可交给对应扩展重新导入，或发给作者排查。</p>
         ${actBar(pick.length, pick.reduce((n, r) => n + r.size, 0), '<button class="pa-btn pa-btn-danger-soft" data-x="del">下载备份并删除</button>')}`;
     };
     box.addEventListener("change", (e) => {
@@ -212,8 +213,9 @@ function mountCleanKind(kind, box) {
       };
       const pickList = chars.filter((ch) => S.sel.has(ch.avatar));
       box.innerHTML = `
-        <div class="pa-verdict"><p>共 ${chars.length} 张角色卡，${dups.length ? `其中 <b>${dups.length}</b> 组同名` : "没有同名的角色卡"}。角色列表每次打开酒馆都要下载，删除重复的角色卡能减少一些。</p>
-          <p class="pa-hint">「文字设定相同」比较的是描述、性格、场景、开场白、示例对话、角色书、标签等文字内容，不比较头像图片。删除角色卡时保留聊天记录（服务器上的聊天文件不删）。正在聊天的角色卡不能勾选。</p></div>
+        <div class="pa-sum"><p class="pa-sum-main">角色卡 <b>${chars.length}</b> 张 · ${dups.length ? `<span class="pa-warn">同名 ${dups.length} 组</span>` : "没有同名"}</p>
+          ${tip(`<p>角色列表每次打开酒馆都要下载，删除重复的角色卡能减少一些。</p>
+            <p>「文字设定相同」比较的是描述、性格、场景、开场白、示例对话、角色书、标签等文字内容，不比较头像图片。删除时保留聊天记录；正在聊天的角色卡不能勾选。</p>`)}</div>
         ${dups.map((g) => {
           const prints = g.map(fp);
           const unknown = prints.some((x) => x == null);
@@ -275,8 +277,10 @@ function mountCleanKind(kind, box) {
       const names = listWorldbooks();
       const use = usage();
       const pickN = [...S.sel].length;
-      let html = `<div class="pa-verdict"><p>共 ${names.length} 本世界书。世界书只在用到时才下载，删除重复的不会让酒馆打开变快，只是更整齐。</p>
-        <p class="pa-hint">比对需要把全部世界书下载一遍，世界书多、网速慢时要等一会儿。</p>
+      let html = `<div class="pa-sum"><p class="pa-sum-main">世界书 <b>${names.length}</b> 本</p>
+        ${tip(`<p>世界书只在用到时才下载，删除重复的不会让酒馆打开变快，只是更整齐。</p>
+          <p>比对要把全部世界书下载一遍，世界书多、网速慢时要等一会儿。比较每个条目的正文和全部设置（关键词、启用、概率、位置、深度等），只忽略条目编号和排列下标。</p>
+          <p>标有「绑定」「全局启用」的世界书删除后，对应的角色或聊天将失去它。</p>`)}
         <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${res ? "重新比对" : "比对全部世界书"}</button><span class="pa-hint pa-ck-prog"></span></div></div>`;
       if (res) {
         const groups = [...res.byHash.values()].filter((g) => g.length > 1);
@@ -284,9 +288,8 @@ function mountCleanKind(kind, box) {
           <span class="pa-crow-main"><b>${esc(w.name)}</b><span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${w.n} 条</span>${(use[w.name] || []).slice(0, 2).map((u) => `<span class="pa-chip pa-ctag-use">${esc(u)}</span>`).join("")}</span></span>
           <span class="pa-crow-size"><em>${fmtSize(w.size)}</em></span></label>`;
         if (res.failed.length) html += `<p class="pa-warn">${res.failed.length} 本读取失败，没有参与比对：${esc(res.failed.slice(0, 4).join("、"))}${res.failed.length > 4 ? " 等" : ""}</p>`;
-        html += groups.length ? `<h3 class="pa-h">条目完全相同（${groups.length} 组）</h3><p class="pa-hint">比较每个条目的正文和全部设置（关键词、启用、概率、位置、深度等），只忽略条目编号和排列下标；世界书名称和导入来源等文件信息不比较。</p>${groups.map((g) => `<div class="pa-clist pa-ck-group">${g.map(row).join("")}</div>`).join("")}` : '<p class="pa-empty">没有条目完全相同的世界书。</p>';
+        html += groups.length ? `<h3 class="pa-h">条目完全相同（${groups.length} 组）</h3>${groups.map((g) => `<div class="pa-clist pa-ck-group">${g.map(row).join("")}</div>`).join("")}` : '<p class="pa-empty">没有条目完全相同的世界书。</p>';
         if (res.empty.length) html += `<h3 class="pa-h">没有条目的世界书（${res.empty.length}）</h3><div class="pa-clist">${res.empty.map(row).join("")}</div>`;
-        html += '<p class="pa-hint">标有「绑定」「全局启用」的世界书删除后，对应的角色或聊天将失去它。</p>';
       }
       html += actBar(pickN, 0, '<button class="pa-btn pa-btn-danger-soft" data-x="del">下载后删除</button>');
       box.innerHTML = html;
@@ -406,9 +409,10 @@ function mountCleanKind(kind, box) {
       if (!info) { box.innerHTML = '<p class="pa-hint">正在统计…</p>'; return; }
       const max = info.groups[0]?.size || 1;
       box.innerHTML = `
-        <div class="pa-verdict"><p>本扩展在这个浏览器里保存了 <b>${info.count}</b> 份预设备份，约 <b>${fmtSize(info.total)}</b>${info.draftN ? `；另有 ${info.draftN} 份未保存的草稿，约 ${fmtSize(info.drafts)}` : ""}。</p>
-          ${info.est?.usage ? `<p class="pa-hint">这个网站在本浏览器中共占用约 ${fmtSize(info.est.usage)}（含酒馆和其他扩展）。</p>` : ""}
-          <p class="pa-hint">这些只存在本浏览器，不影响酒馆打开速度；占用过多时，iPad、手机可能清除网站数据或重新加载页面。</p>
+        <div class="pa-sum"><p class="pa-sum-main">备份 <b>${info.count}</b> 份 · <b>${fmtSize(info.total)}</b>${info.draftN ? ` · 草稿 ${info.draftN} 份` : ""}</p>
+          ${tip(`<p>这些备份只存在这个浏览器里，不影响酒馆打开速度；占用过多时，iPad、手机可能清除网站数据或重新加载页面。</p>
+            ${info.draftN ? `<p>未保存的草稿约 ${fmtSize(info.drafts)}。</p>` : ""}
+            ${info.est?.usage ? `<p>这个网站在本浏览器中共占用约 ${fmtSize(info.est.usage)}（含酒馆和其他扩展）。</p>` : ""}`)}
           <div class="pa-card-act"><button class="pa-btn pa-btn-s" data-x="keep3" ${info.count ? "" : "disabled"}>每个预设只留最近 3 份</button><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-x="clear" ${info.count ? "" : "disabled"}>删除全部备份</button></div></div>
         <div class="pa-rank">${info.groups.map((g) => `<div><span>${esc(g.name)}（${g.list.length} 份）</span><i class="pa-bar"><b style="width:${Math.max(2, Math.round(g.size / max * 100))}%"></b></i><em>${fmtSize(g.size)}</em></div>`).join("") || '<p class="pa-hint">没有备份。</p>'}</div>`;
     };

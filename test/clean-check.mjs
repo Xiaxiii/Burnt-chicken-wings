@@ -126,9 +126,10 @@ await page.evaluate(() => {
   globalThis.__paTiming.readyAt = 85100;
 });
 await page.click('[data-m="health"]');
-await page.waitForSelector(".pa-tl");
+await page.waitForSelector(".pa-tl", { state: "attached" });
 await page.waitForTimeout(300);
-const htxt = await page.$eval(".pa-health-body", (x) => x.innerText);
+// 说明默认收起，用 textContent 连收起的部分一起检查
+const htxt = await page.$eval(".pa-health-body", (x) => x.textContent);
 assert.match(htxt, /接收速率估计/);
 assert.match(htxt, /不是服务器带宽上限/);
 assert.match(htxt, /聊天可操作\s*未测得/);

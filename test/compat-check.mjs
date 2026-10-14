@@ -87,7 +87,7 @@ const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.innerT
   await page.screenshot({ path: S + "k-1-compat.png", fullPage: true });
   // 体检导出的报告里带上这次检查结果
   await page.evaluate(() => window.__presetAtelier.open("more", "health"));
-  await page.waitForSelector(".pa-health-body .pa-kv");
+  await page.waitForSelector(".pa-health-body .pa-kv", { state: "attached" });
   const rd = page.waitForEvent("download");
   await page.click('[data-h="export"]');
   const rep = JSON.parse(await (await import("node:fs")).promises.readFile(await (await rd).path(), "utf8"));

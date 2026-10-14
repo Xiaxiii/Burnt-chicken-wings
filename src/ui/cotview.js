@@ -123,11 +123,11 @@ function mountCot(page, app) {
             </ul>
         </details>
         <div class="pa-cot-sum">
-            <div><b>${a.cotIds.length}</b><span>条思维链</span></div>
-            <div><b>${okN}</b><span>条已读取</span></div>
-            <div><b>${counts.mention}</b><span>条文字提及</span></div>
-            <div><b>${counts.none}</b><span>条未提及</span></div>
-            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>处变量未被读取</span></div>
+            <div><b>${a.cotIds.length}</b><span>思维链</span></div>
+            <div><b>${okN}</b><span>已读取</span></div>
+            <div><b>${counts.mention}</b><span>文字提及</span></div>
+            <div><b>${counts.none}</b><span>未提及</span></div>
+            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>未读变量</span></div>
         </div>`;
     if (dead.length) {
       html += `<h3 class="pa-h">变量未被读取</h3><div class="pa-cards">`;

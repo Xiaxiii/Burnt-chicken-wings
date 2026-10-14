@@ -89,7 +89,7 @@ function noteCell(g) {
 
 function mountHealth(sec, { goClean } = {}) {
   sec.innerHTML = `<div class="pa-scroll pa-health"><div class="pa-health-body"><p class="pa-hint">正在检查…</p></div>
-    <div class="pa-card-act"><button class="pa-btn" data-h="run">重新检查</button><button class="pa-btn" data-h="detail">每笔请求明细</button><button class="pa-btn" data-h="export">导出诊断报告</button></div>
+    <div class="pa-card-act pa-mini-act"><button class="pa-btn pa-btn-s" data-h="run">↻ 重新检查</button><button class="pa-btn pa-btn-s" data-h="detail">每笔明细</button><button class="pa-btn pa-btn-s" data-h="export">导出报告</button></div>
     <div class="pa-health-detail" hidden></div></div>`;
   const box = sec.querySelector(".pa-health-body");
   const detail = sec.querySelector(".pa-health-detail");
@@ -110,43 +110,48 @@ function mountHealth(sec, { goClean } = {}) {
     const maxE = r.extData[0]?.size || 1;
     const total = Math.max(r.readyAt || 0, ...r.timeline.map((t) => t.end)) || 1;
     const pct = (v) => `${Math.max(0, Math.min(100, v / total * 100)).toFixed(2)}%`;
-    const card = (w, warn) => `<div class="pa-card ${warn ? "pa-card-warn" : ""}"><p>${warn ? `<b>${esc(w.t)}</b>` : esc(w.t)}</p><small>${esc(w.d)}</small>${w.act === "clean" && goClean ? '<div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-h="clean">去清理</button></div>' : ""}</div>`;
+    // 建议：只显示一句结论，原因收进「为什么」
+    const card = (w, warn) => `<div class="pa-card pa-tipcard ${warn ? "pa-card-warn" : ""}"><p>${warn ? `<b>${esc(w.t)}</b>` : esc(w.t)}</p>${tip(esc(w.d), "为什么")}${w.act === "clean" && goClean ? '<div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-h="clean">去清理</button></div>' : ""}</div>`;
     const bgEnd = r.background.length ? Math.max(...r.background.map((x) => x.end)) : null;
     const readyText = r.readyAt ? fmtMs(r.readyAt) : r.readySource === "late" ? "未记录（本扩展加载时酒馆已启动完成）" : "未记录";
+    const n = r.warn.length + r.tips.length;
     box.innerHTML = `
-      <div class="pa-verdict ${r.warn.length ? "pa-bad" : "pa-good"}">
-        <dl class="pa-kv">
+      <div class="pa-sum ${r.warn.length ? "pa-bad" : "pa-good"}">
+        <p class="pa-sum-main">启动 <b>${r.readyAt ? fmtMs(r.readyAt) : "未记录"}</b> · 预设 <b>${fmtSize(r.presetTotal)}</b> · 扩展数据 ${fmtSize(r.extDataTotal)} · 角色卡 ${r.charCount}${r.rate ? ` · 约 ${fmtSize(r.rate)}/秒` : ""}</p>
+        ${tip(`<dl class="pa-kv">
           <dt>页面 DOM 就绪</dt><dd>${r.domReady ? fmtMs(r.domReady) : "未取得"}</dd>
           <dt>酒馆启动完成（APP_READY）</dt><dd>${esc(readyText)}</dd>
           <dt>聊天可操作</dt><dd>未测得<small>目前无法可靠判断聊天什么时候能正常操作，不用启动完成的时间代替</small></dd>
           ${r.readyAt ? `<dt>启动完成后仍在进行</dt><dd>${r.background.length ? `${r.background.length} 笔请求，最后结束于 ${fmtMs(bgEnd)}` : "没有"}</dd>` : ""}
         </dl>
-        <p>每次打开要读取：全部预设（内存中约 <b>${fmtSize(r.presetTotal)}</b>${r.presetByApi.length > 1 ? `：${r.presetByApi.map((x) => `${x.label} ${fmtSize(x.size)}`).join("，")}` : ""}），扩展数据 <b>${fmtSize(r.extDataTotal)}</b>，角色卡 ${r.charCount} 张${r.lazyChars ? "（按需加载）" : ""}。<small class="pa-dim">内存中的大小是序列化后的统计量，不是网络传输量。</small></p>
-        ${r.rate ? `<p>本次接收速率估计约 <b>${fmtSize(r.rate)}/秒</b><small class="pa-dim">（按${r.rateSource === "settings" ? "设置请求的接收阶段" : "所有同源请求的接收阶段"}估算，受同时进行的请求和网络波动影响，不是服务器带宽上限）</small></p>` : ""}
+        <p>每次打开要读取：全部预设（内存中约 ${fmtSize(r.presetTotal)}${r.presetByApi.length > 1 ? `：${r.presetByApi.map((x) => `${x.label} ${fmtSize(x.size)}`).join("，")}` : ""}），扩展数据 ${fmtSize(r.extDataTotal)}，角色卡 ${r.charCount} 张${r.lazyChars ? "（按需加载）" : ""}。内存中的大小是序列化后的统计量，不是网络传输量。</p>
+        ${r.rate ? `<p>本次接收速率估计约 ${fmtSize(r.rate)}/秒（按${r.rateSource === "settings" ? "设置请求的接收阶段" : "所有同源请求的接收阶段"}估算，受同时进行的请求和网络波动影响，不是服务器带宽上限）。</p>` : ""}`, "这些数字怎么来的")}
       </div>
+      ${n ? `<h3 class="pa-h">建议 <span class="pa-dim">${n}</span></h3>` : '<p class="pa-hint">没有发现明显拖慢打开的地方。</p>'}
       ${r.warn.map((w) => card(w, true)).join("")}
       ${r.tips.map((w) => card(w, false)).join("")}
+      <details class="pa-more"><summary>详细数据</summary>
+      ${r.timeline.length > 1 ? `<h3 class="pa-h">打开过程</h3>
+      <div class="pa-tl">${r.timeline.map((t) => `<div><span>${esc(t.label)}${t.n > 1 ? `<i>×${t.n}</i>` : ""}</span><i class="pa-tl-track"><b style="left:${pct(t.start)};width:${pct(Math.max(t.end - t.start, total * 0.006))}"></b></i><em>${fmtMs(t.end)}</em></div>`).join("")}
+        ${r.readyAt ? `<div class="pa-tl-ready"><span>启动完成</span><i class="pa-tl-track"><b style="left:${pct(r.readyAt)}"></b></i><em>${fmtMs(r.readyAt)}</em></div>` : ""}</div>
+      ${tip("每一行是该类请求从第一笔开始到最后一笔结束的范围，中间可能有空档；右侧是结束于打开后第几秒。")}` : ""}
       <h3 class="pa-h">打开时的请求</h3>
       <div class="pa-rtable" role="table">
         <div class="pa-rt-head" role="row"><span>类别</span><span>笔数</span><span>结束于</span><span>忙碌时长</span><span>实际传输</span></div>
         ${r.groups.map((g) => `<div class="pa-rt-row" role="row"><span>${esc(g.label)}${noteCell(g) ? `<small>${esc(noteCell(g))}</small>` : ""}</span><span>${g.n}</span><span>${fmtMs(g.end)}</span><span>${fmtMs(g.busy)}</span><span>${sizeCell(g)}</span></div>`).join("")}
       </div>
-      <p class="pa-hint"><span class="pa-narrow-only">窄屏上省略了笔数和忙碌时长，可在宽屏或导出的报告里查看。</span>「结束于」是这一类最后一笔请求在打开后第几秒结束，不是它的耗时。「忙碌时长」是这一类请求时间段的并集，同时进行的不重复计算；各类之间也有重叠，不能相加。「实际传输」是经过网络的字节，缓存命中时为 0。</p>
-      ${r.timeline.length > 1 ? `<h3 class="pa-h">打开过程</h3>
-      <div class="pa-tl">${r.timeline.map((t) => `<div><span>${esc(t.label)}${t.n > 1 ? `<i>×${t.n}</i>` : ""}</span><i class="pa-tl-track"><b style="left:${pct(t.start)};width:${pct(Math.max(t.end - t.start, total * 0.006))}"></b></i><em>${fmtMs(t.end)}</em></div>`).join("")}
-        ${r.readyAt ? `<div class="pa-tl-ready"><span>启动完成</span><i class="pa-tl-track"><b style="left:${pct(r.readyAt)}"></b></i><em>${fmtMs(r.readyAt)}</em></div>` : ""}</div>
-      <p class="pa-hint">每一行是该类请求从第一笔开始到最后一笔结束的范围，中间可能有空档；右侧是结束于打开后第几秒。</p>` : ""}
+      ${tip(`<span class="pa-narrow-only">窄屏上省略了笔数和忙碌时长，可在宽屏或导出的报告里查看。</span>「结束于」是这一类最后一笔请求在打开后第几秒结束，不是它的耗时。「忙碌时长」是这一类请求时间段的并集，同时进行的不重复计算；各类之间也有重叠，不能相加。「实际传输」是经过网络的字节，缓存命中时为 0。`)}
       <h3 class="pa-h">单笔耗时最长的请求</h3>
       ${r.slow.length ? `<div class="pa-rank">${r.slow.map((s) => `<div title="${esc(redactUrl(s.url))}"><span>${esc(CAT_LABEL[s.cat] || s.cat)}${s.provider ? `<i class="pa-dim">·${esc(s.provider)}</i>` : ""}</span>${bar(s.dur, r.slow[0].dur)}<em>${fmtMs(s.dur)}${s.transfer ? ` · ${fmtSize(s.transfer)}` : s.transfer == null ? " · 体积未取得" : ""}</em></div>`).join("")}</div>
-      <p class="pa-hint">单笔耗时从发出请求算到接收完毕，包含排在其他请求后面等待、等待首字节和接收数据，不全是服务器处理时间。点「每笔请求明细」可以看分段。</p>` : '<p class="pa-hint">没有超过 0.3 秒的请求，或未记录到。</p>'}
+      ${tip("单笔耗时从发出请求算到接收完毕，包含排在其他请求后面等待、等待首字节和接收数据，不全是服务器处理时间。点下方「每笔明细」可以看分段。")}` : '<p class="pa-hint">没有超过 0.3 秒的请求，或未记录到。</p>'}
       <h3 class="pa-h">最大的预设（内存中）</h3>
       <div class="pa-rank">${r.presets.slice(0, 8).map((p) => `<div><span>${p.api !== "openai" ? `<i class="pa-dim">${esc(PRESET_APIS.find(([a]) => a === p.api)?.[1] || "")}·</i>` : ""}${esc(p.name)}</span>${bar(p.size, maxP)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">未读取到</p>'}</div>
       <h3 class="pa-h">扩展在设置文件中的数据</h3>
       <div class="pa-rank">${r.extData.filter((p) => p.size >= 1024).slice(0, 8).map((p) => `<div><span>${esc(p.key)}</span>${bar(p.size, maxE)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">均小于 1 KB。</p>'}</div>
       <h3 class="pa-h">这次测量覆盖不到的</h3>
       <ul class="pa-gaps">${r.gaps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-      <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：已开启 ${r.extEnabled} 个，共安装 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。检查和导出报告都只在本浏览器中进行，不上传任何数据。</p>
-      <p class="pa-hint">如仅在长时间未使用后首次打开较慢，可能是云服务器休眠后重新启动；这次测量无法区分。</p>`;
+      <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：已开启 ${r.extEnabled} 个，共安装 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。检查和导出报告都只在本浏览器中进行，不上传任何数据。如仅在长时间未使用后首次打开较慢，可能是云服务器休眠后重新启动；这次测量无法区分。</p>
+      </details>`;
   }
   function showDetail() {
     if (!last) return;

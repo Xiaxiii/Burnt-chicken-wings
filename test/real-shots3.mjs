@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
@@ -6,8 +7,8 @@ await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
 await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: "bean", nameWithSource: true }; window.__presetAtelier.open("suture"); });
 await page.waitForTimeout(400);
-await page.selectOption(".pa-dst-picker select", "【小冰块】v3.83"); await page.waitForTimeout(400);
-await page.selectOption(".pa-src-pick select", "V2.61"); await page.waitForTimeout(400);
+await choose(page, ".pa-dst-picker .pa-namebtn", "【小冰块】v3.83"); await page.waitForTimeout(400);
+await choose(page, ".pa-src-name", "V2.61"); await page.waitForTimeout(400);
 await page.evaluate(() => { for (const h of document.querySelectorAll(".pa-src-list .pa-ghead")) if (h.querySelector(".pa-gname")?.textContent.trim().startsWith("模块")) h.querySelector(".pa-gname").click(); });
 await page.waitForTimeout(200);
 await page.evaluate(() => { const r = [...document.querySelectorAll(".pa-src-list .pa-row")].find((x) => x.textContent.includes("日记小剧场")); r.click(); });

@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
@@ -9,8 +10,8 @@ await page.waitForTimeout(500);
 await page.screenshot({ path: "test/shots/real-1-cot-zsx.png" });
 // 缝合：众生相 墟里春生 → Ariadne 笔法区
 await page.click('[data-tab="suture"]'); await page.waitForTimeout(300);
-await page.selectOption(".pa-dst-picker select", "Ariadne_V1.3Beta"); await page.waitForTimeout(400);
-await page.selectOption(".pa-src-pick select", "众生相-真实版"); await page.waitForTimeout(400);
+await choose(page, ".pa-dst-picker .pa-namebtn", "Ariadne_V1.3Beta"); await page.waitForTimeout(400);
+await choose(page, ".pa-src-name", "众生相-真实版"); await page.waitForTimeout(400);
 await page.evaluate(() => { for (const h of document.querySelectorAll(".pa-src-list .pa-ghead")) if (h.textContent.includes("文风设定")) h.click(); });
 await page.waitForTimeout(200);
 await page.evaluate(() => { for (const r of document.querySelectorAll(".pa-src-list .pa-row")) if (r.textContent.includes("墟里春生")) { r.click(); break; } });

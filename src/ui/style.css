@@ -798,7 +798,7 @@ html.pa-open body { overflow: hidden; }
 
 /* 1.5.0 手机：更紧凑。平板、电脑不变 */
 @media (max-width: 599px) {
-    #pa-root { --pa-base: clamp(15px, var(--mainFontSize, 15px), 16px); --pa-r: 9px; --pa-row-h: 42px; }
+    #pa-root { --pa-base: 14px; --pa-r: 9px; --pa-row-h: 38px; }
     #pa-root .pa-ghead { min-height: 38px; padding: 2px 4px; }
     #pa-root .pa-group { margin: 5px 0; }
     #pa-root .pa-pane-head { padding: 6px 8px 2px; gap: 6px; }
@@ -874,14 +874,14 @@ html.pa-open body { overflow: hidden; }
 
 /* 触屏：控件不小于 36px，复选框 18px 以上 */
 @media (pointer: coarse) {
-    #pa-root .pa-btn { min-height: 38px; }
-    #pa-root .pa-btn-s { min-height: 34px; }
-    #pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 38px; }
-    #pa-root .pa-compact .pa-seg button, #pa-root .pa-seg button { min-height: 36px; }
-    #pa-root .pa-compact .pa-row { min-height: 42px; }
-    #pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 18px; height: 18px; }
-    #pa-root .pa-compact .pa-mini, #pa-root .pa-mini { min-height: 34px; }
-    #pa-root .pa-item-head input[type=checkbox], #pa-root .pa-crow input[type=checkbox], #pa-root .pa-inline-check input { width: 20px; height: 20px; }
+    #pa-root .pa-btn { min-height: 34px; }
+    #pa-root .pa-btn-s { min-height: 30px; }
+    #pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 34px; }
+    #pa-root .pa-compact .pa-seg button, #pa-root .pa-seg button { min-height: 32px; }
+    #pa-root .pa-compact .pa-row { min-height: 38px; }
+    #pa-root .pa-compact .pa-check, #pa-root .pa-compact .pa-group-select .pa-check { width: 17px; height: 17px; }
+    #pa-root .pa-compact .pa-mini, #pa-root .pa-mini { min-height: 30px; }
+    #pa-root .pa-item-head input[type=checkbox], #pa-root .pa-crow input[type=checkbox], #pa-root .pa-inline-check input { width: 18px; height: 18px; }
 }
 
 /* iOS：输入框字号小于 16px 时，点进去会放大整个页面。放在最后，盖过上面各处的字号 */
@@ -899,3 +899,91 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-src-menu { margin-left: auto; font-size: 1.2em; }
 #pa-root .pa-explain-body { display: grid; gap: 6px; margin-top: 6px; }
 #pa-root .pa-sub { font-size: .88em; color: var(--pa-dim); font-weight: 600; margin-top: 4px; }
+
+/* ---------- 1.9 紧凑：名称按钮、从/到、说明收起、摘要行 ---------- */
+/* 名称按钮：代替系统下拉框，点开是带搜索的列表 */
+#pa-root .pa-namebtn, #pa-root .pa-typebtn {
+    display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%;
+    height: 32px; padding: 0 10px; border: 1px solid var(--pa-line); border-radius: 8px;
+    background: var(--pa-input-bg); color: var(--pa-text); cursor: pointer; font: inherit; text-align: left;
+}
+#pa-root .pa-namebtn { flex: 1 1 auto; }
+#pa-root .pa-namebtn span, #pa-root .pa-typebtn span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-namebtn i, #pa-root .pa-typebtn i { font-style: normal; color: var(--pa-dim); font-size: .8em; flex: none; }
+#pa-root .pa-namebtn.pa-using span::after { content: " · 使用中"; color: var(--pa-dim); font-size: .85em; }
+#pa-root .pa-typebtn { flex: none; background: var(--pa-card-2); border-color: transparent; padding: 0 8px; }
+#pa-root .pa-picker { flex: 1 1 200px; }
+#pa-root .pa-picker .pa-namebtn { flex: 1 1 auto; }
+#pa-root .pa-npick { display: grid; gap: 8px; }
+#pa-root .pa-npick-list { display: grid; gap: 4px; max-height: min(56vh, 480px); overflow-y: auto; overscroll-behavior: contain; }
+#pa-root .pa-npick-item { display: flex; align-items: baseline; gap: 8px; text-align: left; padding: 8px 10px; min-height: 38px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); color: var(--pa-text); cursor: pointer; }
+#pa-root .pa-npick-item span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+#pa-root .pa-npick-item small { flex: none; color: var(--pa-dim); font-size: .8em; }
+#pa-root .pa-npick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); font-weight: 600; }
+
+/* 缝合：从 / 到 各一行 */
+#pa-root .pa-fromto { flex-wrap: nowrap; gap: 6px; padding: 6px 10px 4px; }
+#pa-root .pa-fromto .pa-ft { flex: none; width: 1.2em; color: var(--pa-thread); }
+#pa-root .pa-fromto .pa-src-pick, #pa-root .pa-fromto .pa-dst-picker, #pa-root .pa-fromto .pa-dst-wbslot { flex: 1 1 auto; min-width: 0; display: flex; padding: 0; }
+#pa-root .pa-fromto .pa-picker > span { display: none; }
+#pa-root .pa-fromto .pa-icon-btn { width: 30px; height: 30px; flex: none; }
+#pa-root .pa-icon-btn.on { background: var(--pa-sel); color: var(--pa-text); }
+#pa-root .pa-src-menu { margin-left: 0; }
+#pa-root .pa-src-paste { margin: 0; align-self: center; }
+#pa-root .pa-searchrow { padding: 0 10px 4px; flex: 1 0 100%; }
+#pa-root .pa-searchrow .pa-input { width: 100%; min-height: 32px; padding: 3px 8px; }
+#pa-root .pa-file.pa-namebtn { position: relative; }
+
+/* 整理页工具栏：预设 + 🔍 ＋ ⋯ 一行 */
+#pa-root .pa-toolbar > .pa-icon-btn { flex: none; width: 34px; height: 34px; }
+#pa-root .pa-toolbar > .pa-searchrow { padding: 0; }
+
+/* 说明收起：一行小字「ⓘ 说明」 */
+#pa-root .pa-tip { font-size: .82em; color: var(--pa-dim); }
+#pa-root .pa-tip > summary { cursor: pointer; list-style: none; display: inline-block; padding: 2px 0; user-select: none; -webkit-user-select: none; }
+#pa-root .pa-tip > summary::-webkit-details-marker { display: none; }
+#pa-root .pa-tip[open] > summary { color: var(--pa-text); }
+#pa-root .pa-tip-body { display: grid; gap: 4px; margin: 4px 0 2px; padding: 6px 8px; border-left: 2px solid var(--pa-line); line-height: 1.5; }
+#pa-root .pa-tip-body p, #pa-root .pa-tip-body ul, #pa-root .pa-tip-body dl { margin: 0; }
+#pa-root .pa-tipcard p { margin: 0 0 2px; }
+#pa-root .pa-key i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin: 0 3px 0 6px; vertical-align: 0; background: var(--pa-thread); opacity: .55; }
+#pa-root .pa-key i.sug { background: var(--pa-warn); }
+#pa-root .pa-key i.sel { background: var(--pa-warn); opacity: 1; }
+
+/* 摘要行：一句话的数字，其余收进说明 */
+#pa-root .pa-sum { display: grid; gap: 4px; margin: 2px 0 8px; padding: 8px 10px; border-radius: var(--pa-r); background: var(--pa-card); border-left: 3px solid var(--pa-line); }
+#pa-root .pa-sum.pa-good { border-left-color: var(--pa-ok); }
+#pa-root .pa-sum.pa-bad { border-left-color: var(--pa-warn); }
+#pa-root .pa-sum-main { margin: 0; line-height: 1.45; }
+#pa-root .pa-sum .pa-stack { height: 8px; margin-top: 2px; }
+#pa-root .pa-sum .pa-card-act { margin-top: 2px; }
+#pa-root .pa-more { margin-top: 10px; }
+#pa-root .pa-more > summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 6px 0; }
+#pa-root .pa-mini-act { margin: 4px 0 8px; }
+
+/* 配色：小色块，只留圆点和名字 */
+#pa-root .pa-themes { grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+#pa-root .pa-theme { min-height: 0; padding: 7px 8px; gap: 4px; border-radius: 9px; }
+#pa-root .pa-theme-dots { gap: 3px; }
+#pa-root .pa-theme-dots i { width: 13px; height: 13px; }
+#pa-root .pa-theme b { font-size: .82em; font-weight: 600; }
+#pa-root .pa-theme[aria-pressed="true"] { outline-width: 1.5px; outline-offset: 1px; }
+#pa-root .pa-fs-note { display: block; margin-top: 4px; font-size: .78em; }
+
+/* 思维链统计：手机上一行五格 */
+#pa-root .pa-cot-sum > div { text-align: center; }
+@media (max-width: 599px) {
+    #pa-root .pa-cot-sum { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+    #pa-root .pa-cot-sum > div { padding: 5px 2px; }
+    #pa-root .pa-cot-sum b { font-size: 1.15em; }
+    #pa-root .pa-cot-sum span { font-size: .68em; white-space: nowrap; }
+    /* 手机上「预设」二字省掉，按钮自己就是预设名 */
+    #pa-root .pa-picker > span { display: none; }
+    #pa-root .pa-h { font-size: .95em; margin: 12px 2px 6px; }
+    #pa-root .pa-more-head { padding: 6px 8px 0; }
+    #pa-root .pa-ckinds { margin: 0 0 6px; }
+    #pa-root .pa-seg-s button { padding: 3px 9px; }
+}
+#pa-root .pa-toolbar > .pa-picker-slot { flex: 1 1 0; min-width: 0; display: flex; }
+#pa-root .pa-toolbar > .pa-picker-slot .pa-picker { flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-plan .pa-empty, #pa-root .pa-schemes .pa-empty { padding: 12px 8px; font-size: .88em; }

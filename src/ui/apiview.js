@@ -86,7 +86,7 @@ function mountApi(liveBox, sitesBox) {
         <div class="pa-card">
             <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后，自动连回「使用中」的站点</label>
             <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时，不让预设带着的连接设置覆盖当前连接</label>
-            <p class="pa-hint">第二项是酒馆自己的「预设绑定连接」设置（勾选＝关闭绑定）。两项都勾选时，换预设不会换 API。</p>
+            ${tip("第二项是酒馆自己的「预设绑定连接」设置（勾选＝关闭绑定）。两项都勾选时，换预设不会换 API。")}
         </div>`;
   }
   async function getModels(site) {

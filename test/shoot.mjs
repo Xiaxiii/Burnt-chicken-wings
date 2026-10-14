@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
 const theme = process.argv[2] || "follow";
 const out = (n) => `test/shots/${theme}-${n}.png`;
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
@@ -14,7 +15,7 @@ await page.screenshot({ path: out("1-organize") });
 // 缝合页
 await page.click('[data-tab="suture"]');
 await page.waitForTimeout(300);
-await page.selectOption(".pa-src-pick select", "Ako1.92-修复版");
+await choose(page, ".pa-src-name", "Ako1.92-修复版");
 await page.waitForTimeout(300);
 await page.screenshot({ path: out("2-suture") });
 // 展开来源里的 USER塑造 组，选两条嬷u

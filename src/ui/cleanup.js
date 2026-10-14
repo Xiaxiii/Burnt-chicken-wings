@@ -160,13 +160,21 @@ function mountCleanup(sec) {
       </div>`;
     const list = view();
     body.innerHTML = `
-      <div class="pa-verdict ${sugg.length ? "pa-bad" : "pa-good"}">
-        <p>聊天补全预设 <b>${all.length}</b> 个，共 <b>${fmtSize(total)}</b>，酒馆每次打开都会随设置全部读取${est ? `（按本次设置请求的实际传输折算，约占 ${fmtSize(est.wire)}${est.times > 1 ? `；本次记录到 ${est.times} 笔设置读取` : ""}）` : ""}。<small class="pa-dim">大小是内存中序列化后的统计量，折算值只是估计。</small></p>
-        ${others.n ? `<p class="pa-hint">另有文本补全等其他类型的预设 ${others.n} 个，共 ${fmtSize(others.size)}，也会随设置下载；这一页只处理聊天补全预设，其他类型可在酒馆对应的预设菜单中删除。</p>` : ""}
-        ${sugg.length ? `<p>其中 <b>${sugg.length}</b> 个可考虑清理，共 <b>${fmtSize(suggSize)}</b>。</p>` : "<p>没有发现重复或旧版本的预设。</p>"}
-        ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再下载。</p>` : ""}
+      <div class="pa-sum">
+        <p class="pa-sum-main"><b>${all.length}</b> 个预设 · <b>${fmtSize(total)}</b>${arch.length ? ` · 已归档 ${arch.length}` : ""}${sugg.length ? ` · <span class="pa-warn">可清理 ${sugg.length}（${fmtSize(suggSize)}）</span>` : ""}</p>
         <div class="pa-stack" aria-hidden="true">${[...all].sort((a, b) => (b.suggest - a.suggest) || (b.size - a.size)).map((r) => `<i class="${st.sel.has(r.name) ? "sel" : r.suggest ? "sug" : ""}" style="flex-grow:${r.size}" title="${esc(r.name)} ${fmtSize(r.size)}"></i>`).join("")}</div>
-        <div class="pa-stack-key"><span><i class="sug"></i>可考虑清理</span><span><i></i>其余预设</span><span><i class="sel"></i>已勾选</span></div>
+        ${tip(`<p>酒馆每次打开都会随设置读取全部聊天补全预设${est ? `，按本次设置请求的实际传输折算约占 ${fmtSize(est.wire)}${est.times > 1 ? `；本次记录到 ${est.times} 笔设置读取` : ""}` : ""}。大小是内存中序列化后的统计量，折算值只是估计。</p>
+          ${others.n ? `<p>另有文本补全等其他类型的预设 ${others.n} 个，共 ${fmtSize(others.size)}，也会随设置读取；这一页只处理聊天补全预设。</p>` : ""}
+          ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再读取。</p>` : ""}
+          <p>条形图：<span class="pa-key"><i class="sug"></i>可考虑清理</span> <span class="pa-key"><i></i>其余</span> <span class="pa-key"><i class="sel"></i>已勾选</span></p>
+          <ul class="pa-legend">
+            <li><span class="pa-chip pa-ctag-same">完全相同</span><span>与另一个预设一字不差，保留一个即可。</span></li>
+            <li><span class="pa-chip pa-ctag-old">有新版</span><span>名称相同、版本号更低。</span></li>
+            <li><span class="pa-chip pa-ctag-series">同系列</span><span>名称只差「_json」「(1)」「副本」等后缀。</span></li>
+            <li><span class="pa-chip pa-ctag-near">条目相同</span><span>与另一个预设的大部分条目相同。</span></li>
+            <li><span class="pa-chip pa-ctag-use">在用</span><span>被方案或连接配置使用。</span></li>
+          </ul>
+          <p>归档：移出预设文件夹，存到服务器的用户文件目录，打开酒馆时不再读取，换设备也能恢复。标签只是提示，清理哪些由你决定；正在使用的预设不能勾选。</p>`)}
       </div>
       <div class="pa-clean-bar">
         <div class="pa-seg pa-seg-s" role="tablist">
@@ -179,18 +187,9 @@ function mountCleanup(sec) {
           <option value="used" ${st.sort === "used" ? "selected" : ""}>按最近使用</option>
           <option value="name" ${st.sort === "name" ? "selected" : ""}>按名称</option></select>` : ""}
       </div>
-      ${st.filter === "arch" ? arch.length ? `<div class="pa-clist">${arch.map(archRow).join("")}</div><p class="pa-hint">归档文件保存在酒馆服务器的用户文件目录，换设备、换浏览器都能恢复。恢复后回到预设列表，归档文件随之删除。</p>` : '<p class="pa-empty">还没有归档的预设。</p>'
+      ${st.filter === "arch" ? arch.length ? `<div class="pa-clist">${arch.map(archRow).join("")}</div>` : '<p class="pa-empty">还没有归档的预设。</p>'
         : `${list.length ? `<div class="pa-clist-head"><button class="pa-link" data-c="all">${list.filter((r) => !r.current).every((r) => st.sel.has(r.name)) ? "取消全选" : "全选本页"}</button></div><div class="pa-clist">${list.map(row).join("")}</div>` : '<p class="pa-empty">没有可清理的预设。</p>'}
-      <details class="pa-clean-help"><summary>标签说明</summary>
-        <ul class="pa-legend">
-          <li><span class="pa-chip pa-ctag-same">完全相同</span><span>与另一个预设内容一字不差，保留一个即可。</span></li>
-          <li><span class="pa-chip pa-ctag-old">有新版</span><span>名称相同、版本号更低。</span></li>
-          <li><span class="pa-chip pa-ctag-series">同系列</span><span>名称只差「_json」「(1)」「副本」等后缀。</span></li>
-          <li><span class="pa-chip pa-ctag-near">条目相同</span><span>与另一个预设的大部分条目内容相同，可能是改版或旧版。</span></li>
-          <li><span class="pa-chip pa-ctag-use">在用</span><span>被方案或酒馆的连接配置使用。归档后套用这些方案时会自动恢复。</span></li>
-        </ul>
-        <p class="pa-hint">「几天前用过」从本版本开始记录。标签只是提示，清理哪些由你决定；正在使用的预设不能勾选。</p>
-      </details>`}`;
+`}`;
     drawBar();
   }
   function drawBar() {
@@ -203,8 +202,7 @@ function mountCleanup(sec) {
       <button class="pa-btn" data-c="none">取消</button>
       <button class="pa-btn" data-c="dl">下载</button>
       <button class="pa-btn pa-btn-danger-soft" data-c="del">删除</button>
-      <button class="pa-btn pa-btn-primary" data-c="arch">归档</button>
-      <small>归档：移出预设文件夹，存到服务器的用户文件目录，打开酒馆时不再下载，可随时恢复。</small>`;
+      <button class="pa-btn pa-btn-primary" data-c="arch" title="移出预设文件夹，打开酒馆时不再读取，可随时恢复">归档</button>`;
   }
   async function render() {
     if (st.busy || st.kind !== "preset") return;

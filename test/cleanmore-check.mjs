@@ -72,7 +72,7 @@ assert.ok(!(await page.evaluate(() => "oldUninstalled" in window.SillyTavern.get
 // 角色卡
 await page.click('[data-kind="char"]'); await page.waitForTimeout(300);
 txt = await page.$eval(".pa-clean-other", (x) => x.innerText);
-assert.match(txt, /1 组同名/); assert.match(txt, /未加载完整内容，无法比较/);
+assert.match(txt, /同名 1 组/); assert.match(txt, /未加载完整内容，无法比较/);
 assert.ok(await page.$eval('.pa-clean-other input[data-k="jiang.png"]', (x) => x.disabled), "正在聊天的不能勾选");
 await page.screenshot({ path: S + "m-2-char.png" });
 await page.click('.pa-clean-other input[data-k="jiang1.png"]'); await page.waitForTimeout(100);
@@ -80,7 +80,7 @@ await page.evaluate(() => { window.__delChars = ["jiang1.png"]; });
 await page.click('[data-x="del"]'); await page.waitForTimeout(200);
 await page.click(".pa-sheet .pa-btn-danger"); await page.waitForTimeout(500);
 assert.deepEqual(deleted, [{ avatar_url: "jiang1.png", delete_chats: false }]);
-assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /没有同名的角色卡/);
+assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /没有同名/);
 // 世界书：复制一本相同的、加一本空的
 await page.evaluate(() => { const s = globalThis.__wiStore; s["示例世界书-副本"] = structuredClone(s["示例世界书"]); s["空的"] = { entries: {} }; });
 await page.evaluate(async () => { const m = await import("/test/site/scripts/world-info.js"); m.world_names.push("示例世界书-副本", "空的"); });
@@ -102,14 +102,14 @@ assert.ok(!(await page.evaluate(async () => (await import("/test/site/scripts/wo
 // 本地备份
 await page.evaluate(async () => { for (let i = 0; i < 5; i++) await new Promise((res, rej) => { const rq = indexedDB.open("preset-atelier", 2); rq.onupgradeneeded = () => { const d = rq.result; if (!d.objectStoreNames.contains("backups")) d.createObjectStore("backups", { keyPath: "id", autoIncrement: true }).createIndex("preset", "preset"); if (!d.objectStoreNames.contains("assets")) d.createObjectStore("assets"); }; rq.onerror = () => rej(rq.error); rq.onsuccess = () => { const t = rq.result.transaction("backups", "readwrite"); t.objectStore("backups").add({ preset: "P1", reason: "x", time: i, data: { prompts: ["z".repeat(1000)] } }); t.oncomplete = () => { rq.result.close(); res(); }; t.onerror = () => rej(t.error); }; }); });
 await page.click('[data-kind="local"]'); await page.waitForTimeout(600);
-assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /保存了 5 份预设备份/);
+assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /备份 5 份/);
 await page.screenshot({ path: S + "m-4-local.png" });
 await page.click('[data-x="keep3"]'); await page.waitForTimeout(200);
 await page.click(".pa-sheet .pa-btn-danger"); await page.waitForTimeout(800);
-assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /保存了 3 份预设备份/);
+assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /备份 3 份/);
 // 回到预设栏
 await page.click('[data-kind="preset"]'); await page.waitForTimeout(300);
-assert.ok(await page.$(".pa-clean-body .pa-verdict"));
+assert.ok(await page.$(".pa-clean-body .pa-sum"));
 // 日落海岸
 await page.click('[data-m="look"]'); await page.click('[data-theme-id="dusk"]'); await page.waitForTimeout(200);
 await page.screenshot({ path: S + "m-5-dusk.png" });

@@ -134,9 +134,9 @@ function themeCards() {
   return `<div class="pa-themes">${THEMES.map((t) => {
     const dots = t.dots || ["var(--SmartThemeBlurTintColor, #333)", "var(--SmartThemeQuoteColor, #e0a24a)", "var(--SmartThemeBodyColor, #ddd)"];
     const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]};border-color:${t.dots[1]}55` : "";
-    return `<button class="pa-theme${t.paint ? ` pa-paint-${t.id}` : ""}" data-theme-id="${t.id}" aria-pressed="${t.id === cur}" style="${style}">
+    return `<button class="pa-theme${t.paint ? ` pa-paint-${t.id}` : ""}" data-theme-id="${t.id}" aria-pressed="${t.id === cur}" title="${esc(t.sub)}" style="${style}">
         <span class="pa-theme-dots">${dots.map((c2) => `<i style="background:${c2}"></i>`).join("")}</span>
-        <b>${esc(t.name)}</b><small>${esc(t.sub)}</small></button>`;
+        <b>${esc(t.name)}</b></button>`;
   }).join("")}</div>`;
 }
 function bindThemeCards(box, after) {
@@ -158,7 +158,7 @@ function bgPanel() {
         ${bg.on ? '<button class="pa-btn" data-bg="off">移除</button>' : ""}
       </div>
       ${bg.on ? `<label class="pa-field pa-field-row"><span>遮罩</span><input type="range" min="0" max="90" step="5" value="${Math.round((bg.veil ?? 0.55) * 100)}" data-bg="veil"><em class="pa-bg-veil-n">${Math.round((bg.veil ?? 0.55) * 100)}%</em></label>` : ""}
-      <p class="pa-hint">图片只保存在本浏览器，不上传。遮罩越高，文字越清楚。</p>
+      ${tip("图片只保存在本浏览器，不上传。遮罩越高，文字越清楚。")}
     </div>`;
 }
 function bindBgPanel(box, rerender) {
@@ -218,7 +218,7 @@ function fontSizePref() {
 function fontSizeSeg() {
   const cur = fontSizePref();
   return `<div class="pa-seg pa-seg-s pa-fs" role="tablist">${[["s", "小"], ["m", "标准"], ["l", "大"]].map(([k, l]) => `<button data-fs="${k}" class="${k === cur ? "on" : ""}">${l}</button>`).join("")}</div>
-    <p class="pa-hint">只对这台设备生效。手机上默认比平板、电脑紧凑一些。</p>`;
+    <small class="pa-dim pa-fs-note">只对这台设备生效</small>`;
 }
 function bindFontSize(box) {
   box.addEventListener("click", (e) => {

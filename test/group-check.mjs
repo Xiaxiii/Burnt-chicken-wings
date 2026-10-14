@@ -1,6 +1,7 @@
 // 装了百宝箱时建分组：百宝箱会用内存里的旧分组覆盖保存结果，新分组必须保存后仍然存在
 // 用法：node test/group-check.mjs [预设名]，默认用仓库自带的众生相风格测试预设
 import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
@@ -20,7 +21,7 @@ await page.evaluate((T) => {
   window.__presetAtelier.open("organize");
 }, T);
 await page.waitForTimeout(400);
-await page.selectOption(".pa-picker-slot select", T); await page.waitForTimeout(300);
+await choose(page, ".pa-picker-slot .pa-namebtn", T); await page.waitForTimeout(300);
 const groups = () => page.evaluate((t) => { const i = window.__mock.names.indexOf(t); return window.__mock.presets[i].extensions?.baibaiToolkit?.presetPromptGroups?.groups?.map((x) => x.name); }, T);
 const fail = [];
 const check = (ok, msg) => { console.log(ok ? "✓" : "✗", msg); if (!ok) fail.push(msg); };

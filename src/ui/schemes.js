@@ -94,7 +94,7 @@ function mountSchemes(page, { after } = {}) {
   page.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">方案</h3><button class="pa-btn pa-btn-primary" data-s="new">保存当前状态为方案</button></div>
         <div class="pa-toolbar pa-toolbar-flat"><div class="pa-picker-slot"></div></div>
-        <p class="pa-hint">方案记录一组条目的开关，可同时记录人设和 API 站点，可绑定聊天。套用时一并切换。</p>
+        ${tip("方案记录一组条目的开关，可同时记录人设和 API 站点，可绑定聊天。套用时一并切换。")}
         <div class="pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));

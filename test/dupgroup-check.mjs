@@ -1,5 +1,6 @@
 // 双层分组提示与修复。用法同 clean-check.mjs
 import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
 import assert from "node:assert";
 const S = new URL("./shots/", import.meta.url).pathname;
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
@@ -17,7 +18,7 @@ await page.evaluate(() => {
   window.__presetAtelier.open("organize");
 });
 await page.waitForTimeout(300);
-await page.selectOption(".pa-picker-slot select, .pa-picker select", "双层").catch(async () => { await page.selectOption("select", "双层"); });
+await choose(page, ".pa-picker-slot .pa-namebtn", "双层");
 await page.waitForTimeout(400);
 assert.match(await page.$eval(".pa-list", (x) => x.innerText), /分组存了两份/);
 await page.screenshot({ path: S + "d-1-banner.png" });

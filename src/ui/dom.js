@@ -150,3 +150,8 @@ function debounce(fn, ms) {
   };
 }
 
+// 说明文字默认收起：一行小字「ⓘ 说明」，点开再看。手机屏幕小，长段说明不要一上来就铺满
+function tip(inner, label = "说明") {
+  if (!String(inner || "").trim()) return "";
+  return `<details class="pa-tip"><summary>ⓘ ${esc(label)}</summary><div class="pa-tip-body">${inner}</div></details>`;
+}

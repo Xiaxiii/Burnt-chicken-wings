@@ -13,10 +13,12 @@ function mountOrganize(page) {
   page.innerHTML = `
         <div class="pa-toolbar">
             <div class="pa-picker-slot"></div>
-            <div class="pa-search-row"><input class="pa-input pa-search" type="search" placeholder="搜索名称或正文" aria-label="搜索条目">
-            <button class="pa-btn" data-tool="newgroup">＋ 新建分组</button>
-            <button class="pa-btn pa-tools-more" data-tool="menu">工具</button></div>
+            <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索名称或正文">🔍</button>
+            <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">＋</button>
+            <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">⋯</button>
+            <div class="pa-searchrow" hidden><input class="pa-input pa-search" type="search" placeholder="🔍 搜索名称或正文" aria-label="搜索条目"></div>
             <div class="pa-tools">
+                <button class="pa-btn pa-btn-soft" data-tool="newgroup">＋ 新建分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="newentry">＋ 新建条目</button>
                 <button class="pa-btn pa-btn-soft" data-tool="smart">智能分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="fold">全部折叠</button>
@@ -218,10 +220,27 @@ function mountOrganize(page) {
     if (t === "menu") {
       const keep = settings().keepClickOrder;
       t = await pickBox("工具", [
-        { label: "＋ 新建条目", sub: "放在选中的条目之后；没选时放在最后", value: "newentry" },
         { label: "智能分组", sub: "把相邻的同类条目建成分组", value: "smart" },
         { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
         { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" }
+      ]);
+      if (!t) return;
+    }
+    if (t === "search") {
+      const row = page.querySelector(".pa-searchrow");
+      row.hidden = !row.hidden;
+      if (row.hidden && st.query) {
+        st.query = "";
+        search.value = "";
+        render();
+      }
+      if (!row.hidden) search.focus();
+      return;
+    }
+    if (t === "add") {
+      t = await pickBox("新建", [
+        { label: "＋ 新建条目", sub: "放在选中的条目之后；没选时放在最后", value: "newentry" },
+        { label: "＋ 新建分组", sub: "先起名，再点一个位置", value: "newgroup" }
       ]);
       if (!t) return;
     }

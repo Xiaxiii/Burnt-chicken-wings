@@ -1,6 +1,7 @@
 // 缝进世界书（预设→世界书、世界书→世界书）、世界书→预设的提醒、搬到新版 的端到端检查
 // 用法：在仓库根目录起静态服务（python3 -m http.server 8765）；node test/wb-check.mjs
 import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
 import assert from "node:assert";
 const S = new URL("./shots/", import.meta.url).pathname;
 const exe = process.env.PW_CHROME || undefined;
@@ -19,12 +20,12 @@ const wi = () => page.evaluate(() => structuredClone(globalThis.__wiStore));
 const rowClick = (list, name) => page.evaluate(([list, name]) => { const r = [...document.querySelectorAll(`${list} .pa-row`)].find((x) => x.querySelector(".pa-name")?.textContent.includes(name)); r.querySelector(".pa-name").click(); }, [list, name]);
 
 // 1) 预设 → 世界书：放在「示例条目」之后
-await page.selectOption(".pa-src-pick select", "F1"); await page.waitForTimeout(200);
+await choose(page, ".pa-src-name", "F1"); await page.waitForTimeout(200);
 await rowClick(".pa-src-list", "开场白");
 await rowClick(".pa-src-list", "深度提醒");
-await page.click('.pa-dst-seg [data-dst="world"]'); await page.waitForTimeout(300);
+await chooseDstType(page, "world"); await page.waitForTimeout(300);
 assert.equal(await page.$$eval(".pa-dst-list [data-st=newgroup]", (b) => b.length), 0, "世界书目标不显示新建分组");
-await page.selectOption(".pa-dst-wb", "示例世界书"); await page.waitForTimeout(300);
+await choose(page, ".pa-dst-wb", "示例世界书"); await page.waitForTimeout(300);
 await rowClick(".pa-dst-list", "示例条目"); await page.waitForTimeout(150);
 assert.match(await page.$eval(".pa-where", (x) => x.textContent), /世界书「示例世界书」，「示例条目」之后/);
 await page.screenshot({ path: S + "w-1-target.png" });
@@ -49,10 +50,10 @@ assert.equal(list[2].position, 4); assert.equal(list[2].depth, 2); assert.equal(
 await page.screenshot({ path: S + "w-3-done.png" });
 
 // 2) 世界书 → 世界书：整条设置照搬
-await page.click('.pa-src .pa-seg [data-src="world"]'); await page.waitForTimeout(300);
-await page.selectOption(".pa-src-pick select", "示例世界书"); await page.waitForTimeout(300);
+await chooseSrcType(page, "world"); await page.waitForTimeout(300);
+await choose(page, ".pa-src-name", "示例世界书"); await page.waitForTimeout(300);
 await rowClick(".pa-src-list", "示例条目");
-await page.selectOption(".pa-dst-wb", "空白世界书"); await page.waitForTimeout(300);
+await choose(page, ".pa-dst-wb", "空白世界书"); await page.waitForTimeout(300);
 await page.click('.pa-dst-list [data-act="top"]'); await page.waitForTimeout(150);
 await page.click('[data-st="go"]'); await page.waitForTimeout(500);
 assert.match(await page.$eval(".pa-sheet .pa-badges", (x) => x.textContent), /关键词.*角色定义之后/);
@@ -64,7 +65,7 @@ assert.deepEqual(list[0].key, ["示例", "例子"]);
 assert.equal(list[0].order, 50);
 
 // 3) 世界书 → 预设：按关键词触发的条目提醒
-await page.click('.pa-dst-seg [data-dst="preset"]'); await page.waitForTimeout(300);
+await chooseDstType(page, "preset"); await page.waitForTimeout(300);
 await rowClick(".pa-src-list", "示例条目");
 await page.evaluate(() => [...document.querySelectorAll(".pa-dst-list .pa-ghead")].find((x) => x.textContent.includes("正文规则")).click());
 await page.waitForTimeout(150);
@@ -86,9 +87,9 @@ await page.evaluate((T) => {
   window.__presetAtelier.open("organize"); window.__presetAtelier.open("suture");
 }, T);
 await page.waitForTimeout(400);
-await page.click('.pa-src .pa-seg [data-src="preset"]'); await page.waitForTimeout(200);
-await page.selectOption(".pa-src-pick select", T); await page.waitForTimeout(200);
-await page.selectOption(".pa-dst-picker select", "众生相-v1.9"); await page.waitForTimeout(300);
+await chooseSrcType(page, "preset"); await page.waitForTimeout(200);
+await choose(page, ".pa-src-name", T); await page.waitForTimeout(200);
+await choose(page, ".pa-dst-picker .pa-namebtn", "众生相-v1.9"); await page.waitForTimeout(300);
 await page.click('[data-st="srcmenu"]'); await page.waitForTimeout(200);
 await page.click(".pa-pick-item >> text=搬到新版…"); await page.waitForTimeout(500);
 const mig = await page.$$eval(".pa-sheet .pa-mig .pa-crow", (xs) => xs.map((x) => `${x.querySelector("input").checked ? "☑" : "☐"} ${x.textContent.replace(/\s+/g, " ").trim()}`));
