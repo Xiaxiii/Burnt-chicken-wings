@@ -483,9 +483,12 @@ test("分组关闭标记：有柏宝箱时挡住组内条目，没有时只看�
   d.groupGate = false;
   assert.equal(d.isActive("a"), true, "没有柏宝箱时酒馆照样发送");
   assert.equal(d.groupOff("g"), false);
+  d.order.find((o) => o.identifier === "b").enabled = false;
   d.setGroupEnabled("g", false);
   assert.equal(d.isActive("a"), false);
   assert.equal(d.groupOff("g"), true, "条目都关了才算整组关");
+  d.setGroupEnabled("g", true);
+  assert.deepEqual(d.order.map((o) => o.enabled), [true, false], "再开组只开回原来开着的条目");
 });
 // ---- 1.9.0 加载体检的统计口径
 const D = require("./diag.cjs");

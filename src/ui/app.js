@@ -179,6 +179,7 @@ function onRootKey(e) {
 async function close({ fromBack = false } = {}) {
   // 已经发出的保存撤不回来：先等它们结束，再看还剩哪些没存上
   if (saveJobs.size) {
+    toast("正在等保存完成…");
     for (const job of [...saveJobs.values()]) { try { await job; } catch {} }
   }
   const dirty = dirtyDrafts().filter((d) => !saveBlocked.has(d.name));

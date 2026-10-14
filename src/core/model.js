@@ -401,7 +401,9 @@ var Draft = class {
     if (!g) return;
     const members = this.order.filter((o) => this.groupOf(o.identifier) === gid);
     if (!on) {
-      if (g.enabled !== false) g.restoreOn = members.filter((o) => o.enabled !== false).map((o) => o.identifier);
+      // 组里还有开着的条目就记下来（包括旧数据：分组标记已经是关，但条目还开着），再开组时只开回这些
+      const onNow = members.filter((o) => o.enabled !== false).map((o) => o.identifier);
+      if (g.enabled !== false || onNow.length) g.restoreOn = onNow;
       for (const o of members) o.enabled = false;
       g.enabled = false;
     } else {

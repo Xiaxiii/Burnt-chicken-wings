@@ -104,4 +104,4 @@ bash test/run-browser.sh    # 全部浏览器检查（首次会在 test/ 下装 
 
 `index.js` 为生成文件，请勿直接修改。
 
-更新记录见 [CHANGELOG.txt](CHANGELOG.txt)。
+更新记录见 [CHANGELOG.txt](CHANGELOG.txt)。1.9.0 的实施记录（修复核对、测量口径、兼容识别依据、读取加速的必要性判断和测量步骤、未测范围）见 [docs/implementation-1.9.0.md](docs/implementation-1.9.0.md)。
