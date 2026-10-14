@@ -91,7 +91,7 @@ function mountCleanup(sec) {
     mountCleanKind(st.kind, fresh);
   });
   const MB = 1024 * 1024;
-  // 估算：勾选的预设一共能让打开快多少（按本次打开实测的压缩比例和速度）
+  // 估算：勾选的预设大约占设置下载里多少实际传输（按本次设置请求的传输量等比例折算，只是估计）
   function estimate(bytes) {
     try {
       return wireEstimate(bytes);
@@ -161,7 +161,7 @@ function mountCleanup(sec) {
     const list = view();
     body.innerHTML = `
       <div class="pa-verdict ${sugg.length ? "pa-bad" : "pa-good"}">
-        <p>聊天补全预设 <b>${all.length}</b> 个，共 <b>${fmtSize(total)}</b>，酒馆每次打开都会全部下载${est ? `（压缩传输约 ${fmtSize(est.wire)}${est.secs ? `，按本次实测速度约 ${fmtMs(est.secs * 1000)}` : ""}${est.times > 1 ? `；本次下载了 ${est.times} 次` : ""}）` : ""}。</p>
+        <p>聊天补全预设 <b>${all.length}</b> 个，共 <b>${fmtSize(total)}</b>，酒馆每次打开都会随设置全部读取${est ? `（按本次设置请求的实际传输折算，约占 ${fmtSize(est.wire)}${est.times > 1 ? `；本次记录到 ${est.times} 笔设置读取` : ""}）` : ""}。<small class="pa-dim">大小是内存中序列化后的统计量，折算值只是估计。</small></p>
         ${others.n ? `<p class="pa-hint">另有文本补全等其他类型的预设 ${others.n} 个，共 ${fmtSize(others.size)}，也会随设置下载；这一页只处理聊天补全预设，其他类型可在酒馆对应的预设菜单中删除。</p>` : ""}
         ${sugg.length ? `<p>其中 <b>${sugg.length}</b> 个可考虑清理，共 <b>${fmtSize(suggSize)}</b>。</p>` : "<p>没有发现重复或旧版本的预设。</p>"}
         ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再下载。</p>` : ""}
@@ -199,7 +199,7 @@ function mountCleanup(sec) {
     if (act.hidden) return;
     const size = pick.reduce((n, r) => n + r.size, 0);
     const est = estimate(size);
-    act.innerHTML = `<b>已选 ${pick.length} 个 · ${fmtSize(size)}${est?.secs >= 1 ? ` · 打开约快 ${fmtMs(est.secs * est.times * 1000)}` : ""}</b>
+    act.innerHTML = `<b>已选 ${pick.length} 个 · ${fmtSize(size)}${est?.wire ? ` · 设置下载约少 ${fmtSize(est.wire)}（估计）` : ""}</b>
       <button class="pa-btn" data-c="none">取消</button>
       <button class="pa-btn" data-c="dl">下载</button>
       <button class="pa-btn pa-btn-danger-soft" data-c="del">删除</button>

@@ -487,4 +487,52 @@ test("分组关闭标记：有柏宝箱时挡住组内条目，没有时只看�
   assert.equal(d.isActive("a"), false);
   assert.equal(d.groupOff("g"), true, "条目都关了才算整组关");
 });
+// ---- 1.9.0 加载体检的统计口径
+const D = require("./diag.cjs");
+const O = "https://st.example";
+const E = (p, o) => ({ name: O + p, startTime: 0, duration: 100, requestStart: 10, responseStart: 60, responseEnd: 100, transferSize: 1000, encodedBodySize: 700, decodedBodySize: 4000, initiatorType: "fetch", workerStart: 0, ...o });
+test("体检分类：角色列表和单张角色详情分开，第三方快速接口归到原类别并记下提供者（1.9.0）", () => {
+  const c = (p) => D.classifyRequest(O + p, O);
+  assert.equal(c("/api/characters/all").cat, "chars");
+  assert.equal(c("/api/characters/get").cat, "charGet");
+  assert.deepEqual(c("/api/plugins/baibaoku/v1/settings/fast-get"), { cat: "settings", provider: "柏宝库" });
+  assert.deepEqual(c("/api/plugins/cocktail-plus/fast/characters-all"), { cat: "chars", provider: "鸡尾酒+" });
+  assert.deepEqual(c("/api/plugins/baibaoku/v1/status"), { cat: "fast", provider: "柏宝库" });
+  assert.equal(c("/api/settings/save").cat, "settingsSave");
+  assert.equal(c("/scripts/extensions/third-party/foo/index.js").cat, "extFiles");
+  assert.equal(c("/scripts/extensions/third-party/foo/manifest.json").cat, "extList");
+  assert.equal(c("/api/extensions/discover").cat, "extList");
+  assert.equal(c("/thumbnail?type=avatar&file=a.png").cat, "media");
+  assert.equal(c("/api/worldinfo/get").cat, "wi");
+  assert.equal(D.classifyRequest("https://cdn.other.com/x.js", O).cat, "external");
+});
+test("体检口径：实际传输、压缩后、解压后分开；拿不到的标未取得，不当成 0（1.9.0）", () => {
+  const r = D.describeRequest(E("/api/settings/get"), O);
+  assert.deepEqual([r.transfer, r.encoded, r.decoded, r.ttfb, r.recv, r.cache], [1000, 700, 4000, 50, 40, "network"]);
+  const hit = D.describeRequest(E("/script.js", { transferSize: 0 }), O);
+  assert.equal(hit.cache, "hit"); assert.equal(hit.transfer, 0);
+  const x = D.describeRequest(E("/x.js", { name: "https://cdn.other.com/x.js", requestStart: 0, responseStart: 0, transferSize: 0, encodedBodySize: 0, decodedBodySize: 0 }), O);
+  assert.equal(x.cache, "unknown"); assert.equal(x.transfer, null); assert.equal(x.ttfb, null);
+  assert.equal(D.describeRequest(E("/api/settings/get", { workerStart: 5 }), O).sw, true);
+});
+test("体检口径：同类请求重叠的时间按并集算，不相加（1.9.0）", () => {
+  assert.equal(D.unionMs([[0, 100], [50, 150], [300, 400]]), 250);
+  const reqs = [E("/api/characters/get", { startTime: 0, responseEnd: 1000, duration: 1000 }), E("/api/characters/get", { startTime: 500, responseEnd: 1500, duration: 1000 })].map((r) => D.describeRequest(r, O));
+  const g = D.summarizeRequests(reqs).find((x) => x.cat === "charGet");
+  assert.equal(g.n, 2); assert.equal(g.busy, 1500); assert.equal(g.transfer, 2000);
+  assert.ok(!D.summarizeRequests(reqs).some((x) => x.cat === "chars"), "单张详情不算进全部角色列表");
+});
+test("诊断报告：去掉查询参数，角色、头像、聊天文件名换成…，外部网站只留域名（1.9.0）", () => {
+  assert.equal(D.redactUrl(O + "/thumbnail?type=avatar&file=我的角色.png", O), "/thumbnail");
+  assert.equal(D.redactUrl(O + "/characters/我的角色.png", O), "/characters/…");
+  assert.equal(D.redactUrl(O + "/user/files/pa-preset-私密-1.json.gz", O), "/user/files/…");
+  assert.equal(D.redactUrl("https://cdn.other.com/a/b.js?k=1", O), "外部：cdn.other.com");
+  assert.equal(D.redactUrl(O + "/scripts/extensions/third-party/JS-Slash-Runner/dist/index.js", O), "/scripts/extensions/third-party/JS-Slash-Runner/dist/index.js");
+  const m = { reqs: [D.describeRequest(E("/characters/秘密.png?x=1"), O)], readyAt: null, readySource: "late", domReady: 100, evalAt: 50, background: [], bufferFull: false };
+  const rep = D.buildDiagReport({ version: "t", kind: "extension", measure: m, presets: [{ api: "openai", name: "我的预设", size: 10 }], extData: [], charCount: 1 });
+  const text = JSON.stringify(rep);
+  assert.ok(!text.includes("秘密") && !text.includes("我的预设"), "报告里没有角色名、预设名");
+  assert.equal(rep.timing.chatInteractive, null);
+  assert.ok(rep.gaps.some((x) => x.includes("聊天可操作")));
+});
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

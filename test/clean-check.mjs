@@ -111,13 +111,15 @@ const names2 = await page.evaluate(() => Object.keys(window.SillyTavern.getConte
 assert.ok(names2.includes("双人成行 V6.0(1)") && names2.includes("【众生相】Claude-Lite-v1.7"));
 // 加载体检：模拟用户那次打开的请求记录
 await page.evaluate(() => {
-  const E = (name, start, dur, size, rs) => ({ name: location.origin + name, startTime: start, duration: dur, transferSize: size, encodedBodySize: size, responseStart: rs ?? start + 500, responseEnd: start + dur });
+  const E = (name, start, dur, size, rs, extra) => ({ name: location.origin + name, startTime: start, duration: dur, requestStart: start + 20, transferSize: size, encodedBodySize: size, decodedBodySize: size * 4, responseStart: rs ?? start + 500, responseEnd: start + dur, initiatorType: "fetch", workerStart: 0, ...extra });
   const list = [
     E("/api/plugins/baibaoku/v1/settings/fast-get", 1200, 34600, 11.2 * 1048576, 3000),
     E("/api/characters/all", 2500, 20500, 2.7 * 1048576, 4000),
+    E("/api/characters/get", 9000, 7000, 200000, 15000),
     E("/scripts/extensions/third-party/JS-Slash-Runner/dist/index.js", 1500, 9000, 900000, 2000),
-    ...Array.from({ length: 8 }, (_, i) => E(`/thumbnail?type=avatar&file=${i}.png`, 30000, 25600 - i * 100, 300, 55000)),
-    E("/api/plugins/baibaoku/v1/settings/fast-save", 60000, 15600, 330, 75000)
+    ...Array.from({ length: 8 }, (_, i) => E(`/thumbnail?type=avatar&file=秘密角色${i}.png`, 30000, 25600 - i * 100, 300, 55000)),
+    E("/api/plugins/baibaoku/v1/settings/fast-save", 60000, 15600, 330, 75000),
+    { name: "https://cdn.example.net/lib.js", startTime: 800, duration: 2400, requestStart: 0, responseStart: 0, responseEnd: 3200, transferSize: 0, encodedBodySize: 0, decodedBodySize: 0, initiatorType: "script", workerStart: 0 }
   ];
   const orig = performance.getEntriesByType.bind(performance);
   performance.getEntriesByType = (t) => t === "resource" ? list : orig(t);
@@ -127,11 +129,27 @@ await page.click('[data-m="health"]');
 await page.waitForSelector(".pa-tl");
 await page.waitForTimeout(300);
 const htxt = await page.$eval(".pa-health-body", (x) => x.innerText);
-assert.match(htxt, /实测服务器下载速度/);
-assert.match(htxt, /8 个很小的请求/);
-assert.match(htxt, /打开过程中有扩展保存了一次设置/);
-assert.ok(!/头像\/缩略图\s+2\d\.\d 秒/.test(htxt.split("本次打开时最慢的请求")[1] || ""), "排队的小请求不列入最慢");
+assert.match(htxt, /接收速率估计/);
+assert.match(htxt, /不是服务器带宽上限/);
+assert.match(htxt, /聊天可操作\s*未测得/);
+assert.match(htxt, /启动完成前记录到设置保存请求/);
+assert.doesNotMatch(htxt, /排队|实测服务器下载速度/, "不把小请求耗时长判成排队，不把接收速率说成服务器速度");
+assert.match(htxt, /全部角色列表/); assert.match(htxt, /单张角色详情/);
+assert.match(htxt, /走柏宝库接口/);
+assert.match(htxt, /外部网站[\s\S]*未取得/, "跨域拿不到的体积标未取得");
+assert.match(htxt, /内存中的大小是序列化后的统计量，不是网络传输量/);
 await page.screenshot({ path: S + "c-5-health.png", fullPage: false });
+// 每笔明细、导出报告（脱敏）
+await page.click('[data-h="detail"]'); await page.waitForTimeout(200);
+assert.match(await page.$eval(".pa-health-detail", (x) => x.innerText), /\/thumbnail/);
+assert.doesNotMatch(await page.$eval(".pa-health-detail", (x) => x.innerText), /秘密角色/);
+const rd = page.waitForEvent("download");
+await page.click('[data-h="export"]');
+const rep = JSON.parse(await (await import("node:fs")).promises.readFile(await (await rd).path(), "utf8"));
+assert.equal(rep.format, "burnt-chicken-wings-diagnostics/1");
+assert.equal(rep.timing.chatInteractive, null);
+assert.ok(rep.categories.some((c) => c.cat === "settings" && c.providers["柏宝库"] === 1));
+assert.ok(!JSON.stringify(rep).includes("秘密角色"), "报告不含角色文件名");
 await page.$eval(".pa-health .pa-scroll, .pa-health", (x) => { x.scrollTop = 99999; });
 await page.screenshot({ path: S + "c-6-health-bottom.png" });
 // 去清理按钮

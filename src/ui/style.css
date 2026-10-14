@@ -509,6 +509,28 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-bar { display: block; height: 6px; border-radius: 3px; background: var(--pa-line); overflow: hidden; }
 #pa-root .pa-bar b { display: block; height: 100%; background: var(--pa-thread); border-radius: 3px; }
 #pa-root .pa-health .pa-card-act { margin: 10px 0 4px; }
+/* 1.9.0 体检：时间点、请求分类表、明细 */
+#pa-root .pa-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; }
+#pa-root .pa-kv dt { color: var(--pa-dim); }
+#pa-root .pa-kv dd { margin: 0; font-variant-numeric: tabular-nums; }
+#pa-root .pa-kv dd small, #pa-root .pa-verdict small.pa-dim { display: block; color: var(--pa-dim); font-size: .84em; }
+#pa-root .pa-rtable { display: grid; grid-template-columns: minmax(0, 1.6fr) auto auto auto minmax(0, 1fr); gap: 6px 10px; font-size: .88em; align-items: start; margin-bottom: 4px; }
+#pa-root .pa-rt-head, #pa-root .pa-rt-row { display: contents; }
+#pa-root .pa-rt-head span { color: var(--pa-dim); font-size: .92em; border-bottom: 1px solid var(--pa-line); padding-bottom: 3px; }
+#pa-root .pa-rt-row span { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#pa-root .pa-rt-row span small { display: block; color: var(--pa-dim); font-size: .86em; }
+#pa-root .pa-rt-detail { grid-template-columns: minmax(0, 2fr) auto auto auto auto; font-size: .82em; }
+#pa-root .pa-gaps { margin: 2px 0 6px; padding-left: 1.2em; color: var(--pa-dim); font-size: .88em; }
+#pa-root .pa-gaps li { margin: 2px 0; }
+@media (max-width: 560px) {
+  #pa-root .pa-rtable { grid-template-columns: minmax(0, 1fr) auto auto; }
+  #pa-root .pa-rtable:not(.pa-rt-detail) .pa-rt-head span:nth-child(2), #pa-root .pa-rtable:not(.pa-rt-detail) .pa-rt-row span:nth-child(2),
+  #pa-root .pa-rtable:not(.pa-rt-detail) .pa-rt-head span:nth-child(4), #pa-root .pa-rtable:not(.pa-rt-detail) .pa-rt-row span:nth-child(4) { display: none; }
+  #pa-root .pa-rt-detail { min-width: 560px; grid-template-columns: minmax(0, 2fr) auto auto auto auto; }
+}
+#pa-root .pa-narrow-only { display: none; }
+@media (max-width: 560px) { #pa-root .pa-narrow-only { display: inline; } }
+#pa-root .pa-hscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* 1.3.4 扩展页设置框（在酒馆页面里，不在 #pa-root 里，用酒馆自己的颜色） */
 #pa-settings .pa-set-badge { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; font-size: .78em; font-weight: 500; line-height: 1.6; vertical-align: 1px; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); opacity: .85; }
