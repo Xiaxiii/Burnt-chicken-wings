@@ -111,7 +111,7 @@ function mountHealth(sec, { goClean } = {}) {
     const total = Math.max(r.readyAt || 0, ...r.timeline.map((t) => t.end)) || 1;
     const pct = (v) => `${Math.max(0, Math.min(100, v / total * 100)).toFixed(2)}%`;
     // 建议：只显示一句结论，原因收进「为什么」
-    const card = (w, warn) => `<div class="pa-card pa-tipcard ${warn ? "pa-card-warn" : ""}"><p>${warn ? `<b>${esc(w.t)}</b>` : esc(w.t)}</p>${tip(esc(w.d), "为什么")}${w.act === "clean" && goClean ? '<div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-h="clean">去清理</button></div>' : ""}</div>`;
+    const card = (w, warn) => `<div class="pa-card pa-tipcard ${warn ? "pa-card-warn" : ""}"><p>${warn ? `<b>${esc(w.t)}</b>` : esc(w.t)}</p><div class="pa-tiprow">${tip(esc(w.d), "为什么")}${w.act === "clean" && goClean ? '<button type="button" class="pa-golink" data-h="clean">去清理 ›</button>' : ""}</div></div>`;
     const bgEnd = r.background.length ? Math.max(...r.background.map((x) => x.end)) : null;
     const readyText = r.readyAt ? fmtMs(r.readyAt) : r.readySource === "late" ? "未记录（本扩展加载时酒馆已启动完成）" : "未记录";
     const n = r.warn.length + r.tips.length;

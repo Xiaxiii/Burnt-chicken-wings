@@ -35,10 +35,9 @@ function mountSuture(page, app) {
             <div class="pa-pane-head pa-fromto"><b class="pa-ft">从</b>
                 <button class="pa-typebtn" data-st="srctype" type="button" aria-label="来源类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-src-pick"></div>
-                <button class="pa-icon-btn pa-srcsearch-btn" data-st="srcsearch" aria-label="搜索条目" title="搜索名称或正文">🔍</button>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
-            <div class="pa-searchrow" hidden><input class="pa-input pa-search pa-src-q" type="search" placeholder="🔍 搜索名称或正文" aria-label="搜索来源条目"></div>
+            <div class="pa-searchrow"><input class="pa-input pa-search pa-src-q" type="search" placeholder="🔍 搜条目名称或正文" aria-label="搜索来源条目"></div>
             <div class="pa-scroll pa-src-list"></div>
         </div>
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整两栏大小" title="拖动调整大小"><span></span></div>
@@ -118,10 +117,7 @@ function mountSuture(page, app) {
   const srcQ = page.querySelector(".pa-src-q");
   function paintSrcHead() {
     page.querySelector('[data-st="srctype"] span').textContent = SRC_TYPES.find(([k]) => k === st.srcType)[1];
-    const canSearch = st.srcType !== "paste";
-    page.querySelector(".pa-srcsearch-btn").hidden = !canSearch;
-    searchRow.hidden = !canSearch || (!st.searchOpen && !st.srcQuery);
-    page.querySelector(".pa-srcsearch-btn").classList.toggle("on", !searchRow.hidden);
+    searchRow.hidden = st.srcType === "paste";
   }
   async function setSrcType(type) {
     if (!type || type === st.srcType) return;
@@ -456,17 +452,6 @@ function mountSuture(page, app) {
     if (a === "picked") return pickedSheet();
     if (a === "srctype") return setSrcType(await pickName({ title: "从哪里缝", current: st.srcType, search: false, items: SRC_TYPES.map(([k, l]) => ({ value: k, label: l })) }));
     if (a === "dsttype") return setDstType(await pickName({ title: "缝到哪里", current: st.dstType, search: false, items: [{ value: "preset", label: "预设" }, { value: "world", label: "世界书" }] }));
-    if (a === "srcsearch") {
-      st.searchOpen = searchRow.hidden;
-      if (!st.searchOpen) {
-        st.srcQuery = "";
-        srcQ.value = "";
-        renderSrc();
-      }
-      paintSrcHead();
-      if (st.searchOpen) srcQ.focus();
-      return;
-    }
     if (a === "srcmenu") {
       const v = await pickBox("更多操作", [
         { label: "搬到新版…", sub: "预设出了新版本时：来源选旧版、目标选新版，把旧版里你缝进去的条目按原位置搬过去", value: "migrate" },

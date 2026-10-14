@@ -182,10 +182,7 @@ function mountCleanup(sec) {
           <button data-f="all" class="${st.filter === "all" ? "on" : ""}">全部 ${all.length}</button>
           <button data-f="arch" class="${st.filter === "arch" ? "on" : ""}">已归档 ${arch.length}</button>
         </div>
-        ${st.filter !== "arch" ? `<select class="pa-select pa-select-s" data-c="sort" aria-label="排序">
-          <option value="size" ${st.sort === "size" ? "selected" : ""}>按大小</option>
-          <option value="used" ${st.sort === "used" ? "selected" : ""}>按最近使用</option>
-          <option value="name" ${st.sort === "name" ? "selected" : ""}>按名称</option></select>` : ""}
+        ${st.filter !== "arch" ? `<button type="button" class="pa-sortbtn" data-c="sort" aria-label="排序方式">↕ ${{ size: "大小", used: "最近使用", name: "名称" }[st.sort] || "大小"}</button>` : ""}
       </div>
       ${st.filter === "arch" ? arch.length ? `<div class="pa-clist">${arch.map(archRow).join("")}</div>` : '<p class="pa-empty">还没有归档的预设。</p>'
         : `${list.length ? `<div class="pa-clist-head"><button class="pa-link" data-c="all">${list.filter((r) => !r.current).every((r) => st.sel.has(r.name)) ? "取消全选" : "全选本页"}</button></div><div class="pa-clist">${list.map(row).join("")}</div>` : '<p class="pa-empty">没有可清理的预设。</p>'}
@@ -323,12 +320,17 @@ function mountCleanup(sec) {
       else st.sel.delete(t.dataset.n);
       t.closest(".pa-crow")?.classList.toggle("on", t.checked);
       draw();
-    } else if (t.matches("[data-c=sort]")) {
-      st.sort = t.value;
-      draw();
     }
   });
   sec.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-c=sort]")) {
+      const v = await pickName({ title: "排序", current: st.sort, search: false, items: [{ value: "size", label: "按大小" }, { value: "used", label: "按最近使用" }, { value: "name", label: "按名称" }] });
+      if (v && v !== st.sort) {
+        st.sort = v;
+        draw();
+      }
+      return;
+    }
     const f = e.target.closest("[data-f]");
     if (f) {
       st.filter = f.dataset.f;

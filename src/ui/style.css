@@ -987,3 +987,28 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-toolbar > .pa-picker-slot { flex: 1 1 0; min-width: 0; display: flex; }
 #pa-root .pa-toolbar > .pa-picker-slot .pa-picker { flex: 1 1 auto; min-width: 0; }
 #pa-root .pa-plan .pa-empty, #pa-root .pa-schemes .pa-empty { padding: 12px 8px; font-size: .88em; }
+
+/* 1.9 细调：排序小按钮、建议卡的「为什么 · 去清理」同一行、复选框不用酒馆的实心方块 */
+#pa-root .pa-sortbtn { flex: none; border: 0; background: none; padding: 4px 2px; color: var(--pa-dim); font: inherit; font-size: .85em; cursor: pointer; white-space: nowrap; }
+#pa-root .pa-sortbtn:hover { color: var(--pa-text); }
+#pa-root .pa-clean-bar { flex-wrap: nowrap; }
+#pa-root .pa-clean-bar .pa-seg { min-width: 0; }
+#pa-root .pa-tiprow { display: flex; align-items: flex-start; gap: 8px; }
+#pa-root .pa-tiprow > .pa-tip { flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-golink { flex: none; border: 0; background: none; padding: 2px 0; color: var(--pa-thread); font: inherit; font-size: .82em; cursor: pointer; white-space: nowrap; }
+#pa-root .pa-golink:hover { text-decoration: underline; text-underline-offset: 3px; }
+#pa-root input[type=checkbox]:not(#pa-x) {
+    -webkit-appearance: none; appearance: none; flex: none; margin: 0; padding: 0; cursor: pointer;
+    width: 17px; height: 17px; min-width: 0; min-height: 0; border-radius: 5px;
+    border: 1.5px solid color-mix(in srgb, var(--pa-text) 35%, transparent); background: transparent; box-shadow: none;
+    -webkit-mask: none; mask: none; filter: none; vertical-align: -3px;
+}
+#pa-root input[type=checkbox]:not(#pa-x)::before, #pa-root input[type=checkbox]:not(#pa-x)::after { content: none; display: none; }
+#pa-root input[type=checkbox]:not(#pa-x):checked {
+    border-color: var(--pa-thread); background: var(--pa-thread) center / 12px 12px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+#pa-root input[type=checkbox]:not(#pa-x):disabled { opacity: .35; cursor: default; }
+#pa-root input[type=checkbox]:not(#pa-x):focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 2px; }
+#pa-root .pa-switch > input[type=checkbox]:not(#pa-x) { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; background: none; }
+#pa-root .pa-pane > .pa-searchrow { flex: none; padding: 2px 10px 4px; }
