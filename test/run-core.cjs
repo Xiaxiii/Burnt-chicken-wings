@@ -472,4 +472,19 @@ test("按变量名排序：类别按给定先后，类别内按编号（1.8.0）
   assert.deepEqual(A.sortTagIds(d, ["a", "b", "c"], ["风格", "人设"]), ["c", "a", "b"]);
 });
 
+test("分组关闭标记：有柏宝箱时挡住组内条目，没有时只看条目开关（1.9.0）", () => {
+  const d = mk([["a", "甲", "正文甲"], ["b", "乙", "正文乙"]]);
+  d.groups.groups.push({ id: "g", name: "组", enabled: false });
+  d.groups.prompts.a = { groupId: "g" };
+  d.groups.prompts.b = { groupId: "g" };
+  // 旧数据：分组标记是关的，条目自己还开着
+  assert.equal(d.isActive("a"), false, "默认（有柏宝箱）按分组标记");
+  assert.equal(d.groupOff("g"), true);
+  d.groupGate = false;
+  assert.equal(d.isActive("a"), true, "没有柏宝箱时酒馆照样发送");
+  assert.equal(d.groupOff("g"), false);
+  d.setGroupEnabled("g", false);
+  assert.equal(d.isActive("a"), false);
+  assert.equal(d.groupOff("g"), true, "条目都关了才算整组关");
+});
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);

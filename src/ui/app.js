@@ -177,6 +177,10 @@ function onRootKey(e) {
   close();
 }
 async function close({ fromBack = false } = {}) {
+  // 已经发出的保存撤不回来：先等它们结束，再看还剩哪些没存上
+  if (saveJobs.size) {
+    for (const job of [...saveJobs.values()]) { try { await job; } catch {} }
+  }
   const dirty = dirtyDrafts().filter((d) => !saveBlocked.has(d.name));
   const blocked = dirtyDrafts().filter((d) => saveBlocked.has(d.name));
   if (blocked.length) {
@@ -188,8 +192,8 @@ async function close({ fromBack = false } = {}) {
     if (fromBack) pushBackState();
     const r = await sheet({
       title: "有未保存的修改",
-      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有未保存的修改。</p>`,
-      actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃修改", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
+      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有还没存上的修改。</p><p class="pa-hint">「放弃」只丢掉还没存上的部分；之前已经自动保存的修改不会撤回，需要时可在顶栏的备份里恢复到修改前。</p>`,
+      actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃没存上的部分", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
     });
     if (!r) return;
     if (r === "drop") dirty.forEach((d) => dropDraft(d.name));

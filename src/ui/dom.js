@@ -89,6 +89,22 @@ async function confirmBox(title, text, okLabel = "确定", danger = false) {
   const r = await sheet({ title, body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: "取消", value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
   return !!r;
 }
+// 删除前的备份是交给浏览器下载的：浏览器可能弹窗询问、被拦截或下载失败，这里没法知道文件是否真的存到了本地。
+// 所以下载之后先停一下，由用户确认文件已经保存，再继续删除。返回 true 才删。
+async function confirmDownloaded(fileName, redownload) {
+  for (;;) {
+    const v = await sheet({
+      title: "确认备份已保存",
+      body: `<p class="pa-p">已让浏览器下载「${esc(fileName)}」。浏览器可能会询问、拦截或下载失败，请先在浏览器的下载记录里确认文件已经保存，再继续删除。</p>`,
+      actions: [{ label: "取消删除", value: null }, { label: "重新下载", value: "redo" }, { label: "已保存，继续删除", kind: "danger", value: "ok" }]
+    });
+    if (v === "redo") {
+      redownload();
+      continue;
+    }
+    return v === "ok";
+  }
+}
 async function promptBox(title, value = "", placeholder = "") {
   return sheet({
     title,

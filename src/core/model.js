@@ -95,9 +95,18 @@ var Draft = class {
     if (!o || o.enabled === false) return false;
     const p = this.prompt(id);
     if (!p) return false;
+    // 分组上的「关闭」标记只有柏宝箱在运行时才会挡住组内条目（它在生成时过滤）；没有柏宝箱时酒馆只看条目自己的开关
     const gid = this.groupOf(id);
-    if (gid && this.group(gid)?.enabled === false) return false;
+    if (gid && this.groupGate !== false && this.group(gid)?.enabled === false) return false;
     return true;
+  }
+  /** 分组整组是否算关着：有柏宝箱时看分组标记；没有时看组内是不是一条都没开 */
+  groupOff(gid) {
+    const g = this.group(gid);
+    if (!g) return false;
+    if (this.groupGate !== false && g.enabled === false) return true;
+    const members = this.order.filter((o) => this.groupOf(o.identifier) === gid);
+    return members.length > 0 && members.every((o) => o.enabled === false);
   }
   /** 整份换成另一个版本（恢复备份、恢复草稿）。分组格式等读入时的信息也一起换 */
   replaceWith(preset) {
@@ -384,7 +393,7 @@ var Draft = class {
     this.groups.groups = this.groups.groups.filter((g) => g.id !== gid);
   }
   /**
-   * 整组开关：同时改组内条目自己的开关（酒馆只看条目开关，分组上的标记只有百宝箱认）。
+   * 整组开关：同时改组内条目自己的开关（酒馆只看条目开关，分组上的标记只有柏宝箱认）。
    * 关组时记下原来开着的条目，再开组时只开回这些。
    */
   setGroupEnabled(gid, on) {
@@ -448,7 +457,7 @@ var Draft = class {
     for (const o of this.order) if (set.has(o.identifier)) o.enabled = !!on;
   }
   /**
-   * 1.7.5 双层分组：预设里同时存了百宝箱分组和 entryGrouping，而 entryGrouping 里的分组与百宝箱分组同名、成员也在其中，
+   * 1.7.5 双层分组：预设里同时存了柏宝箱分组和 entryGrouping，而 entryGrouping 里的分组与柏宝箱分组同名、成员也在其中，
    * 两个插件各显示一层，看起来像分组里又套了一层同名分组。返回这些重复的 entryGrouping 分组。
    */
   dupEntryGroups() {
@@ -525,8 +534,8 @@ var Draft = class {
     for (const k of Object.keys(groups.prompts)) if (!inOrder.has(k)) delete groups.prompts[k];
     const hasGroups = groups.groups.length > 0;
     // 1.1.3：分组按"读进来时的格式"写回，只写一种。
-    // 旧版本会把百宝箱分组再镜像一份到 entryGrouping，两个插件同时显示时，
-    // 百宝箱分组里就会再套一层同名分组；用户解除后，下次保存又被写回来。
+    // 旧版本会把柏宝箱分组再镜像一份到 entryGrouping，两个插件同时显示时，
+    // 柏宝箱分组里就会再套一层同名分组；用户解除后，下次保存又被写回来。
     const useEntryGrouping = this.hadEntryGrouping && !this.hadBaibai;
     if (useEntryGrouping) {
       const pos = new Map(order.map((o, i) => [o.identifier, i]));
@@ -546,7 +555,7 @@ var Draft = class {
         ext.baibaiToolkit.presetPromptGroups = groups;
       }
       if (Array.isArray(ext.entryGrouping)) {
-        // 去掉和百宝箱分组同 id 的镜像、同名且成员相同的重复分组（1.7.5），以及成员已经不存在的旧分组；别的插件自己建的分组保留
+        // 去掉和柏宝箱分组同 id 的镜像、同名且成员相同的重复分组（1.7.5），以及成员已经不存在的旧分组；别的插件自己建的分组保留
         const dupKeys = new Set(this.dupEntryGroups().map((g) => `${g.id}|${g.name}`));
         ext.entryGrouping = ext.entryGrouping.filter((g) => !g || !dupKeys.has(`${g.id}|${g.name}`));
         const mirror = new Set([...(this.loadedGroupIds || []), ...groups.groups.map((g) => g.id)]);

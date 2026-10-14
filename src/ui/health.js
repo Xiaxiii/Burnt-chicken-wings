@@ -39,7 +39,7 @@ function categorize(url) {
   if (u.origin !== location.origin) return { cat: `外部：${u.host}`, key: `ext:${u.host}` };
   let m = /\/scripts\/extensions\/third-party\/([^/]+)\//.exec(p);
   if (m) return { cat: `扩展「${m[1]}」`, key: `tp:${m[1]}`, ext: m[1] };
-  // 1.5.0：百宝箱等扩展会用自己的接口代替 /api/settings/get，下载的是同一份数据
+  // 1.5.0：柏宝箱等扩展会用自己的接口代替 /api/settings/get，下载的是同一份数据
   if (/\/api\/settings\/get|\/settings\/fast-get/.test(p)) return { cat: "设置与全部预设", key: "settings" };
   if (/\/api\/settings\/save|\/settings\/fast-save/.test(p)) return { cat: "保存设置", key: "settingsSave" };
   if (/\/api\/characters\/(all|get)/.test(p)) return { cat: "角色列表", key: "chars" };
@@ -154,7 +154,7 @@ async function collectHealth() {
   const MB = 1024 * 1024;
   const bw = out.bandwidth;
   const sec = (bytes) => bw ? fmtMs(bytes / bw * 1000) : null;
-  if (out.settingsCount > 1) out.warn.push({ t: `「设置与全部预设」本次下载了 ${out.settingsCount} 次（共 ${fmtSize(out.settingsBytes)}）。`, d: "正常只需下载一次。常见原因是同时开启了两个「启动加速」类功能，例如百宝箱的「Settings get/save 加速」和鸡尾酒的「启动加载优化」，保留其中一个即可；两个都关闭时，酒馆本身也可能下载两次。" });
+  if (out.settingsCount > 1) out.warn.push({ t: `「设置与全部预设」本次下载了 ${out.settingsCount} 次（共 ${fmtSize(out.settingsBytes)}）。`, d: "正常只需下载一次。常见原因是同时开启了两个「启动加速」类功能，例如柏宝箱的「Settings get/save 加速」和鸡尾酒的「启动加载优化」，保留其中一个即可；两个都关闭时，酒馆本身也可能下载两次。" });
   // 预设在设置下载里大约占多少（按未压缩大小的比例估算）
   const est = wireEstimate(out.presetTotal);
   const byApi = out.presetByApi.length > 1 ? `（${out.presetByApi.map((x) => `${x.label} ${x.n} 个 ${fmtSize(x.size)}`).join("，")}）` : `（${out.presets.length} 个）`;

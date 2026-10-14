@@ -66,9 +66,11 @@ function checkpoint(d) {
   try { text = JSON.stringify({ preset: d.toPreset(), baseSig: d.savedSig || null, history: [], time: Date.now() }); } catch { return; }
   try { localStorage.setItem(key, text); return; } catch {}
   try {
+    // 只清当前账号（和旧版不分账号）的草稿，别的账号的草稿留着
+    const mine = `presetAtelier:recovery:v180:${userHandle()}:`;
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k !== key && k.startsWith("presetAtelier:recovery:") && !drafts.get(recoveryName(k))?.dirty) localStorage.removeItem(k);
+      if (k && k !== key && (k.startsWith(mine) || k.startsWith("presetAtelier:recovery:v110:")) && !drafts.get(recoveryName(k))?.dirty) localStorage.removeItem(k);
     }
     localStorage.setItem(key, text);
   } catch {
@@ -200,6 +202,7 @@ function presetSig(p) {
 // 让核心逻辑（缝合、接入思维链）也认得「思维链」页里手动指定的思维链
 function attachCotManual(d) {
   Object.defineProperty(d, "cotManual", { configurable: true, get: () => settings().cotManual?.[d.name] || {} });
+  Object.defineProperty(d, "groupGate", { configurable: true, get: groupGateActive });
   return d;
 }
 function getDraft(name, { fresh = false } = {}) {
@@ -268,7 +271,20 @@ function dropDraft(name) {
   clearTimeout(autoTimers.get(name)); autoTimers.delete(name);
   saveBlocked.delete(name);
   saveErrors.delete(name);
+  pendingAsks.delete(name);
   removeRecovery(name);
+}
+// 删除、归档预设之前：取消还没发出的自动保存，等已经发出的保存结束，再丢掉草稿。
+// 否则删完之后，晚到的保存会把预设文件重新写回服务器。
+// 已经发出的请求撤不回来，只能等它结束；返回 false 表示那次保存失败了（预设仍是之前的样子）。
+async function quiesceDraft(name) {
+  clearTimeout(autoTimers.get(name)); autoTimers.delete(name);
+  let ok = true;
+  while (saveJobs.has(name)) {
+    try { await saveJobs.get(name); } catch { ok = false; }
+  }
+  dropDraft(name);
+  return ok;
 }
 function dropClean() {
   for (const [n, d] of drafts) {

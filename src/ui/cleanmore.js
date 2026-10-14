@@ -126,7 +126,8 @@ function mountCleanKind(kind, box) {
         else if (users?.length) [state, label] = ["used", `检测：${users.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}${users.some((x) => !x.enabled) ? "（已停用）" : ""}在用`];
         else if (scan && owner?.ext) [state, label] = ["maybe", `检测：未找到使用者，但名称像「${owner.ext.manifest?.display_name || owner.ext.base}」，请确认`];
         else if (scan && scan.partial.length) [state, label] = ["maybe", `检测：未找到使用者，但「${scan.partial.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}」没有查完，请确认`];
-        else if (scan) [state, label] = ["orphan", "检测：已安装扩展的代码里没找到它，多半是卸载残留"];
+        // 没找到使用者不等于可以安全删除（扩展可能用拼出来的名字读数据），只标为「疑似残留」，删前由用户核对
+        else if (scan) [state, label] = ["orphan", "检测：已安装扩展的代码里没找到它，疑似卸载残留，删除前请核对"];
         else if (owner?.ext) [state, label] = ["used", `推测属于：${owner.ext.manifest?.display_name || owner.ext.base}${owner.ext.enabled ? "" : "（已停用）"}`];
         else [state, label] = ["maybe", "可能已卸载"];
         return { k, size, state, label };
@@ -185,7 +186,10 @@ function mountCleanKind(kind, box) {
         if (!keys.length) return;
         if (!await confirmBox("删除扩展数据", `将从设置文件中删除 ${keys.length} 项数据：${keys.slice(0, 5).join("、")}${keys.length > 5 ? " 等" : ""}。删除前会先下载备份。如果对应的扩展其实还在使用，它会恢复成默认设置。`, "下载备份并删除", true)) return;
         const es = ctx().extensionSettings;
-        downloadBlob(new Blob([JSON.stringify(Object.fromEntries(keys.map((k) => [k, es[k]])), null, 2)], { type: "application/json" }), `extension-data-backup-${stamp()}.json`);
+        const fname = `extension-data-backup-${stamp()}.json`;
+        const blob = new Blob([JSON.stringify(Object.fromEntries(keys.map((k) => [k, es[k]])), null, 2)], { type: "application/json" });
+        downloadBlob(blob, fname);
+        if (!await confirmDownloaded(fname, () => downloadBlob(blob, fname))) return;
         for (const k of keys) {
           delete es[k];
           S.sel.delete(k);
@@ -223,13 +227,13 @@ function mountCleanKind(kind, box) {
       const pickList = chars.filter((ch) => S.sel.has(ch.avatar));
       box.innerHTML = `
         <div class="pa-verdict"><p>共 ${chars.length} 张角色卡，${dups.length ? `其中 <b>${dups.length}</b> 组同名` : "没有同名的角色卡"}。角色列表每次打开酒馆都要下载，删除重复的角色卡能减少一些。</p>
-          <p class="pa-hint">删除角色卡时保留聊天记录（服务器上的聊天文件不删）。正在聊天的角色卡不能勾选。</p></div>
+          <p class="pa-hint">「文字设定相同」比较的是描述、性格、场景、开场白、示例对话、角色书、标签等文字内容，不比较头像图片。删除角色卡时保留聊天记录（服务器上的聊天文件不删）。正在聊天的角色卡不能勾选。</p></div>
         ${dups.map((g) => {
           const prints = g.map(fp);
           const unknown = prints.some((x) => x == null);
           const same = !unknown && new Set(prints).size === 1;
           const keep = g.reduce((a, b) => (Number(b.date_last_chat) || 0) > (Number(a.date_last_chat) || 0) ? b : a);
-          return `<h3 class="pa-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "内容相同" : unknown ? "同名，未加载完整内容，无法比较" : "同名，内容不同"}</span></h3>
+          return `<h3 class="pa-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "文字设定相同（头像图片未比较）" : unknown ? "同名，未加载完整内容，无法比较" : "同名，文字设定不同"}</span></h3>
           <div class="pa-clist">${g.map((ch) => `<label class="pa-crow${S.sel.has(ch.avatar) ? " on" : ""}${ch.avatar === cur ? " pa-locked" : ""}">${chk(ch.avatar, S.sel.has(ch.avatar), ch.avatar === cur)}
             <span class="pa-crow-main"><b>${esc(ch.avatar)}</b><span class="pa-crow-tags">${ch.avatar === cur ? '<span class="pa-chip pa-chip-cot">正在聊天</span>' : ""}${ch === keep && ch.date_last_chat ? '<span class="pa-chip pa-ctag-use">最近聊过</span>' : ""}${ch.date_last_chat ? `<span class="pa-chip pa-chip-dim">${relDay(Number(ch.date_last_chat)).replace("用过", "聊过")}</span>` : '<span class="pa-chip pa-chip-dim">没有聊过</span>'}${ch.chat_size ? `<span class="pa-chip pa-chip-dim">聊天 ${fmtSize(ch.chat_size)}</span>` : ""}</span></span>
             <span class="pa-crow-size"><em>${ch.data_size ? fmtSize(ch.data_size) : ""}</em></span></label>`).join("")}</div>`;
@@ -293,7 +297,8 @@ function mountCleanKind(kind, box) {
         const row = (w) => `<label class="pa-crow${S.sel.has(w.name) ? " on" : ""}">${chk(w.name, S.sel.has(w.name), false)}
           <span class="pa-crow-main"><b>${esc(w.name)}</b><span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${w.n} 条</span>${(use[w.name] || []).slice(0, 2).map((u) => `<span class="pa-chip pa-ctag-use">${esc(u)}</span>`).join("")}</span></span>
           <span class="pa-crow-size"><em>${fmtSize(w.size)}</em></span></label>`;
-        html += groups.length ? `<h3 class="pa-h">内容完全相同（${groups.length} 组）</h3>${groups.map((g) => `<div class="pa-clist pa-ck-group">${g.map(row).join("")}</div>`).join("")}` : '<p class="pa-empty">没有内容完全相同的世界书。</p>';
+        if (res.failed.length) html += `<p class="pa-warn">${res.failed.length} 本读取失败，没有参与比对：${esc(res.failed.slice(0, 4).join("、"))}${res.failed.length > 4 ? " 等" : ""}</p>`;
+        html += groups.length ? `<h3 class="pa-h">条目完全相同（${groups.length} 组）</h3><p class="pa-hint">比较每个条目的正文和全部设置（关键词、启用、概率、位置、深度等），只忽略条目编号和排列下标；世界书名称和导入来源等文件信息不比较。</p>${groups.map((g) => `<div class="pa-clist pa-ck-group">${g.map(row).join("")}</div>`).join("")}` : '<p class="pa-empty">没有条目完全相同的世界书。</p>';
         if (res.empty.length) html += `<h3 class="pa-h">没有条目的世界书（${res.empty.length}）</h3><div class="pa-clist">${res.empty.map(row).join("")}</div>`;
         html += '<p class="pa-hint">标有「绑定」「全局启用」的世界书删除后，对应的角色或聊天将失去它。</p>';
       }
@@ -312,7 +317,7 @@ function mountCleanKind(kind, box) {
         S.busy = true;
         draw();
         const names = listWorldbooks();
-        const byHash = new Map(), empty = [];
+        const byHash = new Map(), empty = [], failed = [];
         res = null;
         for (const [i, n] of names.entries()) {
           const p = box.querySelector(".pa-ck-prog");
@@ -329,9 +334,10 @@ function mountCleanKind(kind, box) {
             })));
             (byHash.get(h) || byHash.set(h, []).get(h)).push(w);
           } catch {
+            failed.push(n);
           }
         }
-        res = { byHash, empty };
+        res = { byHash, empty, failed };
         S.busy = false;
         return draw();
       }
@@ -352,9 +358,17 @@ function mountCleanKind(kind, box) {
             unread.push(n);
           }
         }
-        if (files.length) downloadBlob(makeZip(files), `worldbooks-backup-${stamp()}.zip`);
         // 没备份下来的不删
         if (unread.length) toast(`${unread.join("、")} 读取失败、没有备份下来，这些不删除`, "warning");
+        if (files.length) {
+          const fname = `worldbooks-backup-${stamp()}.zip`;
+          const zip = makeZip(files);
+          downloadBlob(zip, fname);
+          if (!await confirmDownloaded(fname, () => downloadBlob(zip, fname))) {
+            S.busy = false;
+            return draw();
+          }
+        }
         let ok = 0;
         for (const n of list.filter((x) => !unread.includes(x))) {
           try {
@@ -368,6 +382,7 @@ function mountCleanKind(kind, box) {
         if (res) {
           for (const g of res.byHash.values()) for (let i = g.length - 1; i >= 0; i--) if (!listWorldbooks().includes(g[i].name)) g.splice(i, 1);
           res.empty = res.empty.filter((w) => listWorldbooks().includes(w.name));
+          res.failed = res.failed.filter((n) => listWorldbooks().includes(n));
         }
         S.busy = false;
         if (ok) toast(`已删除 ${ok} 本世界书`, "success");

@@ -33,6 +33,10 @@ function userHandle() {
     return "default-user";
   }
 }
+// 柏宝箱在运行时，分组的「关闭」标记会在生成时挡住组内条目（它的「分组供电」）
+function groupGateActive() {
+  return !!globalThis.__baiBaiToolkitExtensionInstalled;
+}
 function ctx() {
   return globalThis.SillyTavern.getContext();
 }
@@ -95,14 +99,14 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     s.extensions = structuredClone(data.extensions || {});
     ctx().saveSettingsDebounced();
     const et2 = ctx().eventTypes || ctx().event_types;
-    // 1.3.5：百宝箱会把「当前预设」的分组缓存在内存里，只在换预设、导入、改名时才重新读。
+    // 1.3.5：柏宝箱会把「当前预设」的分组缓存在内存里，只在换预设、导入、改名时才重新读。
     // 不提醒它的话，它下一次保存会拿旧分组把刚改的盖回去（表现为：新建的分组没了，看起来像只改了个名）。
-    // 「预设导入完成」这个事件酒馆本体没人监听，百宝箱收到后只会清掉这个预设的分组缓存、重新从预设里读。
+    // 「预设导入完成」这个事件酒馆本体没人监听，柏宝箱收到后只会清掉这个预设的分组缓存、重新从预设里读。
     if (ctx().extensionSettings?.baiBaiToolkit && et2.OAI_PRESET_IMPORT_READY) {
       try {
         await ctx().eventSource.emit(et2.OAI_PRESET_IMPORT_READY, { presetName: name, data: structuredClone(data) });
       } catch (e) {
-        console.warn("[焦香鸡翅] 通知百宝箱刷新分组失败", e);
+        console.warn("[焦香鸡翅] 通知柏宝箱刷新分组失败", e);
       }
     }
     await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
@@ -324,6 +328,9 @@ async function applyConnection(site, { connect = true } = {}) {
     } else if (getLocalKey(site)) {
       const id = await mods.secrets.writeSecret(src.secret, getLocalKey(site), site.name);
       if (typeof id !== "string" || !id) throw new Error("酒馆没有保存这个密钥");
+      // 记下新编号：不记的话，每次连接都会往密钥库里再存一把同样的密钥
+      site.secretId = id;
+      ctx().saveSettingsDebounced();
     } else {
       throw new Error(`「${site.name}」的密钥在酒馆密钥库中已不存在，请重新填写`);
     }

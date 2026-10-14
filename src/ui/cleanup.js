@@ -243,7 +243,8 @@ function mountCleanup(sec) {
       busy(true, `正在归档 ${i + 1}/${names.length}：${n}`);
       let path = null;
       try {
-        if (drafts.get(n)?.dirty) await saveDraft(n, "归档前保存");
+        // 没存完的修改先存上；正在发出的保存也等它结束，读到的才是最终版本
+        await saveDraft(n, "归档前保存");
         const text = presetText(n);
         const gz = await gzipText(text);
         // 文件名带上预设名：万一设置文件里的归档清单丢了，也认得出是哪个预设
@@ -254,6 +255,8 @@ function mountCleanup(sec) {
         let back = null;
         try { back = await userFileGetText(path, !!gz); } catch (e) { throw new Error(`上传后无法读回核对（${e.message}）`); }
         if (back !== text) throw new Error("上传后读回的内容和原预设不一致");
+        await quiesceDraft(n);
+        if (presetText(n) !== text) throw new Error("归档过程中预设又被修改了，请重新归档");
         await deletePresetFile(n);
         const list = archiveList();
         const old = list.filter((x) => x.name === n);
@@ -289,14 +292,20 @@ function mountCleanup(sec) {
       actions: [{ label: "取消", value: null }, { label: "删除", kind: "danger", value: (w) => ({ zip: w.querySelector("[data-zip]").checked }) }]
     });
     if (!ok) return;
-    if (ok.zip) downloadBlob(zipOf(names), `preset-backup-${stamp()}.zip`);
+    if (ok.zip) {
+      const fname = `preset-backup-${stamp()}.zip`;
+      const zip = zipOf(names);
+      downloadBlob(zip, fname);
+      if (!await confirmDownloaded(fname, () => downloadBlob(zip, fname))) return;
+    }
     let n = 0;
     const fail = [];
     for (const [i, name] of names.entries()) {
       busy(true, `正在删除 ${i + 1}/${names.length}：${name}`);
       try {
+        // 等这个预设正在进行的保存结束，删掉之后不会再被写回来
+        await quiesceDraft(name);
         await deletePresetFile(name);
-        dropDraft(name);
         st.sel.delete(name);
         n++;
       } catch (e) {

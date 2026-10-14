@@ -1,7 +1,7 @@
-// 焦香鸡翅 1.8.0（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 焦香鸡翅 1.9.0（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.8.0";
-var CHANGELOG = "焦香鸡翅 1.8.0\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier（也可用 /焦香鸡翅）。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
+var VERSION = "1.9.0";
+var CHANGELOG = "焦香鸡翅 1.9.0\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier（也可用 /焦香鸡翅）。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.9.0\n数据安全\n- 删除世界书、扩展数据、预设前的备份是交给浏览器下载的，浏览器可能拦截或下载失败。现在下载后先停下来，确认文件已经保存再删除；可以重新下载或取消删除。\n- 预设正在自动保存时删除或归档它，会先等这次保存结束再删除，删完不会被晚到的保存写回来。\n- 关闭面板时先等正在进行的保存结束。「放弃修改」改为「放弃没存上的部分」，并说明已经自动保存的不会撤回。\n- 浏览器存储写满、需要清理旧草稿时，只清当前账号的草稿，不动同一浏览器里其他账号的。\n- 站点密钥在酒馆密钥库里没了、本浏览器里还有时，重新存进去后记下新编号，之后连接不会每次再存一把。\n\n功能\n- 方案卡片的「使用中」要求预设正在用、开关一致、人设和 API 站点也对得上；只有开关一致时标「开关一致」。\n- 分组上的「关闭」标记只有柏宝箱运行时才会挡住组内条目。没有柏宝箱时，整组开关和条目是否生效按条目自己的开关显示。\n- 世界书比对改称「条目完全相同」，写明比较范围；读取失败的世界书单独列出，不再悄悄跳过。\n- 角色卡「内容相同」改为「文字设定相同（头像图片未比较）」，并写明比较了哪些内容。\n- 扩展数据「多半是卸载残留」改为「疑似卸载残留，删除前请核对」：没找到使用者不等于可以安全删除。\n- 1.8.0 误把「柏宝箱」改成了「百宝箱」，改回「柏宝箱」。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -95,6 +95,22 @@ async function confirmBox(title, text, okLabel = "确定", danger = false) {
   const r = await sheet({ title, body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: "取消", value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
   return !!r;
 }
+// 删除前的备份是交给浏览器下载的：浏览器可能弹窗询问、被拦截或下载失败，这里没法知道文件是否真的存到了本地。
+// 所以下载之后先停一下，由用户确认文件已经保存，再继续删除。返回 true 才删。
+async function confirmDownloaded(fileName, redownload) {
+  for (;;) {
+    const v = await sheet({
+      title: "确认备份已保存",
+      body: `<p class="pa-p">已让浏览器下载「${esc(fileName)}」。浏览器可能会询问、拦截或下载失败，请先在浏览器的下载记录里确认文件已经保存，再继续删除。</p>`,
+      actions: [{ label: "取消删除", value: null }, { label: "重新下载", value: "redo" }, { label: "已保存，继续删除", kind: "danger", value: "ok" }]
+    });
+    if (v === "redo") {
+      redownload();
+      continue;
+    }
+    return v === "ok";
+  }
+}
 async function promptBox(title, value = "", placeholder = "") {
   return sheet({
     title,
@@ -177,6 +193,10 @@ function userHandle() {
     return "default-user";
   }
 }
+// 柏宝箱在运行时，分组的「关闭」标记会在生成时挡住组内条目（它的「分组供电」）
+function groupGateActive() {
+  return !!globalThis.__baiBaiToolkitExtensionInstalled;
+}
 function ctx() {
   return globalThis.SillyTavern.getContext();
 }
@@ -239,14 +259,14 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     s.extensions = structuredClone(data.extensions || {});
     ctx().saveSettingsDebounced();
     const et2 = ctx().eventTypes || ctx().event_types;
-    // 1.3.5：百宝箱会把「当前预设」的分组缓存在内存里，只在换预设、导入、改名时才重新读。
+    // 1.3.5：柏宝箱会把「当前预设」的分组缓存在内存里，只在换预设、导入、改名时才重新读。
     // 不提醒它的话，它下一次保存会拿旧分组把刚改的盖回去（表现为：新建的分组没了，看起来像只改了个名）。
-    // 「预设导入完成」这个事件酒馆本体没人监听，百宝箱收到后只会清掉这个预设的分组缓存、重新从预设里读。
+    // 「预设导入完成」这个事件酒馆本体没人监听，柏宝箱收到后只会清掉这个预设的分组缓存、重新从预设里读。
     if (ctx().extensionSettings?.baiBaiToolkit && et2.OAI_PRESET_IMPORT_READY) {
       try {
         await ctx().eventSource.emit(et2.OAI_PRESET_IMPORT_READY, { presetName: name, data: structuredClone(data) });
       } catch (e) {
-        console.warn("[焦香鸡翅] 通知百宝箱刷新分组失败", e);
+        console.warn("[焦香鸡翅] 通知柏宝箱刷新分组失败", e);
       }
     }
     await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
@@ -468,6 +488,9 @@ async function applyConnection(site, { connect = true } = {}) {
     } else if (getLocalKey(site)) {
       const id = await mods.secrets.writeSecret(src.secret, getLocalKey(site), site.name);
       if (typeof id !== "string" || !id) throw new Error("酒馆没有保存这个密钥");
+      // 记下新编号：不记的话，每次连接都会往密钥库里再存一把同样的密钥
+      site.secretId = id;
+      ctx().saveSettingsDebounced();
     } else {
       throw new Error(`「${site.name}」的密钥在酒馆密钥库中已不存在，请重新填写`);
     }
@@ -879,9 +902,18 @@ var Draft = class {
     if (!o || o.enabled === false) return false;
     const p = this.prompt(id);
     if (!p) return false;
+    // 分组上的「关闭」标记只有柏宝箱在运行时才会挡住组内条目（它在生成时过滤）；没有柏宝箱时酒馆只看条目自己的开关
     const gid = this.groupOf(id);
-    if (gid && this.group(gid)?.enabled === false) return false;
+    if (gid && this.groupGate !== false && this.group(gid)?.enabled === false) return false;
     return true;
+  }
+  /** 分组整组是否算关着：有柏宝箱时看分组标记；没有时看组内是不是一条都没开 */
+  groupOff(gid) {
+    const g = this.group(gid);
+    if (!g) return false;
+    if (this.groupGate !== false && g.enabled === false) return true;
+    const members = this.order.filter((o) => this.groupOf(o.identifier) === gid);
+    return members.length > 0 && members.every((o) => o.enabled === false);
   }
   /** 整份换成另一个版本（恢复备份、恢复草稿）。分组格式等读入时的信息也一起换 */
   replaceWith(preset) {
@@ -1168,7 +1200,7 @@ var Draft = class {
     this.groups.groups = this.groups.groups.filter((g) => g.id !== gid);
   }
   /**
-   * 整组开关：同时改组内条目自己的开关（酒馆只看条目开关，分组上的标记只有百宝箱认）。
+   * 整组开关：同时改组内条目自己的开关（酒馆只看条目开关，分组上的标记只有柏宝箱认）。
    * 关组时记下原来开着的条目，再开组时只开回这些。
    */
   setGroupEnabled(gid, on) {
@@ -1232,7 +1264,7 @@ var Draft = class {
     for (const o of this.order) if (set.has(o.identifier)) o.enabled = !!on;
   }
   /**
-   * 1.7.5 双层分组：预设里同时存了百宝箱分组和 entryGrouping，而 entryGrouping 里的分组与百宝箱分组同名、成员也在其中，
+   * 1.7.5 双层分组：预设里同时存了柏宝箱分组和 entryGrouping，而 entryGrouping 里的分组与柏宝箱分组同名、成员也在其中，
    * 两个插件各显示一层，看起来像分组里又套了一层同名分组。返回这些重复的 entryGrouping 分组。
    */
   dupEntryGroups() {
@@ -1309,8 +1341,8 @@ var Draft = class {
     for (const k of Object.keys(groups.prompts)) if (!inOrder.has(k)) delete groups.prompts[k];
     const hasGroups = groups.groups.length > 0;
     // 1.1.3：分组按"读进来时的格式"写回，只写一种。
-    // 旧版本会把百宝箱分组再镜像一份到 entryGrouping，两个插件同时显示时，
-    // 百宝箱分组里就会再套一层同名分组；用户解除后，下次保存又被写回来。
+    // 旧版本会把柏宝箱分组再镜像一份到 entryGrouping，两个插件同时显示时，
+    // 柏宝箱分组里就会再套一层同名分组；用户解除后，下次保存又被写回来。
     const useEntryGrouping = this.hadEntryGrouping && !this.hadBaibai;
     if (useEntryGrouping) {
       const pos = new Map(order.map((o, i) => [o.identifier, i]));
@@ -1330,7 +1362,7 @@ var Draft = class {
         ext.baibaiToolkit.presetPromptGroups = groups;
       }
       if (Array.isArray(ext.entryGrouping)) {
-        // 去掉和百宝箱分组同 id 的镜像、同名且成员相同的重复分组（1.7.5），以及成员已经不存在的旧分组；别的插件自己建的分组保留
+        // 去掉和柏宝箱分组同 id 的镜像、同名且成员相同的重复分组（1.7.5），以及成员已经不存在的旧分组；别的插件自己建的分组保留
         const dupKeys = new Set(this.dupEntryGroups().map((g) => `${g.id}|${g.name}`));
         ext.entryGrouping = ext.entryGrouping.filter((g) => !g || !dupKeys.has(`${g.id}|${g.name}`));
         const mirror = new Set([...(this.loadedGroupIds || []), ...groups.groups.map((g) => g.id)]);
@@ -1415,9 +1447,11 @@ function checkpoint(d) {
   try { text = JSON.stringify({ preset: d.toPreset(), baseSig: d.savedSig || null, history: [], time: Date.now() }); } catch { return; }
   try { localStorage.setItem(key, text); return; } catch {}
   try {
+    // 只清当前账号（和旧版不分账号）的草稿，别的账号的草稿留着
+    const mine = `presetAtelier:recovery:v180:${userHandle()}:`;
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k !== key && k.startsWith("presetAtelier:recovery:") && !drafts.get(recoveryName(k))?.dirty) localStorage.removeItem(k);
+      if (k && k !== key && (k.startsWith(mine) || k.startsWith("presetAtelier:recovery:v110:")) && !drafts.get(recoveryName(k))?.dirty) localStorage.removeItem(k);
     }
     localStorage.setItem(key, text);
   } catch {
@@ -1549,6 +1583,7 @@ function presetSig(p) {
 // 让核心逻辑（缝合、接入思维链）也认得「思维链」页里手动指定的思维链
 function attachCotManual(d) {
   Object.defineProperty(d, "cotManual", { configurable: true, get: () => settings().cotManual?.[d.name] || {} });
+  Object.defineProperty(d, "groupGate", { configurable: true, get: groupGateActive });
   return d;
 }
 function getDraft(name, { fresh = false } = {}) {
@@ -1617,7 +1652,20 @@ function dropDraft(name) {
   clearTimeout(autoTimers.get(name)); autoTimers.delete(name);
   saveBlocked.delete(name);
   saveErrors.delete(name);
+  pendingAsks.delete(name);
   removeRecovery(name);
+}
+// 删除、归档预设之前：取消还没发出的自动保存，等已经发出的保存结束，再丢掉草稿。
+// 否则删完之后，晚到的保存会把预设文件重新写回服务器。
+// 已经发出的请求撤不回来，只能等它结束；返回 false 表示那次保存失败了（预设仍是之前的样子）。
+async function quiesceDraft(name) {
+  clearTimeout(autoTimers.get(name)); autoTimers.delete(name);
+  let ok = true;
+  while (saveJobs.has(name)) {
+    try { await saveJobs.get(name); } catch { ok = false; }
+  }
+  dropDraft(name);
+  return ok;
 }
 function dropClean() {
   for (const [n, d] of drafts) {
@@ -2390,12 +2438,12 @@ function renderList(draft, o) {
     const caret = place || o.mode === "target";
     const startSlot = inside && !isCol && b.part === 1 ? atStart ? mark : `<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(b.groupId)}">${b.empty ? "↓ 放入此组" : "↑ 组内最前"}</button>` : "";
     const emptyNote = b.empty && !startSlot ? '<p class="pa-gempty">空分组</p>' : "";
-    html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${g?.enabled === false ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
+    html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${draft.groupOff(b.groupId) ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}" tabindex="0">
                 ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
                 <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>
                 ${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
-                ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false || !onCount ? "" : "checked"}><i></i></label>
+                ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${draft.groupOff(b.groupId) || !onCount ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
                 <span class="pa-handle" data-act="gdrag" aria-label="拖动分组">${ICON.grip}</span>` : ""}
             </header>
@@ -2829,7 +2877,7 @@ function mountOrganize(page) {
     const top = list.scrollTop;
     // 1.7.5 双层分组提示
     const dups = placing ? [] : d.dupEntryGroups();
-    const dupBanner = dups.length ? `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>这个预设的分组存了两份，所以每个分组里又套了一层同名分组。</b></p><small>预设里同时有百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。共 ${dups.length} 个分组重复：${esc(dups.slice(0, 4).map((g) => g.name).join("、"))}${dups.length > 4 ? " 等" : ""}。去掉重复的一层后，条目和分组都不变。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">去掉重复的一层</button></div></div>` : "";
+    const dupBanner = dups.length ? `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>这个预设的分组存了两份，所以每个分组里又套了一层同名分组。</b></p><small>预设里同时有柏宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。共 ${dups.length} 个分组重复：${esc(dups.slice(0, 4).map((g) => g.name).join("、"))}${dups.length > 4 ? " 等" : ""}。去掉重复的一层后，条目和分组都不变。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="fix">去掉重复的一层</button></div></div>` : "";
     list.innerHTML = dupBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, highlight: st.highlight });
     list.scrollTop = top;
     list.classList.toggle("pa-placing", placing);
@@ -5948,9 +5996,12 @@ function mountSchemes(page, { after } = {}) {
   function card(s, d) {
     const bound = boundSchemeId() === s.id;
     const scope = s.scope === "all" ? "全部条目" : `${s.scope.map((g) => d?.group(g)?.name).filter(Boolean).slice(0, 4).join("、")}${s.scope.length > 4 ? ` 等 ${s.scope.length} 个分组` : ""}`;
-    const on = d && s.preset === d.name && schemeMatches(d, s);
+    // 「使用中」要和酒馆实际生效的一致：预设正在用、开关一致、人设和 API 站点也对得上。只有开关一致时标「开关一致」
+    const switchesOk = !!d && s.preset === d.name && schemeMatches(d, s);
+    const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
+    const on = switchesOk && currentPresetName() === s.preset && (!s.persona || currentPersona() === s.persona) && (!site || !siteDiffers(site));
     return `<article class="pa-card pa-scheme${on ? " pa-scheme-on" : ""}" data-id="${esc(s.id)}">
-            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">已绑定本聊天</span>' : ""}</header>
+            <header><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? '<span class="pa-chip pa-chip-cot">已绑定本聊天</span>' : ""}</header>
             <small>${esc(s.preset)}${!listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset) ? "（已归档，套用时自动恢复）" : ""} \xB7 ${esc(scope)} \xB7 开启 ${Object.values(s.states).filter(Boolean).length} 条${s.persona ? ` \xB7 人设 ${esc(s.personaName || s.persona)}` : ""}${s.siteId ? ` \xB7 API ${esc(settings().sites.find((x) => x.id === s.siteId)?.name || "（站点已删除）")}` : ""}</small>
             <div class="pa-card-act">
                 <button class="pa-btn pa-btn-primary" data-a="apply">套用</button>
@@ -6682,7 +6733,7 @@ function categorize(url) {
   if (u.origin !== location.origin) return { cat: `外部：${u.host}`, key: `ext:${u.host}` };
   let m = /\/scripts\/extensions\/third-party\/([^/]+)\//.exec(p);
   if (m) return { cat: `扩展「${m[1]}」`, key: `tp:${m[1]}`, ext: m[1] };
-  // 1.5.0：百宝箱等扩展会用自己的接口代替 /api/settings/get，下载的是同一份数据
+  // 1.5.0：柏宝箱等扩展会用自己的接口代替 /api/settings/get，下载的是同一份数据
   if (/\/api\/settings\/get|\/settings\/fast-get/.test(p)) return { cat: "设置与全部预设", key: "settings" };
   if (/\/api\/settings\/save|\/settings\/fast-save/.test(p)) return { cat: "保存设置", key: "settingsSave" };
   if (/\/api\/characters\/(all|get)/.test(p)) return { cat: "角色列表", key: "chars" };
@@ -6797,7 +6848,7 @@ async function collectHealth() {
   const MB = 1024 * 1024;
   const bw = out.bandwidth;
   const sec = (bytes) => bw ? fmtMs(bytes / bw * 1000) : null;
-  if (out.settingsCount > 1) out.warn.push({ t: `「设置与全部预设」本次下载了 ${out.settingsCount} 次（共 ${fmtSize(out.settingsBytes)}）。`, d: "正常只需下载一次。常见原因是同时开启了两个「启动加速」类功能，例如百宝箱的「Settings get/save 加速」和鸡尾酒的「启动加载优化」，保留其中一个即可；两个都关闭时，酒馆本身也可能下载两次。" });
+  if (out.settingsCount > 1) out.warn.push({ t: `「设置与全部预设」本次下载了 ${out.settingsCount} 次（共 ${fmtSize(out.settingsBytes)}）。`, d: "正常只需下载一次。常见原因是同时开启了两个「启动加速」类功能，例如柏宝箱的「Settings get/save 加速」和鸡尾酒的「启动加载优化」，保留其中一个即可；两个都关闭时，酒馆本身也可能下载两次。" });
   // 预设在设置下载里大约占多少（按未压缩大小的比例估算）
   const est = wireEstimate(out.presetTotal);
   const byApi = out.presetByApi.length > 1 ? `（${out.presetByApi.map((x) => `${x.label} ${x.n} 个 ${fmtSize(x.size)}`).join("，")}）` : `（${out.presets.length} 个）`;
@@ -7164,7 +7215,8 @@ function mountCleanup(sec) {
       busy(true, `正在归档 ${i + 1}/${names.length}：${n}`);
       let path = null;
       try {
-        if (drafts.get(n)?.dirty) await saveDraft(n, "归档前保存");
+        // 没存完的修改先存上；正在发出的保存也等它结束，读到的才是最终版本
+        await saveDraft(n, "归档前保存");
         const text = presetText(n);
         const gz = await gzipText(text);
         // 文件名带上预设名：万一设置文件里的归档清单丢了，也认得出是哪个预设
@@ -7175,6 +7227,8 @@ function mountCleanup(sec) {
         let back = null;
         try { back = await userFileGetText(path, !!gz); } catch (e) { throw new Error(`上传后无法读回核对（${e.message}）`); }
         if (back !== text) throw new Error("上传后读回的内容和原预设不一致");
+        await quiesceDraft(n);
+        if (presetText(n) !== text) throw new Error("归档过程中预设又被修改了，请重新归档");
         await deletePresetFile(n);
         const list = archiveList();
         const old = list.filter((x) => x.name === n);
@@ -7210,14 +7264,20 @@ function mountCleanup(sec) {
       actions: [{ label: "取消", value: null }, { label: "删除", kind: "danger", value: (w) => ({ zip: w.querySelector("[data-zip]").checked }) }]
     });
     if (!ok) return;
-    if (ok.zip) downloadBlob(zipOf(names), `preset-backup-${stamp()}.zip`);
+    if (ok.zip) {
+      const fname = `preset-backup-${stamp()}.zip`;
+      const zip = zipOf(names);
+      downloadBlob(zip, fname);
+      if (!await confirmDownloaded(fname, () => downloadBlob(zip, fname))) return;
+    }
     let n = 0;
     const fail = [];
     for (const [i, name] of names.entries()) {
       busy(true, `正在删除 ${i + 1}/${names.length}：${name}`);
       try {
+        // 等这个预设正在进行的保存结束，删掉之后不会再被写回来
+        await quiesceDraft(name);
         await deletePresetFile(name);
-        dropDraft(name);
         st.sel.delete(name);
         n++;
       } catch (e) {
@@ -7422,7 +7482,8 @@ function mountCleanKind(kind, box) {
         else if (users?.length) [state, label] = ["used", `检测：${users.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}${users.some((x) => !x.enabled) ? "（已停用）" : ""}在用`];
         else if (scan && owner?.ext) [state, label] = ["maybe", `检测：未找到使用者，但名称像「${owner.ext.manifest?.display_name || owner.ext.base}」，请确认`];
         else if (scan && scan.partial.length) [state, label] = ["maybe", `检测：未找到使用者，但「${scan.partial.map((x) => x.manifest?.display_name || x.base).slice(0, 2).join("、")}」没有查完，请确认`];
-        else if (scan) [state, label] = ["orphan", "检测：已安装扩展的代码里没找到它，多半是卸载残留"];
+        // 没找到使用者不等于可以安全删除（扩展可能用拼出来的名字读数据），只标为「疑似残留」，删前由用户核对
+        else if (scan) [state, label] = ["orphan", "检测：已安装扩展的代码里没找到它，疑似卸载残留，删除前请核对"];
         else if (owner?.ext) [state, label] = ["used", `推测属于：${owner.ext.manifest?.display_name || owner.ext.base}${owner.ext.enabled ? "" : "（已停用）"}`];
         else [state, label] = ["maybe", "可能已卸载"];
         return { k, size, state, label };
@@ -7481,7 +7542,10 @@ function mountCleanKind(kind, box) {
         if (!keys.length) return;
         if (!await confirmBox("删除扩展数据", `将从设置文件中删除 ${keys.length} 项数据：${keys.slice(0, 5).join("、")}${keys.length > 5 ? " 等" : ""}。删除前会先下载备份。如果对应的扩展其实还在使用，它会恢复成默认设置。`, "下载备份并删除", true)) return;
         const es = ctx().extensionSettings;
-        downloadBlob(new Blob([JSON.stringify(Object.fromEntries(keys.map((k) => [k, es[k]])), null, 2)], { type: "application/json" }), `extension-data-backup-${stamp()}.json`);
+        const fname = `extension-data-backup-${stamp()}.json`;
+        const blob = new Blob([JSON.stringify(Object.fromEntries(keys.map((k) => [k, es[k]])), null, 2)], { type: "application/json" });
+        downloadBlob(blob, fname);
+        if (!await confirmDownloaded(fname, () => downloadBlob(blob, fname))) return;
         for (const k of keys) {
           delete es[k];
           S.sel.delete(k);
@@ -7519,13 +7583,13 @@ function mountCleanKind(kind, box) {
       const pickList = chars.filter((ch) => S.sel.has(ch.avatar));
       box.innerHTML = `
         <div class="pa-verdict"><p>共 ${chars.length} 张角色卡，${dups.length ? `其中 <b>${dups.length}</b> 组同名` : "没有同名的角色卡"}。角色列表每次打开酒馆都要下载，删除重复的角色卡能减少一些。</p>
-          <p class="pa-hint">删除角色卡时保留聊天记录（服务器上的聊天文件不删）。正在聊天的角色卡不能勾选。</p></div>
+          <p class="pa-hint">「文字设定相同」比较的是描述、性格、场景、开场白、示例对话、角色书、标签等文字内容，不比较头像图片。删除角色卡时保留聊天记录（服务器上的聊天文件不删）。正在聊天的角色卡不能勾选。</p></div>
         ${dups.map((g) => {
           const prints = g.map(fp);
           const unknown = prints.some((x) => x == null);
           const same = !unknown && new Set(prints).size === 1;
           const keep = g.reduce((a, b) => (Number(b.date_last_chat) || 0) > (Number(a.date_last_chat) || 0) ? b : a);
-          return `<h3 class="pa-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "内容相同" : unknown ? "同名，未加载完整内容，无法比较" : "同名，内容不同"}</span></h3>
+          return `<h3 class="pa-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "文字设定相同（头像图片未比较）" : unknown ? "同名，未加载完整内容，无法比较" : "同名，文字设定不同"}</span></h3>
           <div class="pa-clist">${g.map((ch) => `<label class="pa-crow${S.sel.has(ch.avatar) ? " on" : ""}${ch.avatar === cur ? " pa-locked" : ""}">${chk(ch.avatar, S.sel.has(ch.avatar), ch.avatar === cur)}
             <span class="pa-crow-main"><b>${esc(ch.avatar)}</b><span class="pa-crow-tags">${ch.avatar === cur ? '<span class="pa-chip pa-chip-cot">正在聊天</span>' : ""}${ch === keep && ch.date_last_chat ? '<span class="pa-chip pa-ctag-use">最近聊过</span>' : ""}${ch.date_last_chat ? `<span class="pa-chip pa-chip-dim">${relDay(Number(ch.date_last_chat)).replace("用过", "聊过")}</span>` : '<span class="pa-chip pa-chip-dim">没有聊过</span>'}${ch.chat_size ? `<span class="pa-chip pa-chip-dim">聊天 ${fmtSize(ch.chat_size)}</span>` : ""}</span></span>
             <span class="pa-crow-size"><em>${ch.data_size ? fmtSize(ch.data_size) : ""}</em></span></label>`).join("")}</div>`;
@@ -7589,7 +7653,8 @@ function mountCleanKind(kind, box) {
         const row = (w) => `<label class="pa-crow${S.sel.has(w.name) ? " on" : ""}">${chk(w.name, S.sel.has(w.name), false)}
           <span class="pa-crow-main"><b>${esc(w.name)}</b><span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${w.n} 条</span>${(use[w.name] || []).slice(0, 2).map((u) => `<span class="pa-chip pa-ctag-use">${esc(u)}</span>`).join("")}</span></span>
           <span class="pa-crow-size"><em>${fmtSize(w.size)}</em></span></label>`;
-        html += groups.length ? `<h3 class="pa-h">内容完全相同（${groups.length} 组）</h3>${groups.map((g) => `<div class="pa-clist pa-ck-group">${g.map(row).join("")}</div>`).join("")}` : '<p class="pa-empty">没有内容完全相同的世界书。</p>';
+        if (res.failed.length) html += `<p class="pa-warn">${res.failed.length} 本读取失败，没有参与比对：${esc(res.failed.slice(0, 4).join("、"))}${res.failed.length > 4 ? " 等" : ""}</p>`;
+        html += groups.length ? `<h3 class="pa-h">条目完全相同（${groups.length} 组）</h3><p class="pa-hint">比较每个条目的正文和全部设置（关键词、启用、概率、位置、深度等），只忽略条目编号和排列下标；世界书名称和导入来源等文件信息不比较。</p>${groups.map((g) => `<div class="pa-clist pa-ck-group">${g.map(row).join("")}</div>`).join("")}` : '<p class="pa-empty">没有条目完全相同的世界书。</p>';
         if (res.empty.length) html += `<h3 class="pa-h">没有条目的世界书（${res.empty.length}）</h3><div class="pa-clist">${res.empty.map(row).join("")}</div>`;
         html += '<p class="pa-hint">标有「绑定」「全局启用」的世界书删除后，对应的角色或聊天将失去它。</p>';
       }
@@ -7608,7 +7673,7 @@ function mountCleanKind(kind, box) {
         S.busy = true;
         draw();
         const names = listWorldbooks();
-        const byHash = new Map(), empty = [];
+        const byHash = new Map(), empty = [], failed = [];
         res = null;
         for (const [i, n] of names.entries()) {
           const p = box.querySelector(".pa-ck-prog");
@@ -7625,9 +7690,10 @@ function mountCleanKind(kind, box) {
             })));
             (byHash.get(h) || byHash.set(h, []).get(h)).push(w);
           } catch {
+            failed.push(n);
           }
         }
-        res = { byHash, empty };
+        res = { byHash, empty, failed };
         S.busy = false;
         return draw();
       }
@@ -7648,9 +7714,17 @@ function mountCleanKind(kind, box) {
             unread.push(n);
           }
         }
-        if (files.length) downloadBlob(makeZip(files), `worldbooks-backup-${stamp()}.zip`);
         // 没备份下来的不删
         if (unread.length) toast(`${unread.join("、")} 读取失败、没有备份下来，这些不删除`, "warning");
+        if (files.length) {
+          const fname = `worldbooks-backup-${stamp()}.zip`;
+          const zip = makeZip(files);
+          downloadBlob(zip, fname);
+          if (!await confirmDownloaded(fname, () => downloadBlob(zip, fname))) {
+            S.busy = false;
+            return draw();
+          }
+        }
         let ok = 0;
         for (const n of list.filter((x) => !unread.includes(x))) {
           try {
@@ -7664,6 +7738,7 @@ function mountCleanKind(kind, box) {
         if (res) {
           for (const g of res.byHash.values()) for (let i = g.length - 1; i >= 0; i--) if (!listWorldbooks().includes(g[i].name)) g.splice(i, 1);
           res.empty = res.empty.filter((w) => listWorldbooks().includes(w.name));
+          res.failed = res.failed.filter((n) => listWorldbooks().includes(n));
         }
         S.busy = false;
         if (ok) toast(`已删除 ${ok} 本世界书`, "success");
@@ -7963,6 +8038,10 @@ function onRootKey(e) {
   close();
 }
 async function close({ fromBack = false } = {}) {
+  // 已经发出的保存撤不回来：先等它们结束，再看还剩哪些没存上
+  if (saveJobs.size) {
+    for (const job of [...saveJobs.values()]) { try { await job; } catch {} }
+  }
   const dirty = dirtyDrafts().filter((d) => !saveBlocked.has(d.name));
   const blocked = dirtyDrafts().filter((d) => saveBlocked.has(d.name));
   if (blocked.length) {
@@ -7974,8 +8053,8 @@ async function close({ fromBack = false } = {}) {
     if (fromBack) pushBackState();
     const r = await sheet({
       title: "有未保存的修改",
-      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有未保存的修改。</p>`,
-      actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃修改", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
+      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有还没存上的修改。</p><p class="pa-hint">「放弃」只丢掉还没存上的部分；之前已经自动保存的修改不会撤回，需要时可在顶栏的备份里恢复到修改前。</p>`,
+      actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃没存上的部分", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
     });
     if (!r) return;
     if (r === "drop") dirty.forEach((d) => dropDraft(d.name));
