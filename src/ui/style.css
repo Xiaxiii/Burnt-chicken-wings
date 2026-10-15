@@ -1105,3 +1105,19 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-npick-extra { flex: none; white-space: nowrap; }
 #pa-root .pa-npick-extra.on { opacity: .55; }
 #pa-root .pa-srow-main small.pa-srow-api { margin-top: -2px; }
+/* 1.9.6 缝合页 🔍 搜索条目 */
+#pa-root .pa-qbtn { flex: none; font-size: .95em; }
+#pa-root .pa-qbtn[hidden] { display: none; }
+#pa-root .pa-ssearch { display: flex; flex-direction: column; gap: 6px; }
+#pa-root .pa-ss-hint { margin: 0; }
+#pa-root .pa-ss-hint b { color: var(--pa-text); }
+#pa-root .pa-ss-list { display: flex; flex-direction: column; gap: 6px; }
+#pa-root .pa-ss-item { display: flex; align-items: flex-start; gap: 8px; text-align: left; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); color: var(--pa-text); cursor: pointer; width: 100%; }
+#pa-root .pa-ss-item.on { border-color: var(--pa-thread); background: var(--pa-sel); }
+#pa-root .pa-ss-item.pa-off .pa-ss-main b { opacity: .6; }
+#pa-root .pa-ss-check { flex: none; width: 20px; height: 20px; margin-top: 1px; border: 1.5px solid var(--pa-line); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: .78em; color: var(--pa-thread); }
+#pa-root .pa-ss-item.on .pa-ss-check { border-color: var(--pa-thread); }
+#pa-root .pa-ss-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+#pa-root .pa-ss-main b { font-weight: 600; overflow-wrap: anywhere; }
+#pa-root .pa-ss-main small { color: var(--pa-dim); font-size: .8em; overflow-wrap: anywhere; }
+#pa-root .pa-ss-snip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

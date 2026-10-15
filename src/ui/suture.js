@@ -34,6 +34,7 @@ function mountSuture(page, app) {
             <div class="pa-pane-head pa-fromto"><b class="pa-ft">从</b>
                 <button class="pa-typebtn" data-st="srctype" type="button" aria-label="来源类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-src-pick"></div>
+                <button class="pa-icon-btn pa-qbtn" data-st="srcsearch" aria-label="搜索来源条目" title="搜索条目">🔍</button>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
             <div class="pa-scroll pa-src-list"></div>
@@ -44,6 +45,7 @@ function mountSuture(page, app) {
                 <button class="pa-typebtn" data-st="dsttype" type="button" aria-label="目标类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-dst-picker"></div>
                 <div class="pa-dst-wbslot" hidden></div>
+                <button class="pa-icon-btn pa-qbtn" data-st="dstsearch" aria-label="搜索目标条目" title="搜索条目">🔍</button>
             </div>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
@@ -122,6 +124,7 @@ function mountSuture(page, app) {
   }
   function renderSrcPick() {
     paintSrcHead();
+    page.querySelector('[data-st="srcsearch"]').hidden = st.srcType === "paste";
     if (st.srcType === "preset") {
       const names = listPresets();
       if (!st.srcPreset || !names.includes(st.srcPreset)) st.srcPreset = names.find((n) => n !== focusPreset()) || names[0];
@@ -408,6 +411,119 @@ function mountSuture(page, app) {
     st.marker = m;
     renderDst();
   });
+  // ---- 🔍 搜索条目：点放大镜直接弹出搜索窗，边打边出结果；搜过的词记着，下次点开还在
+  // 来源：点结果＝选中/取消（窗口不关，可以连着选）；目标：点结果＝缝合位置定在它后面，并滚到那一条
+  function searchItems(d) {
+    return d.order.filter((o) => !d.isMarker(o.identifier)).map((o) => {
+      const id = o.identifier, p = d.prompt(id) || {};
+      const g = d.groupOf(id);
+      return { id, name: p.name || id, group: g ? d.group(g)?.name || "" : "", tag: tagText(d, id), content: String(p.content || ""), off: o.enabled === false };
+    });
+  }
+  function searchSheet({ title, key, items, hint, isPicked, onPick, keepOpen }) {
+    const body = el(`<div class="pa-ssearch">
+        <input class="pa-input pa-ss-q" type="search" placeholder="🔍 搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off" enterkeyhint="search">
+        <p class="pa-hint pa-ss-hint"></p>
+        <div class="pa-ss-list"></div></div>`);
+    const q = body.querySelector(".pa-ss-q");
+    const box = body.querySelector(".pa-ss-list");
+    const hintEl = body.querySelector(".pa-ss-hint");
+    // 搜过的词存进设置：关掉面板、刷新页面后再点放大镜还在
+    if (!settings().sutureQuery || typeof settings().sutureQuery !== "object") settings().sutureQuery = {};
+    const saved = settings().sutureQuery;
+    q.value = saved[key] || "";
+    let hits = [];
+    const paint = () => {
+      const k = q.value.trim().toLowerCase();
+      saved[key] = q.value.trim();
+      if (!k) {
+        hits = [];
+        hintEl.textContent = hint;
+        box.innerHTML = "";
+        return;
+      }
+      const head = [], bodyHits = [];
+      for (const it of items()) {
+        if ([it.name, it.group, it.tag].some((x) => String(x || "").toLowerCase().includes(k))) head.push({ it });
+        else {
+          const i = it.content.toLowerCase().indexOf(k);
+          if (i >= 0) bodyHits.push({ it, i });
+        }
+      }
+      hits = [...head, ...bodyHits];
+      hintEl.innerHTML = hits.length ? `名称里有 <b>${head.length}</b> 条，只在正文里有 <b>${bodyHits.length}</b> 条。${esc(hint)}` : "没有找到";
+      const row = ({ it, i }, n) => `<button class="pa-ss-item${isPicked?.(it.id) ? " on" : ""}${it.off ? " pa-off" : ""}" type="button" data-n="${n}">
+          ${isPicked ? `<span class="pa-ss-check" aria-hidden="true">${isPicked(it.id) ? "✓" : ""}</span>` : ""}
+          <span class="pa-ss-main"><b>${markText(it.name, k)}</b>${it.group ? `<small>分组：${markText(it.group, k)}</small>` : ""}${it.tag ? `<small>标签：${markText(it.tag, k)}</small>` : ""}${i !== void 0 ? `<small class="pa-ss-snip">正文：${hitSnippet(it.content, i, k.length)}</small>` : ""}</span></button>`;
+      box.innerHTML = hits.slice(0, 300).map(row).join("") + (hits.length > 300 ? `<p class="pa-hint">只显示前 300 条，请再输入几个字缩小范围</p>` : "");
+    };
+    paint();
+    return sheet({ title, body, wide: true, focusInput: true, actions: [], onMount: (w) => {
+      q.addEventListener("input", paint);
+      w.addEventListener("pa-closed", () => saveSettings());
+      box.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-n]");
+        if (!b) return;
+        onPick(hits[Number(b.dataset.n)].it);
+        if (keepOpen) paint();
+        else w.querySelector(".pa-sheet-x").click();
+      });
+    } });
+  }
+  async function searchSrc() {
+    const kind = srcList.dataset.kind;
+    if (kind === "paste") return;
+    if (kind === "world") {
+      await searchSheet({
+        title: `搜索「${st.srcWorld || "世界书"}」`, key: "qSrc", keepOpen: true,
+        hint: "点一条选中或取消，可以连着选。",
+        items: () => (srcList._items || []).map((it) => ({ id: it.id, name: it.name, group: "", tag: "", content: String(it.content || ""), off: !it.enabled })),
+        isPicked: (id) => st.picked.has(id),
+        onPick: (x) => {
+          const it = srcList._items.find((y) => y.id === x.id);
+          st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: `世界书 ${st.srcWorld}`, raw: it.raw });
+        }
+      });
+      return renderSrc();
+    }
+    const d = srcList._draft;
+    if (!d) return;
+    await searchSheet({
+      title: `搜索「${d.name}」`, key: "qSrc", keepOpen: true,
+      hint: "点一条选中或取消，可以连着选。",
+      items: () => searchItems(d),
+      isPicked: (id) => st.picked.has(srcList._keyOf(id)),
+      onPick: (it) => {
+        const k = srcList._keyOf(it.id);
+        const p = d.prompt(it.id);
+        st.picked.has(k) ? st.picked.delete(k) : st.picked.set(k, { name: p.name, content: p.content, prompt: p, from: d.name, srcDraft: d, srcId: it.id });
+      }
+    });
+    renderSrc();
+  }
+  async function searchDst() {
+    const world = st.dstType === "world";
+    let d = null;
+    try { d = world ? st.wbDraft : target(); } catch {}
+    if (!d) return;
+    await searchSheet({
+      title: `搜索「${d.name}」`, key: world ? "qDstWb" : "qDst",
+      hint: "点一条，缝合位置就定在它后面。",
+      items: () => searchItems(d),
+      onPick: (it) => {
+        const gid = d.groupOf(it.id);
+        if (world) st.wbMarker = { at: "row", id: it.id };
+        else {
+          st.marker = { at: "row", id: it.id };
+          if (gid) st.dstCollapsed.delete(gid);
+        }
+        st.highlight = new Set([it.id]);
+        renderDst();
+        setTimeout(() => dstList.querySelector(".pa-flash")?.scrollIntoView({ block: "center" }), 0);
+        setTimeout(() => { st.highlight = null; }, 1500);
+      }
+    });
+  }
   function renderBar() {
     const n = st.picked.size;
     let d = null;
@@ -440,6 +556,8 @@ function mountSuture(page, app) {
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
     if (a === "migrate") migrate();
     if (a === "picked") return pickedSheet();
+    if (a === "srcsearch") return searchSrc();
+    if (a === "dstsearch") return searchDst();
     if (a === "srctype") return setSrcType(await pickName({ title: "从哪里缝", current: st.srcType, search: false, items: SRC_TYPES.map(([k, l]) => ({ value: k, label: l })) }));
     if (a === "dsttype") return setDstType(await pickName({ title: "缝到哪里", current: st.dstType, search: false, items: [{ value: "preset", label: "预设" }, { value: "world", label: "世界书" }] }));
     if (a === "srcmenu") {

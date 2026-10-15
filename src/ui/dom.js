@@ -81,7 +81,8 @@ function sheet(opt) {
     (rootEl || document.body).append(wrap);
     opt.onMount?.(wrap);
     const first = wrap.querySelector("input:not([type=checkbox]):not([type=radio]), textarea");
-    if (first && !opt.noFocus && matchMedia("(pointer:fine)").matches) first.focus();
+    // focusInput：触屏上也直接把光标放进输入框（弹出键盘），用于点了就要打字的搜索窗
+    if (first && !opt.noFocus && (opt.focusInput || matchMedia("(pointer:fine)").matches)) first.focus();
     else wrap.querySelector(".pa-sheet")?.focus({ preventScroll: true });
   });
 }
