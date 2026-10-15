@@ -188,7 +188,7 @@ function mountSuture(page, app) {
       if (!st.srcCollapsedMap.has(ck)) st.srcCollapsedMap.set(ck, new Set(d.groups.groups.map((g) => g.id)));
       st.srcCollapsed = st.srcCollapsedMap.get(ck);
       const sel = new Set(d.order.map((o) => o.identifier).filter((id) => st.picked.has(keyOf(id))));
-      srcList.innerHTML = renderList(d, { mode: "source", selected: sel, collapsed: st.srcCollapsed });
+      srcList.innerHTML = qBar("src") + renderList(d, { mode: "source", selected: sel, collapsed: st.srcCollapsed, query: qOf("src"), searchBody: st.srcBody });
       srcList.dataset.kind = "draft";
       srcList._draft = d;
       srcList._keyOf = keyOf;
@@ -213,7 +213,9 @@ function mountSuture(page, app) {
       }
       srcList.dataset.kind = "world";
       srcList._items = items;
-      srcList.innerHTML = `<div class="pa-loose">${items.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${esc(it.name)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button></div>`).join("") || '<p class="pa-empty">没有条目</p>'}</div>`;
+      const wq = qOf("src").toLowerCase();
+      const shown = wq ? items.filter((it) => String(it.name).toLowerCase().includes(wq) || String(it.content || "").toLowerCase().includes(wq)) : items;
+      srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
     } else {
       srcList.dataset.kind = "paste";
       const pasted = [...st.picked.entries()].filter(([k]) => k.startsWith("paste:"));
@@ -227,6 +229,10 @@ function mountSuture(page, app) {
     renderBar();
   }
   srcList.addEventListener("click", async (e) => {
+    const qa = e.target.closest("[data-act=qedit],[data-act=qclear],[data-act=qbody]")?.dataset.act;
+    if (qa === "qedit") return searchBox("src");
+    if (qa === "qclear") { setQuery("src", ""); return saveSettings(); }
+    if (qa === "qbody") { st.srcBody = !st.srcBody; return renderSrc(); }
     const kind = srcList.dataset.kind;
     if (kind === "paste") {
       if (e.target.closest("[data-p=add]")) {
@@ -317,7 +323,7 @@ function mountSuture(page, app) {
     }
     const top = dstList.scrollTop;
     dstList.classList.add("pa-placing");
-    dstList.innerHTML = renderList(d, { mode: "target", place: true, inside: false, collapsed: new Set(), marker: st.wbMarker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
+    dstList.innerHTML = qBar("dst") + renderList(d, { mode: "target", place: true, inside: false, collapsed: new Set(), marker: st.wbMarker, markLabel: "缝合位置", highlight: st.highlight || void 0, query: qOf("dst"), searchBody: st.dstBody });
     bar.hidden = false;
     ngbar.hidden = true;
     dstList.scrollTop = top;
@@ -361,7 +367,7 @@ function mountSuture(page, app) {
     st.marker = fixPlace(d, st.marker);
     const top = dstList.scrollTop;
     dstList.classList.add("pa-placing");
-    dstList.innerHTML = (st.newName ? "" : '<button class="pa-slot pa-slot-new" data-st="newgroup">＋ 新建分组…</button>') + renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0 });
+    dstList.innerHTML = qBar("dst") + (st.newName || qOf("dst") ? "" : '<button class="pa-slot pa-slot-new" data-st="newgroup">＋ 新建分组…</button>') + renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0, query: qOf("dst"), searchBody: st.dstBody });
     bar.hidden = !!st.newName;
     ngbar.hidden = !st.newName;
     ngbar.querySelector(".pa-ng-n").textContent = st.newName ? `新分组「${st.newName}」的位置` : "";
@@ -369,6 +375,10 @@ function mountSuture(page, app) {
     renderBar();
   }
   dstList.addEventListener("click", (e) => {
+    const qa = e.target.closest("[data-act=qedit],[data-act=qclear],[data-act=qbody]")?.dataset.act;
+    if (qa === "qedit") return searchBox("dst");
+    if (qa === "qclear") { setQuery("dst", ""); return saveSettings(); }
+    if (qa === "qbody") { st.dstBody = !st.dstBody; return renderDst(); }
     if (st.dstType === "world") {
       const d2 = st.wbDraft;
       if (!d2) return;
@@ -411,120 +421,47 @@ function mountSuture(page, app) {
     st.marker = m;
     renderDst();
   });
-  // ---- 🔍 搜索条目：点放大镜直接弹出搜索窗，边打边出结果；搜过的词记着，下次点开还在
-  // 来源：点结果＝选中/取消（窗口不关，可以连着选）；目标：点结果＝缝合位置定在它后面，并滚到那一条
-  function searchItems(d) {
-    return d.order.filter((o) => !d.isMarker(o.identifier)).map((o) => {
-      const id = o.identifier, p = d.prompt(id) || {};
-      const g = d.groupOf(id);
-      return { id, name: p.name || id, group: g ? d.group(g)?.name || "" : "", tag: tagText(d, id), content: String(p.content || ""), off: o.enabled === false };
-    });
-  }
-  function searchSheet({ title, key, items, hint, isPicked, onPick, keepOpen }) {
-    const body = el(`<div class="pa-ssearch">
-        <input class="pa-input pa-ss-q" type="search" placeholder="🔍 搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off" enterkeyhint="search">
-        <p class="pa-hint pa-ss-hint"></p>
-        <div class="pa-ss-list"></div></div>`);
-    const q = body.querySelector(".pa-ss-q");
-    const box = body.querySelector(".pa-ss-list");
-    const hintEl = body.querySelector(".pa-ss-hint");
-    // 搜过的词存进设置：关掉面板、刷新页面后再点放大镜还在
+  // ---- 🔍 搜索：点放大镜弹出输入框，边打边在「从」「到」的列表里筛出来（和整理页一样）；
+  // 搜的词存进设置，关掉弹窗、关掉面板后列表仍按它筛，点列表上方的「✕ 清除」或在弹窗里清空才恢复
+  const qStore = () => {
     if (!settings().sutureQuery || typeof settings().sutureQuery !== "object") settings().sutureQuery = {};
-    const saved = settings().sutureQuery;
-    q.value = saved[key] || "";
-    let hits = [];
-    const paint = () => {
-      const k = q.value.trim().toLowerCase();
-      saved[key] = q.value.trim();
-      if (!k) {
-        hits = [];
-        hintEl.textContent = hint;
-        box.innerHTML = "";
-        return;
-      }
-      const head = [], bodyHits = [];
-      for (const it of items()) {
-        if ([it.name, it.group, it.tag].some((x) => String(x || "").toLowerCase().includes(k))) head.push({ it });
-        else {
-          const i = it.content.toLowerCase().indexOf(k);
-          if (i >= 0) bodyHits.push({ it, i });
-        }
-      }
-      hits = [...head, ...bodyHits];
-      hintEl.innerHTML = hits.length ? `名称里有 <b>${head.length}</b> 条，只在正文里有 <b>${bodyHits.length}</b> 条。${esc(hint)}` : "没有找到";
-      const row = ({ it, i }, n) => `<button class="pa-ss-item${isPicked?.(it.id) ? " on" : ""}${it.off ? " pa-off" : ""}" type="button" data-n="${n}">
-          ${isPicked ? `<span class="pa-ss-check" aria-hidden="true">${isPicked(it.id) ? "✓" : ""}</span>` : ""}
-          <span class="pa-ss-main"><b>${markText(it.name, k)}</b>${it.group ? `<small>分组：${markText(it.group, k)}</small>` : ""}${it.tag ? `<small>标签：${markText(it.tag, k)}</small>` : ""}${i !== void 0 ? `<small class="pa-ss-snip">正文：${hitSnippet(it.content, i, k.length)}</small>` : ""}</span></button>`;
-      box.innerHTML = hits.slice(0, 300).map(row).join("") + (hits.length > 300 ? `<p class="pa-hint">只显示前 300 条，请再输入几个字缩小范围</p>` : "");
-    };
-    paint();
-    return sheet({ title, body, wide: true, focusInput: true, actions: [], onMount: (w) => {
-      q.addEventListener("input", paint);
+    return settings().sutureQuery;
+  };
+  const qKey = (side) => side === "src" ? (st.srcType === "world" ? "qSrcWb" : "qSrc") : (st.dstType === "world" ? "qDstWb" : "qDst");
+  const qOf = (side) => String(qStore()[qKey(side)] || "").trim();
+  function qBar(side) {
+    const q = qOf(side);
+    return q ? `<div class="pa-qbar"><span>🔍 搜索「<b>${esc(q)}</b>」</span><button class="pa-link" data-act="qedit" type="button">改</button><button class="pa-link" data-act="qclear" type="button">✕ 清除</button></div>` : "";
+  }
+  function paintQBtns() {
+    page.querySelector('[data-st="srcsearch"]').classList.toggle("on", !!qOf("src"));
+    page.querySelector('[data-st="dstsearch"]').classList.toggle("on", !!qOf("dst"));
+  }
+  function setQuery(side, v) {
+    qStore()[qKey(side)] = v;
+    if (!v) st[side === "src" ? "srcBody" : "dstBody"] = false;
+    side === "src" ? renderSrc() : renderDst();
+  }
+  function searchBox(side) {
+    const body = el(`<div class="pa-ssearch"><input class="pa-input pa-ss-q" type="search" placeholder="🔍 搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off" enterkeyhint="search">
+        <p class="pa-hint">边打边在${side === "src" ? "「从」" : "「到」"}的列表里筛出来。搜的词会一直留着，列表上方点「✕ 清除」恢复全部。</p></div>`);
+    const q = body.querySelector(".pa-ss-q");
+    q.value = qOf(side);
+    return sheet({ title: side === "src" ? "搜索来源条目" : "搜索目标条目", body, focusInput: true, actions: [{ label: "清空", value: "clear" }, { label: "完成", kind: "primary", value: "ok" }], onMount: (w) => {
+      let t = null;
+      q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => setQuery(side, q.value.trim()), 120); });
+      q.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); w.querySelector(".pa-sheet-actions .pa-btn-primary")?.click(); } });
       w.addEventListener("pa-closed", () => saveSettings());
-      box.addEventListener("click", (e) => {
-        const b = e.target.closest("[data-n]");
-        if (!b) return;
-        onPick(hits[Number(b.dataset.n)].it);
-        if (keepOpen) paint();
-        else w.querySelector(".pa-sheet-x").click();
-      });
-    } });
-  }
-  async function searchSrc() {
-    const kind = srcList.dataset.kind;
-    if (kind === "paste") return;
-    if (kind === "world") {
-      await searchSheet({
-        title: `搜索「${st.srcWorld || "世界书"}」`, key: "qSrc", keepOpen: true,
-        hint: "点一条选中或取消，可以连着选。",
-        items: () => (srcList._items || []).map((it) => ({ id: it.id, name: it.name, group: "", tag: "", content: String(it.content || ""), off: !it.enabled })),
-        isPicked: (id) => st.picked.has(id),
-        onPick: (x) => {
-          const it = srcList._items.find((y) => y.id === x.id);
-          st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: `世界书 ${st.srcWorld}`, raw: it.raw });
-        }
-      });
-      return renderSrc();
-    }
-    const d = srcList._draft;
-    if (!d) return;
-    await searchSheet({
-      title: `搜索「${d.name}」`, key: "qSrc", keepOpen: true,
-      hint: "点一条选中或取消，可以连着选。",
-      items: () => searchItems(d),
-      isPicked: (id) => st.picked.has(srcList._keyOf(id)),
-      onPick: (it) => {
-        const k = srcList._keyOf(it.id);
-        const p = d.prompt(it.id);
-        st.picked.has(k) ? st.picked.delete(k) : st.picked.set(k, { name: p.name, content: p.content, prompt: p, from: d.name, srcDraft: d, srcId: it.id });
-      }
-    });
-    renderSrc();
-  }
-  async function searchDst() {
-    const world = st.dstType === "world";
-    let d = null;
-    try { d = world ? st.wbDraft : target(); } catch {}
-    if (!d) return;
-    await searchSheet({
-      title: `搜索「${d.name}」`, key: world ? "qDstWb" : "qDst",
-      hint: "点一条，缝合位置就定在它后面。",
-      items: () => searchItems(d),
-      onPick: (it) => {
-        const gid = d.groupOf(it.id);
-        if (world) st.wbMarker = { at: "row", id: it.id };
-        else {
-          st.marker = { at: "row", id: it.id };
-          if (gid) st.dstCollapsed.delete(gid);
-        }
-        st.highlight = new Set([it.id]);
-        renderDst();
-        setTimeout(() => dstList.querySelector(".pa-flash")?.scrollIntoView({ block: "center" }), 0);
-        setTimeout(() => { st.highlight = null; }, 1500);
-      }
+    } }).then((r) => {
+      if (r === "clear") setQuery(side, "");
+      else setQuery(side, q.value.trim());
+      saveSettings();
     });
   }
+  function searchSrc() { if (st.srcType !== "paste") return searchBox("src"); }
+  function searchDst() { return searchBox("dst"); }
   function renderBar() {
+    paintQBtns();
     const n = st.picked.size;
     let d = null;
     try {
