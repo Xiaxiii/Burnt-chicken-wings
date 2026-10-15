@@ -19,6 +19,40 @@ function schemeMatches(d, scheme) {
   }
   return true;
 }
+// 1.9.8 方案记下保存时的 API 连接（不要求先存成站点）。旧方案只记了站点编号的，按站点算
+function schemeConn(s) {
+  if (s.conn && s.conn.source) return s.conn;
+  const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
+  return site ? { source: site.source, url: site.url || "", model: site.model || "", secretId: site.secretId || null, siteId: site.id } : null;
+}
+// 用来连接的「站点」：有对应站点就用站点（带着它的密钥、名称），模型用方案记的
+function connSite(conn) {
+  if (!conn) return null;
+  const site = conn.siteId ? settings().sites.find((x) => x.id === conn.siteId) : null;
+  if (site) return { ...site, model: conn.model || site.model };
+  return { name: connLabel(conn, { model: false }), source: conn.source, url: conn.url || "", model: conn.model || "", secretId: conn.secretId || null };
+}
+function connLabel(conn, { model = true } = {}) {
+  if (!conn) return "";
+  const site = conn.siteId ? settings().sites.find((x) => x.id === conn.siteId) : null;
+  let where = site?.name || "";
+  if (!where) {
+    try { where = conn.source === "custom" && conn.url ? new URL(conn.url).host : SOURCES[conn.source]?.label || conn.source; } catch { where = conn.url || conn.source; }
+  }
+  return model && conn.model ? `${where} · ${conn.model}` : where;
+}
+// 现在酒馆的连接 → 方案里记的样子；能对上已存的站点就顺带记站点编号（显示名称用）
+function liveConn() {
+  const live = liveConnection();
+  if (live.mainApi && live.mainApi !== "openai") return null;
+  if (!live.source) return null;
+  const site = settings().sites.find((x) => !siteDiffers({ ...x, model: "" }, { ...live, online: true }));
+  return { source: live.source, url: live.url || "", model: live.model || "", secretId: live.secretId || null, siteId: site?.id || null };
+}
+function connDiffers(conn) {
+  const s = connSite(conn);
+  return !!s && siteDiffers(s);
+}
 async function applyScheme(scheme, { quiet = false, why = "", silent = false } = {}) {
   // 1.5.0：预设已归档的，先从归档恢复
   if (!listPresets().includes(scheme.preset) && archiveList().some((x) => x.name === scheme.preset)) {
@@ -33,9 +67,9 @@ async function applyScheme(scheme, { quiet = false, why = "", silent = false } =
     toast(`方案「${scheme.name}」对应的预设「${scheme.preset}」已不存在`, "error");
     return false;
   }
-  // 1.4.0：方案可记录 API 站点。先改「使用中的站点」，切换预设后的自动恢复连接就会连到这个站点
-  const site = scheme.siteId ? settings().sites.find((x) => x.id === scheme.siteId) : null;
-  if (scheme.siteId && !site) toast(`方案「${scheme.name}」记录的 API 站点已删除，本次不切换 API`, "warning");
+  // 1.9.8：切方案恢复它记下的 API；不改「使用中」站点，方案之间互不影响。没记 API 的方案不动 API
+  const conn = schemeConn(scheme);
+  const site = connSite(conn);
   // 先处理这个预设上没存完的修改，再切换（切换后会丢掉旧草稿重新读）
   const old = drafts.get(scheme.preset);
   if (old?.dirty) {
@@ -51,10 +85,6 @@ async function applyScheme(scheme, { quiet = false, why = "", silent = false } =
   // 整个套用过程中由这里负责连接，避免「切换预设后恢复站点」同时再连一次
   if (site) applying = true;
   try {
-    if (site) {
-      settings().activeSiteId = site.id;
-      saveSettings();
-    }
     if (currentPresetName() !== scheme.preset) {
       await selectPreset(scheme.preset);
       dropDraft(scheme.preset);
@@ -76,9 +106,9 @@ async function applyScheme(scheme, { quiet = false, why = "", silent = false } =
     if (site && siteDiffers(site)) {
       try {
         const live = await applyConnection(site);
-        if (!live.online) toast(`已切换到「${site.name}」，但没有连上，请检查网址和密钥`, "warning");
+        if (!live.online) toast(`已切换到「${connLabel(conn)}」，但未连接成功。请检查网址和密钥`, "warning");
       } catch (e) {
-        toast(`API 站点「${site.name}」连接失败：${e.message}`, "error");
+        toast(`API「${connLabel(conn)}」连接失败：${e.message}`, "error");
       }
     }
   } finally {
@@ -86,7 +116,7 @@ async function applyScheme(scheme, { quiet = false, why = "", silent = false } =
   }
   scheme.usedAt = Date.now();
   saveSettings();
-  if (!silent) toast(`${why ? `自动套用（${why}）：` : "已切换到"}「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}${site ? `，API：${site.name}` : ""}`, "success");
+  if (!silent) toast(`${why ? `自动套用（${why}）：` : "已切换到"}「${scheme.name}」${scheme.persona ? `，人设：${scheme.personaName || ""}` : ""}${conn ? `，API：${connLabel(conn)}` : ""}`, "success");
   return true;
 }
 // 自动套用的绑定：聊天绑定存在聊天文件里；角色绑定存在本扩展设置里（这个角色的任何聊天都算）。聊天绑定优先
@@ -137,7 +167,7 @@ function mountSchemes(page, { after } = {}) {
   page.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">方案</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">保存当前状态为方案</button></div>
         <div class="pa-scheme-bar"><span class="pa-dim">按</span><button class="pa-namebtn pa-namebtn-s" data-s="view" type="button"><span></span><i aria-hidden="true">▾</i></button><span class="pa-dim">分组</span><span class="pa-scheme-pick"></span></div>
-        ${tip("方案记下预设、一组条目开关，可同时记下人设和 API 站点。<br>「切换」：把预设、开关、人设、API 一次换成方案记的样子。<br>✏️ 里可以重命名、用现在的状态覆盖、换 API 站点、改记录范围、设置自动套用、改归属角色、删除。<br>「自动套用」：绑定本聊天或本角色后，进入那个聊天时自动切换一次；之后你手动换预设、改开关，不会被改回来。")}
+        ${tip("方案保存预设、条目开关、人设和 API。<br>「切换」：恢复方案保存时的全部状态。<br>「自动套用」：绑定聊天或角色后，进入该聊天时切换一次。之后手动修改的内容保持不变。<br>换预设时 API 不变；切换方案时恢复方案记录的 API。")}
         <div class="pa-scheme-nudge"></div>
         <div class="pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
@@ -156,8 +186,9 @@ function mountSchemes(page, { after } = {}) {
     const bound = bind?.id === s.id ? bind.scope : null;
     // 「使用中」要和酒馆实际生效的一致：预设正在用、开关一致、人设和 API 站点也对得上
     const switchesOk = !!d && s.preset === d.name && schemeMatches(d, s);
-    const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
-    const on = switchesOk && currentPresetName() === s.preset && (!s.persona || currentPersona() === s.persona) && (!site || !siteDiffers(site, { ...liveConnection(), online: true }));
+    const conn = schemeConn(s);
+    const cs = connSite(conn);
+    const on = switchesOk && currentPresetName() === s.preset && (!s.persona || currentPersona() === s.persona) && (!cs || !siteDiffers(cs, { ...liveConnection(), online: true }));
     const archived = !listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset);
     const meta = [
       view() !== "preset" ? esc(s.preset) + (archived ? "（已归档）" : "") : "",
@@ -165,7 +196,7 @@ function mountSchemes(page, { after } = {}) {
       view() !== "char" && schemeCharKey(s) ? esc(charNameOf(schemeCharKey(s))) : "",
       shortTime(Math.max(s.usedAt || 0, s.at || 0))
     ].filter(Boolean).join(" · ");
-    const apiLine = site ? `<small class="pa-srow-api">API 站点：${esc(site.name)}</small>` : s.siteId ? '<small class="pa-srow-api">API 站点：已删除</small>' : "";
+    const apiLine = conn ? `<small class="pa-srow-api">API：${esc(connLabel(conn))}</small>` : '<small class="pa-srow-api pa-srow-noapi">未记录 API（✏️ 里可补）</small>';
     if (picking) return `<label class="pa-srow pa-srow-pick" data-id="${esc(s.id)}"><input type="checkbox" data-a="pick" ${picked.has(s.id) ? "checked" : ""}>
         <div class="pa-srow-main"><b>${esc(s.name)}</b>${bound ? `<span class="pa-chip pa-chip-cot">🔗${BIND_LABEL[bound]}</span>` : ""}<small>${meta}</small>${apiLine}</div></label>`;
     return `<div class="pa-srow${on ? " pa-srow-on" : ""}" data-id="${esc(s.id)}">
@@ -226,22 +257,29 @@ function mountSchemes(page, { after } = {}) {
     const persona = currentPersona();
     const personaName = listPersonas().find((p) => p.avatar === persona)?.name || "";
     const groups = d.groups.groups;
-    const site = settings().sites.find((x) => x.id === settings().activeSiteId);
+    const conn = liveConn();
     const ck = hasChat() ? currentCharKey() : null;
     const cname = ck ? currentCharName() : "";
     const prevBound = hasChat() ? all().find((x) => x.id === chatMeta()[META_KEY]) : null;
+    // 1.9.8：保存时一律记下预设、开关、人设、API，不再逐项勾选；保存前列出将保存的内容
     const body = el(`<div class="pa-form">
             <label class="pa-field"><span>方案名称</span><input class="pa-input" data-f="name" value="${esc(d.name)}" placeholder="例如：纯爱、年上"></label>
-            <p class="pa-hint">预设：${esc(d.name)}</p>
-            ${ck ? `<label class="pa-inline-check"><input type="checkbox" data-f="char" checked> 记到角色「${esc(cname)}」下面</label>
-            <label class="pa-inline-check"><input type="checkbox" data-f="bind"> 进入这个聊天时自动切换到它${prevBound ? `（会替换原来绑定的「${esc(prevBound.name)}」）` : ""}</label>` : '<p class="pa-hint">不在聊天里，方案会放在「未分角色」，之后可在 ✏️ 里改归属。</p>'}
-            ${persona ? `<label class="pa-inline-check"><input type="checkbox" data-f="persona" checked> 同时记下人设「${esc(personaName || persona)}」</label>` : ""}
-            ${site ? `<label class="pa-inline-check"><input type="checkbox" data-f="site" checked> 同时记下 API 站点「${esc(site.name)}」</label>` : '<p class="pa-hint">当前连接还没存成站点，不能记下 API。可先在上方点「保存为站点」。</p>'}
-            <details class="pa-tip"><summary>记录范围：${groups.length ? "勾选的分组" : "全部条目"}</summary><div class="pa-tip-body">
-                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="groups" ${groups.length ? "checked" : "disabled"}> 只记录勾选的分组（其他条目不受影响）</label>
-                <div class="pa-groups-pick">${groups.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${LIKELY.test(g.name) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || '<p class="pa-hint">此预设暂无分组</p>'}</div>
-                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="all" ${groups.length ? "" : "checked"}> 记录全部条目</label></div></details>
+            <div class="pa-card pa-save-list"><p class="pa-hint">将保存：</p>
+              <div class="pa-kv"><span>预设</span><b>${esc(d.name)}</b>
+              <span>人设</span><b>${persona ? esc(personaName || persona) : "未选择"}</b>
+              <span>API</span><b>${conn ? esc(connLabel(conn)) : "未连接聊天补全 API，不记录"}</b>
+              <span>条目开关</span><b class="pa-save-scope">${groups.length ? "勾选的分组" : "全部条目"}</b></div></div>
+            ${ck ? `<label class="pa-inline-check"><input type="checkbox" data-f="char" checked> 归到角色「${esc(cname)}」</label>
+            <label class="pa-inline-check"><input type="checkbox" data-f="bind"> 进入这个聊天时自动切换到它${prevBound ? `（替换「${esc(prevBound.name)}」）` : ""}</label>` : '<p class="pa-hint">当前不在聊天中，方案归入「未分角色」。</p>'}
+            <details class="pa-tip"><summary>条目开关的保存范围</summary><div class="pa-tip-body">
+                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="groups" ${groups.length ? "checked" : "disabled"}> 只保存勾选的分组（其他条目不受影响）</label>
+                <div class="pa-groups-pick">${groups.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${LIKELY.test(g.name) ? "checked" : ""}> ${esc(g.name)}</label>`).join("") || '<p class="pa-hint">此预设没有分组</p>'}</div>
+                <label class="pa-inline-check"><input type="radio" name="pa-scope" value="all" ${groups.length ? "" : "checked"}> 保存全部条目</label></div></details>
         </div>`);
+    body.addEventListener("change", () => {
+      const all2 = body.querySelector("input[name=pa-scope]:checked")?.value === "all";
+      body.querySelector(".pa-save-scope").textContent = all2 ? "全部条目" : "勾选的分组";
+    });
     const r = await sheet({
       title: "保存为方案", body, wide: true,
       actions: [{ label: "取消", value: null }, {
@@ -253,16 +291,14 @@ function mountSchemes(page, { after } = {}) {
         value: (w) => ({
           name: w.querySelector("[data-f=name]").value.trim(),
           scope: w.querySelector("input[name=pa-scope]:checked")?.value === "all" ? "all" : [...w.querySelectorAll("[data-g]:checked")].map((x) => x.dataset.g),
-          persona: !!w.querySelector("[data-f=persona]")?.checked,
-          site: !!w.querySelector("[data-f=site]")?.checked,
           char: !!w.querySelector("[data-f=char]")?.checked,
           bind: !!w.querySelector("[data-f=bind]")?.checked
         })
       }]
     });
     if (!r) return;
-    if (Array.isArray(r.scope) && !r.scope.length) return toast("请至少勾选一个分组，或选择记录全部条目", "warning");
-    const s = { id: uid(), name: r.name, preset: d.name, scope: r.scope, persona: r.persona ? persona : null, personaName: r.persona ? personaName : "", siteId: r.site && site ? site.id : null, charKey: r.char && ck ? ck : "", at: Date.now(), usedAt: Date.now() };
+    if (Array.isArray(r.scope) && !r.scope.length) return toast("请至少勾选一个分组，或选择保存全部条目", "warning");
+    const s = { id: uid(), name: r.name, preset: d.name, scope: r.scope, persona: persona || null, personaName: persona ? personaName : "", conn, siteId: conn?.siteId || null, charKey: r.char && ck ? ck : "", at: Date.now(), usedAt: Date.now() };
     Object.assign(s, schemeStates(d, s));
     all().push(s);
     if (r.bind && hasChat()) {
@@ -272,19 +308,19 @@ function mountSchemes(page, { after } = {}) {
     }
     saveSettings();
     open.add(view() + "|" + groupKey(s));
-    toast(`已保存方案「${s.name}」${r.bind ? "，进入这个聊天时会自动切换到它" : ""}`, "success");
+    toast(`已保存方案「${s.name}」${r.bind ? "。进入这个聊天时将自动切换到它" : ""}`, "success");
     render();
   }
   // ✏️ 菜单：做完一项（或在子窗口里取消）回到这个菜单，方便接着改；点 ✕ 或删除后才关掉
   async function editMenu(s) {
     while (all().includes(s)) {
-      const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
+      const conn = schemeConn(s);
       const bind = bindingNow();
       const v = await pickBox(`✏️ ${s.name}`, [
       { label: "重命名", value: "rename" },
-      { label: "用现在的状态覆盖", sub: `把方案改成「${s.preset}」现在的开关${s.persona ? "、人设" : ""}${s.siteId ? "、API 站点" : ""}`, value: "update" },
-      { label: "换 API 站点", sub: site ? `现在：${site.name}` : "现在：不切换 API", value: "site" },
-      { label: "记录范围", sub: s.scope === "all" ? "现在：全部条目" : `现在：${s.scope.length} 个分组`, value: "scope" },
+      { label: "用现在的状态覆盖", sub: "条目开关、人设、API 一起更新", value: "update" },
+      { label: "更换 API", sub: conn ? `现在：${connLabel(conn)}` : "现在：未记录，切换时 API 不变", value: "site" },
+      { label: "条目开关的保存范围", sub: s.scope === "all" ? "现在：全部条目" : `现在：${s.scope.length} 个分组`, value: "scope" },
       { label: "自动套用", sub: bind?.id === s.id ? `现在：${bind.scope === "chat" ? "进入这个聊天时" : "进入这个角色的聊天时"}` : "现在：不自动套用", value: "bind" },
       { label: "改归属角色", sub: `现在：${charNameOf(schemeCharKey(s))}`, value: "char" },
       { label: "删除方案", sub: "预设不受影响", value: "del" }
@@ -303,41 +339,52 @@ function mountSchemes(page, { after } = {}) {
     if (v === "update") {
       let d;
       try { d = getDraft(s.preset); } catch (e) { return toast(e.message, "error"); }
-      if (!await confirmBox("用现在的状态覆盖", `用「${s.preset}」现在的开关${s.persona ? "、人设" : ""}${s.siteId ? "、API 站点" : ""}覆盖方案「${s.name}」？`, "覆盖")) return;
+      const nowConn = liveConn();
+      if (!await confirmBox("用现在的状态覆盖", `用「${s.preset}」现在的条目开关、人设和 API${nowConn ? `（${connLabel(nowConn)}）` : ""}覆盖方案「${s.name}」？`, "覆盖")) return;
       Object.assign(s, schemeStates(d, s));
       const persona = currentPersona();
-      if (s.persona && persona) {
-        s.persona = persona;
-        s.personaName = listPersonas().find((p) => p.avatar === persona)?.name || "";
-      }
-      if (s.siteId && settings().activeSiteId) s.siteId = settings().activeSiteId;
+      s.persona = persona || null;
+      s.personaName = persona ? listPersonas().find((p) => p.avatar === persona)?.name || "" : "";
+      if (nowConn) { s.conn = nowConn; s.siteId = nowConn.siteId || null; }
       s.at = Date.now();
       saveSettings();
       toast("方案已更新", "success");
     }
     if (v === "site") {
       const sites = settings().sites;
-      const pick = await pickBox("切换方案时连哪个 API 站点", [...sites.map((x) => ({ label: `${x.id === s.siteId ? "✓ " : ""}${x.name}`, sub: x.model || "", value: x.id })), { label: `${s.siteId ? "" : "✓ "}不切换 API`, value: "__none" }]);
+      const cur = schemeConn(s);
+      const nowConn = liveConn();
+      const pick = await pickBox("切换到这个方案时使用的 API", [
+        ...(nowConn ? [{ label: "当前连接", sub: connLabel(nowConn), value: "__live" }] : []),
+        ...sites.map((x) => ({ label: `${cur?.siteId === x.id ? "✓ " : ""}${x.name}`, sub: x.model || "", value: x.id })),
+        { label: `${cur ? "" : "✓ "}不记录 API`, sub: "切换时 API 不变", value: "__none" }
+      ]);
       if (!pick) return;
-      s.siteId = pick === "__none" ? null : pick;
+      if (pick === "__none") { s.conn = null; s.siteId = null; }
+      else if (pick === "__live") { s.conn = nowConn; s.siteId = nowConn.siteId || null; }
+      else {
+        const x = sites.find((y) => y.id === pick);
+        s.conn = { source: x.source, url: x.url || "", model: x.model || "", secretId: x.secretId || null, siteId: x.id };
+        s.siteId = x.id;
+      }
       saveSettings();
     }
     if (v === "scope") {
       let d;
       try { d = getDraft(s.preset); } catch (e) { return toast(`读不到预设「${s.preset}」：${e.message}`, "error"); }
       const gs = d.groups.groups;
-      const body = el(`<div class="pa-form"><p class="pa-hint">改范围后，按「${esc(s.preset)}」现在的开关重新记录。</p>
-          <label class="pa-inline-check"><input type="radio" name="pa-scope2" value="groups" ${s.scope !== "all" ? "checked" : ""} ${gs.length ? "" : "disabled"}> 只记录勾选的分组</label>
+      const body = el(`<div class="pa-form"><p class="pa-hint">修改范围后，按「${esc(s.preset)}」当前的开关重新保存。</p>
+          <label class="pa-inline-check"><input type="radio" name="pa-scope2" value="groups" ${s.scope !== "all" ? "checked" : ""} ${gs.length ? "" : "disabled"}> 只保存勾选的分组</label>
           <div class="pa-groups-pick">${gs.map((g) => `<label class="pa-inline-check"><input type="checkbox" data-g="${esc(g.id)}" ${s.scope !== "all" && s.scope.includes(g.id) ? "checked" : ""}> ${esc(g.name)}</label>`).join("")}</div>
-          <label class="pa-inline-check"><input type="radio" name="pa-scope2" value="all" ${s.scope === "all" ? "checked" : ""}> 记录全部条目</label></div>`);
-      const r = await sheet({ title: "记录范围", body, wide: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => w.querySelector("input[name=pa-scope2]:checked")?.value === "all" ? "all" : [...w.querySelectorAll("[data-g]:checked")].map((x) => x.dataset.g) }] });
+          <label class="pa-inline-check"><input type="radio" name="pa-scope2" value="all" ${s.scope === "all" ? "checked" : ""}> 保存全部条目</label></div>`);
+      const r = await sheet({ title: "条目开关的保存范围", body, wide: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => w.querySelector("input[name=pa-scope2]:checked")?.value === "all" ? "all" : [...w.querySelectorAll("[data-g]:checked")].map((x) => x.dataset.g) }] });
       if (!r) return;
-      if (Array.isArray(r) && !r.length) return toast("请至少勾选一个分组，或选择记录全部条目", "warning");
+      if (Array.isArray(r) && !r.length) return toast("请至少勾选一个分组，或选择保存全部条目", "warning");
       s.scope = r;
       Object.assign(s, schemeStates(d, s));
       s.at = Date.now();
       saveSettings();
-      toast("记录范围已更新", "success");
+      toast("保存范围已更新", "success");
     }
     if (v === "bind") return bindMenu(s);
     if (v === "char") {
@@ -370,8 +417,8 @@ function mountSchemes(page, { after } = {}) {
     const v = await pickBox(`「${s.name}」什么时候自动套用`, [
       { label: `${cur === "chat" ? "✓ " : ""}进入这个聊天时`, sub: "只对当前这个聊天生效", value: "chat" },
       ...(ck ? [{ label: `${cur === "char" ? "✓ " : ""}进入「${cname}」的任何聊天时`, sub: "这个角色的新旧聊天都生效；单个聊天另有绑定时，以聊天的为准", value: "char" }] : []),
-      { label: `${cur === "none" ? "✓ " : ""}不自动套用`, sub: "只在你点「切换」时切换", value: "none" }
-    ], { hint: "自动套用只在进入聊天时切换一次。之后手动换预设、改开关，不会被改回来。" });
+      { label: `${cur === "none" ? "✓ " : ""}不自动套用`, sub: "仅在点击「切换」时切换", value: "none" }
+    ], { hint: "进入聊天时切换一次。之后手动修改的内容保持不变。" });
     if (!v || v === cur) return;
     if (!settings().schemeCharBind || typeof settings().schemeCharBind !== "object") settings().schemeCharBind = {};
     const cb = settings().schemeCharBind;

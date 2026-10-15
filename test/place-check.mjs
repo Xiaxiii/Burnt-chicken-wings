@@ -165,10 +165,10 @@ check(site?.model === "claude-sonnet" && site.models.length === 2, "站点保存
 await page.locator(".pa-site", { hasText: "测试站" }).locator('[data-a="use"]').click(); await page.waitForTimeout(2500);
 await page.click('[data-s="new"]'); await page.waitForTimeout(300);
 await page.fill('.pa-sheet [data-f="name"]', "测试方案");
-check(await page.locator('.pa-sheet [data-f="site"]').isChecked(), "保存方案时默认记录 API 站点");
+check(/测试站/.test(await page.locator(".pa-sheet .pa-save-list").innerText()), "保存窗口列出将保存的 API");
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
 const sc = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.schemes.find((s) => s.name === "测试方案"));
-check(sc?.siteId === site.id, "方案记录了站点");
+check(sc?.siteId === site.id && sc.conn?.siteId === site.id && !!sc.conn.model, "方案记录了 API（站点和模型）");
 check((await page.locator(".pa-site", { hasText: "测试站" }).locator(".pa-site-model").textContent()).startsWith("预设："), "站点标题显示对应的预设");
 await page.screenshot({ path: "test/shots/p-8-plan.png", fullPage: false });
 

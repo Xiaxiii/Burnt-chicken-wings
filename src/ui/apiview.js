@@ -50,7 +50,7 @@ function mountApi(liveBox, sitesBox) {
       saveSettings();
     }
     const modelDiff = sameSite && live.model && active.model && live.model !== active.model;
-    const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => sc.siteId === id).map((sc) => sc.preset))];
+    const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => schemeConn(sc)?.siteId === id).map((sc) => sc.preset))];
     const dot = `<span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span>`;
     // 1.4.1：「当前连接」就是使用中的站点卡片，不再单独一块；当前连接还没存成站点时，用同样样式显示
     const siteCard = (x, isLive) => {
@@ -83,10 +83,8 @@ function mountApi(liveBox, sitesBox) {
         <div class="pa-row-head"><h3 class="pa-h">${active ? "其他站点" : "API 站点"}</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
         ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
         <div class="pa-card">
-            <label class="pa-inline-check"><input type="checkbox" data-o="keep" ${s.keepApi ? "checked" : ""}> 切换预设后，自动连回「使用中」的站点</label>
-            <label class="pa-inline-check"><input type="checkbox" data-o="chattoast" ${s.chatToast !== false ? "checked" : ""}> 换角色、换聊天时，弹出小提示：当前预设和模型（3 秒后消失）</label>
-            <label class="pa-inline-check"><input type="checkbox" data-o="unbind" ${bindPresetToConnection() ? "" : "checked"}> 切换预设时，不让预设带着的连接设置覆盖当前连接</label>
-            ${tip("第二项是酒馆自己的「预设绑定连接」设置（勾选＝关闭绑定）。两项都勾选时，换预设不会换 API。")}
+            <label class="pa-inline-check"><input type="checkbox" data-o="chattoast" ${s.chatToast !== false ? "checked" : ""}> 换角色或聊天时，提示当前预设和模型</label>
+            ${tip("换预设，API 不变。<br>切换方案，恢复方案保存时的预设、条目开关、人设和 API。<br>提示显示 3 秒后自动关闭。")}
         </div>`;
   }
   async function getModels(site) {
@@ -222,15 +220,10 @@ function mountApi(liveBox, sitesBox) {
   }
   const onChange = (e) => {
     const o = e.target.dataset.o;
-    if (o === "keep") {
-      settings().keepApi = e.target.checked;
-      saveSettings();
-    }
     if (o === "chattoast") {
       settings().chatToast = e.target.checked;
       saveSettings();
     }
-    if (o === "unbind") setBindPresetToConnection(!e.target.checked);
   };
   sitesBox.addEventListener("change", onChange);
   const onClick = async (e) => {
@@ -279,9 +272,9 @@ function mountApi(liveBox, sitesBox) {
       return render();
     }
     if (a === "del") {
-      const users = settings().schemes.filter((sc) => sc.siteId === site.id);
-      if (!await confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库中的密钥不会删除。${users.length ? `使用它的 ${users.length} 个方案将不再切换 API。` : ""}`, "删除", true)) return;
-      users.forEach((sc) => delete sc.siteId);
+      const users = settings().schemes.filter((sc) => schemeConn(sc)?.siteId === site.id);
+      if (!await confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库中的密钥不会删除。${users.length ? `${users.length} 个方案使用此站点，将保留其网址、模型和密钥记录。` : ""}`, "删除", true)) return;
+      users.forEach((sc) => { sc.conn = { ...schemeConn(sc), siteId: null }; delete sc.siteId; });
       settings().sites = sites().filter((x) => x.id !== site.id);
       if (settings().activeSiteId === site.id) settings().activeSiteId = null;
       saveSettings();

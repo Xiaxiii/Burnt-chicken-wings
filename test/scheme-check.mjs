@@ -71,7 +71,7 @@ await page.click("[data-s=view]"); await page.waitForTimeout(200);
 await page.click(".pa-npick-item >> text=角色卡"); await page.waitForTimeout(300);
 const lin = page.locator(".pa-sgroup", { hasText: "林栖" });
 if (!(await lin.evaluate((x) => x.classList.contains("open")))) { await lin.locator(".pa-sghead").click(); await page.waitForTimeout(150); }
-assert.equal(await page.locator(".pa-srow", { hasText: "旧方案" }).locator(".pa-srow-api").innerText(), "API 站点：tree");
+assert.equal(await page.locator(".pa-srow", { hasText: "旧方案" }).locator(".pa-srow-api").innerText(), "API：tree");
 ok("✏️ 做完一项回到菜单；取消归属；方案行显示 API 站点名");
 
 // 4) 同一个聊天里再次收到聊天切换事件：不再自动套用（手动换的预设不会被换回去）

@@ -2,7 +2,7 @@ var KEY = "presetAtelier";
 var DEFAULTS = {
   sites: [],
   activeSiteId: null,
-  keepApi: true,
+  keepApi: false,
   chatToast: true,
   schemes: [],
   cotManual: {},

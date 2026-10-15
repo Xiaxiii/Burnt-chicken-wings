@@ -446,24 +446,6 @@ function registerSlash() {
   }
 }
 var applying = false;
-var keepConnection = debounce(async () => {
-  const s = settings();
-  if (!s.keepApi || !s.activeSiteId || applying) return;
-  const site = s.sites.find((x) => x.id === s.activeSiteId);
-  if (!site) return;
-  if (!siteDiffers(site)) return;
-  applying = true;
-  try {
-    const live = await applyConnection(site);
-    if (live.online) toast(`已恢复连接「${site.name}」`);
-    else toast(`已切回「${site.name}」，但没有连上，请检查网址和密钥`, "warning");
-  } catch (e) {
-    console.warn("[焦香鸡翅] 自动恢复连接失败", e);
-    toast(`恢复连接「${site.name}」失败：${e.message}`, "warning");
-  } finally {
-    applying = false;
-  }
-}, 700);
 // 自动套用只在「进入一个聊天」时做一次。酒馆和别的扩展在同一个聊天里也会反复发出聊天切换事件
 // （重新载入聊天、改角色卡等），以前每次都套用，手动换的预设会被立刻换回去。现在同一个聊天只处理一次。
 var handledChat = null;
@@ -517,8 +499,7 @@ async function autoApplyBinding() {
     const d = getDraft(sc.preset, { fresh: true });
     const presetOk = currentPresetName() === sc.preset;
     const personaOk = !sc.persona || currentPersona() === sc.persona;
-    const site = sc.siteId ? settings().sites.find((x) => x.id === sc.siteId) : null;
-    const siteOk = !site || !siteDiffers(site);
+    const siteOk = !connDiffers(schemeConn(sc));
     if (presetOk && personaOk && siteOk && schemeMatches(d, sc)) return sc;
     return await applyScheme(sc, { quiet: true, silent: true }) ? sc : null;
   } catch (e) {
@@ -564,6 +545,16 @@ function watchMirrorWrites() {
   window.fetch = wrapped;
   cleanups.push(() => { if (window.fetch === wrapped) window.fetch = orig; });
 }
+// 1.9.8 规则：换预设，API 不变；切方案，恢复方案记录的 API。
+// 去掉「切换预设后连回使用中站点」；关闭酒馆的「预设绑定连接」（只在升级后做一次，之后由用户在酒馆里自行决定）
+function migrateApiRule() {
+  const s = settings();
+  if (s.apiRule === 2) return;
+  s.apiRule = 2;
+  s.keepApi = false;
+  try { if (bindPresetToConnection()) setBindPresetToConnection(false); } catch {}
+  saveSettings();
+}
 function bindEvents() {
   const c2 = ctx();
   const et2 = c2.eventTypes || c2.event_types;
@@ -575,7 +566,6 @@ function bindEvents() {
   on(et2.PRESET_CHANGED, (e) => {
     if (e?.apiId && e.apiId !== "openai") return;
     try { notePresetUse(currentPresetName()); } catch {}
-    keepConnection();
     dropClean();
     // 整页重画（含预设下拉框里的「使用中」标记）
     if (rootEl2 && !rootEl2.hidden) show(current);
@@ -595,6 +585,7 @@ async function start() {
     }
   }
   await initHost();
+  migrateApiRule();
   watchMirrorWrites();
   const checkpointAll = () => { for (const d of dirtyDrafts()) checkpoint(d); };
   window.addEventListener("pagehide", checkpointAll);

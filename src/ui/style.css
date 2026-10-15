@@ -1113,3 +1113,8 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-qbar { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; padding: 6px 10px; border-radius: 8px; background: var(--pa-sel); font-size: .88em; }
 #pa-root .pa-qbar > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #pa-root .pa-qbar .pa-link { flex: none; font-size: 1em; }
+/* 1.9.8 方案的 API */
+#pa-root .pa-srow-main small.pa-srow-noapi { color: var(--pa-warn); }
+#pa-root .pa-save-list { margin: 2px 0; padding: 8px 10px; }
+#pa-root .pa-save-list .pa-hint { margin: 0 0 4px; }
+#pa-root .pa-save-list .pa-kv b { font-weight: 500; }
