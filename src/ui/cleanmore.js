@@ -83,6 +83,25 @@ async function scanExtensionCode(exts, keys, onProgress) {
 // 角色卡同名提示里点了「忽略」的组。只记在内存里：这次打开酒馆期间不再提示；
 // 点「重新检测」或下次打开酒馆重新检测时清空，提示会再出现。组里的角色卡有增减时算新的一组。
 var ignoredCharDups = new Set();
+// 同名角色卡的完整内容：酒馆按需加载时列表里只有名字和头像（shallow），这里向服务器单独读取同名的几张来比较
+var fullChars = new Map();
+async function loadFullChar(avatar) {
+  if (fullChars.has(avatar)) return fullChars.get(avatar);
+  const p = (async () => {
+    const r = await stPost("api/characters/get", { avatar_url: avatar });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  })();
+  fullChars.set(avatar, p);
+  try {
+    const v = await p;
+    fullChars.set(avatar, v);
+    return v;
+  } catch (e) {
+    fullChars.set(avatar, e instanceof Error ? e : new Error(String(e)));
+    throw e;
+  }
+}
 async function deleteCharacterKeepChats(avatar) {
   const r = await stPost("api/characters/delete", { avatar_url: avatar, delete_chats: false });
   if (!r.ok) throw new Error(`删除失败（${r.status}）`);
@@ -226,24 +245,41 @@ function mountCleanKind(kind, box) {
       // 忽略的组里不留勾选
       for (const g of allDups) if (ignoredCharDups.has(dupKey(g))) for (const ch of g) S.sel.delete(ch.avatar);
       // 指纹覆盖角色卡的全部内容字段；按需加载（shallow）的角色卡没有完整数据，不判断相同
-      const FIELDS = ["description", "personality", "scenario", "first_mes", "mes_example", "alternate_greetings", "system_prompt", "post_history_instructions", "creator_notes", "character_book", "tags", "extensions"];
-      const fp = (ch) => {
-        if (ch.shallow) return null;
-        const src = ch.data && typeof ch.data === "object" ? ch.data : ch;
-        return hashStr(stableJson(FIELDS.map((k) => src[k] ?? ch[k] ?? null)));
+      const FIELDS = [["description", "描述"], ["personality", "性格"], ["scenario", "场景"], ["first_mes", "开场白"], ["mes_example", "示例对话"], ["alternate_greetings", "备选开场白"], ["system_prompt", "系统提示"], ["post_history_instructions", "历史后指令"], ["creator_notes", "作者备注"], ["character_book", "角色书"], ["tags", "标签"], ["extensions", "扩展数据"]];
+      // 完整内容：列表里不是按需加载的直接用；按需加载的用向服务器读到的
+      const fullOf = (ch) => {
+        if (!ch.shallow) return ch;
+        const v = fullChars.get(ch.avatar);
+        return v && !(v instanceof Promise) && !(v instanceof Error) ? v : null;
       };
+      const fieldVals = (ch) => {
+        const f = fullOf(ch);
+        if (!f) return null;
+        const src = f.data && typeof f.data === "object" ? f.data : f;
+        return FIELDS.map(([k]) => hashStr(stableJson(src[k] ?? f[k] ?? null)));
+      };
+      // 需要读取完整内容的：同名组里按需加载、还没读过的
+      const need = allDups.flat().filter((ch) => ch.shallow && !fullChars.has(ch.avatar));
+      if (need.length && !S.loadingFull) {
+        S.loadingFull = true;
+        Promise.allSettled(need.map((ch) => loadFullChar(ch.avatar))).then(() => { S.loadingFull = false; if (box.isConnected) draw(); });
+      }
       const pickList = chars.filter((ch) => S.sel.has(ch.avatar));
       box.innerHTML = `
         <div class="pa-sum"><p class="pa-sum-main">角色卡 <b>${chars.length}</b> 张 · ${dups.length ? `<span class="pa-warn">同名 ${dups.length} 组</span>` : allDups.length ? "同名的都已忽略" : "没有同名"}${nIgnored && dups.length ? ` · 已忽略 ${nIgnored} 组` : ""}</p>
           <div class="pa-tiprow">${tip(`<p>角色列表每次打开酒馆都要下载，删除重复的角色卡能减少一些。</p>
-            <p>「文字设定相同」比较的是描述、性格、场景、开场白、示例对话、角色书、标签等文字内容，不比较头像图片。删除时保留聊天记录；正在聊天的角色卡不能勾选。</p>
-            <p>不想清理的同名组可以点「忽略」，这次打开酒馆期间不再提示；点「重新检测」或下次打开酒馆时会重新列出。</p>`)}<span class="pa-golinks">${dups.length > 1 ? '<button type="button" class="pa-golink" data-x="ignoreall">全部忽略</button>' : ""}${allDups.length || nIgnored ? `<button type="button" class="pa-golink" data-x="recheck" ${S.busy ? "disabled" : ""}>重新检测 ›</button>` : ""}</span></div></div>
+            <p>同名角色卡逐项比较描述、性格、场景、开场白、示例对话、角色书、标签等文字内容，列出不同之处。不比较头像图片。</p>
+            <p>删除时保留聊天记录。正在聊天的角色卡不能勾选。</p>
+            <p>「忽略」：本次打开酒馆期间不再提示该组。「重新检测」：重新读取角色卡内容并比较。</p>`)}<span class="pa-golinks">${dups.length > 1 ? '<button type="button" class="pa-golink" data-x="ignoreall">全部忽略</button>' : ""}${allDups.length || nIgnored ? `<button type="button" class="pa-golink" data-x="recheck" ${S.busy ? "disabled" : ""}>重新检测 ›</button>` : ""}</span></div></div>
         ${dups.map((g) => {
-          const prints = g.map(fp);
-          const unknown = prints.some((x) => x == null);
-          const same = !unknown && new Set(prints).size === 1;
+          const vals = g.map(fieldVals);
+          const failed = g.some((ch) => fullChars.get(ch.avatar) instanceof Error);
+          const unknown = vals.some((x) => x == null);
+          const diff = unknown ? [] : FIELDS.filter((_, i) => new Set(vals.map((v) => v[i])).size > 1).map(([, l]) => l);
+          const same = !unknown && !diff.length;
           const keep = g.reduce((a, b) => (Number(b.date_last_chat) || 0) > (Number(a.date_last_chat) || 0) ? b : a);
-          return `<h3 class="pa-h pa-dup-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${same ? "文字设定相同（头像图片未比较）" : unknown ? "同名，未加载完整内容，无法比较" : "同名，文字设定不同"}</span><button type="button" class="pa-golink pa-dup-ign" data-x="ignore" data-g="${esc(dupKey(g))}" title="这次打开酒馆期间不再提示这一组">忽略</button></h3>
+          const label = same ? "文字设定相同（未比较头像图片）" : unknown ? (failed ? "读取失败，无法比较" : "正在读取内容…") : `不同之处：${diff.join("、")}`;
+          return `<h3 class="pa-h pa-dup-h">${esc(g[0].name)}<span class="pa-chip ${same ? "pa-ctag-same" : "pa-chip-dim"}">${esc(label)}</span><button type="button" class="pa-golink pa-dup-ign" data-x="ignore" data-g="${esc(dupKey(g))}" title="这次打开酒馆期间不再提示这一组">忽略</button></h3>
           <div class="pa-clist">${g.map((ch) => `<label class="pa-crow${S.sel.has(ch.avatar) ? " on" : ""}${ch.avatar === cur ? " pa-locked" : ""}">${chk(ch.avatar, S.sel.has(ch.avatar), ch.avatar === cur)}
             <span class="pa-crow-main"><b>${esc(ch.avatar)}</b><span class="pa-crow-tags">${ch.avatar === cur ? '<span class="pa-chip pa-chip-cot">正在聊天</span>' : ""}${ch === keep && ch.date_last_chat ? '<span class="pa-chip pa-ctag-use">最近聊过</span>' : ""}${ch.date_last_chat ? `<span class="pa-chip pa-chip-dim">${relDay(Number(ch.date_last_chat)).replace("用过", "聊过")}</span>` : '<span class="pa-chip pa-chip-dim">没有聊过</span>'}${ch.chat_size ? `<span class="pa-chip pa-chip-dim">聊天 ${fmtSize(ch.chat_size)}</span>` : ""}</span></span>
             <span class="pa-crow-size"><em>${ch.data_size ? fmtSize(ch.data_size) : ""}</em></span></label>`).join("")}</div>`;
@@ -270,6 +306,7 @@ function mountCleanKind(kind, box) {
       }
       if (x === "recheck") {
         ignoredCharDups.clear();
+        fullChars.clear();
         S.busy = true;
         draw();
         try {

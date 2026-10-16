@@ -17,6 +17,14 @@ await page.route("**/scripts/extensions/regex/manifest.json", (r) => r.fulfill({
 await page.route("**/scripts/extensions/regex/index.js", (r) => r.fulfill({ contentType: "text/javascript", body: "extension_settings.regex = [];" }));
 await page.route("**/scripts/extensions/third-party/Burnt-chicken-wings/manifest.json", (r) => r.fulfill({ json: { display_name: "焦香鸡翅", js: "index.js" } }));
 await page.route("**/scripts/extensions/third-party/Burnt-chicken-wings/index.js", (r) => r.fulfill({ contentType: "text/javascript", body: 'var KEY = "presetAtelier";' }));
+const charGets = [];
+await page.route("**/api/characters/get", (r) => {
+  const a = r.request().postDataJSON().avatar_url;
+  charGets.push(a);
+  const base = { name: "姜泰温", avatar: a, data: { description: "高中生", personality: "冷", scenario: "", first_mes: "你好", mes_example: "", tags: [] } };
+  if (a === "jiang1.png") { base.data.description = "大学生"; base.data.first_mes = "嗨"; }
+  r.fulfill({ json: base });
+});
 await page.route("**/api/characters/delete", (r) => { deleted.push(r.request().postDataJSON()); r.fulfill({ status: 200, body: "" }); });
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
@@ -73,7 +81,11 @@ assert.ok(!(await page.evaluate(() => "oldUninstalled" in window.SillyTavern.get
 // 角色卡
 await page.click('[data-kind="char"]'); await page.waitForTimeout(300);
 txt = await page.$eval(".pa-clean-other", (x) => x.innerText);
-assert.match(txt, /同名 1 组/); assert.match(txt, /未加载完整内容，无法比较/);
+assert.match(txt, /同名 1 组/);
+await page.waitForFunction(() => document.querySelector(".pa-clean-other")?.innerText.includes("不同之处"), null, { timeout: 5000 });
+txt = await page.$eval(".pa-clean-other", (x) => x.innerText);
+assert.match(txt, /不同之处：描述、开场白/, "按需加载的角色卡向服务器读取完整内容后逐项比较");
+assert.deepEqual(charGets.sort(), ["jiang.png", "jiang1.png"]);
 assert.ok(await page.$eval('.pa-clean-other input[data-k="jiang.png"]', (x) => x.disabled), "正在聊天的不能勾选");
 await page.screenshot({ path: S + "m-2-char.png" });
 // 忽略：这一组不再提示；切走再切回来也不提示；「重新检测」后重新出现（1.9.0）
@@ -85,6 +97,8 @@ await page.click('[data-kind="char"]'); await page.waitForTimeout(200);
 assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /同名的都已忽略/, "切回来仍不提示");
 await page.click('.pa-clean-other [data-x="recheck"]'); await page.waitForTimeout(250);
 assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /同名 1 组/, "重新检测后再次提示");
+await page.waitForTimeout(300);
+assert.equal(charGets.length, 4, "重新检测会重新读取内容");
 await page.click('.pa-clean-other input[data-k="jiang1.png"]'); await page.waitForTimeout(100);
 await page.evaluate(() => { window.__delChars = ["jiang1.png"]; });
 await page.click('[data-x="del"]'); await page.waitForTimeout(200);
