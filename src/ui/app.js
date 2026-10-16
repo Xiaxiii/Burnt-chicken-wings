@@ -313,7 +313,7 @@ function addSettingsEntry() {
           <div class="pa-set-note pa-set-whynote" hidden>在页面顶部往下拖时，浏览器会刷新整个酒馆（iPhone、iPad 的 Safari 最常见，安卓 Chrome 也会）。开启后阻止这种刷新；浏览器的刷新按钮照常可用。</div>
         </div>
         <div class="pa-set-maint"></div>
-        ${log.length ? `<details class="pa-set-log pa-set-fold"><summary><span class="pa-set-fold-t">更新说明</span><small class="pa-set-sum">${esc(log[0].head)}</small></summary><div class="pa-set-logs">${log.slice(0, 1).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
+        ${log.length ? `<details class="pa-set-log pa-set-fold"><summary><span class="pa-set-fold-t">更新说明</span><small class="pa-set-sum">${esc(log[0].head)}</small></summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
         <div class="pa-set-foot">打开方式：点上方按钮，或从魔棒菜单打开，或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>

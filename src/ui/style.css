@@ -1118,3 +1118,6 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-save-list { margin: 2px 0; padding: 8px 10px; }
 #pa-root .pa-save-list .pa-hint { margin: 0 0 4px; }
 #pa-root .pa-save-list .pa-kv b { font-weight: 500; }
+/* 设置框：更新、刷新按钮靠右 */
+#pa-settings .pa-set-status { justify-content: space-between; }
+#pa-settings .pa-set-status .menu_button { margin-left: auto; flex: none; }
