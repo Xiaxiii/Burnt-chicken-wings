@@ -324,7 +324,7 @@ function addSettingsEntry() {
   const host2 = document.getElementById("extensions_settings2") || document.getElementById("extensions_settings");
   if (!host2) return;
   const log = changelogSections();
-  const kind = BUILD_KIND === "extension" ? "扩展版" : "脚本版";
+  const kind = BUILD_KIND === "extension" ? "" : " · 脚本版";
   const box = el(`<div id="pa-settings" class="pa-set">
     <div class="inline-drawer">
       <div class="inline-drawer-toggle inline-drawer-header">
@@ -341,7 +341,7 @@ function addSettingsEntry() {
           <div class="pa-set-row pa-set-namerow">${nameRowHtml()}</div>
           <div class="pa-set-row">
             <span class="pa-set-k">版本</span>
-            <span class="pa-set-v">${esc(VERSION)} · ${kind}</span>
+            <span class="pa-set-v">${esc(VERSION)}${kind}</span>
             ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
           </div>
           <div class="pa-set-status" hidden></div>
