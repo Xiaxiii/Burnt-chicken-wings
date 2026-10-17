@@ -15,6 +15,36 @@ function injectStyle() {
   s.textContent = style_default;
   document.head.append(s);
 }
+// 1.9.10 适配各种外壳（TT、App 内嵌网页、PWA、平板、电脑）：
+// 有的外壳里 100dvh 比实际看得见的区域高（底部页签被挤出屏幕），安全区也会被重复留白（顶部一大块空白）。
+// 按实际可见高度定面板高度；网页本身没盖住状态栏、底部横条时，不再额外留安全区
+function syncViewport() {
+  const r = rootEl2;
+  if (!r) return;
+  const h = Math.round(window.innerHeight || document.documentElement.clientHeight || 0);
+  if (h > 0) r.style.setProperty("--pa-vh", h + "px");
+  let probe = document.getElementById("pa-safe-probe");
+  if (!probe) {
+    probe = document.createElement("div");
+    probe.id = "pa-safe-probe";
+    probe.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)";
+    document.documentElement.append(probe);
+  }
+  const cs = getComputedStyle(probe);
+  const t = parseFloat(cs.paddingTop) || 0, b = parseFloat(cs.paddingBottom) || 0;
+  const land = window.innerWidth > window.innerHeight;
+  const sw = window.screen?.width || 0, sh0 = window.screen?.height || 0;
+  const sh = land ? Math.min(sw, sh0) : Math.max(sw, sh0);
+  const gap = sh && h ? Math.max(0, sh - h) : 0;
+  r.style.setProperty("--pa-sat", (t && gap >= t - 2 ? 0 : t) + "px");
+  r.style.setProperty("--pa-sab", (b && gap >= t + b - 2 ? 0 : b) + "px");
+  // 外层被别的样式改了定位基准（transform 等）时，面板顶部会偏移：补回来
+  if (!r.hidden) {
+    r.style.top = "0px";
+    const off = r.getBoundingClientRect().top;
+    if (Math.abs(off) > 1) r.style.top = -off + "px";
+  }
+}
 function buildRoot() {
   document.getElementById("pa-root")?.remove();
   rootEl2 = el(`<div id="pa-root" class="pa-root" hidden>
@@ -36,6 +66,12 @@ function buildRoot() {
     </div>`);
   document.body.append(rootEl2);
   setRoot(rootEl2);
+  syncViewport();
+  const onVp = () => syncViewport();
+  window.addEventListener("resize", onVp);
+  window.addEventListener("orientationchange", onVp);
+  window.visualViewport?.addEventListener("resize", onVp);
+  cleanups.push(() => { window.removeEventListener("resize", onVp); window.removeEventListener("orientationchange", onVp); window.visualViewport?.removeEventListener("resize", onVp); });
   const app = {
     showOrganize(ids) {
       show("organize");
@@ -143,6 +179,7 @@ function open(tab, sub) {
   setFocusPreset(currentPresetName());
   applyTheme(rootEl2);
   rootEl2.hidden = false;
+  syncViewport();
   document.documentElement.classList.add("pa-open");
   show(tab || current);
   pushBackState();
