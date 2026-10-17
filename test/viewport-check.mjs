@@ -34,6 +34,16 @@ ok("全屏网页：保留安全区");
 r = await run({ w: 390, h: 797, screenH: 844, insetT: 47, insetB: 34 });
 assert.equal(r.sat, "0px"); assert.equal(r.sab, "34px");
 ok("顶部在状态栏下：只保留底部安全区");
+// 3b) 普通 Safari（iPhone、iPad）：顶部是浏览器栏不报安全区，收起工具栏后底部横条要保留
+r = await run({ w: 390, h: 750, screenH: 844, insetT: 0, insetB: 34 });
+assert.equal(r.sat, "0px"); assert.equal(r.sab, "34px");
+r = await run({ w: 820, h: 1100, screenH: 1180, insetT: 0, insetB: 20 });
+assert.equal(r.sab, "20px");
+ok("Safari 浏览器（iPhone、iPad）：保留底部横条位置");
+// 3c) iPad 上的 App 内嵌网页
+r = await run({ w: 820, h: 1136, screenH: 1180, insetT: 24, insetB: 20 });
+assert.equal(r.sat, "0px"); assert.equal(r.sab, "0px");
+ok("iPad App 内嵌网页：不重复留白");
 // 4) 平板、电脑
 r = await run({ w: 1024, h: 768, screenH: 1366, insetT: 0, insetB: 0 });
 assert.ok(r.tabsBottom <= r.vh + 0.5 && Math.round(r.rootH) === r.vh);

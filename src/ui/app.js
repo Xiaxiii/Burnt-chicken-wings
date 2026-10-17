@@ -37,7 +37,9 @@ function syncViewport() {
   const sh = land ? Math.min(sw, sh0) : Math.max(sw, sh0);
   const gap = sh && h ? Math.max(0, sh - h) : 0;
   r.style.setProperty("--pa-sat", (t && gap >= t - 2 ? 0 : t) + "px");
-  r.style.setProperty("--pa-sab", (b && gap >= t + b - 2 ? 0 : b) + "px");
+  // 底部只在「顶部也报了安全区、且网页高度连同底部一起少了」时才去掉；
+  // 普通 Safari（顶部是浏览器栏，不报顶部安全区）收起工具栏后要保留底部横条的位置
+  r.style.setProperty("--pa-sab", (b && t > 0 && gap >= t + b - 2 ? 0 : b) + "px");
   // 外层被别的样式改了定位基准（transform 等）时，面板顶部会偏移：补回来
   if (!r.hidden) {
     r.style.top = "0px";
