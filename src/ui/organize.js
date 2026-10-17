@@ -472,15 +472,26 @@ function mountOrganize(page) {
               <label class="pa-field" data-show="depth" ${depthPos ? "" : "hidden"}><span>深度</span><input class="pa-input" type="number" min="0" data-f="depth" value="${esc(p.injection_depth ?? 4)}"></label>
               <label class="pa-field" data-show="depth" ${depthPos ? "" : "hidden"}><span>同深度时的顺序</span><input class="pa-input" type="number" data-f="order" value="${esc(p.injection_order ?? 100)}"></label>
             </div>
-            <p class="pa-hint">写法：${esc(info)}</p>
-            <textarea class="pa-input pa-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
+            <div class="pa-edit-bar"><p class="pa-hint">写法：${esc(info)}</p><button type="button" class="pa-icon-btn pa-expand" data-f="expand" aria-label="展开正文" title="展开正文">${ICON.expand}</button></div>
+            <textarea class="pa-input pa-text pa-edit-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
         </div>`);
+    // 展开：正文占满弹窗，其他设置先收起；再点一次恢复
+    body.querySelector("[data-f=expand]")?.addEventListener("click", (e) => {
+      const sh = body.closest(".pa-sheet");
+      const on = !sh.classList.contains("pa-sheet-max");
+      sh.classList.toggle("pa-sheet-max", on);
+      e.currentTarget.innerHTML = on ? ICON.collapse : ICON.expand;
+      e.currentTarget.setAttribute("aria-label", on ? "收起正文" : "展开正文");
+      e.currentTarget.title = on ? "收起正文" : "展开正文";
+      body.querySelector("[data-f=content]")?.focus({ preventScroll: true });
+    });
     body.querySelector("[data-f=pos]")?.addEventListener("change", (e) => {
       body.querySelectorAll("[data-show=depth]").forEach((x) => { x.hidden = e.target.value !== "1"; });
     });
     // 输入时不保存；点「保存」才写进预设，点「取消」或 ✕ 不改动
     const r = await sheet({
       title: "编辑条目", body, wide: true, noFocus: true,
+      onMount: (w) => { if (!marker) w.querySelector(".pa-sheet").classList.add("pa-sheet-edit"); },
       actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => {
         const v = (k) => w.querySelector(`[data-f=${k}]`)?.value;
         return { name: v("name"), content: v("content"), role: v("role"), pos: v("pos"), depth: v("depth"), order: v("order") };

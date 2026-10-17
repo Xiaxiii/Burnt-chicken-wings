@@ -1,0 +1,35 @@
+// 编辑条目：弹窗占 80% 高度，正文框占满剩余空间；展开按钮让正文占满整屏，再点恢复
+import { chromium } from "playwright";
+import assert from "node:assert";
+const S = new URL("./shots/", import.meta.url).pathname;
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+const errs = [];
+page.on("pageerror", (e) => errs.push(e.message));
+await page.goto("http://127.0.0.1:8765/test/site/index.html");
+await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.evaluate(() => window.__presetAtelier.open("organize")); await page.waitForTimeout(500);
+await page.locator(".pa-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(300);
+await page.evaluate(() => {
+  const r = [...document.querySelectorAll(".pa-list .pa-row:not(.pa-sep)")].find((x) => x.offsetParent && !x.querySelector(".pa-chip-dim"));
+  r.querySelector("[data-act=peek]").click();
+});
+await page.waitForTimeout(400);
+const box = async (sel) => page.locator(sel).boundingBox();
+const sh = await box(".pa-sheet-edit");
+assert.ok(sh && sh.height >= 844 * 0.78, `弹窗高度约 80%：${sh?.height}`);
+const ta = await box(".pa-sheet-edit .pa-edit-text");
+assert.ok(ta.height > 844 * 0.3, `正文框占满剩余高度：${ta.height}`);
+await page.screenshot({ path: S + "e-1-edit.png" });
+await page.click(".pa-expand"); await page.waitForTimeout(250);
+const full = await box(".pa-sheet-edit .pa-edit-text");
+assert.ok(full.height > ta.height + 100, "展开后正文更高");
+assert.ok(await page.locator(".pa-sheet [data-f=name]").isHidden(), "展开时收起其他设置");
+await page.screenshot({ path: S + "e-2-max.png" });
+await page.fill(".pa-sheet [data-f=content]", "改过的正文");
+await page.click(".pa-expand"); await page.waitForTimeout(200);
+assert.ok(await page.locator(".pa-sheet [data-f=name]").isVisible(), "再点恢复");
+assert.equal(await page.inputValue(".pa-sheet [data-f=content]"), "改过的正文", "展开收起不丢内容");
+assert.deepEqual(errs, []);
+console.log("编辑条目检查通过");
+await browser.close();

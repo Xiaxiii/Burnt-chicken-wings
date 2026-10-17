@@ -1121,3 +1121,17 @@ html.pa-open body { overflow: hidden; }
 /* 设置框：更新、刷新按钮靠右 */
 #pa-settings .pa-set-status { justify-content: space-between; }
 #pa-settings .pa-set-status .menu_button { margin-left: auto; flex: none; }
+/* 2.0.1 编辑条目：弹窗顶到列表上方，正文框占满剩余高度；可展开为全屏编辑 */
+#pa-root .pa-sheet-edit { height: calc(var(--pa-vh, 100dvh) * .8); max-height: calc(var(--pa-vh, 100dvh) * .8); }
+#pa-root .pa-sheet-edit .pa-sheet-body { display: flex; flex-direction: column; }
+#pa-root .pa-sheet-edit .pa-form { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+#pa-root .pa-sheet-edit .pa-edit-text { flex: 1 1 auto; min-height: 8em; resize: none; }
+#pa-root .pa-edit-bar { display: flex; align-items: center; gap: 8px; }
+#pa-root .pa-edit-bar .pa-hint { flex: 1 1 auto; min-width: 0; margin: 0; }
+#pa-root .pa-expand { flex: none; width: 32px; height: 32px; color: var(--pa-dim); border: 1px solid var(--pa-line); border-radius: 8px; }
+#pa-root .pa-sheet-max { height: var(--pa-vh, 100dvh); max-height: var(--pa-vh, 100dvh); border-radius: 0; }
+#pa-root .pa-sheet-max .pa-form > .pa-field, #pa-root .pa-sheet-max .pa-item-ctl { display: none; }
+@media (min-width: 760px) {
+    #pa-root .pa-sheet-edit { height: calc(var(--pa-vh, 100dvh) * .86); }
+    #pa-root .pa-sheet-max { height: calc(var(--pa-vh, 100dvh) - 24px); max-height: none; max-width: none; border-radius: 16px; }
+}
