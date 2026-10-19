@@ -239,8 +239,8 @@ function mountCot(page, app) {
       render();
     }
   });
-  const off = onDraftChange(() => {
-    if (page.isConnected && !page.hidden) render();
+  const off = onDraftChange((name, kind) => {
+    if (kind !== "status" && name === focusPreset() && draftViewVisible(page)) render();
   });
   return { render: () => {
     picker.refresh();

@@ -15,40 +15,146 @@ var THEMES = [
 ];
 function readColor(value) {
   if (!value) return null;
+  if (!CSS.supports("color", value)) return null;
+  const hex = /^#([\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.exec(value);
+  if (hex) {
+    const full = hex[1].length < 5 ? [...hex[1]].map(c => c + c).join("") : hex[1];
+    return { r: parseInt(full.slice(0, 2), 16), g: parseInt(full.slice(2, 4), 16), b: parseInt(full.slice(4, 6), 16), a: full.length === 8 ? parseInt(full.slice(6, 8), 16) / 255 : 1 };
+  }
+  const plain = /^rgba?\(([\d\s.,/]+)\)$/.exec(value);
+  if (plain) {
+    const [r, g, b, a = 1] = plain[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+    if ([r, g, b, a].every(Number.isFinite)) return { r: Math.min(255, r), g: Math.min(255, g), b: Math.min(255, b), a: Math.min(1, a) };
+  }
   const probe = document.createElement("span");
   probe.style.display = "none";
-  probe.style.color = value;
+  probe.style.setProperty("color", value, "important");
   document.body.append(probe);
   const c = getComputedStyle(probe).color;
   probe.remove();
+  const srgb = /^color\(srgb\s+([^)]*)\)/.exec(c);
+  if (srgb) {
+    const [r, g, b, a = 1] = srgb[1].split(/[\s/]+/).filter(Boolean).map(Number);
+    return { r: r * 255, g: g * 255, b: b * 255, a };
+  }
   const m = /rgba?\(([^)]+)\)/.exec(c);
   if (!m) return null;
   const [r, g, b, a = 1] = m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
   return { r, g, b, a };
 }
+function themeRgb(c) {
+  return `rgb(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)})`;
+}
+function themeMix(fg, bg, a = fg.a ?? 1) {
+  return { r: fg.r * a + bg.r * (1 - a), g: fg.g * a + bg.g * (1 - a), b: fg.b * a + bg.b * (1 - a), a: 1 };
+}
+function themeLuminance(c) {
+  const linear = (n) => { n /= 255; return n <= .04045 ? n / 12.92 : ((n + .055) / 1.055) ** 2.4; };
+  return .2126 * linear(c.r) + .7152 * linear(c.g) + .0722 * linear(c.b);
+}
+function themeContrast(a, b) {
+  const x = themeLuminance(a), y = themeLuminance(b);
+  return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
+}
+// 保留原主题色相，仅在文字/控件与面板太接近时向深色或浅色调整。
+function readableThemeColor(color, surfaces, minimum) {
+  const original = themeMix(color, surfaces[0]);
+  const score = (c) => Math.min(...surfaces.map((bg) => themeContrast(c, bg)));
+  if (score(original) >= minimum) return original;
+  const dark = { r: 0, g: 0, b: 0 }, light = { r: 255, g: 255, b: 255 };
+  const end = score(dark) >= score(light) ? dark : light;
+  if (score(end) < minimum) return end;
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 18; i++) {
+    const k = (lo + hi) / 2;
+    if (score(themeMix(end, original, k)) >= minimum + .03) hi = k;
+    else lo = k;
+  }
+  return themeMix(end, original, hi);
+}
+var themeWatcher = null;
+function watchTheme(root) {
+  if (themeWatcher?.root === root) return;
+  themeWatcher?.stop();
+  let frame = 0;
+  const refresh = () => {
+    if (root.hidden || !root.isConnected || frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (!root.hidden && root.isConnected) applyTheme(root);
+    });
+  };
+  // 不观察条目、聊天内容或整个 DOM 子树；宿主换主题时只合并处理一次。
+  const observer = new MutationObserver(refresh);
+  for (const node of [document.documentElement, document.body]) observer.observe(node, { attributes: true, attributeFilter: ["class", "style"] });
+  const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+  media?.addEventListener?.("change", refresh);
+  const stop = () => { observer.disconnect(); cancelAnimationFrame(frame); media?.removeEventListener?.("change", refresh); };
+  themeWatcher = { root, stop };
+  // 扩展/脚本重载走应用现有销毁流程，释放旧面板和媒体监听。
+  if (typeof cleanups !== "undefined") cleanups.push(stop);
+}
 var bgUrl = null;
 function applyTheme(root) {
   if (!root) return;
+  watchTheme(root);
   // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
   const id = THEMES.some((t) => t.id === settings().theme) ? settings().theme : "follow";
   root.dataset.theme = id;
   root.dataset.fs = fontSizePref();
   root.classList.toggle("pa-painted", !!THEMES.find((t) => t.id === id)?.paint);
+  const host = getComputedStyle(document.body);
+  const hostColors = ["--SmartThemeBlurTintColor", "--SmartThemeBodyColor", "--SmartThemeQuoteColor", "--SmartThemeEmColor", "--SmartThemeBorderColor"].map((key) => host.getPropertyValue(key).trim());
+  const signature = JSON.stringify([id, ...(id === "follow" ? hostColors : [])]);
+  if (root._paThemeSignature === signature) return applyBackground(root);
+  root._paThemeSignature = signature;
+  for (const key of ["text", "dim", "em", "thread", "on-accent", "control-border", "checkmark", "warn", "ok"]) root.style.removeProperty(`--pa-${key}`);
   if (id !== "follow") {
     root.style.removeProperty("--pa-tint");
     root.style.removeProperty("--pa-input-bg");
-    root.style.removeProperty("--pa-on-accent");
   } else {
-    const cs = getComputedStyle(document.body);
-    const tint = readColor(cs.getPropertyValue("--SmartThemeBlurTintColor").trim()) || { r: 28, g: 26, b: 30, a: 0.94 };
-    root.style.setProperty("--pa-tint", `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${Math.max(tint.a, 0.97)})`);
-    const light = (0.2126 * tint.r + 0.7152 * tint.g + 0.0722 * tint.b) / 255 > 0.6;
+    const tint = readColor(hostColors[0]) || { r: 28, g: 26, b: 30 };
+    root.style.setProperty("--pa-tint", themeRgb(tint));
+    const light = themeLuminance(tint) > .179;
     root.style.setProperty("--pa-input-bg", light ? "rgba(255, 255, 255, .72)" : "rgba(0, 0, 0, .2)");
-    // 主按钮文字：强调色深用白字，浅用深字
-    const acc = readColor(cs.getPropertyValue("--SmartThemeQuoteColor").trim()) || { r: 224, g: 162, b: 74 };
-    const accL = (0.2126 * acc.r + 0.7152 * acc.g + 0.0722 * acc.b) / 255;
-    root.style.setProperty("--pa-on-accent", accL < 0.55 ? "#fff" : "#1b1712");
   }
+  const cs = getComputedStyle(root);
+  const color = (key, fallback) => readColor(cs.getPropertyValue(`--pa-${key}`).trim()) || fallback;
+  const base = color("tint", { r: 28, g: 26, b: 30 });
+  const requestedText = color("text", { r: 230, g: 225, b: 216 }), requestedAccent = color("thread", { r: 224, g: 162, b: 74 });
+  const surfaceColors = () => {
+    const layer = Object.fromEntries(["card", "card-2", "input-bg", "sel"].map(key => [key, color(key, { ...base, a: 0 })]));
+    const panels = [base, themeMix(layer.card, base), themeMix(layer["card-2"], base), themeMix(layer["card-2"], themeMix(layer.card, base))];
+    const selected = panels.map(bg => themeMix(layer.sel, bg));
+    // 真实预览里选中方式位于卡片内，输入框/正文片段又位于其中。
+    return [...panels, ...selected, ...[...panels, ...selected].map(bg => themeMix(layer["input-bg"], bg))];
+  };
+  let surfaces, text, accent, previous = "";
+  // 卡片/选中底色本身依赖 text/thread；纠正后重读实际表面，避免沿用旧浅字的表面。
+  // 仅主题签名改变时运行，按 RGB 取整后的结果收敛，最多八轮。
+  for (let i = 0; i < 8; i++) {
+    surfaces = surfaceColors();
+    text = readableThemeColor(requestedText, surfaces, 4.5);
+    accent = readableThemeColor(requestedAccent, surfaces, 4.5);
+    const signature = themeRgb(text) + themeRgb(accent);
+    if (signature === previous) break;
+    previous = signature;
+    root.style.setProperty("--pa-text", themeRgb(text));
+    root.style.setProperty("--pa-thread", themeRgb(accent));
+  }
+  surfaces = surfaceColors();
+  const ink = themeContrast(accent, { r: 255, g: 255, b: 255 }) >= themeContrast(accent, { r: 0, g: 0, b: 0 }) ? "#ffffff" : "#000000";
+  for (const [key, value] of Object.entries({
+    text, thread: accent,
+    dim: readableThemeColor(themeMix(text, base, .68), surfaces, 4.5),
+    em: readableThemeColor(color("em", text), surfaces, 4.5),
+    "control-border": readableThemeColor(themeMix(text, base, .6), surfaces, 3),
+    warn: readableThemeColor(color("warn", { r: 224, g: 120, b: 74 }), surfaces, 4.5),
+    ok: readableThemeColor(color("ok", { r: 111, g: 179, b: 138 }), surfaces, 4.5)
+  })) root.style.setProperty(`--pa-${key}`, themeRgb(value));
+  root.style.setProperty("--pa-on-accent", ink);
+  root.style.setProperty("--pa-checkmark", `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='${ink.replace("#", "%23")}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`);
+  root.style.colorScheme = themeLuminance(base) > .179 ? "light" : "dark";
   applyBackground(root);
 }
 // 自定义背景图：图片上盖一层主题底色，浓度可调，保证文字清楚

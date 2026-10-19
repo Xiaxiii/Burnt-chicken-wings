@@ -101,6 +101,9 @@ function handleSaveError(name, e) {
 function panelVisible() {
   return !!(rootEl && rootEl.isConnected && !rootEl.hidden);
 }
+function draftViewVisible(page) {
+  return page.isConnected && !page.closest("[hidden]");
+}
 function askLater(name, fn) {
   pendingAsks.set(name, fn);
   if (panelVisible()) setTimeout(flushAsks, 0);
@@ -147,7 +150,7 @@ async function resolveSaveProblem(name) {
     if (v === "drop") {
       unblock(name);
       dropDraft(name);
-      notifyDraft(name);
+      notifyDraft(name, "content");
       toast(`已放弃修改，重新读取「${name}」`);
       return;
     }
@@ -182,19 +185,13 @@ function unblock(name) {
   saveBlocked.delete(name);
   saveErrors.delete(name);
 }
-function notifyDraft(name) {
-  for (const fn of listeners) { try { fn(name); } catch (e) { console.error(e); } }
+function notifyDraft(name, kind = "status") {
+  for (const fn of listeners) { try { fn(name, kind); } catch (e) { console.error(e); } }
 }
 function emitChange(name) {
   const d = drafts.get(name);
   if (d?.dirty) { checkpoint(d); queueAutoSave(name); }
-  for (const fn of listeners) {
-    try {
-      fn(name);
-    } catch (e) {
-      console.error(e);
-    }
-  }
+  notifyDraft(name, "content");
 }
 function presetSig(p) {
   try { return JSON.stringify({ prompts: p?.prompts, prompt_order: p?.prompt_order, extensions: p?.extensions }); }
@@ -352,7 +349,7 @@ function focusPreset() {
 }
 function setFocusPreset(n) {
   focusName = n;
-  emitChange(n);
+  notifyDraft(n, "focus");
 }
 // 「确认」：本批修改到此为止。先等保存完成，再清空撤销记录；下一次修改会重新备份
 async function confirmDraft(name) {

@@ -490,8 +490,8 @@ function mountSchemes(page, { after } = {}) {
   page.addEventListener("keydown", (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".pa-sghead")) { e.preventDefault(); e.target.click(); }
   });
-  const off = onDraftChange(() => {
-    if (page.isConnected && !page.hidden) render();
+  const off = onDraftChange((name, kind) => {
+    if (kind !== "status" && draftViewVisible(page)) render();
   });
   return { render, destroy: off };
 }

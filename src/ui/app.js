@@ -177,6 +177,7 @@ function show(tab) {
 function open(tab, sub) {
   if (sub && tab === "more") settings().moreTab = sub;
   if (!rootEl2) buildRoot();
+  rootEl2.querySelectorAll(".pa-page").forEach((page) => { page.hidden = true; });
   dropClean();
   setFocusPreset(currentPresetName());
   applyTheme(rootEl2);
