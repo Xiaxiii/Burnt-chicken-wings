@@ -7,6 +7,32 @@ function repaint(node, html) {
     repainting = false;
   }
 }
+function sutureEnableTools() {
+  return `<div class="pa-field-row pa-enablebar" data-enable-tools role="group" aria-label="本次缝合的开启状态">
+    <span data-enable-count aria-live="polite"></span>
+    <label class="pa-switch" title="向右全部开启，向左全部关闭；仍可逐条调整"><input type="checkbox" data-enable-toggle aria-label="本次缝后全部开启"><i></i></label></div>`;
+}
+function bindSutureEnableTools(body, items) {
+  const tools = body.querySelector("[data-enable-tools]");
+  const toggle = tools.querySelector("[data-enable-toggle]");
+  const refresh = () => {
+    const count = items.filter((it) => it.enabled).length;
+    tools.querySelector("[data-enable-count]").textContent = `${count && count < items.length ? "部分开启" : "缝后开启"}：${count} / ${items.length}`;
+    toggle.checked = count === items.length;
+    toggle.indeterminate = count > 0 && count < items.length;
+  };
+  toggle.addEventListener("change", () => {
+    const on = toggle.checked;
+    for (const it of items) it.enabled = on;
+    // 仅更新预览选择，不重算写法/思维链，也不改目标预设；确认缝合后才写入。
+    body.querySelectorAll(".pa-items [data-c=on]").forEach((input) => { input.checked = on; });
+    refresh();
+  });
+  body.addEventListener("change", (e) => {
+    if (e.target.matches(".pa-items [data-c=on]")) refresh();
+  });
+  refresh();
+}
 function mountSuture(page, app) {
   const st = {
     srcType: "preset",
@@ -625,6 +651,7 @@ function mountSuture(page, app) {
                 ${tgtProf.lines.length ? `<b class="pa-sub">目标预设怎样让条目生效</b><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""}
                 ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<b class="pa-sub">来源「${esc(sd.name)}」怎样让条目生效</b><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "").join("")}
                 </div></details>
+                ${sutureEnableTools()}
                 <div class="pa-hookbar"><span class="pa-hookbar-n"></span><button class="pa-btn pa-btn-s" data-g="hook-all">全部接入</button><button class="pa-btn pa-btn-s" data-g="hook-rec">推荐接入</button><button class="pa-btn pa-btn-s" data-g="hook-none">全部不接入</button></div>
                 <small>接入思维链：让模型思考时专门想一下这条。每接入一条，思考就多一个问题，默认不接入。</small>
             </div>
@@ -665,7 +692,7 @@ function mountSuture(page, app) {
             <label class="pa-inline-check"><input type="checkbox" data-c="hook" ${it.hookOn ? "checked" : ""}> <b>接入思维链</b>${h.on ? '<span class="pa-chip pa-chip-cot">推荐</span>' : ""}</label>
             <small>${esc(h.text)}${it.hookOn || h.on ? "" : "。" + esc(h.offHint || "")}</small>${(h.warns || []).map((w) => `<p class="pa-warn">${esc(w)}</p>`).join("")}${detail}</div>`;
     };
-    const renderItem = (it, i) => {
+    const renderItem = (it, i, analysis = null) => {
       const { t, where, gid, tgtWr } = it.pos;
       const src = { ...it.src, name: it.src.name };
       const base = { ...it.choice };
@@ -683,7 +710,7 @@ function mountSuture(page, app) {
       const srcCot = it.desc?.cot ? ["var", "chain", "mention"].includes(it.desc.cot.level) : null;
       const collectors = chosen.want?.shape === "wrap" && chosen.want.varName === t.varName ? t.readerIds.filter((r) => !isCotEntry(d, r)) : [];
       try {
-        it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null });
+        it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null, analysis });
       } catch (e) {
         console.warn("[焦香鸡翅] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，已跳过" };
@@ -752,9 +779,13 @@ function mountSuture(page, app) {
       const i = Number(art.dataset.i);
       it.bodyOpen = art.querySelector(".pa-body")?.open || void 0;
       it.choice.adv = art.querySelector(".pa-adv")?.open || void 0;
-      repaint(art, renderItem(it, i));
+      repaint(art, d.withReadIndex(() => renderItem(it, i)));
     };
-    box.innerHTML = items.map(renderItem).join("");
+    const renderItems = (analysis = null) => d.withReadIndex(() => {
+      const currentAnalysis = analysis || analyze(d);
+      return items.map((it, i) => renderItem(it, i, currentAnalysis)).join("");
+    });
+    box.innerHTML = renderItems(tgtProf.a);
     // 思维链批量选择：全部接入 / 推荐接入 / 全部不接入
     const hookable = () => items.filter((it) => it.hook?.status === "hook");
     const paintHookBar = () => {
@@ -772,9 +803,10 @@ function mountSuture(page, app) {
         it.choice.hook = g === "hook-all" ? true : g === "hook-rec" ? !!it.hook.on : false;
         it.manual = null;
       }
-      box.innerHTML = items.map(renderItem).join("");
+      box.innerHTML = renderItems();
       paintHookBar();
     });
+    bindSutureEnableTools(body, items);
     const grpSel = body.querySelector("[data-g=grp]");
     const grpName = body.querySelector("[data-g=gname]");
     grpSel?.addEventListener("change", () => {
@@ -1008,11 +1040,12 @@ function mountSuture(page, app) {
     };
     const body = el(`<div class="pa-review">
         <div class="pa-target-card"><div><b>位置：世界书「${esc(d.name)}」，${esc(placeText(d, marker))}</b></div>
-          <small>位置决定条目在世界书编辑器中的排列。实际发送顺序由每条的「插入位置」和「顺序」决定，默认与${anchor ? `「${esc(d.prompt(afterId || firstId)?.name || "")}」` : "世界书默认值"}相同。预设条目缝入后默认「常驻」，与在预设中一样一直生效。</small></div>
+          <small>位置决定条目在世界书编辑器中的排列。实际发送顺序由每条的「插入位置」和「顺序」决定，默认与${anchor ? `「${esc(d.prompt(afterId || firstId)?.name || "")}」` : "世界书默认值"}相同。预设条目缝入后默认「常驻」，与在预设中一样一直生效。</small>${sutureEnableTools()}</div>
         <div class="pa-items"></div></div>`);
     const box = body.querySelector(".pa-items");
     const paint = () => { box.innerHTML = items.map(renderItem).join(""); };
     paint();
+    bindSutureEnableTools(body, items);
     box.addEventListener("change", (e) => {
       const art = e.target.closest(".pa-item");
       // 重画时，正在编辑的输入框被移走会再触发一次 change（失焦），忽略这一次
@@ -1161,8 +1194,8 @@ function mountSuture(page, app) {
       entries: pick.map((c) => ({ src: { name: c.p.name, content: c.p.content, prompt: c.p, from: old.name, srcDraft: old, srcId: c.id }, marker: c.marker, hook: c.hook || void 0, enabled: old.order.find((o) => o.identifier === c.id)?.enabled !== false }))
     });
   }
-  const off = onDraftChange(() => {
-    if (page.isConnected && !page.hidden && st.dstType === "preset") renderDst();
+  const off = onDraftChange((name, kind) => {
+    if (kind !== "status" && name === focusPreset() && draftViewVisible(page) && st.dstType === "preset") renderDst();
   });
   return {
     render() {

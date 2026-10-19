@@ -15,6 +15,9 @@ var ICON = {
  * o.marker：{ at: "top" } | { at: "row", id } | { at: "block", id: 组块最后一条 } | { at: "block", gid }（空分组）| { at: "gstart", gid }
  */
 function renderList(draft, o) {
+  return draft.withReadIndex(() => renderIndexedList(draft, o));
+}
+function renderIndexedList(draft, o) {
   const q = (o.query || "").trim().toLowerCase();
   const sel = o.selected || /* @__PURE__ */ new Set();
   const collapsed = o.collapsed || /* @__PURE__ */ new Set();
@@ -48,6 +51,8 @@ function renderList(draft, o) {
   }
   const matches = (id) => !q || hits.has(id);
   const enabledMap = new Map(draft.order.map((x) => [x.identifier, x.enabled !== false]));
+  const manual = draft.cotManual || {};
+  let region;
   const row = (id) => {
     if (!matches(id)) return "";
     const p = draft.prompt(id);
@@ -61,7 +66,7 @@ function renderList(draft, o) {
       const s = detectShape(p?.content);
       if (s.shape === "wrap" || s.shape === "tagname") badge = `<span class="pa-chip" title="写入变量">${markText(tagText(draft, id), q)}</span>`;
       else if (s.shape === "init") badge = '<span class="pa-chip pa-chip-dim">变量初始化</span>';
-      if (isCotEntry(draft, id)) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
+      if (isCotEntry(draft, id, manual, region || (region = cotRegion(draft)))) badge += '<span class="pa-chip pa-chip-cot">CoT</span>';
     }
     if (marker) badge = '<span class="pa-chip pa-chip-dim">系统位置</span>';
     const at = m?.at === "row" && m.id === id;
@@ -89,9 +94,9 @@ function renderList(draft, o) {
       continue;
     }
     const g = draft.group(b.groupId);
-    const visibleRows = b.ids.map(row).join("");
-    if (q && !visibleRows) continue;
     const isCol = !q && collapsed.has(b.groupId);
+    const visibleRows = isCol ? "" : b.ids.map(row).join("");
+    if (q && !visibleRows) continue;
     const onCount = b.ids.filter((id) => enabledMap.get(id)).length;
     const allSel = b.ids.length && b.ids.every((id) => sel.has(id));
     const first = b.ids[0] || "";

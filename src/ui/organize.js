@@ -752,8 +752,8 @@ function mountOrganize(page) {
     if (drag && e.pointerId === drag.pid) endDrag(true);
   });
   list.addEventListener("pointercancel", () => endDrag(false));
-  const off = onDraftChange(() => {
-    if (page.isConnected && !page.hidden) render();
+  const off = onDraftChange((name, kind) => {
+    if (kind !== "status" && name === focusPreset() && draftViewVisible(page)) render();
   });
   return { render: () => {
     picker.refresh();

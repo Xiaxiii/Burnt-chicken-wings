@@ -35,6 +35,7 @@ function neighborhood(draft, where, groupId, radius = 6) {
 }
 function referenceIds(draft, where, groupId) {
   const { ids } = neighborhood(draft, where, groupId);
+  const region = cotRegion(draft);
   return ids.filter((id) => {
     const p = draft.prompt(id);
     if (!p || draft.isMarker(id)) return false;
@@ -42,11 +43,14 @@ function referenceIds(draft, where, groupId) {
     if (c2.trim().length < 20) return false;
     const s = detectShape(c2);
     if (s.shape === "init" || s.shape === "empty") return false;
-    if (isCotEntry(draft, id)) return false;
+    if (isCotEntry(draft, id, undefined, region)) return false;
     return true;
   });
 }
 function inferTarget(draft, where, groupId) {
+  return draft.withReadIndex(() => inferTargetIndexed(draft, where, groupId));
+}
+function inferTargetIndexed(draft, where, groupId) {
   const refIds = referenceIds(draft, where, groupId);
   const shapes = refIds.map((id) => ({ id, s: detectShape(draft.prompt(id).content) }));
   let shape = mostCommon(shapes.map((x) => x.s.shape)) || "plain";
@@ -447,12 +451,15 @@ function mainCotOf(draft, cotIds) {
  * @param item {content, label, name, selfId?}
  * @param opts.srcCot 来源预设里，这条是否被思维链读到/提到（决定默认要不要挂）
  */
-function planHook(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null, allowSlot = true, collector = null } = {}) {
+function planHook(draft, where, gid, item, options = {}) {
+  return draft.withReadIndex(() => planHookIndexed(draft, where, gid, item, options));
+}
+function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null, allowSlot = true, collector = null, analysis = null } = {}) {
   const content = String(item.content || "");
   const bodyText = String(detectShape(content).body || content).replace(/\{\{[^{}]*\}\}/g, "");
   if (bodyText.trim().length < 20) return { status: "skip", on: false, text: "内容过短（分隔或开关条目），无需接入" };
   if (COT_NAME.test(item.name || "") || COT_BODY.test(content)) return { status: "cot", on: false, text: "本身是思维链片段，无需接入" };
-  const a = analyze(draft);
+  const a = analysis || analyze(draft);
   const cotSet = new Set(a.cotIds);
   const cotIds = a.cotIds.filter((id) => id !== item.selfId);
   if (!cotIds.length) return { status: "nocot", on: false, text: "目标中未识别到开启的思维链。如名称特殊，可在「思维链」页手动指定后再缝合" };
@@ -674,7 +681,7 @@ function insertLine(text, needle, line) {
 /** 所有算思维链的条目（开着的、关着的"选一"版本都算） */
 function cotLikeIds(draft) {
   const region = cotRegion(draft);
-  return draft.order.map((o) => o.identifier).filter((id) => region.has(id) || isCotEntry(draft, id));
+  return draft.order.map((o) => o.identifier).filter((id) => region.has(id) || isCotEntry(draft, id, undefined, region));
 }
 function cotVersionsReading(draft, varName, first) {
   const list = cotLikeIds(draft).filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.op === "get" && m.name === varName));

@@ -552,3 +552,5 @@ require("./group-repair.cjs");
 require("./host-save.cjs");
 require("./group-classify.cjs");
 require("./group-toggle.cjs");
+require("./performance-core.cjs");
+require("./performance-list.cjs");

@@ -124,11 +124,14 @@ await clickHead("正文规则", ".pa-list");
 await page.waitForTimeout(800);
 L = await layout();
 check(L[L.indexOf("[新组B: ]") - 1]?.startsWith("[正文规则:"), "整理页空分组建在正文规则之后");
-await page.click('[data-tool="menu"]').catch(() => {}); await page.waitForTimeout(200);
-await page.locator(".pa-pick-item", { hasText: "全部展开" }).click().catch(() => page.keyboard.press("Escape")); await page.waitForTimeout(250);
-for (const n of ["字数", "禁词"]) await page.evaluate((n) => [...document.querySelectorAll(".pa-list .pa-row")].find((r) => r.textContent.includes(n)).click(), n);
+// 折叠分组按需创建条目；像用户一样先展开目标组，再点实际可见的条目。
+const rules = page.locator('.pa-list .pa-group:has(.pa-gname:text-is("正文规则"))');
+if (await rules.evaluate((g) => g.classList.contains("pa-collapsed"))) await rules.locator('.pa-gname').click();
+for (const n of ["字数", "禁词"]) await rules.locator('.pa-row').filter({ hasText: n }).click();
 await page.click('[data-sel="moveto"]'); await page.waitForTimeout(200);
-await page.evaluate(() => [...document.querySelectorAll(".pa-list .pa-group")].find((s) => s.querySelector(".pa-gname").textContent.includes("新组B")).querySelector('[data-act="gstart"]').click());
+const newGroupB = page.locator('.pa-list .pa-group:has(.pa-gname:text-is("新组B"))');
+if (await newGroupB.evaluate((g) => g.classList.contains("pa-collapsed"))) await newGroupB.locator('[data-act="collapse"]').click();
+await newGroupB.locator('[data-act="gstart"]').click();
 await page.waitForTimeout(800);
 L = await layout();
 check(L.includes("[新组B: 📏字数、🚫禁词]") && L.includes("[正文规则: ]"), "两条移入新组B，正文规则变为空分组留在原处");

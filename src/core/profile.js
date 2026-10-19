@@ -18,6 +18,9 @@ function namesOf(draft, ids, n = 3) {
 
 /** 整个预设的写法画像 */
 function profilePreset(draft) {
+  return draft.withReadIndex(() => profilePresetIndexed(draft));
+}
+function profilePresetIndexed(draft) {
   const a = analyze(draft);
   const cotSet = new Set(a.cotIds);
   const order = draft.order.map((o) => o.identifier);

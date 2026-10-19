@@ -41,11 +41,11 @@ function cotRegion(draft) {
   cotRegionCache.set(order, { sig, set });
   return set;
 }
-function isCotEntry(draft, id, manual = draft.cotManual || {}) {
+function isCotEntry(draft, id, manual = draft.cotManual || {}, preparedRegion = null) {
   if (manual[id] !== void 0) return !!manual[id];
   const p = draft.prompt(id);
   if (!p) return false;
-  if (cotRegion(draft).has(id)) return true;
+  if ((preparedRegion || cotRegion(draft)).has(id)) return true;
   const gid = draft.groupOf(id);
   const gname = gid ? draft.group(gid)?.name || "" : "";
   const name = p.name || "";
@@ -148,10 +148,14 @@ function mentionedTags(content) {
 }
 var IGNORE_TAGS = /* @__PURE__ */ new Set(["thinking", "think", "details", "summary", "section", "content", "user", "char", "style", "div", "span", "br", "html", "body", "phase", "step", "note", "rule", "rules", "system", "output", "format", "the", "and", "with", "this", "that", "must", "from", "your", "each", "into", "only", "when", "what", "will", "should", "after", "before", "about", "which", "there", "their", "have", "then", "than", "more", "less", "also", "such", "over", "under", "core", "main", "text", "time", "name", "type", "list", "item", "items", "true", "false", "none", "null"]);
 function analyze(draft, manual = draft.cotManual || {}) {
+  return draft.withReadIndex(() => analyzeIndexed(draft, manual));
+}
+function analyzeIndexed(draft, manual) {
   const order = draft.order.map((o) => o.identifier);
   const active = order.filter((id) => draft.isActive(id));
   const activeSet = new Set(active);
-  const cotIds = active.filter((id) => String(draft.prompt(id)?.content || "").trim() && isCotEntry(draft, id, manual));
+  const region = cotRegion(draft);
+  const cotIds = active.filter((id) => String(draft.prompt(id)?.content || "").trim() && isCotEntry(draft, id, manual, region));
   const cotSet = new Set(cotIds);
   const vars = /* @__PURE__ */ new Map();
   const touch = (name) => {

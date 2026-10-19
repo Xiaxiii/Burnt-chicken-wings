@@ -22,6 +22,7 @@
     max-height: none; min-height: 0; margin: 0; padding: 0;
     z-index: 10010;
     color: var(--pa-text);
+    text-shadow: none;
     /* 1.5.0：字号跟随酒馆，手机上最大 14px（酒馆字号调大时面板不会挤）；「外观 → 文字大小」可再整体缩放 */
     --pa-base: var(--mainFontSize, 15px);
     font-size: calc(var(--pa-base) * var(--pa-k, 1));
@@ -44,6 +45,7 @@ html.pa-open body { overflow: hidden; }
 #toast-container > .toast.pa-chat-toast .toast-message { white-space: pre-line; overflow-wrap: anywhere; opacity: .85; }
 
 #pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }
+#pa-root :where(b, strong, p, span, label, small, em, details, summary) { color: inherit; }
 #pa-root button, #pa-root input, #pa-root select, #pa-root textarea { font: inherit; color: inherit; }
 #pa-root [hidden] { display: none !important; }
 
@@ -56,8 +58,6 @@ html.pa-open body { overflow: hidden; }
     grid-template-areas: "top" "tabs" "main";
     width: 100%; overflow: hidden;
     background: var(--pa-tint);
-    -webkit-backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);
-    backdrop-filter: blur(var(--SmartThemeBlurStrength, 14px)) saturate(1.1);
     height: 100%;
 }
 #pa-root .pa-shell::before { content: ""; position: absolute; inset: 0; background: var(--pa-tint); z-index: -1; }
@@ -139,9 +139,12 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-input, #pa-root .pa-select {
     width: 100%; min-height: 38px; padding: 7px 10px;
     border: 1px solid var(--pa-line); border-radius: 8px;
-    background: var(--pa-input-bg); color: var(--pa-text);
+    background: var(--pa-input-bg) !important; color: var(--pa-text) !important;
+    -webkit-text-fill-color: var(--pa-text) !important; caret-color: var(--pa-text);
     font-size: 1em;
 }
+#pa-root .pa-select option { background: var(--pa-tint) !important; color: var(--pa-text) !important; -webkit-text-fill-color: var(--pa-text) !important; }
+#pa-root .pa-input::placeholder { color: var(--pa-dim) !important; -webkit-text-fill-color: var(--pa-dim) !important; opacity: 1; }
 /* iOS 输入框字号小于 16px 时点进去会自动放大页面，只对 iOS 保留 16px */
 @supports (-webkit-touch-callout: none) {
     #pa-root .pa-input, #pa-root .pa-select { font-size: max(16px, 1em); }
@@ -176,11 +179,14 @@ html.pa-open body { overflow: hidden; }
 /* 开关 */
 #pa-root .pa-switch { position: relative; display: inline-block; width: 38px; height: 22px; flex: none; cursor: pointer; }
 #pa-root .pa-switch input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
-#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-line); transition: background .15s; pointer-events: none; }
+#pa-root .pa-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--pa-card-2); border: 1px solid var(--pa-control-border, var(--pa-text)); transition: background .15s; pointer-events: none; }
 #pa-root .pa-switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--pa-text); opacity: .55; transition: transform .15s, opacity .15s; }
 #pa-root .pa-switch input:checked + i { background: var(--pa-thread); border-color: var(--pa-thread); }
-#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: #fff; }
+#pa-root .pa-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: var(--pa-on-accent); }
 #pa-root .pa-switch input:focus-visible + i { outline: 2px solid var(--pa-thread); outline-offset: 2px; }
+/* 本次缝后总开关：保留部分条目的独立选择时，滑块居中表示混合状态。 */
+#pa-root .pa-switch input[data-enable-toggle]:indeterminate + i { background: var(--pa-card-2); border: 1.5px dashed var(--pa-thread); }
+#pa-root .pa-switch input[data-enable-toggle]:indeterminate + i::after { transform: translateX(8px); opacity: 1; background: var(--pa-thread); }
 #pa-root .pa-switch-s { width: 32px; height: 19px; }
 #pa-root .pa-switch-s input:checked + i { background: transparent; border: 1.5px dashed var(--pa-thread); }
 #pa-root .pa-switch-s input:checked + i::after { background: var(--pa-thread); }
@@ -399,7 +405,6 @@ html.pa-open body { overflow: hidden; }
     width: 100%; max-height: 90vh; max-height: 90dvh; max-height: calc(var(--pa-vh, 100dvh) * .9);
     display: flex; flex-direction: column;
     background: var(--pa-tint);
-    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
     border: 1px solid var(--pa-line); border-bottom: 0;
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);
@@ -871,7 +876,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-warn { color: var(--pa-warn); }
 #pa-root p.pa-warn { margin: 4px 0; }
 /* 缝合预览：「缝后开启」开关带文字，避免被当成「选中这条」 */
-#pa-root .pa-item-on { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: .82em; color: var(--pa-dim); cursor: pointer; white-space: nowrap; }
+#pa-root .pa-item-on { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: .82em; color: var(--pa-text) !important; opacity: 1 !important; cursor: pointer; white-space: nowrap; }
 #pa-root .pa-item-on input { margin: 0; }
 /* 键盘焦点 */
 #pa-root .pa-row:focus-visible, #pa-root .pa-ghead:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }
@@ -1003,19 +1008,20 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-golink { flex: none; border: 0; background: none; padding: 2px 0; color: var(--pa-thread); font: inherit; font-size: .82em; cursor: pointer; white-space: nowrap; }
 #pa-root .pa-golink:hover { text-decoration: underline; text-underline-offset: 3px; }
 #pa-root input[type=checkbox]:not(#pa-x) {
-    -webkit-appearance: none; appearance: none; flex: none; margin: 0; padding: 0; cursor: pointer;
-    width: 17px; height: 17px; min-width: 0; min-height: 0; border-radius: 5px;
-    border: 1.5px solid color-mix(in srgb, var(--pa-text) 35%, transparent); background: transparent; box-shadow: none;
-    -webkit-mask: none; mask: none; filter: none; vertical-align: -3px;
+    /* 只保护鸡翅内的复选框；宿主美化常给 input 强制背景、宽度、遮罩。 */
+    -webkit-appearance: none !important; appearance: none !important; flex: none; margin: 0 !important; padding: 0 !important; cursor: pointer;
+    width: 17px !important; height: 17px !important; min-width: 0 !important; min-height: 0 !important; border-radius: 5px !important;
+    border: 1.5px solid var(--pa-control-border, var(--pa-text)) !important; background: var(--pa-input-bg) !important; box-shadow: none !important;
+    -webkit-mask: none !important; mask: none !important; filter: none !important; transform: none !important; opacity: 1 !important; vertical-align: -3px;
 }
-#pa-root input[type=checkbox]:not(#pa-x)::before, #pa-root input[type=checkbox]:not(#pa-x)::after { content: none; display: none; }
+#pa-root input[type=checkbox]:not(#pa-x)::before, #pa-root input[type=checkbox]:not(#pa-x)::after { content: none !important; display: none !important; }
 #pa-root input[type=checkbox]:not(#pa-x):checked {
-    border-color: var(--pa-thread); background: var(--pa-thread) center / 12px 12px no-repeat
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    border-color: var(--pa-thread) !important; background: var(--pa-thread) center / 12px 12px no-repeat
+    var(--pa-checkmark, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")) !important;
 }
-#pa-root input[type=checkbox]:not(#pa-x):disabled { opacity: .35; cursor: default; }
+#pa-root input[type=checkbox]:not(#pa-x):disabled { opacity: .35 !important; cursor: default; }
 #pa-root input[type=checkbox]:not(#pa-x):focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 2px; }
-#pa-root .pa-switch > input[type=checkbox]:not(#pa-x) { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: 0; background: none; }
+#pa-root .pa-switch > input[type=checkbox]:not(#pa-x) { position: absolute; inset: 0; width: 100% !important; height: 100% !important; opacity: 0 !important; border: 0 !important; background: none !important; }
 #pa-root .pa-pane > .pa-searchrow { flex: none; padding: 2px 10px 4px; }
 
 /* 1.9 细调（二）：行内小链接成组；角色卡同名组的「忽略」；方案、站点标题旁的按钮改小 */

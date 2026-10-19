@@ -72,9 +72,29 @@ var Draft = class {
     this.loadedGroupIds = new Set(valid);
   }
   get order() {
+    if (this._readIndex) return this._readIndex.order;
     return findOrderList(this.preset).order;
   }
+  /** 同步只读操作内共用索引；每次操作重新建立，正文、顺序等直接编辑不会留下过期缓存。 */
+  withReadIndex(fn) {
+    if (this._readIndex) return fn();
+    const order = this.order;
+    const firstBy = (list, key) => {
+      const map = new Map();
+      for (const value of list) if (!map.has(value[key])) map.set(value[key], value);
+      return map;
+    };
+    this._readIndex = {
+      order,
+      prompts: firstBy(this.preset.prompts, "identifier"),
+      entries: firstBy(order, "identifier"),
+      groups: firstBy(this.groups.groups, "id")
+    };
+    try { return fn(); }
+    finally { delete this._readIndex; }
+  }
   prompt(id) {
+    if (this._readIndex) return this._readIndex.prompts.get(id);
     return this.preset.prompts.find((p) => p.identifier === id);
   }
   promptMap() {
@@ -88,10 +108,11 @@ var Draft = class {
     return this.groups.prompts[id]?.groupId || null;
   }
   group(gid) {
+    if (this._readIndex) return this._readIndex.groups.get(gid) || null;
     return this.groups.groups.find((g) => g.id === gid) || null;
   }
   isActive(id) {
-    const o = this.order.find((x) => x.identifier === id);
+    const o = this._readIndex ? this._readIndex.entries.get(id) : this.order.find((x) => x.identifier === id);
     if (!o || o.enabled === false) return false;
     const p = this.prompt(id);
     if (!p) return false;
