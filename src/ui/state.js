@@ -6,6 +6,8 @@ var DEFAULTS = {
   chatToast: true,
   schemes: [],
   cotManual: {},
+  replyGuard: {},
+  variableWatch: false,
   keepClickOrder: true,
   followTargetInjection: true,
   theme: "follow",

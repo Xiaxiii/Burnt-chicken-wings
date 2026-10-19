@@ -610,6 +610,9 @@ function bindEvents() {
     if (rootEl2 && !rootEl2.hidden) show(current);
   });
   on(et2.CHAT_CHANGED, () => onChatChanged());
+  bindReplyGuard(on, et2);
+  bindVariableWatch(on, et2);
+  bindSemanticReview(on, et2);
 }
 async function start() {
   const prev = globalThis.__presetAtelier;

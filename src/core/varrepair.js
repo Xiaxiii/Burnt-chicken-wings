@@ -62,18 +62,24 @@ function applyWrapperNormalization(d) {
 
 // 给一个「写了没人读」的变量出修复方案：在最后一个写入它的开启条目后面加一条读取。
 // 有任何需要人判断的情况（按深度插入、条件、脚本、复杂嵌套、计数）都不自动改，抛出原因。
-function variableRepairPlan(d, key) {
+function variableRepairPlan(d, key, manual = d.cotManual || {}) {
   const scope = key.startsWith("全局:") ? "global" : "local";
   const name = scope === "global" ? key.slice(3) : key;
+  if (!name.trim() || /[{}]/.test(name)) throw new Error("变量名为空或包含动态宏，需人工核对，未添加通用读取");
   const same = (m) => m.name === name && m.scope === scope;
   const WRITE = ["set", "add", "inc", "dec"];
   const touches = d.order
     .filter((o) => d.isActive(o.identifier))
     .filter((o) => listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && WRITE.includes(m.op)));
   if (!touches.length) throw new Error("没有开启的条目写入该变量");
+  if (/cot$/i.test(name)) throw new Error("该变量可能保存思维链片段，请使用「接入思维链」核对读取位置，未添加通用读取");
   for (const o of touches) {
     const p = d.prompt(o.identifier);
     const nm = p.name || o.identifier;
+    if (isCotEntry(d, o.identifier, manual)) throw new Error(`「${nm}」被识别为思维链条目，请使用「接入思维链」核对读取位置，未添加通用读取`);
+    if (listVarMacros(p.content).some((m) => same(m) && (m.op === "inc" || m.op === "dec"))) {
+      throw new Error(`「${nm}」对该变量执行计数，需人工核对，未添加通用读取`);
+    }
     if (p.injection_position === 1) throw new Error(`「${nm}」按深度插入聊天记录，执行顺序需人工核对`);
     if (p.injection_trigger?.length) throw new Error(`「${nm}」设有触发条件，触发时机需人工核对`);
     if (/\{\{(?:if|else|while|run|eval)|<%/i.test(p.content || "")) throw new Error(`「${nm}」含条件或脚本，需人工核对`);
@@ -85,8 +91,8 @@ function variableRepairPlan(d, key) {
   const last = touches[touches.length - 1].identifier;
   const finalWrites = listVarMacros(d.prompt(last)?.content).filter((m) => same(m) && WRITE.includes(m.op));
   const lastWrite = finalWrites.at(-1);
-  if (finalWrites.some((m) => m.op === "inc" || m.op === "dec") || lastWrite?.op === "set" && isBlankValue(lastWrite.value)) {
-    throw new Error("最后一次写入是计数或清空，需先核对写入顺序");
+  if (lastWrite?.op === "set" && isBlankValue(lastWrite.value)) {
+    throw new Error("最后一次写入是清空，需先核对写入顺序");
   }
   const readers = d.order.filter((o) => d.isActive(o.identifier) && listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && m.op === "get"));
   if (readers.length) throw new Error("已有开启的条目读取该变量，请核对其位置和条件");

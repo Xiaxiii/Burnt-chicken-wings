@@ -57,6 +57,8 @@ function listVarMacros(text, depth = 0) {
   const res = [];
   if (depth > 6) return res;
   for (const mac of scanTopMacros(text)) {
+    // 注释中的示例不参与变量读写或修复判断。
+    if (/^\s*\/\//.test(mac.inner)) continue;
     const v = parseVarMacro(mac.inner);
     if (v) {
       res.push({ ...v, start: mac.start, end: mac.end, depth });
