@@ -21,6 +21,7 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
   }
   const sourceSig = presetRegexRulesSnapshot(sourceDraft);
   const targetSig = presetRegexRulesSnapshot(targetDraft);
+  const targetGroupSig = presetRegexGroupSnapshot(targetDraft);
   const sourceManaged = drafts.get(sourceDraft.name) === sourceDraft;
   const targetManaged = drafts.get(targetDraft.name) === targetDraft;
   const targetFocus = focusPreset();
@@ -37,6 +38,7 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
   let query = "";
   let stale = false;
   let wrap = null;
+  let groupName = sourceDraft.name;
   const activationText = () => {
     const state = presetRegexActivationInfo(targetDraft.name);
     if (state.extensionDisabled) return `正则功能已全局停用，当前不会生效。请在酒馆开启正则功能${state.allowed ? "" : "，再到「正则」面板允许目标预设"}；此处保留现有启用状态。`;
@@ -46,6 +48,9 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
   const body = el(`<div class="pa-regex-transfer">
     <div class="pa-card"><b>从「${esc(sourceDraft.name)}」缝入「${esc(targetDraft.name)}」</b>
       <p class="pa-hint">默认选择仅用于显示美化的正则，保留每条规则原来的开关、作用位置和其他设置。新规则按来源顺序放到目标末尾；明确替换的规则保留目标位置。</p>
+      <label class="pa-field-row"><span>缝入分组</span><input class="pa-input" data-rx-group-name type="text" value="${esc(groupName)}" aria-label="缝入正则的分组名称"></label>
+      <p class="pa-hint">确认后自动将本次新增或替换的正则归入该组，同名组继续使用，保留各条正则的开关。</p>
+      <p class="pa-hint">分组保存在目标预设中，由柏宝箱的正则分组面板显示；酒馆原生正则面板仍按平铺列表显示。</p>
       <p class="pa-hint" data-rx-activation>${esc(activationText())}</p>
       ${tip("<p>状态栏仍需配套提示词或世界书输出相应的标签和格式，正则才能匹配并显示美化。搬运正则后，请同时核对这些配套内容。</p>", "状态栏美化的使用条件")}
       <p class="pa-warn" data-rx-stale hidden>来源或目标已变化，请关闭后重新预览。</p></div>
@@ -60,10 +65,14 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
     <details class="pa-card" data-rx-order><summary>缝合后的正则顺序 <span data-rx-order-count></span></summary><ol data-rx-final-order></ol></details>
   </div>`);
   const staleReason = () => {
-    if (sourceManaged && drafts.get(sourceDraft.name) !== sourceDraft) return true;
-    if (targetManaged && drafts.get(targetDraft.name) !== targetDraft) return true;
-    if (focusPreset() !== targetFocus) return true;
-    return sourceSig !== presetRegexRulesSnapshot(sourceDraft) || targetSig !== presetRegexRulesSnapshot(targetDraft);
+    try {
+      if (sourceManaged && drafts.get(sourceDraft.name) !== sourceDraft) return true;
+      if (targetManaged && drafts.get(targetDraft.name) !== targetDraft) return true;
+      if (focusPreset() !== targetFocus) return true;
+      return sourceSig !== presetRegexRulesSnapshot(sourceDraft) || targetSig !== presetRegexRulesSnapshot(targetDraft) || targetGroupSig !== presetRegexGroupSnapshot(targetDraft);
+    } catch {
+      return true;
+    }
   };
   const markStale = () => {
     stale = true;
@@ -74,7 +83,8 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
   // 核心计划同时校验精确重复、同名/同 ID 冲突，并产生最终规则数组。
   const makePlan = (indices) => planPresetRegexTransfer(sourceDraft, targetDraft, {
     selectedIndices: indices,
-    conflictChoices: Object.fromEntries(choices)
+    conflictChoices: Object.fromEntries(choices),
+    groupName
   });
   try {
     basePlan = makePlan(sourceRules.map((_, i) => i));
@@ -118,7 +128,7 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
     catch (error) { plan = null; planError = error.message; }
     body.querySelector("[data-rx-count]").textContent = `已选 ${selected.size} / ${sourceRules.length}`;
     const stats = plan?.stats;
-    body.querySelector("[data-rx-plan]").innerHTML = planError ? `<p class="pa-warn">${esc(planError)}</p>` : `<b>本次预览</b><p>新增 ${stats.added} 条 · 替换 ${stats.replaced} 条 · 跳过 ${stats.skipped} 条</p><small>目标原有顺序保留，新规则按来源顺序追加；不会更改提示词条目或全局正则。</small>`;
+    body.querySelector("[data-rx-plan]").innerHTML = planError ? `<p class="pa-warn">${esc(planError)}</p>` : `<b>本次预览</b><p>新增 ${stats.added} 条 · 替换 ${stats.replaced} 条 · 跳过 ${stats.skipped} 条</p><p data-rx-group-preview>${plan.group ? `${plan.group.reused ? "加入已有分组" : "新建分组"}「${esc(plan.group.name)}」：${plan.group.memberIds.length} 条` : "没有可缝入的正则，不创建分组"}</p><small>目标原有顺序保留，新规则按来源顺序追加；不会更改提示词条目或全局正则。</small>`;
     body.querySelector("[data-rx-order-count]").textContent = `（${plan?.rules?.length || 0} 条）`;
     const button = wrap?.querySelector(".pa-sheet-actions .pa-btn-primary");
     if (button) button.disabled = stale || !plan || !(stats.added || stats.replaced);
@@ -132,6 +142,10 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
   body.querySelector("[data-rx-search]").addEventListener("input", (event) => {
     query = event.target.value.trim().toLowerCase();
     filterRows();
+  });
+  body.querySelector("[data-rx-group-name]").addEventListener("input", (event) => {
+    groupName = event.target.value.trim();
+    refreshPlan();
   });
   body.addEventListener("click", (event) => {
     const pick = event.target.closest("[data-rx-pick]")?.dataset.rxPick;
@@ -211,7 +225,7 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
   try {
     validatePresetRegexTransfer(targetDraft, plan, sourceDraft);
     mutate(targetDraft, "缝合预设正则", (draft) => applyPresetRegexTransfer(draft, plan, sourceDraft));
-    toast(`已缝入正则：新增 ${plan.stats.added} 条，替换 ${plan.stats.replaced} 条，可撤销`, "success");
+    toast(`已缝入分组「${plan.group.name}」：新增 ${plan.stats.added} 条，替换 ${plan.stats.replaced} 条，可撤销`, "success");
     try { await options.afterApply?.(targetDraft, plan, body); }
     catch (error) { toast("正则已缝合，酒馆列表刷新失败，请重新打开正则面板：" + error.message, "error"); }
     return true;

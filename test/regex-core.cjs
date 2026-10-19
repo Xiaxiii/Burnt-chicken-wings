@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const sourceCode = ['core/model.js', 'core/regex.js'].map(file => fs.readFileSync(path.join(__dirname, '..', 'src', file), 'utf8')).join('\n');
-const A = new Function(sourceCode + '\nreturn { Draft, presetRegexList, presetRegexSnapshot, planPresetRegexTransfer, validatePresetRegexTransfer, applyPresetRegexTransfer };')();
+const A = new Function(sourceCode + '\nreturn { Draft, presetRegexList, presetRegexSnapshot, presetRegexGroupSnapshot, planPresetRegexTransfer, validatePresetRegexTransfer, applyPresetRegexTransfer };')();
 const clone = value => JSON.parse(JSON.stringify(value));
 const rule = (id, scriptName, extra = {}) => ({
   id, scriptName, findRegex: '/<status>([\\s\\S]*?)<\\/status>/g',
@@ -291,6 +291,260 @@ test('正则缝合沿用真实 Draft 快照、保存重读和撤销，不影响�
   assert.equal(to.undo(), '缝合预设正则');
   assert.deepEqual(to.toPreset(), before); assert.deepEqual(from.toPreset(), sourceBefore);
   assert.equal(to.history.length, 0);
+});
+
+const groupedPlan = (from, to, selectedIndices, conflictChoices = {}, groupName = from.name) => A.planPresetRegexTransfer(from, to, { selectedIndices, conflictChoices, groupName });
+const groupState = (groups = [], scripts = {}, extra = {}) => ({ version: 1, groups, scripts, ungrouped: { name: '未收纳', collapsed: true }, ...extra });
+const setGroups = (target, state, extra = {}) => {
+  target.preset.extensions.baibaiToolkit = { ...extra, regexGroups: state };
+};
+
+test('正则确认方案创建可携带分组，仅收纳实际缝入规则，来源和原生执行顺序不变', () => {
+  const [from, to] = pair([rule('a', '甲', { disabled: true }), rule('b', '乙'), rule('c', '不选')], [rule('old', '原有')]);
+  from.name = '【来源预设】完整名称';
+  setGroups(from, { version: 99, unrelatedSourceData: true });
+  const before = JSON.stringify(to), sourceBefore = JSON.stringify(from);
+  const p = groupedPlan(from, to, [1, 0]);
+  assert.equal(JSON.stringify(to), before, '预览不创建真实分组');
+  assert.equal(JSON.stringify(from), sourceBefore);
+  assert.equal(p.group.name, from.name);
+  assert.equal(p.group.reused, false);
+  assert.ok(p.group.id && !['__ungrouped', '__pending_assignment'].includes(p.group.id));
+  assert.deepEqual(p.group.memberIds, ['a', 'b']);
+  assert.deepEqual(p.regexGroups.groups, [{ id: p.group.id, name: from.name, order: 0, collapsed: false }]);
+  assert.deepEqual(p.regexGroups.scripts, { a: { groupId: p.group.id, order: 0 }, b: { groupId: p.group.id, order: 1 } });
+  assert.deepEqual(p.rules.map(r => r.id), ['old', 'a', 'b']);
+  A.validatePresetRegexTransfer(to, p, from);
+  A.applyPresetRegexTransfer(to, p, from);
+  assert.deepEqual(to.preset.extensions.baibaiToolkit.regexGroups, p.regexGroups);
+  assert.equal(to.preset.extensions.regex_scripts[1].disabled, true);
+  assert.equal(Object.hasOwn(to.preset.extensions.baibaiToolkit.regexGroups, 'unrelatedSourceData'), false);
+  assert.equal(JSON.stringify(from), sourceBefore);
+});
+
+test('正则分组名称仅显式要求时生效，保留完整名称而拒绝空白名称', () => {
+  const [from, to] = pair([rule('a', '甲')]);
+  setGroups(to, { version: 99, legacy: '旧调用不涉及此数据' });
+  const legacy = plan(from, to, [0]);
+  assert.equal(Object.hasOwn(legacy, 'group'), false);
+  A.applyPresetRegexTransfer(to, legacy, from);
+  assert.deepEqual(to.preset.extensions.baibaiToolkit.regexGroups, { version: 99, legacy: '旧调用不涉及此数据' });
+  const clean = draft('目标', []);
+  for (const name of ['', '   ', '\n\t', null, 123, {}]) unchangedOnError(clean, () => groupedPlan(from, clean, [0], {}, name), /名称不能为空/);
+  const completeName = `  【${'很长的来源预设'.repeat(80)}】  `;
+  assert.equal(groupedPlan(from, clean, [0], {}, completeName).group.name, completeName);
+});
+
+test('空选择、全跳过和精确重复均不创建空分组或扩展，也不抢占重复规则的原分组', () => {
+  const [from, to] = pair([rule('same-source', '相同')], [rule('same-target', '相同')]);
+  setGroups(to, groupState([{ id: 'existing', name: '原组', order: 0, collapsed: true }], { 'same-target': { groupId: 'existing', order: 4 } }));
+  const before = JSON.stringify(to);
+  for (const selected of [[], [0]]) {
+    const p = groupedPlan(from, to, selected);
+    assert.equal(p.group, null);
+    assert.equal(A.applyPresetRegexTransfer(to, p, from), false);
+    assert.equal(JSON.stringify(to), before);
+  }
+  const empty = draft('空目标', []), emptyBefore = JSON.stringify(empty);
+  const p = groupedPlan(from, empty, [0], { 0: 'skip' });
+  assert.equal(p.group, null); assert.equal(p.regexGroups, undefined);
+  assert.equal(A.applyPresetRegexTransfer(empty, p, from), false);
+  assert.equal(JSON.stringify(empty), emptyBefore);
+  assert.equal(Object.hasOwn(empty.preset.extensions, 'baibaiToolkit'), false);
+});
+
+test('同名分组按原显示顺序复用，保留折叠和未知字段，新成员追加到组末', () => {
+  const [from, to] = pair([rule('new', '新规则')], [rule('kept', '原成员'), rule('other', '另组成员')]);
+  const original = groupState([
+    { id: 'later', name: from.name, order: 9, collapsed: false },
+    { id: 'first', name: from.name, order: 2, collapsed: true, future: { keep: true } }
+  ], {
+    kept: { groupId: 'first', order: '7', metadata: ['保留'] },
+    other: { groupId: 'later', order: 2 },
+    stale: { groupId: 'missing-old-group', order: 90, extra: '不清理' }
+  }, { futureTop: { keep: true } });
+  setGroups(to, original, { presetPromptGroups: { future: '提示词分组不动' }, otherToolkit: { keep: true } });
+  const p = groupedPlan(from, to, [0]);
+  assert.deepEqual(p.group, { id: 'first', name: from.name, reused: true, memberIds: ['new'] });
+  assert.equal(p.regexGroups.groups.length, 2);
+  assert.deepEqual(p.regexGroups.groups, original.groups);
+  assert.deepEqual(p.regexGroups.scripts.new, { groupId: 'first', order: 8 });
+  assert.deepEqual(p.regexGroups.scripts.kept, original.scripts.kept);
+  assert.deepEqual(p.regexGroups.scripts.stale, original.scripts.stale);
+  assert.deepEqual(p.regexGroups.ungrouped, original.ungrouped);
+  assert.deepEqual(p.regexGroups.futureTop, original.futureTop);
+  A.applyPresetRegexTransfer(to, p, from);
+  assert.deepEqual(to.preset.extensions.baibaiToolkit.otherToolkit, { keep: true });
+  assert.deepEqual(to.preset.extensions.baibaiToolkit.presetPromptGroups, { future: '提示词分组不动' });
+});
+
+test('新分组排在原组之后，缺少组内order的原成员按原生规则顺序保留在新增成员之前', () => {
+  const [from, to] = pair([rule('new', '新增')], [rule('u1', '未分组甲'), rule('u2', '未分组乙'), rule('kept', '已有')]);
+  setGroups(to, groupState([{ id: 'other', name: '别组', order: 10.5 }], {}));
+  const first = groupedPlan(from, to, [0]);
+  assert.equal(first.regexGroups.groups[1].order, 11);
+  setGroups(to, groupState([{ id: 'reuse', name: from.name, order: 0 }], { kept: { groupId: 'reuse', custom: '无order也保留' } }));
+  const reuse = groupedPlan(from, to, [0]);
+  assert.deepEqual(reuse.regexGroups.scripts.kept, { groupId: 'reuse', custom: '无order也保留' });
+  assert.deepEqual(reuse.regexGroups.scripts.new, { groupId: 'reuse', order: 3 });
+  setGroups(to, groupState([], {}, { version: '1' }));
+  const numericVersion = groupedPlan(from, to, [0]);
+  assert.equal(numericVersion.regexGroups.version, '1', '沿用原生可读取的字符串版本，不强行改写格式');
+});
+
+test('替换同组规则保留位置，替换其他组规则只移动被替换一条且保留其他字段', () => {
+  const [from, to] = pair([
+    rule('incoming-a', '同组规则', { replaceString: '同组新内容', disabled: true }),
+    rule('incoming-b', '另组规则', { replaceString: '另组新内容' })
+  ], [rule('target-a', '同组规则'), rule('target-b', '另组规则'), rule('untouched', '原组其他成员')]);
+  const original = groupState([
+    { id: 'reuse', name: from.name, order: 0, collapsed: true },
+    { id: 'other', name: '其他', order: 1, collapsed: false }
+  ], {
+    'target-a': { groupId: 'reuse', order: 5, retained: { setting: true } },
+    'target-b': { groupId: 'other', order: 2, retained: '成员未知字段' },
+    untouched: { groupId: 'other', order: 3 }
+  });
+  setGroups(to, original);
+  const p = groupedPlan(from, to, [0, 1], { 0: 'replace', 1: 'replace' });
+  assert.deepEqual(p.group.memberIds, ['target-a', 'target-b']);
+  assert.deepEqual(p.rules.map(r => r.id), ['target-a', 'target-b', 'untouched']);
+  assert.equal(p.rules[0].disabled, true);
+  assert.deepEqual(p.regexGroups.scripts['target-a'], original.scripts['target-a']);
+  assert.deepEqual(p.regexGroups.scripts['target-b'], { groupId: 'reuse', order: 6, retained: '成员未知字段' });
+  assert.deepEqual(p.regexGroups.scripts.untouched, original.scripts.untouched);
+  assert.deepEqual(p.regexGroups.groups, original.groups);
+});
+
+test('分组使用确认方案最终编号，同编号保留两份不改原归属，坏规则和跳过项不入组', () => {
+  const [from, to] = pair([
+    rule('collision', '同编号新规则'), rule('replacement', '替换名', { replaceString: '新内容' }),
+    rule('duplicate-source', '完全重复'), rule('skip', '跳过'), null
+  ], [rule('collision', '旧规则'), rule('stable', '替换名'), rule('duplicate-target', '完全重复')]);
+  const original = groupState([{ id: 'old-group', name: '原组', order: 0, collapsed: true }], {
+    collision: { groupId: 'old-group', order: 0 }, stable: { groupId: 'old-group', order: 1 },
+    'duplicate-target': { groupId: 'old-group', order: 2 }
+  });
+  setGroups(to, original);
+  const p = groupedPlan(from, to, [0, 1, 2, 3, 4], { 1: 'replace', 3: 'skip' });
+  assert.deepEqual(p.stats, { added: 1, replaced: 1, skipped: 3 });
+  const allocatedId = p.rules[3].id;
+  assert.notEqual(allocatedId, 'collision');
+  assert.deepEqual(p.group.memberIds, [allocatedId, 'stable']);
+  assert.deepEqual(p.regexGroups.scripts.collision, original.scripts.collision);
+  assert.deepEqual(p.regexGroups.scripts['duplicate-target'], original.scripts['duplicate-target']);
+  assert.equal(Object.hasOwn(p.regexGroups.scripts, 'replacement'), false);
+  assert.equal(Object.hasOwn(p.regexGroups.scripts, 'skip'), false);
+  A.applyPresetRegexTransfer(to, p, from);
+  assert.equal(to.preset.extensions.regex_scripts[3].id, allocatedId, '确认不重新生成编号');
+});
+
+test('分组仅验证目标格式，坏容器或不支持版本会在快照前拒绝且不覆盖旧数据', () => {
+  const from = draft('来源', [rule('new', '新规则')]);
+  const invalidStates = [null, [], '错误', { version: 2, groups: [], scripts: {} },
+    { version: 1, groups: {}, scripts: {} }, { version: 1, groups: [], scripts: [] },
+    groupState([{ id: '__ungrouped', name: '保留字' }]), groupState([{ id: '__pending_assignment', name: '保留字' }]),
+    groupState([{ id: 'same' }, { id: 'same' }]), groupState([null]), groupState([{ id: 3 }]),
+    groupState([{ id: 'bad-order', order: '不是数字' }]), groupState([], { bad: null }),
+    groupState([], { bad: { groupId: 3 } }), groupState([], {}, { ungrouped: [] })];
+  for (const state of invalidStates) {
+    const to = draft('目标', []); setGroups(to, state);
+    unchangedOnError(to, () => groupedPlan(from, to, [0]), /格式|版本/);
+    assert.equal(to.history.length, 0);
+  }
+  for (const parent of [null, [], '坏父字段', 3]) {
+    const to = draft('目标', []); to.preset.extensions.baibaiToolkit = parent;
+    unchangedOnError(to, () => groupedPlan(from, to, [0]), /柏宝箱扩展数据格式/);
+  }
+});
+
+test('确认前目标分组或成员被外部编辑会失效，来源分组和其他目标扩展编辑仍可安全保留', () => {
+  for (const change of ['collapse', 'membership', 'unknown', 'missing-to-empty']) {
+    const [from, to] = pair([rule('new', '新规则')], [rule('old', '原有')]);
+    if (change !== 'missing-to-empty') setGroups(to, groupState([{ id: 'g', name: '原组', collapsed: false }], { old: { groupId: 'g', order: 0 } }));
+    const p = groupedPlan(from, to, [0]);
+    if (change === 'collapse') to.preset.extensions.baibaiToolkit.regexGroups.groups[0].collapsed = true;
+    if (change === 'membership') to.preset.extensions.baibaiToolkit.regexGroups.scripts.old.groupId = '__ungrouped';
+    if (change === 'unknown') to.preset.extensions.baibaiToolkit.regexGroups.external = '外部修改';
+    if (change === 'missing-to-empty') setGroups(to, groupState());
+    unchangedOnError(to, () => A.validatePresetRegexTransfer(to, p, from), /分组已变化/);
+    assert.equal(to.history.length, 0, '调用方可先validate，不留失败历史');
+  }
+  const [from, to] = pair([rule('new', '新规则')]);
+  const p = groupedPlan(from, to, [0]);
+  setGroups(from, { version: 99, sourceOnly: true });
+  to.preset.extensions.baibaiToolkit = { unrelated: { editedDuringPreview: true } };
+  A.applyPresetRegexTransfer(to, p, from);
+  assert.deepEqual(to.preset.extensions.baibaiToolkit.unrelated, { editedDuringPreview: true });
+});
+
+test('正则分组方案或收纳清单被意外改动时拒绝确认，规则和历史均保持原样', () => {
+  for (const edit of ['name', 'members', 'groups', 'membership', 'stats', 'rows', 'remove-signature', 'remove-group']) {
+    const [from, to] = pair([rule('new', '新规则')]);
+    const p = groupedPlan(from, to, [0]);
+    if (edit === 'name') p.group.name = '被改名';
+    if (edit === 'members') p.group.memberIds.push('未缝规则');
+    if (edit === 'groups') p.regexGroups.groups.push({ id: 'extra', name: '意外组' });
+    if (edit === 'membership') p.regexGroups.scripts.new.order = 99;
+    if (edit === 'stats') p.stats.added = 0;
+    if (edit === 'rows') p.rows[0].action = 'skip';
+    if (edit === 'remove-signature') delete p.groupSignature;
+    if (edit === 'remove-group') delete p.group;
+    unchangedOnError(to, () => A.applyPresetRegexTransfer(to, p, from), /方案已变化/);
+    assert.equal(to.history.length, 0);
+  }
+});
+
+test('分组顺序溢出和受影响的重复规则编号会明确拒绝，原有不相关重复不会被重写', () => {
+  const [from, to] = pair([rule('new', '新规则')]);
+  setGroups(to, groupState([{ id: 'g', name: '原组', order: Number.MAX_SAFE_INTEGER }]));
+  unchangedOnError(to, () => groupedPlan(from, to, [0]), /安全范围/);
+  setGroups(to, groupState([{ id: 'g', name: from.name, order: 0 }], { existing: { groupId: 'g', order: Number.MAX_SAFE_INTEGER } }));
+  unchangedOnError(to, () => groupedPlan(from, to, [0]), /安全范围/);
+  const [duplicateFrom, duplicateTo] = pair([rule('incoming', '要替换', { replaceString: '新' })], [rule('same-id', '要替换'), rule('same-id', '另外一条')]);
+  unchangedOnError(duplicateTo, () => groupedPlan(duplicateFrom, duplicateTo, [0], { 0: 'replace' }), /编号重复/);
+  const p = groupedPlan(from, duplicateTo, [0]);
+  assert.equal(p.stats.added, 1);
+  assert.deepEqual(p.rules.slice(0, 2), duplicateTo.preset.extensions.regex_scripts);
+});
+
+test('已有失联成员数据不会抢占新增位置，特殊脚本编号只能成为普通自有成员键', () => {
+  const [from, to] = pair([rule('stale', '新规则'), rule('__proto__', '原型键'), rule('constructor', '构造器键')], [rule('old', '原有')]);
+  setGroups(to, groupState([{ id: 'g', name: from.name, order: 0 }], {
+    old: { groupId: 'g', order: 5 }, stale: { groupId: 'g', order: 0, unknown: '原失联记录' }
+  }));
+  const p = groupedPlan(from, to, [0, 1, 2]);
+  assert.deepEqual(p.regexGroups.scripts.stale, { groupId: 'g', order: 6, unknown: '原失联记录' });
+  assert.equal(Object.getPrototypeOf(p.regexGroups.scripts), Object.prototype);
+  assert.equal(Object.hasOwn(p.regexGroups.scripts, '__proto__'), true);
+  assert.deepEqual(p.regexGroups.scripts.__proto__, { groupId: 'g', order: 7 });
+  assert.deepEqual(p.regexGroups.scripts.constructor, { groupId: 'g', order: 8 });
+  A.applyPresetRegexTransfer(to, p, from);
+  assert.equal(Object.getPrototypeOf(to.preset.extensions.baibaiToolkit.regexGroups.scripts), Object.prototype);
+  assert.equal(Object.hasOwn(to.preset.extensions.baibaiToolkit.regexGroups.scripts, '__proto__'), true);
+  assert.equal({}.groupId, undefined);
+});
+
+test('一次确认把正则与分组一起保存、重读和撤销，不影响提示词分组或现有其他设置', () => {
+  const [from, to] = pair([rule('new', '新增', { disabled: true })], [rule('old', '原有')]);
+  const promptGroup = to.createGroup('提示词原组', ['a']);
+  to.setGroupEnabled(promptGroup, false);
+  to.preset.extensions.baibaiToolkit = { ...to.preset.extensions.baibaiToolkit, independent: { keep: '原数据' } };
+  const before = to.toPreset(), sourceBefore = from.toPreset();
+  const p = groupedPlan(from, to, [0]);
+  A.validatePresetRegexTransfer(to, p, from);
+  to.snapshot('缝合预设正则并分组');
+  A.applyPresetRegexTransfer(to, p, from);
+  assert.equal(to.history.length, 1);
+  const saved = to.toPreset(), reloaded = new A.Draft('重读目标', saved);
+  assert.deepEqual(reloaded.preset.extensions.regex_scripts, p.rules);
+  assert.deepEqual(reloaded.preset.extensions.baibaiToolkit.regexGroups, p.regexGroups);
+  assert.deepEqual(saved.extensions.baibaiToolkit.presetPromptGroups, before.extensions.baibaiToolkit.presetPromptGroups);
+  assert.deepEqual(saved.extensions.baibaiToolkit.independent, before.extensions.baibaiToolkit.independent);
+  assert.deepEqual(saved.prompt_order, before.prompt_order);
+  assert.equal(to.undo(), '缝合预设正则并分组');
+  assert.deepEqual(to.toPreset(), before);
+  assert.deepEqual(from.toPreset(), sourceBefore);
 });
 
 console.log(`${passed} 项预设正则搬运核心检查通过`);
