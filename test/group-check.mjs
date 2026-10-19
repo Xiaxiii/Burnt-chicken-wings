@@ -8,16 +8,28 @@ const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
 const T = process.argv[2] || "【众生相】Claude-Lite-v1.8";
-// 假百宝箱：缓存当前预设的分组，只在「导入完成」时清缓存；其他时候保存都用缓存覆盖（与真实百宝箱行为一致）
+// 假柏宝箱：使用实际核对过的全局缓存字段；缓存不失效时会把旧分组写回。
 await page.evaluate((T) => {
   const c = window.SillyTavern.getContext();
   c.extensionSettings.baiBaiToolkit = {};
   c.eventTypes.OAI_PRESET_IMPORT_READY = "oai_preset_import_ready";
   const m = window.__mock; const i = m.names.indexOf(T);
   m.live.preset_settings_openai = T; Object.assign(m.live, structuredClone(m.presets[i]));
-  let cache = structuredClone(m.live.extensions);
-  c.eventSource.on("oai_preset_import_ready", (e) => { if (e.presetName === T) cache = null; window.__bbReset = (window.__bbReset || 0) + 1; });
-  c.eventSource.on("oai_after", () => { if (cache) { m.live.extensions = structuredClone(cache); m.presets[i].extensions = structuredClone(cache); } else cache = structuredClone(m.live.extensions); });
+  const state = window.__baiBaiToolkitExtensionInstalled = {
+    presetPromptGroupRuntimePresetName: T,
+    presetPromptGroupRuntimeState: structuredClone(m.live.extensions.baibaiToolkit.presetPromptGroups)
+  };
+  window.__autoImportCalls = 0;
+  c.eventSource.on("oai_preset_import_ready", () => { window.__autoImportCalls++; });
+  c.eventSource.on("oai_after", () => {
+    if (state.presetPromptGroupRuntimeState) {
+      for (const target of [m.live, m.presets[i]]) target.extensions.baibaiToolkit.presetPromptGroups = structuredClone(state.presetPromptGroupRuntimeState);
+    } else {
+      state.presetPromptGroupRuntimePresetName = T;
+      state.presetPromptGroupRuntimeState = structuredClone(m.live.extensions.baibaiToolkit.presetPromptGroups);
+      window.__bbReset = (window.__bbReset || 0) + 1;
+    }
+  });
   window.__presetAtelier.open("organize");
 }, T);
 await page.waitForTimeout(400);
@@ -39,6 +51,7 @@ await page.click('[data-st="newgroup"]'); await page.waitForTimeout(300);
 await page.fill(".pa-sheet input.pa-input", "空白组"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(300);
 await page.locator(".pa-dst-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(2500);
 check((await groups()).includes("空白组"), "新建空白分组后保存仍在");
+check(await page.evaluate(() => window.__autoImportCalls === 0), "普通保存不触发导入自动迁移");
 console.log("after", JSON.stringify(await groups()), "百宝箱刷新次数", await page.evaluate(() => window.__bbReset));
 console.log(errs.length ? errs : "no page errors");
 await browser.close();

@@ -183,6 +183,41 @@ function suggestGroups(draft, { minSize = 3, onlyUngrouped = true } = {}) {
   out.sort((a, b) => pos.get(a.ids[0]) - pos.get(b.ids[0]));
   return out;
 }
+/** 同一分组在条目顺序中被隔开的区段；只采用已有归属，不按名称猜测。 */
+function fragmentedGroups(draft) {
+  const known = new Map(draft.groups.groups.map((g) => [g.id, g]));
+  const found = new Map();
+  let previous = null;
+  for (const o of draft.order) {
+    const gid = draft.groupOf(o.identifier);
+    if (known.has(gid)) {
+      if (!found.has(gid)) found.set(gid, { groupId: gid, name: known.get(gid).name || "分组", ids: [], parts: 0 });
+      const g = found.get(gid);
+      g.ids.push(o.identifier);
+      if (gid !== previous) g.parts++;
+    }
+    previous = gid;
+  }
+  return [...found.values()].filter((g) => g.parts > 1);
+}
+/** 预览与实际应用共用的顺序：各组收拢到首次出现处，组内和其余条目的相对先后不变。 */
+function planGroupGather(draft, groupIds) {
+  const wanted = groupIds == null ? null : new Set(groupIds);
+  const groups = fragmentedGroups(draft).filter((g) => !wanted || wanted.has(g.groupId));
+  const members = new Map(groups.map((g) => [g.groupId, []]));
+  for (const o of draft.order) members.get(draft.groupOf(o.identifier))?.push(o);
+  const emitted = new Set();
+  const order = [];
+  for (const o of draft.order) {
+    const gid = draft.groupOf(o.identifier);
+    if (!members.has(gid)) order.push(o);
+    else if (!emitted.has(gid)) {
+      order.push(...members.get(gid));
+      emitted.add(gid);
+    }
+  }
+  return { groups, order };
+}
 function guessName(sym, names) {
   const stripped = names.map((n) => n.replace(/^[^\p{L}\p{N}]+/u, ""));
   let pre = stripped[0] || "";

@@ -426,6 +426,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }
 #pa-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
 #pa-root .pa-sug-main small { color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-group-preview { padding-inline-start: 1.7em; }
+#pa-root .pa-group-preview li { margin: 8px 0; }
+#pa-root .pa-group-preview small { display: block; color: var(--pa-dim); }
 
 /* ---------- 缝合：紧凑控件 ---------- */
 #pa-root .pa-compact .pa-select, #pa-root .pa-compact .pa-input { min-height: 32px; padding: 3px 8px; border-radius: 7px; }

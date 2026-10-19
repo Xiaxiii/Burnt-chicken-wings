@@ -88,7 +88,9 @@ function mountOrganize(page) {
     // 1.7.5 双层分组提示
     const dups = placing || st.query || settings().mirrorIgnore?.[d.name] ? [] : d.dupEntryGroups();
     const dupBanner = dups.length ? dupBannerHtml(d, dups) : "";
-    list.innerHTML = dupBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight });
+    const fragments = placing || st.query ? [] : fragmentedGroups(d);
+    const repairBanner = fragments.length ? `<div class="pa-card pa-group-repair"><p><b>检测到 ${fragments.length} 个分区被拆成多段</b></p><small>${esc(fragments.slice(0, 4).map((g) => `${g.name}（${g.parts} 段）`).join("、"))}${fragments.length > 4 ? " 等" : ""}。可以按已有归属收拢到各组首段，先预览再应用。</small><div class="pa-card-act"><button class="pa-btn pa-btn-s" data-repair-groups>归整分区</button></div></div>` : "";
+    list.innerHTML = dupBanner + repairBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight });
     list.scrollTop = top;
     list.classList.toggle("pa-placing", placing);
     const n = st.selected.size;
@@ -156,6 +158,7 @@ function mountOrganize(page) {
     showGroup(gid);
   }
   list.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-repair-groups]")) return repairGroups(draft());
     if (e.target.closest("[data-act=qbody]")) {
       st.searchBody = !st.searchBody;
       return render();
@@ -252,7 +255,7 @@ function mountOrganize(page) {
     if (t === "menu") {
       const keep = settings().keepClickOrder;
       t = await pickBox("工具", [
-        { label: "智能分组", sub: "把相邻的同类条目建成分组", value: "smart" },
+        { label: "智能分组", sub: "归整分散分区，或把相邻条目建成分组", value: "smart" },
         { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
         { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" }
       ]);
@@ -433,7 +436,7 @@ function mountOrganize(page) {
       st.mode = "move";
       render();
     }
-    if (v === "gather") mutate(d, "合并分组", (x) => x.gatherGroup(gid));
+    if (v === "gather") return repairGroups(d, gid);
     if (v === "up" || v === "down") mutate(d, "移动分组", (x) => x.moveGroupBlock(gid, v === "up" ? -1 : 1));
     if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留在原位置。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
   }
@@ -517,7 +520,41 @@ function mountOrganize(page) {
     mutate(dd, "编辑条目", (x) => Object.assign(x.prompt(id), next));
     toast("已保存", "success");
   }
+  async function repairGroups(d, groupId) {
+    const fragments = fragmentedGroups(d).filter((g) => !groupId || g.groupId === groupId);
+    if (!fragments.length) return toast("没有需要归整的分散分区");
+    const original = JSON.stringify(d.toPreset());
+    const positions = new Map(d.order.map((o, i) => [o.identifier, i + 1]));
+    const body = el(`<div><p class="pa-hint">按已有分组归属，把同组条目集中到该组首次出现的位置。保留组内先后、条目正文和开关。此操作会调整预设的条目顺序，请核对预览后应用；之后可撤销。</p>
+      <div class="pa-sug">${fragments.map((g, i) => `<label class="pa-sug-item"><span class="pa-inline-check"><input type="checkbox" data-gather="${i}" checked></span><span class="pa-sug-main"><b>${esc(g.name)}</b><small>${g.parts} 段 · ${g.ids.length} 条 · 汇到「${esc(d.prompt(g.ids[0])?.name || g.ids[0])}」所在首段</small></span></label>`).join("")}</div>
+      <div data-group-preview></div></div>`);
+    const selected = () => fragments.filter((g, i) => body.querySelector(`[data-gather="${i}"]`).checked).map((g) => g.groupId);
+    const paint = () => {
+      const plan = planGroupGather(d, selected());
+      body.querySelector("[data-group-preview]").innerHTML = `<p class="pa-hint">${plan.groups.length ? `将归整 ${plan.groups.length} 个分区，共 ${plan.groups.reduce((n, g) => n + g.ids.length, 0)} 条成员。` : "未选择分区，不会移动条目。"}只按已有归属归整；未分组条目不会被猜测归类。</p><details><summary>查看归整后的完整顺序（${plan.order.length} 条）</summary><ol class="pa-group-preview">${plan.order.map((o, i) => `<li data-preview-id="${esc(o.identifier)}"><b>${esc(d.prompt(o.identifier)?.name || o.identifier)}</b><small>${esc(d.group(d.groupOf(o.identifier))?.name || "未分组")} · 原第 ${positions.get(o.identifier)} 条 → 第 ${i + 1} 条 · ${o.enabled === false ? "关闭" : "开启"}</small></li>`).join("")}</ol></details>`;
+      const apply = body.closest(".pa-sheet")?.querySelector(".pa-btn-primary");
+      if (apply) apply.disabled = plan.groups.length === 0;
+    };
+    body.addEventListener("change", paint);
+    const result = await sheet({ title: "归整分散分区", body, wide: true, noFocus: true, onMount: paint, actions: [{ label: "取消", value: null }, { label: "应用归整", kind: "primary", value: selected }] });
+    if (!result?.length) return;
+    if (focusPreset() !== d.name || getDraft(d.name) !== d || JSON.stringify(d.toPreset()) !== original) return toast("预设已变化，请重新预览归整", "warning");
+    const plan = planGroupGather(d, result);
+    if (!plan.groups.length) return;
+    mutate(d, "归整分散分区", (x) => { findOrderList(x.preset).order = plan.order; });
+    toast(`已归整 ${plan.groups.length} 个分区，可撤销`, "success");
+    render();
+  }
   async function smartGroups(d) {
+    const fragments = fragmentedGroups(d);
+    if (fragments.length) {
+      const mode = await pickBox("智能分组", [
+        { label: `归整分散的 ${fragments.length} 个分区`, sub: "按已有归属集中到各组首段，先预览再应用", value: "gather" },
+        { label: "识别并新建分组", sub: "把相邻的同类条目建成分组", value: "new" }
+      ]);
+      if (!mode) return;
+      if (mode === "gather") return repairGroups(d);
+    }
     const sug = suggestGroups(d);
     if (!sug.length) return toast("没有可自动分组的相邻条目");
     const body = el(`<div><p class="pa-hint">只把相邻条目建成分组，不改变顺序。</p>

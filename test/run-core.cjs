@@ -544,3 +544,5 @@ require("./reply-runtime.cjs");
 require("./variable-safety.cjs");
 require("./variable-flow.cjs");
 require("./semantic-review.cjs");
+require("./group-repair.cjs");
+require("./host-save.cjs");
