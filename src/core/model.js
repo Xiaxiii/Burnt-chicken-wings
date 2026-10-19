@@ -53,7 +53,7 @@ var Draft = class {
           const mem = g.memberIdentifiers.filter((x) => ids.includes(x));
           if (!mem.length) return;
           const id = g.id || uid();
-          groups.groups.push({ id, name: g.name || "分组", order: i, collapsed: true, enabled: true });
+          groups.groups.push({ id, name: g.name || "分组", order: i, collapsed: true, enabled: g.enabled !== false });
           for (const x of mem) groups.prompts[x] = { groupId: id };
           return;
         }
@@ -61,7 +61,7 @@ var Draft = class {
         const b = ids.indexOf(g.endIdentifier);
         if (a < 0 || b < 0) return;
         const id = g.id || uid();
-        groups.groups.push({ id, name: g.name || "分组", order: i, collapsed: true, enabled: true });
+        groups.groups.push({ id, name: g.name || "分组", order: i, collapsed: true, enabled: g.enabled !== false });
         for (let k = Math.min(a, b); k <= Math.max(a, b); k++) groups.prompts[ids[k]] = { groupId: id };
       });
     }
@@ -98,6 +98,10 @@ var Draft = class {
     const gid = this.groupOf(id);
     if (gid && this.group(gid)?.enabled === false) return false;
     return true;
+  }
+  /** 分组自身的开关；与成员选择、宿主是否支持分组过滤无关。 */
+  groupOff(gid) {
+    return this.group(gid)?.enabled === false;
   }
   /** 整份换成另一个版本（恢复备份、恢复草稿）。分组格式等读入时的信息也一起换 */
   replaceWith(preset) {
@@ -383,24 +387,12 @@ var Draft = class {
     for (const [k, v] of Object.entries(this.groups.prompts)) if (v.groupId === gid) delete this.groups.prompts[k];
     this.groups.groups = this.groups.groups.filter((g) => g.id !== gid);
   }
-  /**
-   * 整组开关：同时改组内条目自己的开关（酒馆只看条目开关，分组上的标记只有百宝箱认）。
-   * 关组时记下原来开着的条目，再开组时只开回这些。
-   */
+  /** 只改分组标记，不覆盖内部独立选择；旧版 restoreOn 不再参与联动。 */
   setGroupEnabled(gid, on) {
     const g = this.group(gid);
     if (!g) return;
-    const members = this.order.filter((o) => this.groupOf(o.identifier) === gid);
-    if (!on) {
-      if (g.enabled !== false) g.restoreOn = members.filter((o) => o.enabled !== false).map((o) => o.identifier);
-      for (const o of members) o.enabled = false;
-      g.enabled = false;
-    } else {
-      const keep = Array.isArray(g.restoreOn) && g.restoreOn.length ? new Set(g.restoreOn) : null;
-      for (const o of members) if (!keep || keep.has(o.identifier)) o.enabled = true;
-      delete g.restoreOn;
-      g.enabled = true;
-    }
+    g.enabled = !!on;
+    delete g.restoreOn;
   }
   /** 把分散成几段的分组收拢到第一段的位置 */
   gatherGroup(gid) {
@@ -536,8 +528,8 @@ var Draft = class {
         if (!mem.length) continue;
         const contiguous = pos.get(mem[mem.length - 1]) - pos.get(mem[0]) === mem.length - 1;
         list.push(contiguous
-          ? { id: g.id, name: g.name, mode: "inclusive", startIdentifier: mem[0], endIdentifier: mem[mem.length - 1] }
-          : { id: g.id, name: g.name, memberIdentifiers: mem, mode: "inclusive" });
+          ? { id: g.id, name: g.name, enabled: g.enabled !== false, mode: "inclusive", startIdentifier: mem[0], endIdentifier: mem[mem.length - 1] }
+          : { id: g.id, name: g.name, enabled: g.enabled !== false, memberIdentifiers: mem, mode: "inclusive" });
       }
       ext.entryGrouping = list;
     } else {

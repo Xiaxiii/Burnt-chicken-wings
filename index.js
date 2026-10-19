@@ -1,7 +1,7 @@
-// 焦香鸡翅 1.8.0（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 焦香鸡翅 1.8.1（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "1.8.0";
-var CHANGELOG = "焦香鸡翅 1.8.0\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier（也可用 /焦香鸡翅）。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
+var VERSION = "1.8.1";
+var CHANGELOG = "焦香鸡翅 1.8.1\n\n整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或在输入框发送 /atelier（也可用 /焦香鸡翅）。名称可在扩展页设置框中修改。\n修改即时自动保存，每批修改开始前自动备份。扩展版和脚本版同时安装时，只有扩展版启动。\n\n1.8.1\n- 分组开关只修改分组自身，不再联动内部条目；全关条目不会被一起打开，关闭期间的手动选择也会保留。保存和方案恢复分别处理分组标记与条目开关。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -837,7 +837,7 @@ var Draft = class {
           const mem = g.memberIdentifiers.filter((x) => ids.includes(x));
           if (!mem.length) return;
           const id = g.id || uid();
-          groups.groups.push({ id, name: g.name || "分组", order: i, collapsed: true, enabled: true });
+          groups.groups.push({ id, name: g.name || "分组", order: i, collapsed: true, enabled: g.enabled !== false });
           for (const x of mem) groups.prompts[x] = { groupId: id };
           return;
         }
@@ -845,7 +845,7 @@ var Draft = class {
         const b = ids.indexOf(g.endIdentifier);
         if (a < 0 || b < 0) return;
         const id = g.id || uid();
-        groups.groups.push({ id, name: g.name || "分组", order: i, collapsed: true, enabled: true });
+        groups.groups.push({ id, name: g.name || "分组", order: i, collapsed: true, enabled: g.enabled !== false });
         for (let k = Math.min(a, b); k <= Math.max(a, b); k++) groups.prompts[ids[k]] = { groupId: id };
       });
     }
@@ -882,6 +882,10 @@ var Draft = class {
     const gid = this.groupOf(id);
     if (gid && this.group(gid)?.enabled === false) return false;
     return true;
+  }
+  /** 分组自身的开关；与成员选择、宿主是否支持分组过滤无关。 */
+  groupOff(gid) {
+    return this.group(gid)?.enabled === false;
   }
   /** 整份换成另一个版本（恢复备份、恢复草稿）。分组格式等读入时的信息也一起换 */
   replaceWith(preset) {
@@ -1167,24 +1171,12 @@ var Draft = class {
     for (const [k, v] of Object.entries(this.groups.prompts)) if (v.groupId === gid) delete this.groups.prompts[k];
     this.groups.groups = this.groups.groups.filter((g) => g.id !== gid);
   }
-  /**
-   * 整组开关：同时改组内条目自己的开关（酒馆只看条目开关，分组上的标记只有百宝箱认）。
-   * 关组时记下原来开着的条目，再开组时只开回这些。
-   */
+  /** 只改分组标记，不覆盖内部独立选择；旧版 restoreOn 不再参与联动。 */
   setGroupEnabled(gid, on) {
     const g = this.group(gid);
     if (!g) return;
-    const members = this.order.filter((o) => this.groupOf(o.identifier) === gid);
-    if (!on) {
-      if (g.enabled !== false) g.restoreOn = members.filter((o) => o.enabled !== false).map((o) => o.identifier);
-      for (const o of members) o.enabled = false;
-      g.enabled = false;
-    } else {
-      const keep = Array.isArray(g.restoreOn) && g.restoreOn.length ? new Set(g.restoreOn) : null;
-      for (const o of members) if (!keep || keep.has(o.identifier)) o.enabled = true;
-      delete g.restoreOn;
-      g.enabled = true;
-    }
+    g.enabled = !!on;
+    delete g.restoreOn;
   }
   /** 把分散成几段的分组收拢到第一段的位置 */
   gatherGroup(gid) {
@@ -1320,8 +1312,8 @@ var Draft = class {
         if (!mem.length) continue;
         const contiguous = pos.get(mem[mem.length - 1]) - pos.get(mem[0]) === mem.length - 1;
         list.push(contiguous
-          ? { id: g.id, name: g.name, mode: "inclusive", startIdentifier: mem[0], endIdentifier: mem[mem.length - 1] }
-          : { id: g.id, name: g.name, memberIdentifiers: mem, mode: "inclusive" });
+          ? { id: g.id, name: g.name, enabled: g.enabled !== false, mode: "inclusive", startIdentifier: mem[0], endIdentifier: mem[mem.length - 1] }
+          : { id: g.id, name: g.name, enabled: g.enabled !== false, memberIdentifiers: mem, mode: "inclusive" });
       }
       ext.entryGrouping = list;
     } else {
@@ -2395,7 +2387,7 @@ function renderList(draft, o) {
                 ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
                 <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${esc(g?.name || "分组")}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>
                 ${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
-                ${showSwitch ? `<label class="pa-switch pa-switch-s" title="整组开关"><input type="checkbox" data-act="gtoggle" ${g?.enabled === false || !onCount ? "" : "checked"}><i></i></label>
+                ${showSwitch ? `<label class="pa-switch pa-switch-s" title="分组开关（不修改内部条目）"><input type="checkbox" aria-label="分组开关" data-act="gtoggle" ${draft.groupOff(b.groupId) ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
                 <span class="pa-handle" data-act="gdrag" aria-label="拖动分组">${ICON.grip}</span>` : ""}
             </header>
@@ -2949,7 +2941,7 @@ function mountOrganize(page) {
         return render();
       }
       if (act === "gtoggle") {
-        mutate(d, "整组开关", (x) => x.setGroupEnabled(gid, actEl.checked));
+        mutate(d, "分组开关", (x) => x.setGroupEnabled(gid, actEl.checked));
         return;
       }
       if (act === "gmenu") return groupMenu(d, gid);
@@ -5908,7 +5900,7 @@ async function applyScheme(scheme, { quiet = false } = {}) {
     const d = getDraft(scheme.preset);
     if (!schemeMatches(d, scheme)) {
       d.snapshot("套用方案");
-      // 先整组、后单条：整组开关会带动组内条目，单条的记录要最后生效
+      // 分组标记与单条选择分别恢复，分组开关不覆盖内部条目。
       for (const [gid, on] of Object.entries(scheme.groupStates || {})) d.setGroupEnabled(gid, on);
       for (const [id, on] of Object.entries(scheme.states || {})) d.setEnabled([id], on);
       try {

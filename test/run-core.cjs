@@ -331,22 +331,26 @@ test("双层分组——成员只是同名分组的一部分时不算重复（1.
   assert.deepEqual(d.toPreset().extensions.entryGrouping.map((g) => g.id), ["x1"]);
 });
 
-test("整组开关会开关组内条目，再开时只开回原来开着的（1.8.0）", () => {
+test("分组开关独立于内部条目，保存后两种状态分别保留（1.8.1）", () => {
   const d = mk([["a", "甲", "x"], ["b", "乙", "y"], ["c", "丙", "z"]]);
   const gid = d.createGroup("组", ["a", "b", "c"]);
   d.setEnabled(["c"], false);
   d.setGroupEnabled(gid, false);
-  assert.deepEqual(d.order.map((o) => o.enabled), [false, false, false]);
+  assert.deepEqual(d.order.map((o) => o.enabled), [true, true, false]);
+  assert.equal(d.groupOff(gid), true);
   d.setGroupEnabled(gid, true);
   assert.deepEqual(d.order.map((o) => o.enabled), [true, true, false]);
-  // 只有 entryGrouping 的预设：分组标记存不下来，但条目开关存下来了
+  // entryGrouping 的分组标记也独立保存，不能借改写条目来模拟。
   const eg = mk([["a", "甲", "x"], ["b", "乙", "y"]], { extensions: { entryGrouping: [{ id: "x1", name: "组", startIdentifier: "a", endIdentifier: "b" }] } });
   eg.setGroupEnabled("x1", false);
   const back = new A.Draft("p", eg.toPreset());
-  assert.deepEqual(back.order.map((o) => o.enabled), [false, false]);
-  // 全部关着时打开整组：全部打开
-  back.setGroupEnabled("x1", true);
   assert.deepEqual(back.order.map((o) => o.enabled), [true, true]);
+  assert.equal(back.groupOff("x1"), true);
+  // 全部关着时打开分组，也不修改内部选择。
+  back.setEnabled(["a", "b"], false);
+  back.setGroupEnabled("x1", true);
+  assert.deepEqual(back.order.map((o) => o.enabled), [false, false]);
+  assert.equal(back.groupOff("x1"), false);
 });
 
 test("replaceWith 整份换掉内容和分组格式（1.8.0）", () => {
@@ -473,3 +477,4 @@ test("按变量名排序：类别按给定先后，类别内按编号（1.8.0）
 });
 
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);
+require("./group-toggle.cjs");
