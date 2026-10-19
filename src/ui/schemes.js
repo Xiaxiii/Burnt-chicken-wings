@@ -92,7 +92,7 @@ async function applyScheme(scheme, { quiet = false, why = "", silent = false } =
     const d = getDraft(scheme.preset);
     if (!schemeMatches(d, scheme)) {
       d.snapshot("套用方案");
-      // 先整组、后单条：整组开关会带动组内条目，单条的记录要最后生效
+      // 分组标记与单条选择分别恢复，分组开关不覆盖内部条目。
       for (const [gid, on] of Object.entries(scheme.groupStates || {})) d.setGroupEnabled(gid, on);
       for (const [id, on] of Object.entries(scheme.states || {})) d.setEnabled([id], on);
       try {

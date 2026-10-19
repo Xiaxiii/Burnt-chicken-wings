@@ -93,7 +93,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   await ctx.close();
 }
 
-// ---- 4) 编辑条目点取消不改动；叠着的弹窗按 Esc 只关最上面一个；整组开关带动条目
+// ---- 4) 编辑条目点取消不改动；叠着的弹窗按 Esc 只关最上面一个；分组开关保留条目
 {
   const ctx = await browser.newContext({ viewport: { width: 1024, height: 900 } });
   const { page, errs } = await boot(ctx);
@@ -124,14 +124,17 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
     await page.keyboard.press("Escape"); await page.waitForTimeout(250);
     assert.equal(await page.$$eval(".pa-sheet-mask", (x) => x.length), n0 - 1, "Esc 只关最上面一个");
     ok("Esc 只关最上面的弹窗");
-    // 整组开关：关掉后组内条目都关
+    // 分组开关只改分组标记，内部选择始终不变。
     const g = page.locator(".pa-list .pa-group:not(.pa-gempty-box)").first();
+    const selection = () => g.locator('.pa-row [data-act=toggle]').evaluateAll(xs => xs.map(x => x.checked));
+    const before = await selection();
     await g.locator(".pa-switch-s").click(); await page.waitForTimeout(400);
-    const offs = await g.locator(".pa-row:not(.pa-off)").count();
-    assert.equal(offs, 0, "整组关掉后组内条目都关");
+    assert.equal(await g.locator('[data-act=gtoggle]').isChecked(), false);
+    assert.deepEqual(await selection(), before, "关闭分组后内部选择不变");
     await g.locator(".pa-switch-s").click(); await page.waitForTimeout(400);
-    assert.ok(await g.locator(".pa-row:not(.pa-off)").count() > 0, "再开时条目恢复");
-    ok("整组开关带动组内条目");
+    assert.equal(await g.locator('[data-act=gtoggle]').isChecked(), true);
+    assert.deepEqual(await selection(), before, "开启分组后内部选择不变");
+    ok("分组开关保留内部条目选择");
   }
   // 没有弹窗时 Esc 关闭面板
   await page.keyboard.press("Escape"); await page.waitForTimeout(400);

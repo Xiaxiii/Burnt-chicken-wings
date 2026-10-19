@@ -225,7 +225,7 @@ function mountOrganize(page) {
         return render();
       }
       if (act === "gtoggle") {
-        mutate(d, "整组开关", (x) => x.setGroupEnabled(gid, actEl.checked));
+        mutate(d, "分组开关", (x) => x.setGroupEnabled(gid, actEl.checked));
         return;
       }
       if (act === "gmenu") return groupMenu(d, gid);
