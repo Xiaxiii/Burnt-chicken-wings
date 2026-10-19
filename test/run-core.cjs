@@ -554,3 +554,6 @@ require("./group-classify.cjs");
 require("./group-toggle.cjs");
 require("./performance-core.cjs");
 require("./performance-list.cjs");
+
+require("./regex-core.cjs");
+require("./regex-host.cjs");

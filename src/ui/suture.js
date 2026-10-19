@@ -61,6 +61,7 @@ function mountSuture(page, app) {
                 <button class="pa-typebtn" data-st="srctype" type="button" aria-label="来源类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-src-pick"></div>
                 <button class="pa-icon-btn pa-qbtn" data-st="srcsearch" aria-label="搜索来源条目" title="搜索条目">🔍</button>
+                <button class="pa-btn pa-btn-s" data-st="regex" type="button" title="缝制来源预设中的正则">正则</button>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
             <div class="pa-scroll pa-src-list"></div>
@@ -488,6 +489,9 @@ function mountSuture(page, app) {
   function searchDst() { return searchBox("dst"); }
   function renderBar() {
     paintQBtns();
+    const regexButton = page.querySelector('[data-st="regex"]');
+    regexButton.disabled = st.dstType !== "preset" || !["preset", "file"].includes(st.srcType);
+    regexButton.title = regexButton.disabled ? "正则缝制需要来源预设或预设文件，以及目标预设" : "缝制来源预设中的正则，无需选择提示词或插入位置";
     const n = st.picked.size;
     let d = null;
     try {
@@ -517,6 +521,15 @@ function mountSuture(page, app) {
       renderDst();
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
+    if (a === "regex") {
+      if (st.dstType !== "preset" || !["preset", "file"].includes(st.srcType)) return toast("请使用来源预设或预设文件，并选择目标预设");
+      try {
+        const source = st.srcType === "file" ? st.fileDraft : st.srcPreset ? getDraft(st.srcPreset) : null;
+        if (!source) return toast("请先选择来源预设或预设文件");
+        return await presetRegexDialog(source, target());
+      } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
+      return;
+    }
     if (a === "migrate") migrate();
     if (a === "picked") return pickedSheet();
     if (a === "srcsearch") return searchSrc();
