@@ -331,22 +331,26 @@ test("双层分组——成员只是同名分组的一部分时不算重复（1.
   assert.deepEqual(d.toPreset().extensions.entryGrouping.map((g) => g.id), ["x1"]);
 });
 
-test("整组开关会开关组内条目，再开时只开回原来开着的（1.8.0）", () => {
+test("分组开关独立于内部条目，保存后两种状态分别保留（2.0.2）", () => {
   const d = mk([["a", "甲", "x"], ["b", "乙", "y"], ["c", "丙", "z"]]);
   const gid = d.createGroup("组", ["a", "b", "c"]);
   d.setEnabled(["c"], false);
   d.setGroupEnabled(gid, false);
-  assert.deepEqual(d.order.map((o) => o.enabled), [false, false, false]);
+  assert.deepEqual(d.order.map((o) => o.enabled), [true, true, false]);
+  assert.equal(d.groupOff(gid), true);
   d.setGroupEnabled(gid, true);
   assert.deepEqual(d.order.map((o) => o.enabled), [true, true, false]);
-  // 只有 entryGrouping 的预设：分组标记存不下来，但条目开关存下来了
+  // entryGrouping 的分组标记也独立保存，不能借改写条目来模拟。
   const eg = mk([["a", "甲", "x"], ["b", "乙", "y"]], { extensions: { entryGrouping: [{ id: "x1", name: "组", startIdentifier: "a", endIdentifier: "b" }] } });
   eg.setGroupEnabled("x1", false);
   const back = new A.Draft("p", eg.toPreset());
-  assert.deepEqual(back.order.map((o) => o.enabled), [false, false]);
-  // 全部关着时打开整组：全部打开
-  back.setGroupEnabled("x1", true);
   assert.deepEqual(back.order.map((o) => o.enabled), [true, true]);
+  assert.equal(back.groupOff("x1"), true);
+  // 全部关着时打开分组，也不修改内部选择。
+  back.setEnabled(["a", "b"], false);
+  back.setGroupEnabled("x1", true);
+  assert.deepEqual(back.order.map((o) => o.enabled), [false, false]);
+  assert.equal(back.groupOff("x1"), false);
 });
 
 test("replaceWith 整份换掉内容和分组格式（1.8.0）", () => {
@@ -482,13 +486,13 @@ test("分组关闭标记：有柏宝箱时挡住组内条目，没有时只看�
   assert.equal(d.groupOff("g"), true);
   d.groupGate = false;
   assert.equal(d.isActive("a"), true, "没有柏宝箱时酒馆照样发送");
-  assert.equal(d.groupOff("g"), false);
+  assert.equal(d.groupOff("g"), true, "显示分组自身标记，不随宿主过滤能力改变");
   d.order.find((o) => o.identifier === "b").enabled = false;
   d.setGroupEnabled("g", false);
-  assert.equal(d.isActive("a"), false);
-  assert.equal(d.groupOff("g"), true, "条目都关了才算整组关");
+  assert.equal(d.isActive("a"), true, "无宿主过滤时，关闭分组不改写条目来模拟过滤");
+  assert.equal(d.groupOff("g"), true);
   d.setGroupEnabled("g", true);
-  assert.deepEqual(d.order.map((o) => o.enabled), [true, false], "再开组只开回原来开着的条目");
+  assert.deepEqual(d.order.map((o) => o.enabled), [true, false], "开关分组均保留内部选择");
 });
 // ---- 1.9.0 加载体检的统计口径
 const D = require("./diag.cjs");
@@ -539,3 +543,4 @@ test("诊断报告：去掉查询参数，角色、头像、聊天文件名换�
   assert.ok(rep.gaps.some((x) => x.includes("聊天可操作")));
 });
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);
+require("./group-toggle.cjs");
