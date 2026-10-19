@@ -546,3 +546,4 @@ require("./variable-flow.cjs");
 require("./semantic-review.cjs");
 require("./group-repair.cjs");
 require("./host-save.cjs");
+require("./group-classify.cjs");
