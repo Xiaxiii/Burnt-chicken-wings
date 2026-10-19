@@ -35,9 +35,87 @@ function presetRegexNewId(reserved) {
   }
   throw new Error("无法生成不重复的正则编号，请重新预览");
 }
+function presetRegexGroupRecord(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+/** 柏宝箱 1.x 的可携带正则分组；只核对，不清理或改写既有归属。 */
+function presetRegexGroupValue(draft) {
+  const extensions = draft?.preset?.extensions;
+  if (extensions != null && !presetRegexGroupRecord(extensions)) throw new Error("预设扩展数据格式不正确，未修改正则分组");
+  const toolkit = extensions?.baibaiToolkit;
+  if (toolkit !== undefined && !presetRegexGroupRecord(toolkit)) throw new Error("柏宝箱扩展数据格式不正确，未修改正则分组");
+  const value = toolkit?.regexGroups;
+  if (value === undefined) return undefined;
+  if (!presetRegexGroupRecord(value) || !["number", "string"].includes(typeof value.version) || Number(value.version) !== 1) throw new Error("预设正则分组格式或版本不支持，未修改原分组");
+  if (!Array.isArray(value.groups) || !presetRegexGroupRecord(value.scripts)) throw new Error("预设正则分组格式不正确，未修改原分组");
+  const ids = new Set(["__ungrouped", "__pending_assignment"]);
+  const validOrder = (order) => order === undefined || (typeof order === "number" || typeof order === "string") && Number.isFinite(Number(order));
+  for (const group of value.groups) {
+    if (!presetRegexGroupRecord(group) || typeof group.id !== "string" || !group.id || ids.has(group.id)
+      || group.name !== undefined && typeof group.name !== "string"
+      || group.collapsed !== undefined && typeof group.collapsed !== "boolean" || !validOrder(group.order)) {
+      throw new Error("预设正则分组条目格式不正确，未修改原分组");
+    }
+    ids.add(group.id);
+  }
+  for (const member of Object.values(value.scripts)) {
+    if (!presetRegexGroupRecord(member) || member.groupId != null && typeof member.groupId !== "string" || !validOrder(member.order)) {
+      throw new Error("预设正则分组成员格式不正确，未修改原分组");
+    }
+  }
+  if (value.ungrouped !== undefined && (!presetRegexGroupRecord(value.ungrouped)
+    || value.ungrouped.name !== undefined && typeof value.ungrouped.name !== "string"
+    || value.ungrouped.collapsed !== undefined && typeof value.ungrouped.collapsed !== "boolean")) {
+    throw new Error("预设正则默认分组格式不正确，未修改原分组");
+  }
+  return value;
+}
+function presetRegexGroupSnapshot(draft) {
+  const value = presetRegexGroupValue(draft);
+  return JSON.stringify({ present: Object.hasOwn(draft?.preset?.extensions?.baibaiToolkit || {}, "regexGroups"), value });
+}
+function presetRegexNextGroupOrder(values) {
+  const last = values.reduce((max, value) => Math.max(max, value), -1);
+  const next = Math.floor(last) + 1;
+  if (!Number.isSafeInteger(next) || next <= last) throw new Error("正则分组顺序超出安全范围，请先核对现有分组顺序");
+  return next;
+}
+function planPresetRegexGroup(targetDraft, rules, rows, groupName) {
+  if (typeof groupName !== "string" || !groupName.trim()) throw new Error("正则分组名称不能为空，请核对预设名称");
+  const existing = presetRegexGroupValue(targetDraft);
+  const changedRows = rows.filter((row) => row.action === "append" || row.action === "replace");
+  const memberIds = changedRows.map((row) => rules[row.targetIndex].id);
+  if (!memberIds.length) return { group: null, regexGroups: clone(existing) };
+  const counts = new Map();
+  for (const rule of rules) if (rule?.id) counts.set(rule.id, (counts.get(rule.id) || 0) + 1);
+  if (memberIds.some((id) => counts.get(id) !== 1)) throw new Error("缝入正则的目标编号重复，无法单独分组，请先核对重复编号");
+  const regexGroups = existing === undefined ? { version: 1, groups: [], scripts: {}, ungrouped: { name: "默认分组", collapsed: false } } : clone(existing);
+  const orderOf = (group, index) => group.order === undefined ? index : Number(group.order);
+  const sameName = regexGroups.groups.map((value, index) => ({ value, index })).filter(({ value }) => value.name === groupName)
+    .sort((left, right) => orderOf(left.value, left.index) - orderOf(right.value, right.index) || left.index - right.index)[0]?.value;
+  let group = sameName;
+  if (!group) {
+    const reserved = new Set(["__ungrouped", "__pending_assignment", ...regexGroups.groups.map((item) => item.id), ...Object.values(regexGroups.scripts).map((item) => item.groupId)]);
+    group = { id: presetRegexNewId(reserved), name: groupName, order: presetRegexNextGroupOrder(regexGroups.groups.map(orderOf)), collapsed: false };
+    regexGroups.groups.push(group);
+  }
+  const rulePositions = new Map(rules.map((rule, index) => [rule?.id, index]));
+  for (const row of changedRows) {
+    const id = rules[row.targetIndex].id;
+    const old = Object.hasOwn(regexGroups.scripts, id) ? regexGroups.scripts[id] : undefined;
+    if (row.action === "replace" && old?.groupId === group.id) continue;
+    const orders = Object.entries(regexGroups.scripts).filter(([scriptId, item]) => scriptId !== id && item.groupId === group.id)
+      .map(([scriptId, item], index) => item.order === undefined ? rulePositions.get(scriptId) ?? index : Number(item.order));
+    const member = { ...old, groupId: group.id, order: presetRegexNextGroupOrder(orders) };
+    // 预设编号属于不可信数据；__proto__ 也只能成为普通的成员键。
+    Object.defineProperty(regexGroups.scripts, id, { value: member, enumerable: true, writable: true, configurable: true });
+  }
+  return { group: { id: group.id, name: group.name, reused: !!sameName, memberIds }, regexGroups };
+}
 /** 纯计划：保持目标顺序，新规则按来源顺序追加；替换必须明确选择。 */
-function planPresetRegexTransfer(sourceDraft, targetDraft, { selectedIndices = [], conflictChoices = {} } = {}) {
+function planPresetRegexTransfer(sourceDraft, targetDraft, { selectedIndices = [], conflictChoices = {}, groupName } = {}) {
   const source = presetRegexList(sourceDraft), target = presetRegexList(targetDraft);
+  const groupSignature = groupName === undefined ? undefined : presetRegexGroupSnapshot(targetDraft);
   if (!Array.isArray(selectedIndices) || selectedIndices.some((i) => !Number.isInteger(i) || i < 0 || i >= source.length)) throw new Error("所选正则不存在，请重新选择");
   const selected = new Set(selectedIndices);
   const rules = clone(target);
@@ -100,22 +178,37 @@ function planPresetRegexTransfer(sourceDraft, targetDraft, { selectedIndices = [
     }
     countIdentity(identity, 1);
   }
-  return {
+  const plan = {
     sourceName: sourceDraft.name, targetName: targetDraft.name,
     sourceSignature: presetRegexSnapshot(sourceDraft), targetSignature: presetRegexSnapshot(targetDraft),
     rows, rules, stats, resultSignature: JSON.stringify(rules)
   };
+  if (groupName !== undefined) {
+    Object.assign(plan, planPresetRegexGroup(targetDraft, rules, rows, groupName), { groupSignature });
+    plan.groupResultSignature = JSON.stringify({ group: plan.group, regexGroups: plan.regexGroups, rows: plan.rows, stats: plan.stats });
+  }
+  return plan;
 }
 function validatePresetRegexTransfer(targetDraft, plan, sourceDraft) {
   presetRegexList(targetDraft);
   if (!plan || plan.targetName !== targetDraft.name || plan.targetSignature !== presetRegexSnapshot(targetDraft)) throw new Error("目标预设的正则已变化，请重新预览");
   if (!sourceDraft || plan.sourceName !== sourceDraft.name || plan.sourceSignature !== presetRegexSnapshot(sourceDraft)) throw new Error("来源预设的正则已变化，请重新预览");
   if (!Array.isArray(plan.rules) || plan.resultSignature !== JSON.stringify(plan.rules)) throw new Error("正则缝合方案已变化，请重新预览");
+  if (["group", "regexGroups", "groupSignature", "groupResultSignature"].some((key) => Object.hasOwn(plan, key))) {
+    if (typeof plan.groupSignature !== "string" || typeof plan.groupResultSignature !== "string") throw new Error("正则分组方案已变化，请重新预览");
+    if (plan.groupSignature !== presetRegexGroupSnapshot(targetDraft)) throw new Error("目标预设的正则分组已变化，请重新预览");
+    if (plan.groupResultSignature !== JSON.stringify({ group: plan.group, regexGroups: plan.regexGroups, rows: plan.rows, stats: plan.stats })) throw new Error("正则分组方案已变化，请重新预览");
+  }
 }
 function applyPresetRegexTransfer(targetDraft, plan, sourceDraft) {
   validatePresetRegexTransfer(targetDraft, plan, sourceDraft);
   if (!plan.stats.added && !plan.stats.replaced) return false;
+  const rules = clone(plan.rules), regexGroups = plan.group ? clone(plan.regexGroups) : undefined;
   if (!targetDraft.preset.extensions) targetDraft.preset.extensions = {};
-  targetDraft.preset.extensions.regex_scripts = clone(plan.rules);
+  targetDraft.preset.extensions.regex_scripts = rules;
+  if (regexGroups) {
+    if (!targetDraft.preset.extensions.baibaiToolkit) targetDraft.preset.extensions.baibaiToolkit = {};
+    targetDraft.preset.extensions.baibaiToolkit.regexGroups = regexGroups;
+  }
   return true;
 }
