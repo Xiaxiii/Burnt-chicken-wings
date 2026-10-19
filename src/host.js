@@ -1,4 +1,5 @@
 var mods = {};
+var presetRegexRefreshName = null;
 function stUrl(path) {
   return new URL(path, document.baseURI).href;
 }
@@ -52,6 +53,15 @@ function listPresets() {
 function currentPresetName() {
   return mods.openai?.oai_settings?.preset_settings_openai || pm().getSelectedPresetName();
 }
+function presetRegexActivationInfo(name) {
+  const settings = ctx().extensionSettings;
+  const allowed = settings?.preset_allowed_regex?.openai;
+  return {
+    allowed: Array.isArray(allowed) && allowed.includes(name),
+    extensionDisabled: settings?.disabledExtensions?.includes("regex") === true,
+    current: name === currentPresetName()
+  };
+}
 function presetIndex(name) {
   const { preset_names } = pm().getPresetList();
   return Array.isArray(preset_names) ? preset_names.indexOf(name) : preset_names[name];
@@ -91,6 +101,8 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     try { return JSON.stringify(rest); } catch { return ""; }
   };
   const restChanged = idx !== void 0 && idx >= 0 && presets[idx] && restOf(presets[idx]) !== restOf(data);
+  const oldRegex = name === currentPresetName() ? mods.openai?.oai_settings?.extensions?.regex_scripts : presets[idx]?.extensions?.regex_scripts;
+  const regexChanged = JSON.stringify(oldRegex) !== JSON.stringify(data.extensions?.regex_scripts);
   await pm().savePreset(name, data, { skipUpdate: true });
   if (idx !== void 0 && idx >= 0) {
     // 原地替换：别的扩展可能拿着旧对象的引用，换成新对象的话它下次保存会把旧内容写回去
@@ -120,6 +132,21 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
       }
     }
     await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
+    // 原生正则每次执行都读取预设数据；PRESET_CHANGED 还会刷新正则面板。
+    // 仅通知已获原生许可的预设，避免在本面板下弹出酒馆的首次信任确认。
+    const activation = presetRegexActivationInfo(name);
+    if (regexChanged && activation.allowed && !activation.extensionDisabled && et2.PRESET_CHANGED) {
+      const previousRefresh = presetRegexRefreshName;
+      try {
+        presetRegexRefreshName = name;
+        await ctx().eventSource.emit(et2.PRESET_CHANGED, { apiId: "openai", name });
+      } catch (e) {
+        console.warn("[焦香鸡翅] 正则已保存，通知酒馆刷新失败", e);
+        toast("正则已保存，请重新选择预设以刷新酒馆正则列表", "warning");
+      } finally {
+        presetRegexRefreshName = previousRefresh;
+      }
+    }
   }
 }
 async function selectPreset(name) {

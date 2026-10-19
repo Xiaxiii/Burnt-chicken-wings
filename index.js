@@ -1,7 +1,7 @@
-// 焦香鸡翅 2.0.3（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 焦香鸡翅 2.0.4（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "2.0.3";
-var CHANGELOG = "焦香鸡翅 2.0.3\n\n用于整理、缝合聊天补全预设，并提供思维链检查、方案、加载体检和预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」；或在输入框发送 /atelier、/焦香鸡翅。名称可在扩展页设置框中修改。\n修改即时自动保存。每批修改开始前自动备份。扩展版与脚本版同时安装时，只启动扩展版。\n\n2.0.3\n- 大预设列表、分析和缝合规划共用批次读取索引，思维链区段每批只扫描一次；折叠分组按需生成条目，搜索仍可找到组内内容。\n- 保存状态更新不再重画列表，隐藏页面停止无关刷新；缝合预览每批复用同一份分析，去除近不透明面板的冗余背景模糊。\n- 主题按实际底色调整文字、强调色、开关边框与勾选颜色，修复浅底浅字及宿主样式造成的不可见控件，支持动态换主题。\n- 预设和世界书的缝合预览新增左右拨动的总开关：右边全开、左边全关，只设置本次待缝入条目；确认后生效，取消不改目标，仍可逐条调整。\n\n2.0.2\n- 分组开关只修改分组自身，不再联动内部条目；全关条目不会被一起打开，关闭期间的手动选择也会保留。保存和方案恢复分别处理分组标记与条目开关。\n\n2.0.1\n- 编辑条目：弹窗占屏幕高度八成，正文框填满剩余空间。\n- 「写法」右侧新增展开按钮。展开后正文占满整个弹窗，再点一次恢复。\n\n2.0.0\n- 适配 TT 等 App 内嵌网页：面板高度按实际可见区域计算，底部页签不再被挤出屏幕。\n- 网页未覆盖状态栏或底部横条时，不再重复留出安全区空白。全屏网页（如添加到主屏幕）保留安全区。\n- 适用于 iPhone、iPad、安卓手机、平板和电脑。Safari 浏览器收起工具栏时，保留底部横条位置。\n\n1.9.9\n- 清理 → 角色卡：按需加载的同名角色卡，自动向服务器读取完整内容后比较。比较结果列出不同之处，如「描述、开场白」。\n- 「重新检测」重新读取角色卡内容并比较。\n- 扩展页：「更新」「刷新页面」按钮靠右；更新说明显示最近两个版本。\n\n1.9.8\nAPI 规则\n- 换预设时，API 不变。\n- 切换方案时，恢复方案保存时的预设、条目开关、人设和 API。\n- 切换方案不再修改「使用中」站点，各方案的 API 互不覆盖。\n- 未记录 API 的方案，切换时 API 不变。方案列表标注「未记录 API」，可在 ✏️ 中补充。\n- 删除「切换预设后，自动连回『使用中』的站点」「切换预设时，不让预设带着的连接设置覆盖当前连接」两项。升级后自动关闭酒馆的「预设绑定连接」。\n方案\n- 保存方案时自动记录预设、条目开关、人设和 API，窗口内列出将保存的内容。API 无需先存为站点。\n- 方案列表每条显示 API（站点名或网址，以及模型）。\n- ✏️ 菜单：「换 API 站点」改为「更换 API」，可选当前连接、已存站点或不记录；「用现在的状态覆盖」同时更新人设和 API。\n文字\n- 设置项、说明和提示改为简明表述。设置项的补充说明收入「说明」，点击展开。\n\n1.9.7\n- 缝合页搜索改为在列表中筛选。点击 🔍 输入关键词，「从」「到」列表即时显示匹配条目，分组自动展开。\n- 搜索词保留至手动清除。列表上方可修改或清除。\n\n1.9.6\n- 缝合页「从」「到」两栏新增 🔍 搜索，可搜名称、分组名、标签和正文。\n\n1.9.5\n- 双层分组提示新增「保留，不再提示」。部分扩展（如转移工具 preset-transfer）会持续写回自己的分组数据。选择保留后，该预设不再提示，保存时也不再删除这份数据。\n\n1.9.4\n- 扩展页设置框重新排版。「加载与兼容」「更新说明」默认收起，标题右侧显示概况。删除不可用的「应用推荐配置」「停用加速」和重复的「加载体检」按钮。\n- 检查更新显示「已是最新版本（版本号）」或「检测到新版本（版本号）」。已更新未刷新时，提示刷新页面。\n- 魔棒菜单中「焦香鸡翅」固定在最下方。\n- 方案列表显示 API 站点名。\n- ✏️ 菜单完成一项操作后返回菜单，点击 ✕ 关闭。\n- 改归属角色：新增「取消归属」按钮。\n\n1.9.3\n- 换角色或聊天时，提示当前预设和模型，3 秒后关闭。可在「更多 → 方案」底部关闭。\n- 双层分组：与柏宝箱分组同编号的旧副本一并去除。\n- 双层分组被写回时，记录写回的扩展并在提示中注明。\n- 保存预设时原地更新酒馆内存中的预设，防止其他扩展用旧数据覆盖。\n\n1.9.2\n- 方案按角色卡分组，点击箭头展开。当前角色排在最前；可改为按预设或人设分组。\n- 方案列表每条显示名称、预设、人设和时间，右侧为「切换」和 ✏️。\n- 保存方案时可归到当前角色，可设置进入聊天时自动切换。\n- 当前角色没有当前预设的方案时，列表上方提示保存。\n- 新增 🗑️ 批量删除，可整组勾选。\n- 删除方案区的预设选择框，删除「当前连接」中的「用于」一行。\n- 修复：同一聊天内手动换预设后被自动换回。自动套用改为仅在进入聊天时执行一次。\n- 自动套用可绑定单个聊天或某个角色的全部聊天。\n\n1.9.1\n- 整理页搜索分两层：先列名称、标签、分组名匹配的条目；仅正文匹配的条目点击「正文里还有 N 条」后列出，并显示匹配句。\n- 思维链页：「变量未被读取」改为「没发出去的内容」，每条注明条目、变量和原因，详情折叠。\n- 缝合预览：条目标题固定为两行，修复 iPhone 上的错位。\n- 清理 → 扩展数据：正确识别酒馆助手和柏宝箱的数据，补充酒馆内置数据的识别。\n- 清理 → 预设：无可勾选预设时不显示「取消全选」。\n- 大小为 0 时显示「0 B」。\n\n1.9.0\n手机排版（更紧凑）\n- 预设、世界书的选择改成小按钮「名称 ▾」，点开是可搜索的列表，预设多的时候好找；手机上省掉「预设」二字。\n- 缝合页：来源、目标各一行，「从 [预设 ▾] [名称 ▾] ⋯」「到 [预设 ▾] [名称 ▾]」，不再另放搜索框（点 ▾ 弹出的列表本身可以搜索）；去掉目标上方的提示句，位置提示放进底栏。\n- 预设、世界书的选择列表不论多少项都带搜索。\n- 整理页工具栏收成一行：预设、🔍 搜索、＋ 新建（条目或分组）、⋯ 工具。\n- 说明文字默认收起成一行「ⓘ 说明」：清理各栏、方案、连接选项、背景图。清理各栏顶部只留一行数字摘要。\n- 加载体检：顶部一行摘要（启动用时、预设、扩展数据、角色卡），建议只显示一句结论，原因收进「为什么」，「去清理 ›」和它放在同一行；时间线、请求表、排行等都收进「详细数据」。\n- 配色改成小色块，只留圆点和名称（说明放在长按 / 悬停提示里）。\n- 思维链页五个统计在手机上排成一行。\n- 清理页排序改成小字「↕ 大小」，点开选排序方式。\n- 复选框不再沿用酒馆的实心方块样式，改成细边框，勾选后填色。\n- 扩展数据：「实际检测」「勾选疑似残留」改成小字，和「ⓘ 说明」放在同一行。\n- 加载体检：每条建议只显示一句短结论，带数字的完整说明和原因收进「ⓘ 详情」。\n- 角色卡：同名组可以「忽略」（或「全部忽略」），这次打开酒馆期间不再提示；点「重新检测」或下次打开酒馆重新检测时会再列出。\n- 方案页「保存当前状态为方案」「＋ 添加站点」按钮改小。\n- 修正缝合预览在手机上显示不全、平板上左右乱滑：长名称（分组下拉框、条目名）不再把弹窗撑宽。\n- 手机基础字号回到 14px，触屏按钮和输入框高度收紧。\n\n数据安全\n- 删除世界书、扩展数据、预设前的备份是交给浏览器下载的，浏览器可能拦截或下载失败。现在下载后先停下来，确认文件已经保存再删除；可以重新下载或取消删除。\n- 预设正在自动保存时删除或归档它，会先等这次保存结束再删除，删完不会被晚到的保存写回来。\n- 关闭面板时先等正在进行的保存结束。「放弃修改」改为「放弃没存上的部分」，并说明已经自动保存的不会撤回。\n- 浏览器存储写满、需要清理旧草稿时，只清当前账号的草稿，不动同一浏览器里其他账号的。\n- 站点密钥在酒馆密钥库里没了、本浏览器里还有时，重新存进去后记下新编号，之后连接不会每次再存一把。\n\n功能\n- 方案卡片的「使用中」要求预设正在用、开关一致、人设和 API 站点也对得上；只有开关一致时标「开关一致」。\n- 分组上的「关闭」标记只有柏宝箱运行时才会挡住组内条目。没有柏宝箱时，整组开关和条目是否生效按条目自己的开关显示。\n- 世界书比对改称「条目完全相同」，写明比较范围；读取失败的世界书单独列出，不再悄悄跳过。\n- 角色卡「内容相同」改为「文字设定相同（头像图片未比较）」，并写明比较了哪些内容。\n- 扩展数据「多半是卸载残留」改为「疑似卸载残留，删除前请核对」：没找到使用者不等于可以安全删除。\n- 1.8.0 误把「柏宝箱」改成了「百宝箱」，改回「柏宝箱」。\n\n加载体检\n- 时间点分开显示：页面 DOM 就绪、酒馆启动完成、启动完成后仍在进行的请求。「聊天可操作」测不到时写「未测得」，不再用启动完成的时间代替。\n- 请求按类别统计：全部角色列表和单张角色详情分开，不再当成重复下载；柏宝库、鸡尾酒+ 的快速接口归到对应类别并注明。\n- 体积分为实际传输、压缩后、解压后；跨域拿不到的写「未取得」，不再用压缩后的大小冒充实际传输。\n- 同类请求同时进行时按时间段并集计算，不相加。\n- 去掉「小请求耗时长＝排队」的判断；「实测服务器下载速度」改为「接收速率估计」，并说明不是服务器带宽上限。\n- 设置读取不止一次、启动时有设置保存时，只说明记录到的事实，不再指认是哪个扩展。\n- 新增「每笔请求明细」（等待首字节、接收阶段）和「导出诊断报告」（脱敏，不上传）。\n- 清理页的「打开约快 X 秒」改为「设置下载约少 X（估计）」。\n\n加载与兼容（扩展页设置框）\n- 新增「加载与兼容」：显示已在运行的柏宝箱、鸡尾酒、鸡尾酒+、酒馆助手，柏宝库、鸡尾酒+ 的启动桥接，页面由谁的 Service Worker 控制，以及本次设置读取实际走了谁的接口。平时只看页面上已有的信息，不发请求。\n- 「检查兼容性」：读取扩展列表、探测柏宝库和鸡尾酒+ 的后端，把「安装」「开启」「后端可用」「运行中」「版本」分开显示；版本标「已识别但未验证」或「未知」。\n- 按方面列出由谁负责：设置／预设读取、角色列表、扩展清单与预加载这三项，两个功能都开着时提示重叠，建议只保留一个。本扩展不改其他扩展的开关。\n- 本扩展目前没有自己的读取加速，「应用推荐配置」「停用加速」显示为不可用，并写明原因。\n- 设置框「检查更新」同时显示当前分支和提交号，装测试分支时可以确认装的是哪一版。\n\n说明\n- 本版本没有开发启动读取加速。要先用新的体检比较开关现有加速（柏宝库、鸡尾酒+）前后的实际传输，确认仍有缺口再决定；测量步骤见 docs/implementation-1.9.0.md。\n- 以上改动只在模拟页面里测试过，还没有在真实酒馆和真机上验证。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
+var VERSION = "2.0.4";
+var CHANGELOG = "焦香鸡翅 2.0.4\n\n用于整理、缝合聊天补全预设，并提供思维链检查、方案、加载体检和预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」；或在输入框发送 /atelier、/焦香鸡翅。名称可在扩展页设置框中修改。\n修改即时自动保存。每批修改开始前自动备份。扩展版与脚本版同时安装时，只启动扩展版。\n\n2.0.4\n- 缝合页新增「正则」：可从已安装预设或完整预设 JSON 文件选择内置正则，默认选显示美化，不需要先选提示词或插入位置。\n- 预览查找与替换内容、冲突处理及最终顺序；完全重复自动跳过，同名或同 ID 可保留两份、跳过或指定替换。保留原开关、作用位置及额外字段，支持自动备份和撤销。\n- 保留目标预设原生正则启用状态；当前已获许可的预设保存后通知酒馆刷新，尚未启用的仍由酒馆正则面板开启。\n\n2.0.3\n- 大预设列表、分析和缝合规划共用批次读取索引，思维链区段每批只扫描一次；折叠分组按需生成条目，搜索仍可找到组内内容。\n- 保存状态更新不再重画列表，隐藏页面停止无关刷新；缝合预览每批复用同一份分析，去除近不透明面板的冗余背景模糊。\n- 主题按实际底色调整文字、强调色、开关边框与勾选颜色，修复浅底浅字及宿主样式造成的不可见控件，支持动态换主题。\n- 预设和世界书的缝合预览新增左右拨动的总开关：右边全开、左边全关，只设置本次待缝入条目；确认后生效，取消不改目标，仍可逐条调整。\n\n2.0.2\n- 分组开关只修改分组自身，不再联动内部条目；全关条目不会被一起打开，关闭期间的手动选择也会保留。保存和方案恢复分别处理分组标记与条目开关。\n\n2.0.1\n- 编辑条目：弹窗占屏幕高度八成，正文框填满剩余空间。\n- 「写法」右侧新增展开按钮。展开后正文占满整个弹窗，再点一次恢复。\n\n2.0.0\n- 适配 TT 等 App 内嵌网页：面板高度按实际可见区域计算，底部页签不再被挤出屏幕。\n- 网页未覆盖状态栏或底部横条时，不再重复留出安全区空白。全屏网页（如添加到主屏幕）保留安全区。\n- 适用于 iPhone、iPad、安卓手机、平板和电脑。Safari 浏览器收起工具栏时，保留底部横条位置。\n\n1.9.9\n- 清理 → 角色卡：按需加载的同名角色卡，自动向服务器读取完整内容后比较。比较结果列出不同之处，如「描述、开场白」。\n- 「重新检测」重新读取角色卡内容并比较。\n- 扩展页：「更新」「刷新页面」按钮靠右；更新说明显示最近两个版本。\n\n1.9.8\nAPI 规则\n- 换预设时，API 不变。\n- 切换方案时，恢复方案保存时的预设、条目开关、人设和 API。\n- 切换方案不再修改「使用中」站点，各方案的 API 互不覆盖。\n- 未记录 API 的方案，切换时 API 不变。方案列表标注「未记录 API」，可在 ✏️ 中补充。\n- 删除「切换预设后，自动连回『使用中』的站点」「切换预设时，不让预设带着的连接设置覆盖当前连接」两项。升级后自动关闭酒馆的「预设绑定连接」。\n方案\n- 保存方案时自动记录预设、条目开关、人设和 API，窗口内列出将保存的内容。API 无需先存为站点。\n- 方案列表每条显示 API（站点名或网址，以及模型）。\n- ✏️ 菜单：「换 API 站点」改为「更换 API」，可选当前连接、已存站点或不记录；「用现在的状态覆盖」同时更新人设和 API。\n文字\n- 设置项、说明和提示改为简明表述。设置项的补充说明收入「说明」，点击展开。\n\n1.9.7\n- 缝合页搜索改为在列表中筛选。点击 🔍 输入关键词，「从」「到」列表即时显示匹配条目，分组自动展开。\n- 搜索词保留至手动清除。列表上方可修改或清除。\n\n1.9.6\n- 缝合页「从」「到」两栏新增 🔍 搜索，可搜名称、分组名、标签和正文。\n\n1.9.5\n- 双层分组提示新增「保留，不再提示」。部分扩展（如转移工具 preset-transfer）会持续写回自己的分组数据。选择保留后，该预设不再提示，保存时也不再删除这份数据。\n\n1.9.4\n- 扩展页设置框重新排版。「加载与兼容」「更新说明」默认收起，标题右侧显示概况。删除不可用的「应用推荐配置」「停用加速」和重复的「加载体检」按钮。\n- 检查更新显示「已是最新版本（版本号）」或「检测到新版本（版本号）」。已更新未刷新时，提示刷新页面。\n- 魔棒菜单中「焦香鸡翅」固定在最下方。\n- 方案列表显示 API 站点名。\n- ✏️ 菜单完成一项操作后返回菜单，点击 ✕ 关闭。\n- 改归属角色：新增「取消归属」按钮。\n\n1.9.3\n- 换角色或聊天时，提示当前预设和模型，3 秒后关闭。可在「更多 → 方案」底部关闭。\n- 双层分组：与柏宝箱分组同编号的旧副本一并去除。\n- 双层分组被写回时，记录写回的扩展并在提示中注明。\n- 保存预设时原地更新酒馆内存中的预设，防止其他扩展用旧数据覆盖。\n\n1.9.2\n- 方案按角色卡分组，点击箭头展开。当前角色排在最前；可改为按预设或人设分组。\n- 方案列表每条显示名称、预设、人设和时间，右侧为「切换」和 ✏️。\n- 保存方案时可归到当前角色，可设置进入聊天时自动切换。\n- 当前角色没有当前预设的方案时，列表上方提示保存。\n- 新增 🗑️ 批量删除，可整组勾选。\n- 删除方案区的预设选择框，删除「当前连接」中的「用于」一行。\n- 修复：同一聊天内手动换预设后被自动换回。自动套用改为仅在进入聊天时执行一次。\n- 自动套用可绑定单个聊天或某个角色的全部聊天。\n\n1.9.1\n- 整理页搜索分两层：先列名称、标签、分组名匹配的条目；仅正文匹配的条目点击「正文里还有 N 条」后列出，并显示匹配句。\n- 思维链页：「变量未被读取」改为「没发出去的内容」，每条注明条目、变量和原因，详情折叠。\n- 缝合预览：条目标题固定为两行，修复 iPhone 上的错位。\n- 清理 → 扩展数据：正确识别酒馆助手和柏宝箱的数据，补充酒馆内置数据的识别。\n- 清理 → 预设：无可勾选预设时不显示「取消全选」。\n- 大小为 0 时显示「0 B」。\n\n1.9.0\n手机排版（更紧凑）\n- 预设、世界书的选择改成小按钮「名称 ▾」，点开是可搜索的列表，预设多的时候好找；手机上省掉「预设」二字。\n- 缝合页：来源、目标各一行，「从 [预设 ▾] [名称 ▾] ⋯」「到 [预设 ▾] [名称 ▾]」，不再另放搜索框（点 ▾ 弹出的列表本身可以搜索）；去掉目标上方的提示句，位置提示放进底栏。\n- 预设、世界书的选择列表不论多少项都带搜索。\n- 整理页工具栏收成一行：预设、🔍 搜索、＋ 新建（条目或分组）、⋯ 工具。\n- 说明文字默认收起成一行「ⓘ 说明」：清理各栏、方案、连接选项、背景图。清理各栏顶部只留一行数字摘要。\n- 加载体检：顶部一行摘要（启动用时、预设、扩展数据、角色卡），建议只显示一句结论，原因收进「为什么」，「去清理 ›」和它放在同一行；时间线、请求表、排行等都收进「详细数据」。\n- 配色改成小色块，只留圆点和名称（说明放在长按 / 悬停提示里）。\n- 思维链页五个统计在手机上排成一行。\n- 清理页排序改成小字「↕ 大小」，点开选排序方式。\n- 复选框不再沿用酒馆的实心方块样式，改成细边框，勾选后填色。\n- 扩展数据：「实际检测」「勾选疑似残留」改成小字，和「ⓘ 说明」放在同一行。\n- 加载体检：每条建议只显示一句短结论，带数字的完整说明和原因收进「ⓘ 详情」。\n- 角色卡：同名组可以「忽略」（或「全部忽略」），这次打开酒馆期间不再提示；点「重新检测」或下次打开酒馆重新检测时会再列出。\n- 方案页「保存当前状态为方案」「＋ 添加站点」按钮改小。\n- 修正缝合预览在手机上显示不全、平板上左右乱滑：长名称（分组下拉框、条目名）不再把弹窗撑宽。\n- 手机基础字号回到 14px，触屏按钮和输入框高度收紧。\n\n数据安全\n- 删除世界书、扩展数据、预设前的备份是交给浏览器下载的，浏览器可能拦截或下载失败。现在下载后先停下来，确认文件已经保存再删除；可以重新下载或取消删除。\n- 预设正在自动保存时删除或归档它，会先等这次保存结束再删除，删完不会被晚到的保存写回来。\n- 关闭面板时先等正在进行的保存结束。「放弃修改」改为「放弃没存上的部分」，并说明已经自动保存的不会撤回。\n- 浏览器存储写满、需要清理旧草稿时，只清当前账号的草稿，不动同一浏览器里其他账号的。\n- 站点密钥在酒馆密钥库里没了、本浏览器里还有时，重新存进去后记下新编号，之后连接不会每次再存一把。\n\n功能\n- 方案卡片的「使用中」要求预设正在用、开关一致、人设和 API 站点也对得上；只有开关一致时标「开关一致」。\n- 分组上的「关闭」标记只有柏宝箱运行时才会挡住组内条目。没有柏宝箱时，整组开关和条目是否生效按条目自己的开关显示。\n- 世界书比对改称「条目完全相同」，写明比较范围；读取失败的世界书单独列出，不再悄悄跳过。\n- 角色卡「内容相同」改为「文字设定相同（头像图片未比较）」，并写明比较了哪些内容。\n- 扩展数据「多半是卸载残留」改为「疑似卸载残留，删除前请核对」：没找到使用者不等于可以安全删除。\n- 1.8.0 误把「柏宝箱」改成了「百宝箱」，改回「柏宝箱」。\n\n加载体检\n- 时间点分开显示：页面 DOM 就绪、酒馆启动完成、启动完成后仍在进行的请求。「聊天可操作」测不到时写「未测得」，不再用启动完成的时间代替。\n- 请求按类别统计：全部角色列表和单张角色详情分开，不再当成重复下载；柏宝库、鸡尾酒+ 的快速接口归到对应类别并注明。\n- 体积分为实际传输、压缩后、解压后；跨域拿不到的写「未取得」，不再用压缩后的大小冒充实际传输。\n- 同类请求同时进行时按时间段并集计算，不相加。\n- 去掉「小请求耗时长＝排队」的判断；「实测服务器下载速度」改为「接收速率估计」，并说明不是服务器带宽上限。\n- 设置读取不止一次、启动时有设置保存时，只说明记录到的事实，不再指认是哪个扩展。\n- 新增「每笔请求明细」（等待首字节、接收阶段）和「导出诊断报告」（脱敏，不上传）。\n- 清理页的「打开约快 X 秒」改为「设置下载约少 X（估计）」。\n\n加载与兼容（扩展页设置框）\n- 新增「加载与兼容」：显示已在运行的柏宝箱、鸡尾酒、鸡尾酒+、酒馆助手，柏宝库、鸡尾酒+ 的启动桥接，页面由谁的 Service Worker 控制，以及本次设置读取实际走了谁的接口。平时只看页面上已有的信息，不发请求。\n- 「检查兼容性」：读取扩展列表、探测柏宝库和鸡尾酒+ 的后端，把「安装」「开启」「后端可用」「运行中」「版本」分开显示；版本标「已识别但未验证」或「未知」。\n- 按方面列出由谁负责：设置／预设读取、角色列表、扩展清单与预加载这三项，两个功能都开着时提示重叠，建议只保留一个。本扩展不改其他扩展的开关。\n- 本扩展目前没有自己的读取加速，「应用推荐配置」「停用加速」显示为不可用，并写明原因。\n- 设置框「检查更新」同时显示当前分支和提交号，装测试分支时可以确认装的是哪一版。\n\n说明\n- 本版本没有开发启动读取加速。要先用新的体检比较开关现有加速（柏宝库、鸡尾酒+）前后的实际传输，确认仍有缺口再决定；测量步骤见 docs/implementation-1.9.0.md。\n- 以上改动只在模拟页面里测试过，还没有在真实酒馆和真机上验证。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -165,6 +165,7 @@ function tip(inner, label = "说明") {
 
 // src/host.js
 var mods = {};
+var presetRegexRefreshName = null;
 function stUrl(path) {
   return new URL(path, document.baseURI).href;
 }
@@ -218,6 +219,15 @@ function listPresets() {
 function currentPresetName() {
   return mods.openai?.oai_settings?.preset_settings_openai || pm().getSelectedPresetName();
 }
+function presetRegexActivationInfo(name) {
+  const settings = ctx().extensionSettings;
+  const allowed = settings?.preset_allowed_regex?.openai;
+  return {
+    allowed: Array.isArray(allowed) && allowed.includes(name),
+    extensionDisabled: settings?.disabledExtensions?.includes("regex") === true,
+    current: name === currentPresetName()
+  };
+}
 function presetIndex(name) {
   const { preset_names } = pm().getPresetList();
   return Array.isArray(preset_names) ? preset_names.indexOf(name) : preset_names[name];
@@ -257,6 +267,8 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     try { return JSON.stringify(rest); } catch { return ""; }
   };
   const restChanged = idx !== void 0 && idx >= 0 && presets[idx] && restOf(presets[idx]) !== restOf(data);
+  const oldRegex = name === currentPresetName() ? mods.openai?.oai_settings?.extensions?.regex_scripts : presets[idx]?.extensions?.regex_scripts;
+  const regexChanged = JSON.stringify(oldRegex) !== JSON.stringify(data.extensions?.regex_scripts);
   await pm().savePreset(name, data, { skipUpdate: true });
   if (idx !== void 0 && idx >= 0) {
     // 原地替换：别的扩展可能拿着旧对象的引用，换成新对象的话它下次保存会把旧内容写回去
@@ -286,6 +298,21 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
       }
     }
     await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
+    // 原生正则每次执行都读取预设数据；PRESET_CHANGED 还会刷新正则面板。
+    // 仅通知已获原生许可的预设，避免在本面板下弹出酒馆的首次信任确认。
+    const activation = presetRegexActivationInfo(name);
+    if (regexChanged && activation.allowed && !activation.extensionDisabled && et2.PRESET_CHANGED) {
+      const previousRefresh = presetRegexRefreshName;
+      try {
+        presetRegexRefreshName = name;
+        await ctx().eventSource.emit(et2.PRESET_CHANGED, { apiId: "openai", name });
+      } catch (e) {
+        console.warn("[焦香鸡翅] 正则已保存，通知酒馆刷新失败", e);
+        toast("正则已保存，请重新选择预设以刷新酒馆正则列表", "warning");
+      } finally {
+        presetRegexRefreshName = previousRefresh;
+      }
+    }
   }
 }
 async function selectPreset(name) {
@@ -1981,6 +2008,129 @@ var Draft = class {
 };
 
 
+// src/core/regex.js
+// 只搬运预设内置正则数据，不编译查找表达式、不执行替换内容。
+function presetRegexList(draft) {
+  const extensions = draft?.preset?.extensions;
+  if (extensions != null && (typeof extensions !== "object" || Array.isArray(extensions))) throw new Error("预设扩展数据格式不正确，未修改正则");
+  const rules = extensions?.regex_scripts;
+  if (rules === undefined) return [];
+  if (!Array.isArray(rules)) throw new Error("预设内置正则必须是数组，请先核对原数据");
+  return rules;
+}
+function presetRegexSnapshot(draft) {
+  return JSON.stringify({ present: Object.hasOwn(draft?.preset?.extensions || {}, "regex_scripts"), rules: draft?.preset?.extensions?.regex_scripts });
+}
+function presetRegexCanonical(value) {
+  if (Array.isArray(value)) return value.map(presetRegexCanonical);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, presetRegexCanonical(value[key])]));
+  }
+  return value;
+}
+function presetRegexIdentity(rule) {
+  if (!rule || typeof rule !== "object" || Array.isArray(rule)) return null;
+  const { id: _id, ...content } = rule;
+  return JSON.stringify(presetRegexCanonical(content));
+}
+function presetRegexRuleValid(rule) {
+  return !!rule && typeof rule === "object" && !Array.isArray(rule)
+    && typeof rule.findRegex === "string" && typeof rule.replaceString === "string"
+    && Array.isArray(rule.placement) && rule.placement.every(Number.isInteger)
+    && (rule.id == null || typeof rule.id === "string");
+}
+function presetRegexNewId(reserved) {
+  for (let i = 0; i < 100; i++) {
+    const id = uid();
+    if (typeof id === "string" && id && !reserved.has(id)) return id;
+  }
+  throw new Error("无法生成不重复的正则编号，请重新预览");
+}
+/** 纯计划：保持目标顺序，新规则按来源顺序追加；替换必须明确选择。 */
+function planPresetRegexTransfer(sourceDraft, targetDraft, { selectedIndices = [], conflictChoices = {} } = {}) {
+  const source = presetRegexList(sourceDraft), target = presetRegexList(targetDraft);
+  if (!Array.isArray(selectedIndices) || selectedIndices.some((i) => !Number.isInteger(i) || i < 0 || i >= source.length)) throw new Error("所选正则不存在，请重新选择");
+  const selected = new Set(selectedIndices);
+  const rules = clone(target);
+  const reserved = new Set(target.map((r) => r?.id).filter((id) => typeof id === "string" && id));
+  const replaced = new Set();
+  const targetIdentities = target.map(presetRegexIdentity);
+  const originalIdentities = new Set(targetIdentities.filter((x) => x !== null));
+  const identityCounts = new Map();
+  const countIdentity = (identity, delta) => {
+    if (identity !== null) identityCounts.set(identity, (identityCounts.get(identity) || 0) + delta);
+  };
+  targetIdentities.forEach((identity) => countIdentity(identity, 1));
+  const rows = [], stats = { added: 0, replaced: 0, skipped: 0 };
+  for (let i = 0; i < source.length; i++) {
+    const original = source[i], valid = presetRegexRuleValid(original);
+    const identity = presetRegexIdentity(original);
+    const name = typeof original?.scriptName === "string" ? original.scriptName.trim() : "";
+    const id = typeof original?.id === "string" ? original.id : "";
+    const conflicts = target.flatMap((r, index) => {
+      if (!r || typeof r !== "object") return [];
+      const sameId = !!id && r.id === id;
+      const sameName = !!name && typeof r.scriptName === "string" && r.scriptName.trim() === name;
+      return sameId || sameName ? [{ index, id: r.id, name: typeof r.scriptName === "string" && r.scriptName ? r.scriptName : "未命名正则" }] : [];
+    });
+    const row = { sourceIndex: i, invalid: !valid, duplicate: identity !== null && originalIdentities.has(identity), conflicts, action: "unselected" };
+    rows.push(row);
+    if (!selected.has(i)) continue;
+    if (!valid) { row.action = "skip"; stats.skipped++; continue; }
+    const decision = conflictChoices[i] ?? "keep";
+    const action = typeof decision === "string" ? decision : decision?.action;
+    if (!["keep", "skip", "replace"].includes(action)) throw new Error("无法识别冲突处理方式，请重新选择");
+    if (action === "skip") { row.action = "skip"; stats.skipped++; continue; }
+    if (row.duplicate || identityCounts.get(identity) > 0) {
+      row.action = "skip";
+      row.batchDuplicate = !row.duplicate;
+      stats.skipped++;
+      continue;
+    }
+    const copy = clone(original);
+    if (action === "replace") {
+      const index = typeof decision === "object" ? decision?.targetIndex : conflicts.length === 1 ? conflicts[0].index : undefined;
+      if (!Number.isInteger(index) || !conflicts.some((c) => c.index === index)) throw new Error("请明确选择要替换的那一条目标正则，或选择保留两份/跳过");
+      if (replaced.has(index)) throw new Error("多条来源正则选择替换同一目标，请只选择一条或调整冲突处理");
+      const oldId = target[index]?.id;
+      copy.id = typeof oldId === "string" && oldId ? oldId : presetRegexNewId(reserved);
+      reserved.add(copy.id);
+      countIdentity(targetIdentities[index], -1);
+      rules[index] = copy;
+      replaced.add(index);
+      row.action = "replace";
+      row.targetIndex = index;
+      stats.replaced++;
+    } else {
+      if (!copy.id || reserved.has(copy.id)) copy.id = presetRegexNewId(reserved);
+      reserved.add(copy.id);
+      rules.push(copy);
+      row.action = "append";
+      row.targetIndex = rules.length - 1;
+      stats.added++;
+    }
+    countIdentity(identity, 1);
+  }
+  return {
+    sourceName: sourceDraft.name, targetName: targetDraft.name,
+    sourceSignature: presetRegexSnapshot(sourceDraft), targetSignature: presetRegexSnapshot(targetDraft),
+    rows, rules, stats, resultSignature: JSON.stringify(rules)
+  };
+}
+function validatePresetRegexTransfer(targetDraft, plan, sourceDraft) {
+  presetRegexList(targetDraft);
+  if (!plan || plan.targetName !== targetDraft.name || plan.targetSignature !== presetRegexSnapshot(targetDraft)) throw new Error("目标预设的正则已变化，请重新预览");
+  if (!sourceDraft || plan.sourceName !== sourceDraft.name || plan.sourceSignature !== presetRegexSnapshot(sourceDraft)) throw new Error("来源预设的正则已变化，请重新预览");
+  if (!Array.isArray(plan.rules) || plan.resultSignature !== JSON.stringify(plan.rules)) throw new Error("正则缝合方案已变化，请重新预览");
+}
+function applyPresetRegexTransfer(targetDraft, plan, sourceDraft) {
+  validatePresetRegexTransfer(targetDraft, plan, sourceDraft);
+  if (!plan.stats.added && !plan.stats.replaced) return false;
+  if (!targetDraft.preset.extensions) targetDraft.preset.extensions = {};
+  targetDraft.preset.extensions.regex_scripts = clone(plan.rules);
+  return true;
+}
+
 // src/ui/state.js
 var KEY = "presetAtelier";
 var DEFAULTS = {
@@ -3507,6 +3657,230 @@ function presetPicker(slot, onPick, { label = "预设" } = {}) {
     refresh: paintBtn,
     el: btn
   };
+}
+
+// src/ui/regex.js
+// 预设正则只搬运原生数据；查找表达式和替换 HTML 在此处始终作为文本展示。
+function presetRegexRuleName(rule) {
+  return typeof rule?.scriptName === "string" && rule.scriptName ? rule.scriptName : "未命名正则";
+}
+function presetRegexRuleScope(rule) {
+  if (rule?.markdownOnly && !rule?.promptOnly) return "仅显示美化";
+  if (rule?.promptOnly && !rule?.markdownOnly) return "发送给模型";
+  if (rule?.markdownOnly && rule?.promptOnly) return "显示美化及发送";
+  return "通用处理";
+}
+function presetRegexRulesSnapshot(draft) {
+  return presetRegexSnapshot(draft);
+}
+async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
+  let sourceRules;
+  try { sourceRules = presetRegexList(sourceDraft); }
+  catch (error) { toast("无法预览预设正则：" + error.message, "error"); return false; }
+  if (!sourceRules.length) {
+    toast("这个来源预设没有随预设保存的正则");
+    return false;
+  }
+  const sourceSig = presetRegexRulesSnapshot(sourceDraft);
+  const targetSig = presetRegexRulesSnapshot(targetDraft);
+  const sourceManaged = drafts.get(sourceDraft.name) === sourceDraft;
+  const targetManaged = drafts.get(targetDraft.name) === targetDraft;
+  const targetFocus = focusPreset();
+  const selected = new Set();
+  const choices = new Map();
+  const names = sourceRules.map((rule) => presetRegexRuleName(rule));
+  const searchText = sourceRules.map((rule, i) => `${names[i]}\n${typeof rule?.id === "string" ? rule.id : ""}\n${typeof rule?.findRegex === "string" ? rule.findRegex : ""}`.toLowerCase());
+  sourceRules.forEach((rule, i) => {
+    if (rule?.markdownOnly && !rule?.promptOnly) selected.add(i);
+  });
+  let plan = null;
+  let basePlan = null;
+  let planError = "";
+  let query = "";
+  let stale = false;
+  let wrap = null;
+  const activationText = () => {
+    const state = presetRegexActivationInfo(targetDraft.name);
+    if (state.extensionDisabled) return `正则功能已全局停用，当前不会生效。请在酒馆开启正则功能${state.allowed ? "" : "，再到「正则」面板允许目标预设"}；此处保留现有启用状态。`;
+    if (!state.allowed) return "目标预设尚未允许使用内置正则。缝入后请到酒馆「正则」面板允许该预设，才能生效；此处保留现有启用状态。";
+    return `目标预设已允许使用内置正则，保留现有启用状态。${state.current ? "保存后" : "切换到该预设后"}，由酒馆按各条规则的开关和作用范围处理。`;
+  };
+  const body = el(`<div class="pa-regex-transfer">
+    <div class="pa-card"><b>从「${esc(sourceDraft.name)}」缝入「${esc(targetDraft.name)}」</b>
+      <p class="pa-hint">默认选择仅用于显示美化的正则，保留每条规则原来的开关、作用位置和其他设置。新规则按来源顺序放到目标末尾；明确替换的规则保留目标位置。</p>
+      <p class="pa-hint" data-rx-activation>${esc(activationText())}</p>
+      ${tip("<p>状态栏仍需配套提示词或世界书输出相应的标签和格式，正则才能匹配并显示美化。搬运正则后，请同时核对这些配套内容。</p>", "状态栏美化的使用条件")}
+      <p class="pa-warn" data-rx-stale hidden>来源或目标已变化，请关闭后重新预览。</p></div>
+    <input class="pa-input" data-rx-search type="search" placeholder="搜索正则名称、ID 或查找表达式" aria-label="搜索来源正则">
+    <div class="pa-card-act" role="group" aria-label="选择来源正则">
+      <button class="pa-btn pa-btn-s" data-rx-pick="display">仅选显示美化</button>
+      <button class="pa-btn pa-btn-s" data-rx-pick="all">全选</button>
+      <button class="pa-btn pa-btn-s" data-rx-pick="none">清空</button>
+      <span data-rx-count aria-live="polite"></span></div>
+    <div data-rx-source></div>
+    <div class="pa-card" data-rx-plan aria-live="polite"></div>
+    <details class="pa-card" data-rx-order><summary>缝合后的正则顺序 <span data-rx-order-count></span></summary><ol data-rx-final-order></ol></details>
+  </div>`);
+  const staleReason = () => {
+    if (sourceManaged && drafts.get(sourceDraft.name) !== sourceDraft) return true;
+    if (targetManaged && drafts.get(targetDraft.name) !== targetDraft) return true;
+    if (focusPreset() !== targetFocus) return true;
+    return sourceSig !== presetRegexRulesSnapshot(sourceDraft) || targetSig !== presetRegexRulesSnapshot(targetDraft);
+  };
+  const markStale = () => {
+    stale = true;
+    body.querySelector("[data-rx-stale]").hidden = false;
+    const button = wrap?.querySelector(".pa-sheet-actions .pa-btn-primary");
+    if (button) button.disabled = true;
+  };
+  // 核心计划同时校验精确重复、同名/同 ID 冲突，并产生最终规则数组。
+  const makePlan = (indices) => planPresetRegexTransfer(sourceDraft, targetDraft, {
+    selectedIndices: indices,
+    conflictChoices: Object.fromEntries(choices)
+  });
+  try {
+    basePlan = makePlan(sourceRules.map((_, i) => i));
+  } catch (error) {
+    toast("无法预览预设正则：" + error.message, "error");
+    return false;
+  }
+  const rowInfo = (index) => basePlan.rows.find((row) => row.sourceIndex === index);
+  const ruleMarkup = (rule, i) => {
+    const info = rowInfo(i);
+    const disabled = !rule || typeof rule !== "object" || Array.isArray(rule) || info?.invalid;
+    const conflicts = info?.conflicts || [];
+    return `<article class="pa-card" data-rx-index="${i}">
+      <header><label class="pa-inline-check"><input type="checkbox" data-rx-select="${i}" ${selected.has(i) ? "checked" : ""} ${disabled ? "disabled" : ""}> <b>${esc(names[i])}</b></label></header>
+      <small>${esc(presetRegexRuleScope(rule))} · 来源${rule?.disabled ? "关闭" : "开启"}${Array.isArray(rule?.placement) ? ` · 作用位置 ${esc(rule.placement.filter(Number.isInteger).map((value) => ({ 0: "旧版显示", 1: "用户输入", 2: "AI 输出", 3: "快捷命令", 5: "世界书", 6: "推理" }[value] || `位置 ${value}`)).join("、"))}` : ""}</small>
+      ${info?.duplicate ? '<p class="pa-dim">目标已有相同规则，将自动跳过。</p>' : ""}
+      ${disabled ? '<p class="pa-warn">规则数据不完整，不能搬运。</p>' : ""}
+      ${conflicts.length && !info?.duplicate ? `<div class="pa-field-row"><span>冲突处理</span><select class="pa-select pa-select-s" data-rx-conflict="${i}" aria-label="${esc(names[i])}的冲突处理"><option value="keep">保留两份</option><option value="skip">跳过来源规则</option><option value="replace">替换目标规则</option></select></div>${conflicts.length > 1 ? `<label class="pa-field-row" data-rx-replace-row="${i}" hidden><span>替换哪条</span><select class="pa-select pa-select-s" data-rx-replace="${i}" aria-label="${esc(names[i])}要替换的目标"><option value="">请选择目标规则</option>${conflicts.map((r) => `<option value="${r.index}">第 ${r.index + 1} 条：${esc(presetRegexRuleName({ scriptName: r.name }))}</option>`).join("")}</select></label>` : ""}<small class="pa-warn">与目标中的 ${conflicts.map((r) => `第 ${r.index + 1} 条「${esc(presetRegexRuleName({ scriptName: r.name }))}」`).join("、")} 同名或同 ID，但内容不同。</small>` : ""}
+      <details data-rx-details="${i}"><summary>查看查找与替换内容</summary><div data-rx-code></div></details>
+    </article>`;
+  };
+  const displayIndices = sourceRules.map((rule, i) => rule?.markdownOnly && !rule?.promptOnly ? i : -1).filter((i) => i >= 0);
+  const otherIndices = sourceRules.map((_, i) => i).filter((i) => !displayIndices.includes(i));
+  body.querySelector("[data-rx-source]").innerHTML = `
+    <section data-rx-section="display"><h3 class="pa-h">显示美化（${displayIndices.length}）</h3>${displayIndices.map((i) => ruleMarkup(sourceRules[i], i)).join("") || '<p class="pa-hint">来源没有仅显示美化的规则，可在下面手动选择。</p>'}</section>
+    ${otherIndices.length ? `<section data-rx-section="other"><h3 class="pa-h">其他规则（${otherIndices.length}）</h3><p class="pa-hint">这些规则也可能改变发送给模型的内容，请核对后选择。</p>${otherIndices.map((i) => ruleMarkup(sourceRules[i], i)).join("")}</section>` : ""}`;
+  body.querySelectorAll("[data-rx-select]:disabled").forEach((input) => {
+    selected.delete(Number(input.dataset.rxSelect));
+    input.checked = false;
+  });
+  const paintOrder = () => {
+    const order = body.querySelector("[data-rx-order]");
+    const list = body.querySelector("[data-rx-final-order]");
+    if (!order.open) { list.replaceChildren(); return; }
+    list.innerHTML = (plan?.rules || []).map((rule) => `<li>${esc(presetRegexRuleName(rule))} <small>${rule?.disabled ? "关闭" : "开启"} · ${esc(presetRegexRuleScope(rule))}</small></li>`).join("");
+  };
+  const refreshPlan = () => {
+    if (staleReason()) markStale();
+    planError = "";
+    try { plan = makePlan([...selected]); }
+    catch (error) { plan = null; planError = error.message; }
+    body.querySelector("[data-rx-count]").textContent = `已选 ${selected.size} / ${sourceRules.length}`;
+    const stats = plan?.stats;
+    body.querySelector("[data-rx-plan]").innerHTML = planError ? `<p class="pa-warn">${esc(planError)}</p>` : `<b>本次预览</b><p>新增 ${stats.added} 条 · 替换 ${stats.replaced} 条 · 跳过 ${stats.skipped} 条</p><small>目标原有顺序保留，新规则按来源顺序追加；不会更改提示词条目或全局正则。</small>`;
+    body.querySelector("[data-rx-order-count]").textContent = `（${plan?.rules?.length || 0} 条）`;
+    const button = wrap?.querySelector(".pa-sheet-actions .pa-btn-primary");
+    if (button) button.disabled = stale || !plan || !(stats.added || stats.replaced);
+    paintOrder();
+  };
+  const filterRows = () => {
+    body.querySelectorAll("[data-rx-index]").forEach((row) => {
+      row.hidden = !searchText[Number(row.dataset.rxIndex)].includes(query);
+    });
+  };
+  body.querySelector("[data-rx-search]").addEventListener("input", (event) => {
+    query = event.target.value.trim().toLowerCase();
+    filterRows();
+  });
+  body.addEventListener("click", (event) => {
+    const pick = event.target.closest("[data-rx-pick]")?.dataset.rxPick;
+    if (!pick) return;
+    selected.clear();
+    if (pick === "display") displayIndices.forEach((i) => selected.add(i));
+    if (pick === "all") sourceRules.forEach((_, i) => selected.add(i));
+    body.querySelectorAll("[data-rx-select]").forEach((input) => {
+      if (input.disabled) selected.delete(Number(input.dataset.rxSelect));
+      input.checked = selected.has(Number(input.dataset.rxSelect));
+    });
+    refreshPlan();
+  });
+  body.addEventListener("change", (event) => {
+    const select = event.target.dataset.rxSelect;
+    if (select != null) {
+      if (event.target.checked) selected.add(Number(select));
+      else selected.delete(Number(select));
+      refreshPlan();
+    }
+    const conflict = event.target.dataset.rxConflict;
+    if (conflict != null) {
+      const targetRow = body.querySelector(`[data-rx-replace-row="${conflict}"]`);
+      if (targetRow) targetRow.hidden = event.target.value !== "replace";
+      const targetValue = targetRow?.querySelector("select").value;
+      choices.set(Number(conflict), event.target.value === "replace" && targetRow
+        ? { action: "replace", ...(targetValue !== "" ? { targetIndex: Number(targetValue) } : {}) }
+        : event.target.value);
+      refreshPlan();
+    }
+    const replacement = event.target.dataset.rxReplace;
+    if (replacement != null) {
+      const targetValue = event.target.value;
+      choices.set(Number(replacement), { action: "replace", ...(targetValue !== "" ? { targetIndex: Number(targetValue) } : {}) });
+      refreshPlan();
+    }
+  });
+  body.addEventListener("toggle", (event) => {
+    const details = event.target;
+    if (details.matches("[data-rx-order]")) return paintOrder();
+    if (!details.matches("[data-rx-details]") || !details.open || details.dataset.loaded) return;
+    const rule = sourceRules[Number(details.dataset.rxDetails)];
+    details.querySelector("[data-rx-code]").innerHTML = `<p class="pa-hint">查找表达式</p><pre class="pa-snip">${esc(typeof rule?.findRegex === "string" ? rule.findRegex : "（查找表达式格式无效）")}</pre><p class="pa-hint">替换文本 / HTML</p><pre class="pa-snip">${esc(typeof rule?.replaceString === "string" ? rule.replaceString : "（替换文本格式无效）")}</pre>`;
+    details.dataset.loaded = "1";
+  }, true);
+  refreshPlan();
+  const accepted = await sheet({
+    title: "缝合预设正则",
+    body,
+    wide: true,
+    noFocus: true,
+    actions: [{ label: "取消", value: false }, {
+      label: "确认缝合正则", kind: "primary", value: true,
+      validate: () => {
+        if (staleReason()) { markStale(); toast("来源或目标已变化，请重新预览", "error"); return false; }
+        if (!plan || planError || !(plan.stats.added || plan.stats.replaced)) return false;
+        try { validatePresetRegexTransfer(targetDraft, plan, sourceDraft); }
+        catch (error) { markStale(); toast(error.message, "error"); return false; }
+        return true;
+      }
+    }],
+    onMount: (mounted) => {
+      wrap = mounted;
+      body.querySelector("[data-rx-activation]").textContent = activationText();
+      options.onMount?.(mounted, body);
+      const button = mounted.querySelector(".pa-sheet-actions .pa-btn-primary");
+      if (button) button.disabled = stale || !plan || !(plan.stats.added || plan.stats.replaced);
+      const off = onDraftChange((name, kind) => {
+        body.querySelector("[data-rx-activation]").textContent = activationText();
+        if ((name === sourceDraft.name || name === targetDraft.name || kind === "focus") && staleReason()) markStale();
+      });
+      mounted.addEventListener("pa-closed", off, { once: true });
+    }
+  });
+  if (!accepted) return false;
+  if (staleReason()) { toast("来源或目标已变化，请重新预览", "error"); return false; }
+  try {
+    validatePresetRegexTransfer(targetDraft, plan, sourceDraft);
+    mutate(targetDraft, "缝合预设正则", (draft) => applyPresetRegexTransfer(draft, plan, sourceDraft));
+    toast(`已缝入正则：新增 ${plan.stats.added} 条，替换 ${plan.stats.replaced} 条，可撤销`, "success");
+    try { await options.afterApply?.(targetDraft, plan, body); }
+    catch (error) { toast("正则已缝合，酒馆列表刷新失败，请重新打开正则面板：" + error.message, "error"); }
+    return true;
+  } catch (error) {
+    toast("未能缝合预设正则：" + error.message, "error");
+    return false;
+  }
 }
 
 // src/ui/organize.js
@@ -5335,6 +5709,7 @@ function mountSuture(page, app) {
                 <button class="pa-typebtn" data-st="srctype" type="button" aria-label="来源类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-src-pick"></div>
                 <button class="pa-icon-btn pa-qbtn" data-st="srcsearch" aria-label="搜索来源条目" title="搜索条目">🔍</button>
+                <button class="pa-btn pa-btn-s" data-st="regex" type="button" title="缝制来源预设中的正则">正则</button>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
             <div class="pa-scroll pa-src-list"></div>
@@ -5762,6 +6137,9 @@ function mountSuture(page, app) {
   function searchDst() { return searchBox("dst"); }
   function renderBar() {
     paintQBtns();
+    const regexButton = page.querySelector('[data-st="regex"]');
+    regexButton.disabled = st.dstType !== "preset" || !["preset", "file"].includes(st.srcType);
+    regexButton.title = regexButton.disabled ? "正则缝制需要来源预设或预设文件，以及目标预设" : "缝制来源预设中的正则，无需选择提示词或插入位置";
     const n = st.picked.size;
     let d = null;
     try {
@@ -5791,6 +6169,15 @@ function mountSuture(page, app) {
       renderDst();
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
+    if (a === "regex") {
+      if (st.dstType !== "preset" || !["preset", "file"].includes(st.srcType)) return toast("请使用来源预设或预设文件，并选择目标预设");
+      try {
+        const source = st.srcType === "file" ? st.fileDraft : st.srcPreset ? getDraft(st.srcPreset) : null;
+        if (!source) return toast("请先选择来源预设或预设文件");
+        return await presetRegexDialog(source, target());
+      } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
+      return;
+    }
     if (a === "migrate") migrate();
     if (a === "picked") return pickedSheet();
     if (a === "srcsearch") return searchSrc();
@@ -9686,6 +10073,8 @@ function bindEvents() {
   };
   on(et2.PRESET_CHANGED, (e) => {
     if (e?.apiId && e.apiId !== "openai") return;
+    // 正则保存只刷新原生面板，保留正在操作的来源选择和缝合位置。
+    if (presetRegexRefreshName && e?.apiId === "openai" && e?.name === presetRegexRefreshName) return;
     try { notePresetUse(currentPresetName()); } catch {}
     dropClean();
     // 整页重画（含预设下拉框里的「使用中」标记）

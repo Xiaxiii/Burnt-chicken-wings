@@ -546,3 +546,5 @@ console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);
 require("./group-toggle.cjs");
 require("./performance-core.cjs");
 require("./performance-list.cjs");
+require("./regex-core.cjs");
+require("./regex-host.cjs");

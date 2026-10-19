@@ -605,6 +605,8 @@ function bindEvents() {
   };
   on(et2.PRESET_CHANGED, (e) => {
     if (e?.apiId && e.apiId !== "openai") return;
+    // 正则保存只刷新原生面板，保留正在操作的来源选择和缝合位置。
+    if (presetRegexRefreshName && e?.apiId === "openai" && e?.name === presetRegexRefreshName) return;
     try { notePresetUse(currentPresetName()); } catch {}
     dropClean();
     // 整页重画（含预设下拉框里的「使用中」标记）
