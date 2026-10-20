@@ -309,6 +309,18 @@ function analyzeIndexed(draft, manual) {
       allReaders.get(key).add(id);
     }
   }
+  // 名字只差大小写或空格的变量：酒馆变量名区分大小写，{{setvar::NSFWcot}} 和 {{getvar::NSFWCoT}} 是两个变量
+  const normName = (key) => key.toLowerCase().replace(/\s+/g, "");
+  const readNames = /* @__PURE__ */ new Map();
+  for (const id of order) {
+    for (const m of listVarMacros(draft.prompt(id)?.content || "")) {
+      if (m.op !== "get" || !m.name) continue;
+      const key = (m.scope === "global" ? "全局:" : "") + m.name;
+      if (!readNames.has(normName(key))) readNames.set(normName(key), new Set());
+      readNames.get(normName(key)).add(key);
+    }
+  }
+  const similarOf = (name) => [...readNames.get(normName(name)) || []].filter((k) => k !== name);
   const issues = [];
   const optional = [];
   for (const [name, v] of vars) {
@@ -317,7 +329,7 @@ function analyzeIndexed(draft, manual) {
       const why = off.length ? `。读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等条目" : ""}未开启` : "。预设中没有找到读取它的条目（用脚本、条件宏或其他扩展读取的，这里看不出来）";
       const registrationOnly = v.writers.every(id => detectShape(draft.prompt(id)?.content).shape === "tagname");
       if (registrationOnly) continue;
-      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], text: `写入变量「${name}」，但没有找到读取它的开启条目，这部分内容可能不会发送${why}` });
+      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], similar: similarOf(name), text: `写入变量「${name}」，但没有找到读取它的开启条目，这部分内容可能不会发送${why}` });
     }
     if (v.readers.length && !v.writers.length) {
       optional.push({ varName: name, ids: v.readers });
@@ -327,7 +339,7 @@ function analyzeIndexed(draft, manual) {
   const reachesCot = (v) => v.readers.some((r) => cotSet.has(r) || [...writesOf.get(r) || []].some((k2) => (vars.get(k2)?.readers || []).some((x) => cotSet.has(x))) || !!findMention(r));
   for (const [name, v] of vars) {
     if (/cot$/i.test(name) && v.writers.length && !reachesCot(v)) {
-      issues.push({ kind: "cotfrag", varName: name, ids: v.writers, text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
+      issues.push({ kind: "cotfrag", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], similar: similarOf(name), text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
     }
   }
   return { cotIds, vars, cot, coverage, issues, optional, activeSet };

@@ -32,6 +32,11 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
   sourceRules.forEach((rule, i) => {
     if (rule?.markdownOnly && !rule?.promptOnly) selected.add(i);
   });
+  // 从缝合预览跳过来时，只预选缝来的格式条目需要的那几条
+  if (Array.isArray(options.preselect) && options.preselect.length) {
+    selected.clear();
+    options.preselect.filter((i) => Number.isInteger(i) && sourceRules[i]).forEach((i) => selected.add(i));
+  }
   let plan = null;
   let basePlan = null;
   let planError = "";

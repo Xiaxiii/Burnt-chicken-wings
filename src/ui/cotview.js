@@ -129,7 +129,8 @@ function mountCot(page, app) {
                 <li><span class="pa-lv pa-lv-none">未提及</span><span>思维链中没有出现该条目。</span></li>
                 <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">待核对</span><span>条目把内容存进变量，但没有找到对应的开启读取条目，内容可能没有进入提示词。用脚本、世界书或其他扩展读取的情况，此处无法完整判断。</span></li>
                 <li><span class="pa-lv pa-lv-term">变量修复范围</span><span>识别 set/get/add/inc/dec/hasvar 的本地与全局变量宏（含 {{getvar 名}} 空格写法）。只用 hasvar 判断存在的变量视为开关，不提示补读取。自动修复仅补缺失的读取、整理部分缝合包裹；计数、思维链片段、条件、脚本、复杂嵌套、动态变量名、读写顺序、被清空覆盖、MVU/酒馆助手等变量系统需人工核对，不代表所有变量问题都能修复。</span></li>
-                <li><span class="pa-lv pa-lv-term">接入思维链</span><span>在思维链中加入对该条目的读取或提及，使模型思考时考虑这条内容。按本预设原有的写法添加（变量读取或文字提及），可撤销。规则类条目通常不需要接入；文风、人设、玩法等需要模型重点落实的条目可以接入。</span></li>
+                <li><span class="pa-lv pa-lv-term">加入思维链读取</span><span>条目把思考步骤存进变量（变量名常以 cot 结尾），思维链却没有读它时，在「可能未被读取的内容」的这一条上点它，可选择加到哪条思维链、哪一行。</span></li>
+                <li><span class="pa-lv pa-lv-term">接入思维链</span><span>按钮在页面最下方「开启条目与思维链的关联 → 未提及」里，每条右侧。在思维链中加入对该条目的读取或提及，使模型思考时考虑这条内容。按本预设原有的写法添加（变量读取或文字提及），可撤销。规则类条目通常不需要接入；文风、人设、玩法等需要模型重点落实的条目可以接入。</span></li>
                 <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链条目名称特殊、未被自动识别时，在此手动指定；识别错误的，在对应思维链下点「不是思维链」。</span></li>
             </ul>
         </details>
@@ -145,19 +146,27 @@ function mountCot(page, app) {
       html += `<h3 class="pa-h">可能未被读取的内容（${dead.length}）</h3><div class="pa-cards">`;
       for (const i of dead) {
         const vn = esc(i.varName.replace(/^全局:/, ""));
+        const similar = (i.similar || []).map((k) => k.replace(/^全局:/, ""));
+        // 写入方是思维链本身，或变量名以 cot 结尾：内容是思考步骤，要由思维链读，不能补成普通读取
+        const forCot = i.kind === "cotfrag" || i.ids.every((id) => a.cotIds.includes(id));
+        // 读它的是另一套关着的思维链时，不提供「开启」：会同时开两套思维链
+        const offCot = forCot ? (i.readersOff || []).filter((id) => isCotEntry(d, id, manualFor(d.name))) : [];
+        const offIds = (i.readersOff || []).filter((id) => !offCot.includes(id));
         const off = (i.readersOff || []).map((id) => `「${nm(id)}」`).join("");
-        const tag = i.kind === "cotfrag" ? "思维链没读" : off ? "读取它的条目关着" : "没有条目读取";
-        const why = i.kind === "cotfrag"
-          ? `这条可能保存了思维链片段「${vn}」，但未找到开启的思维链读取它。请核对读取位置；通用修复不会把它直接作为普通内容输出。`
-          : off
-            ? `这条把内容存进了变量「${vn}」，读取它的 ${off} 没开，内容可能未进入提示词。开启前请核对原本用途。`
-            : `这条把内容存进了变量「${vn}」，未找到开启的读取条目，内容可能未进入提示词。如果是酒馆助手脚本、世界书或其他扩展在读，需要结合实际发送的提示词核对。`;
+        const tag = similar.length ? "名字对不上" : off ? "读取它的条目关着" : forCot ? "思维链没读" : "没有条目读取";
+        const why = similar.length
+          ? `这条写入变量「${vn}」，但预设里读取的是「${esc(similar.join("」「"))}」。酒馆变量名区分大小写和空格，两边对不上就读不到。`
+          : forCot
+            ? `这条把一段思考步骤存进变量「${vn}」，要靠思维链里的 {{getvar::${vn}}} 取出来。${off ? `读取它的 ${off} 没开` : "现在开着的思维链里没有这一句"}，模型思考时看不到这段。${offCot.length ? "那是另一套思维链，开启它会同时用两套思维链；请点「加入思维链读取」，在现在用的思维链里加上这一句。" : "点「加入思维链读取」在思维链里加上这一句；这条本来不用就可以不管。"}`
+            : off
+              ? `这条把内容存进了变量「${vn}」，读取它的 ${off} 没开，内容可能未进入提示词。开启前请核对原本用途。`
+              : `这条把内容存进了变量「${vn}」，未找到开启的读取条目，内容可能未进入提示词。如果是酒馆助手脚本、世界书或其他扩展在读，需要结合实际发送的提示词核对。`;
         // 同一条目可能写多个变量：下方「变量读到/间接读到」说的是另一个变量，这里只说这一个
         const other = i.ids.filter((id) => ["var", "chain"].includes(a.coverage.get(id)?.level)).map((id) => `「${nm(id)}」经变量「${esc(String(a.coverage.get(id).via).split(" → ")[0].replace(/^全局:/, ""))}」已被思维链读到`);
         html += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main">${i.ids.map((id) => `「${nm(id)}」`).join("")} → 变量「${vn}」</span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
                     <p class="pa-hint">${why}</p>${other.length ? `<p class="pa-hint">${other.join("；")}，与这里不矛盾：这里说的是变量「${vn}」。</p>` : ""}
-                    <div class="pa-card-act">${off ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(i.readersOff.join("|"))}">开启读取它的条目</button>` : ""}
-                    <button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
+                    <div class="pa-card-act">${similar.length ? similar.map((k) => `<button class="pa-btn pa-btn-soft pa-btn-s" data-rename="${esc(i.varName)}" data-to="${esc((i.varName.startsWith("全局:") ? "全局:" : "") + k)}">改成「${esc(k)}」</button>`).join("") : ""}${offIds.length ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(offIds.join("|"))}">开启读取它的条目</button>` : ""}
+                    ${forCot ? `<button class="pa-btn pa-btn-s" data-cotread="${esc(i.varName)}">加入思维链读取</button>` : `<button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button>`}<button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
       }
       html += "</div>";
     }
@@ -172,6 +181,7 @@ function mountCot(page, app) {
     }
     html += "</div>";
     html += `<h3 class="pa-h">开启条目与思维链的关联</h3>
+            <p class="pa-hint">「未提及」不等于有问题：规则、破限、格式类条目不需要接入。只给文风、人设、玩法这类要模型重点落实的几条点「接入思维链」，接得越多思考越长。</p>
             <div class="pa-seg pa-seg-s" role="tablist">
                 ${[["none", `未提及 ${counts.none}`], ["mention", `文字提及 ${counts.mention}`], ["ok", `变量读到 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
             </div>`;
@@ -210,6 +220,10 @@ function mountCot(page, app) {
     if (e.target.closest("[data-repair-all]")) { try { await repairAllVariables(d, manualFor(d.name)); } catch(err) { toast("修复失败："+err.message,"error"); } return; }
     const repair = e.target.closest("[data-repair]");
     if (repair) { try { await repairVariableDialog(d, repair.dataset.repair, manualFor(d.name)); } catch(err) { toast(err.message, "error"); } return; }
+    const cr = e.target.closest("[data-cotread]");
+    if (cr) { try { await cotReadDialog(d, cr.dataset.cotread, manualFor(d.name)); } catch(err) { toast(err.message, "error"); } return; }
+    const rn = e.target.closest("[data-rename]");
+    if (rn) { try { await renameWritesDialog(d, rn.dataset.rename, rn.dataset.to); } catch(err) { toast(err.message, "error"); } return; }
     const hk = e.target.closest("[data-hook]");
     if (hk) { try { await hookExistingDialog(d, hk.dataset.hook); } catch(err) { toast("接入思维链失败：" + err.message, "error"); } return; }
     const f = e.target.closest("[data-f]");
@@ -259,6 +273,44 @@ function mountCot(page, app) {
     picker.refresh();
     render();
   }, destroy: off };
+}
+
+// 思维链片段：选一条思维链和放在哪一行，预览后加入 {{getvar::片段}}
+async function cotReadDialog(d, key, manual = {}) {
+  const version = JSON.stringify(d.toPreset());
+  let plan = cotReadPlan(d, key, null, null, manual);
+  const name = (id) => esc(d.prompt(id)?.name || id);
+  const body = el(`<div class="pa-form">
+    <p class="pa-p">在思维链里加一行 <code>${esc(plan.macro)}</code>，模型思考时就会读到这段步骤。其他内容不变，可在顶栏撤销。</p>
+    <label class="pa-field"><span>加到哪条思维链</span><select class="pa-input" data-k="cot">${plan.choices.map((id) => `<option value="${esc(id)}">${name(id)}</option>`).join("")}</select></label>
+    <label class="pa-field"><span>放在哪一行之后</span><select class="pa-input" data-k="line"></select></label>
+    <p class="pa-hint">默认放在这条思维链最后一个片段读取之后；没有片段读取时放在 &lt;/thinking&gt; 之前。</p>
+    <details class="pa-card" open><summary>加入后的思维链</summary><pre class="pa-pre" data-k="preview"></pre></details></div>`);
+  const cotSel = body.querySelector("[data-k=cot]"), lineSel = body.querySelector("[data-k=line]");
+  const fillLines = () => {
+    const lines = String(d.prompt(plan.cotId)?.content || "").split("\n");
+    lineSel.innerHTML = `<option value="0">（最前面）</option>` + lines.map((l, i) => `<option value="${i + 1}">${i + 1}. ${esc(l.trim().slice(0, 40) || "（空行）")}</option>`).join("");
+    lineSel.value = String(plan.line);
+  };
+  const show = () => { body.querySelector("[data-k=preview]").textContent = plan.content; };
+  cotSel.value = plan.cotId;
+  fillLines(); show();
+  cotSel.addEventListener("change", () => { plan = cotReadPlan(d, key, cotSel.value, null, manual); fillLines(); show(); });
+  lineSel.addEventListener("change", () => { plan = cotReadPlan(d, key, cotSel.value, Number(lineSel.value), manual); show(); });
+  const ok = await sheet({ title: `加入思维链读取：${key.replace(/^全局:/, "")}`, body, wide: true, actions: [{ label: "取消", value: false }, { label: "加入", kind: "primary", value: true }] });
+  if (!ok) return;
+  if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开", "warning");
+  mutate(d, `加入思维链读取：${plan.name}`, (x) => { x.prompt(plan.cotId).content = plan.content; });
+  toast(`已在「${d.prompt(plan.cotId)?.name}」加入读取`, "success");
+}
+async function renameWritesDialog(d, from, to) {
+  const plan = renameWritesPlan(d, from, to);
+  const a = from.replace(/^全局:/, ""), b = to.replace(/^全局:/, "");
+  const ok = await sheet({ title: "统一变量名", body: `<p class="pa-p">把写入宏里的「${esc(a)}」改成预设读取用的「${esc(b)}」：</p><ul class="pa-notes">${plan.edits.map((x) => `<li>「${esc(d.prompt(x.id)?.name || x.id)}」${x.count} 处</li>`).join("")}</ul><p class="pa-hint">只改 setvar/addvar/incvar/decvar 里的变量名，正文不变，可在顶栏撤销。</p>`, actions: [{ label: "取消", value: false }, { label: "改名", kind: "primary", value: true }] });
+  if (!ok) return;
+  const now = renameWritesPlan(d, from, to);
+  mutate(d, `统一变量名：${b}`, (x) => { for (const e of now.edits) x.prompt(e.id).content = e.content; });
+  toast(`已改名 ${now.edits.reduce((n, e) => n + e.count, 0)} 处`, "success");
 }
 
 // 单个变量的修复方案：先说明要加什么，确认后再加

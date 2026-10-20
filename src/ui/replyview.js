@@ -1,11 +1,26 @@
+// 按预设开着的条目和显示正则猜标签；读不到预设时不猜
+function replyTagGuess(name) {
+  try {
+    const d = getDraft(name);
+    const texts = d.order.filter((o) => d.isActive(o.identifier)).map((o) => d.prompt(o.identifier)?.content);
+    const regexTags = [];
+    try { for (const rule of presetRegexList(d)) if (!rule?.disabled) regexTags.push(...presetRegexAnchors(rule).tags); } catch {}
+    return guessReplyTags(texts, regexTags);
+  } catch { return null; }
+}
 async function replyFormatDialog(name) {
   const saved = replyGuardConfig(name);
+  const fresh = !saved.bodyTag;
+  const guess = replyTagGuess(name);
+  const bodyDefault = saved.bodyTag || guess?.bodyTag || "content";
   const available = replyGuardAvailable();
   const semanticAvailable = semanticReviewAvailable();
   let reviewCancel = null;
   const body = el(`<div class="pa-form">
     <p class="pa-hint">为「${esc(name)}」设置。标签名要与预设的输出格式一致；可先手动检查，开启后只在该预设使用中、有问题时向下一轮加入临时格式提醒。</p>
-    <label class="pa-field"><span>正文标签名（不填尖括号）</span><input class="pa-input" data-r="body" value="${esc(saved.bodyTag || "content")}" placeholder="例如 content 或 正文" maxlength="40"></label>
+    <label class="pa-field"><span>正文标签名（不填尖括号）</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40"></label>
+    ${fresh && guess ? guess.bodyTag ? `<p class="pa-hint">按预设识别：条目里有 ${guess.count} 处 &lt;${esc(guess.bodyTag)}&gt;，已填入。不对请改。</p>` : '<p class="pa-warn">预设开着的条目里没找到正文标签。如果预设不要求用标签包正文，不要开启下一轮提醒，否则会让 AI 输出预设没要求的标签。</p>' : ""}
+    ${guess?.suggest.length ? `<p class="pa-hint">预设的显示正则靠 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 显示美化，想检查这些有没有掉，可填进下面的必需标签。</p>` : ""}
     <label class="pa-field"><span>额外必需标签（可选，逗号分隔）</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要"></label>
     <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）</span><input class="pa-input" data-r="thinking" value="${esc(saved.thinkingTag || "")}" maxlength="40"></label>
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>

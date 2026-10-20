@@ -379,3 +379,18 @@ function planReplyFix(text, inputRules, extra = {}) {
   if (!steps.length) return null;
   return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "" }) };
 }
+
+// 从预设开着的条目里猜正文标签：数各候选标签被写成 <标签> 的次数，取最多的。
+// 显示正则用到、条目里也要求输出的其他标签（状态栏之类）作为必需标签建议。
+function guessReplyTags(texts, regexTags = []) {
+  const all = texts.map((t) => replyCheckMask(String(t || ""))).join("\n");
+  const count = (tag) => (all.match(new RegExp(`<\\s*/?\\s*${tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*>`, "giu")) || []).length;
+  let bodyTag = null, best = 0;
+  for (const tag of REPLY_BODY_ALIASES) {
+    const n = count(tag);
+    if (n > best) { best = n; bodyTag = tag; }
+  }
+  const skip = new Set(["think", "thinking", (bodyTag || "").toLowerCase()]);
+  const suggest = [...new Map(regexTags.map((t) => [String(t).toLowerCase(), String(t)])).values()].filter((t) => !skip.has(t.toLowerCase()) && /^[A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39}$/u.test(t) && count(t) > 0);
+  return { bodyTag, count: best, suggest };
+}

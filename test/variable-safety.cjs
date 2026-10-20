@@ -49,21 +49,21 @@ test("其他变量的计数不阻止普通内容变量补读取", () => {
 test("cotfrag 片段变量不通过通用读取输出", () => {
   const d = mk([["w", "片段", "{{setvar::sampleCOT::内部片段}}"], ["c", "思维链", "<thinking>\n其他步骤\n</thinking>"]]);
   assert.ok(A.analyze(d).issues.some((issue) => issue.kind === "cotfrag"));
-  refuses(d, "sampleCOT", /接入思维链/);
-  refuses(mk([["w", "片段", "{{setglobalvar::samplecot::内部片段}}"]]), "全局:samplecot", /接入思维链/);
+  refuses(d, "sampleCOT", /加入思维链读取/);
+  refuses(mk([["w", "片段", "{{setglobalvar::samplecot::内部片段}}"]]), "全局:samplecot", /加入思维链读取/);
 });
 
 test("名称、正文标签和跨条目区段识别的思维链写入均拒绝", () => {
-  refuses(mk([["w", "思维链", "{{setvar::x::片段}}"]]), "x", /接入思维链/);
-  refuses(mk([["w", "步骤", "<thinking>\n{{setvar::x::片段}}\n</thinking>"]]), "x", /接入思维链/);
-  refuses(mk([["a", "开头", "<thinking>"], ["w", "中间", "{{setvar::x::片段}}"], ["z", "结尾", "</thinking>"]]), "x", /接入思维链/);
+  refuses(mk([["w", "思维链", "{{setvar::x::片段}}"]]), "x", /加入思维链读取/);
+  refuses(mk([["w", "步骤", "<thinking>\n{{setvar::x::片段}}\n</thinking>"]]), "x", /加入思维链读取/);
+  refuses(mk([["a", "开头", "<thinking>"], ["w", "中间", "{{setvar::x::片段}}"], ["z", "结尾", "</thinking>"]]), "x", /加入思维链读取/);
 });
 
 test("支持草稿和第三参数的手动思维链识别", () => {
   const d = mk([["w", "自定义步骤", "{{setvar::x::片段}}"]]);
-  refuses(d, "x", /接入思维链/, { w: true });
+  refuses(d, "x", /加入思维链读取/, { w: true });
   d.cotManual = { w: true };
-  refuses(d, "x", /接入思维链/);
+  refuses(d, "x", /加入思维链读取/);
   assert.equal(A.variableRepairPlan(d, "x", { w: false }).macro, "{{getvar::x}}");
 });
 

@@ -82,6 +82,8 @@ try {
 
     // 模拟截图中的外部美化：原生复选框被强制画成白色长方块。
     await page.addStyleTag({ content: 'body input[type=checkbox]{appearance:auto!important;width:44px!important;height:22px!important;padding:5px!important;border:1px solid white!important;background:white!important;box-shadow:0 0 10px white!important;filter:opacity(.2)!important;mask:linear-gradient(white,white)!important}body :is(input,select,textarea){color:white!important;-webkit-text-fill-color:white!important;background:white!important}body :is(label,span,b,small){color:#eee}body input[type=checkbox]::before{content:"x"!important;display:block!important}' });
+    // 有的美化用 !important 强改普通文字颜色；面板应检测到并改回自己的配色
+    await page.addStyleTag({ content: 'body :is(span,b,strong,small,label,p,div,summary,li,em,h3,h4,code){color:#f4f1ea!important;-webkit-text-fill-color:#f4f1ea!important}' });
     for (const theme of themes) {
       await page.evaluate(theme => {
         for (const [key, value] of Object.entries({ SmartThemeBlurTintColor: `rgb(${theme.bg.join(',')})`, SmartThemeBodyColor: theme.text, SmartThemeQuoteColor: theme.accent, SmartThemeEmColor: theme.em })) document.body.style.setProperty('--' + key, value);
@@ -96,6 +98,7 @@ try {
         return { text: getComputedStyle(label).color, title: getComputedStyle(root.querySelector('.pa-item-name')).color, badge: getComputedStyle(root.querySelector('.pa-item-meta .pa-chip')).color, dim: cs.getPropertyValue('--pa-dim'), accent: ctl.backgroundColor, ink: button.color, primary: button.backgroundColor, border: ctl.borderColor, width: ctl.width, height: ctl.height, appearance: ctl.appearance, image: ctl.backgroundImage, shadow: ctl.boxShadow, filter: ctl.filter, mask: ctl.maskImage, pseudo: getComputedStyle(input, '::before').content, shellBlur: getComputedStyle(root.querySelector('.pa-shell')).backdropFilter, sheetBlur: getComputedStyle(root.querySelector('.pa-sheet')).backdropFilter };
       });
       assert.ok(ratio(rgb(colors.text), theme.bg) >= 4.5, theme.name + ': 开启标签可读');
+      assert.equal(await page.evaluate(() => document.getElementById('pa-root').classList.contains('pa-guard')), true, theme.name + ': 检测到宿主强改字色');
       assert.ok(ratio(rgb(colors.title), theme.bg) >= 4.5, theme.name + ': 标题不受宿主 span 字色污染');
       assert.ok(ratio(rgb(colors.badge), theme.bg) >= 4.5, theme.name + ': 标签保持自己的主题色');
       assert.ok(ratio(rgb(colors.dim), theme.bg) >= 4.5, theme.name + ': 次级说明可读');

@@ -72,13 +72,13 @@ function variableRepairPlan(d, key, manual = d.cotManual || {}) {
     .filter((o) => d.isActive(o.identifier))
     .filter((o) => listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && WRITE.includes(m.op)));
   if (!touches.length) throw new Error("没有开启的条目写入该变量");
-  if (/cot$/i.test(name)) throw new Error("该变量可能保存思维链片段，请使用「接入思维链」核对读取位置，未添加通用读取");
+  if (/cot$/i.test(name)) throw new Error("该变量保存的是思维链片段，要由思维链读取，不能当普通内容输出。请在「可能未被读取的内容」里点这一条的「加入思维链读取」");
   const checker = d.order.find((o) => d.isActive(o.identifier) && listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && m.op === "has"));
   if (checker) throw new Error(`「${d.prompt(checker.identifier)?.name || checker.identifier}」用 hasvar 判断该变量是否存在，它更像内部开关，不需要把值输出给模型，未添加通用读取`);
   for (const o of touches) {
     const p = d.prompt(o.identifier);
     const nm = p.name || o.identifier;
-    if (isCotEntry(d, o.identifier, manual)) throw new Error(`「${nm}」被识别为思维链条目，请使用「接入思维链」核对读取位置，未添加通用读取`);
+    if (isCotEntry(d, o.identifier, manual)) throw new Error(`「${nm}」被识别为思维链条目，它写的变量要由思维链读取。请在「可能未被读取的内容」里点这一条的「加入思维链读取」`);
     if (listVarMacros(p.content).some((m) => same(m) && (m.op === "inc" || m.op === "dec"))) {
       throw new Error(`「${nm}」对该变量执行计数，需人工核对，未添加通用读取`);
     }
@@ -99,6 +99,57 @@ function variableRepairPlan(d, key, manual = d.cotManual || {}) {
   const readers = d.order.filter((o) => d.isActive(o.identifier) && listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && m.op === "get"));
   if (readers.length) throw new Error("已有开启的条目读取该变量，请核对其位置和条件");
   return { last, macro: `{{${macroName("get", scope)}::${name}}}`, name, key };
+}
+
+// ---- 思维链片段：在思维链条目里加一句 {{getvar::片段}}
+// 默认放进读取其他片段变量最多的思维链，紧跟最后一个片段读取；没有片段读取时放在 </thinking> 之前，再不行放到末尾。
+function cotReadChoices(d, manual = d.cotManual || {}) {
+  const a = analyze(d, manual);
+  return a.cotIds.map((id, index) => {
+    const content = String(d.prompt(id)?.content || "");
+    const frag = listVarMacros(content).filter((m) => m.op === "get" && /cot$/i.test(m.name)).length;
+    return { id, index, frag, closes: /^[ \t]*<\/thinking>[ \t]*$/im.test(content) };
+  }).sort((x, y) => y.frag - x.frag || Number(y.closes) - Number(x.closes) || y.index - x.index);
+}
+function cotReadLine(content) {
+  const lines = String(content || "").split("\n");
+  let after = -1;
+  lines.forEach((line, i) => { if (/\{\{\s*get(?:global)?var(?:::|\s)[^{}]*cot\s*\}\}/i.test(line)) after = i; });
+  if (after >= 0) return after + 1;
+  const close = lines.findIndex((line) => /^[ \t]*<\/thinking>[ \t]*$/i.test(line));
+  if (close >= 0) return close;
+  return lines.length;
+}
+function cotReadPlan(d, key, cotId, line, manual = d.cotManual || {}) {
+  const scope = key.startsWith("全局:") ? "global" : "local";
+  const name = scope === "global" ? key.slice(3) : key;
+  if (!name.trim() || /[{}]/.test(name)) throw new Error("变量名为空或包含动态宏，需人工核对");
+  const choices = cotReadChoices(d, manual);
+  if (!choices.length) throw new Error("没有识别到开启的思维链。请先在下方「手动指定思维链」");
+  const id = cotId && choices.some((c) => c.id === cotId) ? cotId : choices[0].id;
+  const content = String(d.prompt(id)?.content || "");
+  const lines = content.split("\n");
+  const at = Number.isInteger(line) && line >= 0 && line <= lines.length ? line : cotReadLine(content);
+  const macro = `{{${macroName("get", scope)}::${name}}}`;
+  if (listVarMacros(content).some((m) => m.op === "get" && m.name === name && m.scope === scope)) throw new Error("这条思维链已经读取该变量");
+  lines.splice(at, 0, macro);
+  return { cotId: id, line: at, macro, name, key, content: lines.join("\n"), choices: choices.map((c) => c.id) };
+}
+// 写入方改用读取方的变量名（只差大小写或空格时）
+function renameWritesPlan(d, from, to) {
+  const scope = from.startsWith("全局:") ? "global" : "local";
+  const a = scope === "global" ? from.slice(3) : from, b = to.startsWith("全局:") ? to.slice(3) : to;
+  const pat = a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(\\{\\{\\s*(?:set|add|inc|dec)${scope === "global" ? "global" : ""}var\\s*::\\s*)${pat}(\\s*(?:::|\\}\\}))`, "g");
+  const edits = [];
+  for (const o of d.order) {
+    const p = d.prompt(o.identifier);
+    const text = String(p?.content || "");
+    const next = text.replace(re, `$1${b}$2`);
+    if (next !== text) edits.push({ id: o.identifier, content: next, count: (text.match(re) || []).length });
+  }
+  if (!edits.length) throw new Error("没有找到可改名的写入宏");
+  return { from, to, edits };
 }
 
 // ---- 按变量名排序：文风1、文风2… 拆成「类别 + 编号」

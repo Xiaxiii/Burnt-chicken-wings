@@ -82,7 +82,16 @@ try {
     await page.locator('.pa-dst-list .pa-group').first().locator('.pa-gname').click();
     await page.click('[data-st=go]');
     await page.waitForSelector('.pa-review .pa-item');
+    await count(page, 2);
+    equal(await page.locator('.pa-review [data-c=on]').evaluateAll(xs => xs.map(x => x.checked)), [true, false, true, false], '缝后开关默认与来源条目一致');
+    // 部分开启时点总开关先全开，再点全关
+    await page.locator('[data-enable-toggle]').check();
     await count(page, 4);
+    await page.locator('[data-enable-toggle]').uncheck();
+    await count(page, 0);
+    await page.click('[data-enable-source]');
+    await count(page, 2);
+    await page.locator('[data-enable-toggle]').check();
     await page.locator('[data-enable-toggle]').uncheck();
     await count(page, 0);
     if (scenario === 'all-on') { await page.locator('[data-enable-toggle]').check(); await count(page, 4); }
@@ -124,7 +133,8 @@ try {
     await page.locator('.pa-dst-list [data-act=top]').click();
     await page.click('[data-st=go]');
     await page.waitForSelector('.pa-review .pa-item');
-    await count(page, 4);
+    await count(page, 2);
+    await page.locator('[data-enable-toggle]').check(); await count(page, 4);
     await page.locator('[data-enable-toggle]').uncheck(); await count(page, 0);
     await page.locator('[data-enable-toggle]').check(); await count(page, 4);
     await page.locator('[data-enable-toggle]').uncheck(); await count(page, 0);

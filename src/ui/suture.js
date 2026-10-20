@@ -10,7 +10,9 @@ function repaint(node, html) {
 function sutureEnableTools() {
   return `<div class="pa-field-row pa-enablebar" data-enable-tools role="group" aria-label="本次缝合的开启状态">
     <span data-enable-count aria-live="polite"></span>
-    <label class="pa-switch" title="向右全部开启，向左全部关闭；仍可逐条调整"><input type="checkbox" data-enable-toggle aria-label="本次缝后全部开启"><i></i></label></div>`;
+    <label class="pa-switch" title="向右全部开启，向左全部关闭；仍可逐条调整"><input type="checkbox" data-enable-toggle aria-label="本次缝后全部开启"><i></i></label>
+    <button type="button" class="pa-link" data-enable-source title="每条恢复成来源里的开关状态">按来源</button></div>
+    <p class="pa-hint">默认与来源一致：来源里开着的缝后开启，关着的缝后关闭。</p>`;
 }
 function bindSutureEnableTools(body, items) {
   const tools = body.querySelector("[data-enable-tools]");
@@ -30,6 +32,15 @@ function bindSutureEnableTools(body, items) {
   });
   body.addEventListener("change", (e) => {
     if (e.target.matches(".pa-items [data-c=on]")) refresh();
+  });
+  const source = tools.querySelector("[data-enable-source]");
+  source.addEventListener("click", () => {
+    for (const it of items) it.enabled = it.srcEnabled !== false;
+    body.querySelectorAll(".pa-items [data-c=on]").forEach((input) => {
+      const it = items[Number(input.closest(".pa-item")?.dataset.i)];
+      if (it) input.checked = it.enabled;
+    });
+    refresh();
   });
   refresh();
 }
@@ -624,8 +635,20 @@ function mountSuture(page, app) {
           console.warn("[焦香鸡翅] 来源分析失败", e);
         }
       }
-      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: hook ? { hook: true } : {}, autoHook: !!spec && !hook, manual: null, enabled: enabled ?? true, srcGroup: spec ? null : wholeGroupOf(src), pos: posOf(marker) };
+      // 缝后开关默认与来源条目一致：来源开着就勾选，关着就不勾选（看条目自身开关，不看分组总开关）
+      const from = enabled ?? (src.srcDraft && src.srcId ? src.srcDraft.order.find((o) => o.identifier === src.srcId)?.enabled !== false : true);
+      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: hook ? { hook: true } : {}, autoHook: !!spec && !hook, manual: null, enabled: from, srcEnabled: from, srcGroup: spec ? null : wholeGroupOf(src), pos: posOf(marker) };
     });
+    // 缝来的格式条目要靠来源预设的显示正则美化；目标没有对应正则时提醒，缝完可一起缝正则
+    const regexDeps = /* @__PURE__ */ new Map();
+    for (const it of items) {
+      const sd = it.src.srcDraft;
+      if (!sd || sd === d) continue;
+      it.regexDeps = presetRegexFormatDeps(sd, d, [it.src.content])[0];
+      if (!it.regexDeps.length) continue;
+      if (!regexDeps.has(sd)) regexDeps.set(sd, new Set());
+      it.regexDeps.forEach((x) => regexDeps.get(sd).add(x.index));
+    }
     const single = posCache.size === 1;
     const P0 = items[0].pos;
     const { gid, t } = P0;
@@ -742,6 +765,7 @@ function mountSuture(page, app) {
       if (raw && !raw.constant && (raw.key || []).length) warns.push(`在世界书中按关键词触发（${raw.key.slice(0, 4).join("、")}${raw.key.length > 4 ? "等" : ""}），缝进预设后会一直生效`);
       if (hasScript(it.src.content || "")) warns.push("含脚本（如 EJS），需要安装相应插件才能生效");
       if (hasConditional(it.src.content || "")) warns.push("含 {{if}} 条件，条件中的变量需在目标中存在");
+      for (const dep of it.regexDeps || []) warns.push(`这条要求输出 ${dep.mark}，来源预设靠正则「${dep.name}」显示成美化；目标预设没有对应正则，缝过去只会显示原文。确认缝合后可一起缝这条正则`);
       for (const k of it.desc?.needsVars || []) {
         const nm2 = k.replace(/^全局:/, "");
         const has = d.preset.prompts.some((p) => listVarMacros(p.content || "").some((m) => m.name === nm2 && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)));
@@ -801,25 +825,33 @@ function mountSuture(page, app) {
     box.innerHTML = renderItems(tgtProf.a);
     // 思维链批量选择：全部接入 / 推荐接入 / 全部不接入
     const hookable = () => items.filter((it) => it.hook?.status === "hook");
+    // 缝后关着的条目不推荐接入：思维链会去想一条没开的内容
+    const recommended = () => hookable().filter((it) => it.hook.on && it.enabled);
     const paintHookBar = () => {
       const bar = body.querySelector(".pa-hookbar");
-      const n = hookable().length;
+      const n = hookable().length, rec = recommended().length;
       bar.hidden = !n;
-      bar.querySelector("[data-g=hook-rec]").textContent = `推荐接入（${hookable().filter((it) => it.hook.on).length}）`;
+      bar.querySelector("[data-g=hook-rec]").textContent = `推荐接入（${rec}）`;
       bar.querySelector(".pa-hookbar-n").textContent = `思维链：已接入 ${items.filter((it) => it.hookOn).length} / ${n}`;
+      let warn = bar.querySelector(".pa-hookbar-warn");
+      if (!warn) { warn = document.createElement("p"); warn.className = "pa-warn pa-hookbar-warn"; bar.append(warn); }
+      warn.hidden = rec <= 10;
+      warn.textContent = rec > 10 ? `推荐的 ${rec} 条在来源预设里本来就被思维链读到。全部接入会让思维链多出 ${rec} 个问题，思考变长、容易爆思维链；整套缝合时，建议只接入最需要模型重点落实的几条。` : "";
     };
     paintHookBar();
     body.querySelector(".pa-hookbar").addEventListener("click", (e) => {
       const g = e.target.closest("[data-g]")?.dataset.g;
       if (!g) return;
       for (const it of hookable()) {
-        it.choice.hook = g === "hook-all" ? true : g === "hook-rec" ? !!it.hook.on : false;
+        it.choice.hook = g === "hook-all" ? true : g === "hook-rec" ? !!it.hook.on && it.enabled : false;
         it.manual = null;
       }
       box.innerHTML = renderItems();
       paintHookBar();
     });
     bindSutureEnableTools(body, items);
+    body.addEventListener("change", (e) => { if (e.target.matches("[data-enable-toggle], .pa-items [data-c=on]")) paintHookBar(); });
+    body.querySelector("[data-enable-source]")?.addEventListener("click", () => paintHookBar());
     const grpSel = body.querySelector("[data-g=grp]");
     const grpName = body.querySelector("[data-g=gname]");
     grpSel?.addEventListener("change", () => {
@@ -968,6 +1000,13 @@ function mountSuture(page, app) {
     const lastNew = newIds[newIds.length - 1];
     st.marker = !gid && d.groupOf(lastNew) ? fixPlace(d, { at: "block", id: lastNew }) : { at: "row", id: lastNew };
     toast(`已缝合 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条接入思维链` : ""}${inits.length ? `，初始化条目已添加变量 ${inits.join("、")}` : ""}`, "success");
+    for (const [sd, set] of regexDeps) {
+      const names = [...set].map((i) => presetRegexList(sd)[i]?.scriptName || "未命名正则");
+      const go = await sheet({ title: "一起缝显示正则？", body: `<p class="pa-p">刚缝进来的条目要求模型输出特定格式，来源「${esc(sd.name)}」用正则「${esc(names.join("」「"))}」把它显示成美化。目标预设没有对应正则，不缝的话聊天里只会显示原文。</p><p class="pa-hint">接下来会打开正则缝合预览，已预选这几条，可再调整。</p>`, actions: [{ label: "以后再说", value: false }, { label: "去缝正则", kind: "primary", value: true }] });
+      if (go) {
+        try { await presetRegexDialog(sd, d, { preselect: [...set] }); } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
+      }
+    }
     if (gid) st.dstCollapsed.delete(gid);
     st.highlight = new Set(newIds);
     renderSrc();
@@ -1008,7 +1047,8 @@ function mountSuture(page, app) {
       const sp = src.prompt;
       const wb = raw ? { constant: !!raw.constant, keys: (raw.key || []).join(", "), position: raw.position ?? 0, depth: raw.depth ?? 4, role: raw.role ?? 0, order: raw.order ?? 100, from: true }
         : { constant: true, keys: "", ...base, ...(sp?.injection_position === 1 ? { position: 4, depth: sp.injection_depth ?? 4, role: roleNum(sp.role) } : {}) };
-      return { src: { ...src, sections: [] }, wb, choice: {}, manual: null, enabled: raw ? !raw.disable : true, open: false };
+      const from = raw ? !raw.disable : src.srcDraft && src.srcId ? src.srcDraft.order.find((o) => o.identifier === src.srcId)?.enabled !== false : true;
+      return { src: { ...src, sections: [] }, wb, choice: {}, manual: null, enabled: from, srcEnabled: from, open: false };
     });
     const snip = (text) => {
       const lines = String(text || "").split("\n").filter((l) => l.trim());

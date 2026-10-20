@@ -779,6 +779,15 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-clist { display: grid; gap: 6px; }
 #pa-root .pa-crow { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(64px, 22%); align-items: center; gap: 4px 10px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: 10px; background: var(--pa-card); cursor: pointer; }
 #pa-root .pa-crow.on { border-color: var(--pa-warn); background: var(--pa-card-2); }
+#pa-root .pa-cpair { border: 1px solid var(--pa-line); border-radius: 12px; background: var(--pa-card); padding: 0 10px; }
+#pa-root .pa-cpair > summary { display: grid; gap: 4px; padding: 10px 0; cursor: pointer; list-style: none; }
+#pa-root .pa-cpair > summary::-webkit-details-marker { display: none; }
+#pa-root .pa-cpair > summary::before { content: "▸"; float: left; margin-right: 6px; color: var(--pa-dim); }
+#pa-root .pa-cpair[open] > summary::before { content: "▾"; }
+#pa-root .pa-cpair-t { min-width: 0; overflow-wrap: anywhere; }
+#pa-root .pa-cpair-t b { font-weight: 600; }
+#pa-root .pa-cpair[open] { padding-bottom: 10px; }
+#pa-root .pa-cpair .pa-clist { gap: 6px; }
 #pa-root .pa-crow.pa-locked { cursor: default; opacity: .8; }
 #pa-root .pa-crow input[type=checkbox] { width: 18px; height: 18px; margin: 0; }
 #pa-root .pa-crow-main { min-width: 0; display: grid; gap: 4px; }
