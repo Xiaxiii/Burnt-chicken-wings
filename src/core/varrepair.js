@@ -73,6 +73,8 @@ function variableRepairPlan(d, key, manual = d.cotManual || {}) {
     .filter((o) => listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && WRITE.includes(m.op)));
   if (!touches.length) throw new Error("没有开启的条目写入该变量");
   if (/cot$/i.test(name)) throw new Error("该变量可能保存思维链片段，请使用「接入思维链」核对读取位置，未添加通用读取");
+  const checker = d.order.find((o) => d.isActive(o.identifier) && listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && m.op === "has"));
+  if (checker) throw new Error(`「${d.prompt(checker.identifier)?.name || checker.identifier}」用 hasvar 判断该变量是否存在，它更像内部开关，不需要把值输出给模型，未添加通用读取`);
   for (const o of touches) {
     const p = d.prompt(o.identifier);
     const nm = p.name || o.identifier;

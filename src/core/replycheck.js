@@ -1,4 +1,4 @@
-// 只检查可见回复的标签与明显格式问题，不改写回复，也不索取思考过程。
+// 只检查可见回复的标签与明显格式问题，也不索取思考过程。改写只在用户确认「修正标签」后进行，且只移动或补写标签。
 function replyRuleTag(value, field) {
   if (typeof value !== "string" || !/^[A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39}$/u.test(value.trim())) {
     throw new Error(`${field}须为 1–40 个字的标签名，以字母、中文或下划线开头，仅含字母、数字、中文、下划线或短横线`);
@@ -94,7 +94,49 @@ function replyCheckMask(text, preserveCode = false) {
   }).join("");
 }
 
-function checkReplyFormat(text, inputRules) {
+// 正文标签外、未被任何成对标签包住的文字。代码块与注释已被遮住，单个 HTML 标签本身不算字。
+function replyPairRanges(masked) {
+  const ranges = [];
+  const stack = [];
+  const any = /<\s*(\/?)\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]*)(?:\s+[^<>]*?)?\s*(\/?)>/gu;
+  let match;
+  while ((match = any.exec(masked))) {
+    if (match[3]) continue;
+    const key = match[2].toLowerCase();
+    if (!match[1]) { stack.push({ key, start: match.index }); continue; }
+    const index = stack.map((open) => open.key).lastIndexOf(key);
+    if (index < 0) continue;
+    ranges.push({ key, start: stack[index].start, end: any.lastIndex });
+    stack.splice(index);
+  }
+  return ranges;
+}
+function replyLooseText(source, masked, covered) {
+  const ranges = [...covered, ...replyPairRanges(masked)].sort((a, b) => a.start - b.start);
+  const parts = [];
+  let cursor = 0;
+  const take = (end) => {
+    if (end <= cursor) return;
+    const visible = masked.slice(cursor, end).replace(/<[^<>]*>/g, (tag) => " ".repeat(tag.length));
+    const letters = (visible.match(/[\p{L}\p{N}]/gu) || []).length;
+    if (letters) parts.push({ start: cursor, end, letters, excerpt: source.slice(cursor, end).replace(/<[^<>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 80) });
+  };
+  for (const range of ranges) {
+    take(range.start);
+    cursor = Math.max(cursor, range.end);
+  }
+  take(masked.length);
+  return parts;
+}
+
+// 推理字段只在本地查标签位置，不展示、不发送。正文标签已在可见回复里时不看推理，避免把模型自述的计划误判。
+function replyReasoningHasBody(reasoning, bodyTag) {
+  const text = replyCheckMask(String(reasoning || ""));
+  const name = bodyTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`<\\s*${name}(?:\\s+[^<>]*?)?\\s*>`, "iu").test(text);
+}
+
+function checkReplyFormat(text, inputRules, extra = {}) {
   const rules = normalizeReplyRules(inputRules);
   const source = String(text == null ? "" : text);
   const masked = replyCheckMask(source);
@@ -105,11 +147,11 @@ function checkReplyFormat(text, inputRules) {
   const stats = new Map([...watched].map((key) => [key, { opens: 0, closes: 0, selfClosing: 0, ranges: [] }]));
   const issues = [];
   const seen = new Set();
-  const add = (kind, text, tag) => {
+  const add = (kind, text, tag, excerpt) => {
     const key = `${kind}\n${tag || ""}\n${text}`;
     if (!seen.has(key)) {
       seen.add(key);
-      issues.push({ kind, text, ...(tag ? { tag } : {}) });
+      issues.push({ kind, text, ...(tag ? { tag } : {}), ...(excerpt ? { excerpt } : {}) });
     }
   };
   const stack = [];
@@ -161,6 +203,22 @@ function checkReplyFormat(text, inputRules) {
     else if (!stat.closes) add("missing", `缺少 </${tag}> 结束标签`, tag);
     if (stat.opens + stat.selfClosing > 1 || stat.closes > 1) add("duplicate", `「${tag}」应完整成对出现一次，当前重复出现`, tag);
   }
+  const body = stats.get(bodyKey);
+  const reasoning = typeof extra.reasoning === "string" ? extra.reasoning : "";
+  if (!body.opens && !body.closes && reasoning.trim()) {
+    if (replyReasoningHasBody(reasoning, rules.bodyTag)) add("reasoning", `酒馆把带 <${rules.bodyTag}> 的部分解析进了思考区，聊天里看到的正文可能缺失或不全`, rules.bodyTag);
+    else if (!source.replace(/<[^<>]*>/g, "").trim() && reasoning.trim().length >= 200) add("reasoning", "可见回复为空，但思考区有大段内容；正文可能被整段解析进思考区", rules.bodyTag);
+  }
+  if (body.opens) {
+    const covered = [...scopeRanges];
+    for (const [key] of required) for (const range of stats.get(key).ranges) covered.push(range);
+    const firstBody = Math.min(...body.ranges.map((range) => range.start), ...scopeRanges.filter((range) => range.key === bodyKey).map((range) => range.start));
+    for (const part of replyLooseText(replyCheckMask(source, true), masked, covered)) {
+      if (part.letters < 20) continue;
+      if (part.end <= firstBody) add("outside", `正文标签前有约 ${part.letters} 字没有被任何标签包住，可能是外泄的思考或分析（爆思维链）`, rules.bodyTag, part.excerpt);
+      else add("outside", `正文结束后还有约 ${part.letters} 字没有被标签包住，可能是外泄的分析、总结或掉出正文的段落`, rules.bodyTag, part.excerpt);
+    }
+  }
   const visibleSource = replyCheckMask(source, true);
   for (const range of stats.get(bodyKey).ranges) {
     const content = visibleSource.slice(range.contentStart, range.contentEnd).replace(/<[^<>]*>/g, "").trim();
@@ -183,5 +241,141 @@ function buildReplyReminder(report, inputRules) {
   if (!report?.issues?.length) return "";
   const rules = normalizeReplyRules(inputRules || report.rules);
   const tags = [rules.bodyTag, ...rules.requiredTags].filter((tag, index, list) => list.findIndex((item) => item.toLowerCase() === tag.toLowerCase()) === index);
-  return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。正文不夹入思考步骤或内部分析；无需展示思考过程，也不要复述上一轮内容。`;
+  const kinds = new Set(report.issues.map((issue) => issue.kind));
+  const body = `<${rules.bodyTag}>`;
+  // 按上一轮的具体问题加一句针对性要求，只说格式，不要求展示思考
+  const extra = [];
+  if (kinds.has("swallowed") || kinds.has("reasoning")) extra.push(`上一轮正文被写进了思考区：思考标签必须在 ${body} 开始之前闭合。`);
+  if (report.issues.some((issue) => issue.kind === "outside" && issue.text.startsWith("正文标签前"))) extra.push(`上一轮在 ${body} 之前直接输出了分析文字：正文标签外不要写任何分析、计划或说明。`);
+  else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文写完即结束，不追加说明或总结。`);
+  if (kinds.has("leak")) extra.push(`正文内不得出现思考标签。`);
+  if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
+  return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}正文不夹入思考步骤或内部分析；无需展示思考过程，也不要复述上一轮内容。`;
+}
+
+// ---- 修正标签：只改名、补齐或移动标签，不增删正文文字。修不了的返回 null，交给人工。
+var REPLY_BODY_ALIASES = ["正文", "正文内容", "内容", "故事", "回复", "content", "contents", "body", "main", "maintext", "main_text", "story", "text", "reply", "response", "output"];
+function replyTagTokens(masked, keys) {
+  const out = [];
+  const tags = /<\s*(\/?)\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]*)(?:\s+[^<>]*?)?\s*(\/?)>/gu;
+  let match;
+  while ((match = tags.exec(masked))) {
+    const key = match[2].toLowerCase();
+    if (keys && !keys.has(key)) continue;
+    out.push({ key, name: match[2], closing: !!match[1], selfClosing: !!match[3], start: match.index, end: tags.lastIndex });
+  }
+  return out;
+}
+function replyBodyAlias(source, masked, rules) {
+  const thinking = new Set(rules.thinkingTags.map((tag) => tag.toLowerCase()));
+  const taken = new Set(rules.requiredTags.map((tag) => tag.toLowerCase()));
+  const names = REPLY_BODY_ALIASES.filter((name) => !thinking.has(name.toLowerCase()) && !taken.has(name.toLowerCase()));
+  if (!names.some((name) => name.toLowerCase() === rules.bodyTag.toLowerCase())) names.push(rules.bodyTag);
+  const escaped = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const forms = [
+    [new RegExp(`<\\s*(${escaped})\\s*>`, "giu"), (name) => new RegExp(`<\\s*/\\s*${name}\\s*>`, "iu")],
+    [new RegExp(`【\\s*(${escaped})\\s*】`, "giu"), (name) => new RegExp(`【\\s*/\\s*${name}\\s*】`, "iu")],
+    [new RegExp(`\\[\\s*(${escaped})\\s*\\]`, "giu"), (name) => new RegExp(`\\[\\s*/\\s*${name}\\s*\\]`, "iu")]
+  ];
+  for (const [openRe, closeOf] of forms) {
+    let open;
+    while ((open = openRe.exec(masked))) {
+      const isBody = open[1].toLowerCase() === rules.bodyTag.toLowerCase();
+      // 尖括号写法的正确标签名已由检查器处理；这里只接手方括号写法或别名
+      if (isBody && open[0].startsWith("<")) continue;
+      const rest = masked.slice(openRe.lastIndex);
+      const close = closeOf(open[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).exec(rest);
+      return {
+        open: { start: open.index, end: openRe.lastIndex, raw: source.slice(open.index, openRe.lastIndex) },
+        close: close ? { start: openRe.lastIndex + close.index, end: openRe.lastIndex + close.index + close[0].length, raw: close[0] } : null
+      };
+    }
+  }
+  return null;
+}
+function planReplyFix(text, inputRules, extra = {}) {
+  const rules = normalizeReplyRules(inputRules);
+  const body = rules.bodyTag, bodyKey = body.toLowerCase();
+  const thinking = new Set(rules.thinkingTags.map((tag) => tag.toLowerCase()));
+  const requiredKeys = new Set(rules.requiredTags.map((tag) => tag.toLowerCase()));
+  let mes = String(text == null ? "" : text);
+  let reasoning = typeof extra.reasoning === "string" ? extra.reasoning : null;
+  const steps = [];
+  const bodyTokens = () => replyTagTokens(replyCheckMask(mes), new Set([bodyKey])).filter((t) => !t.selfClosing);
+  // 1. 正文被酒馆解析进思考区：把思考区里的正文块移回可见回复开头
+  if (reasoning && !bodyTokens().length && replyReasoningHasBody(reasoning, body)) {
+    const masked = replyCheckMask(reasoning);
+    const tokens = replyTagTokens(masked, new Set([bodyKey])).filter((t) => !t.selfClosing);
+    const open = tokens.find((t) => !t.closing);
+    const close = open && tokens.find((t) => t.closing && t.start > open.start);
+    const end = close ? close.end : reasoning.length;
+    let block = reasoning.slice(open.start, end).trim();
+    if (!close) block += `\n</${body}>`;
+    reasoning = (reasoning.slice(0, open.start).trimEnd() + "\n" + reasoning.slice(end).trimStart()).trim();
+    mes = block + (mes.trim() ? "\n" + mes.trimStart() : "");
+    steps.push(`把思考区里的 <${body}>…</${body}> 移回可见回复开头${close ? "" : "，并补上结束标签"}`);
+  }
+  // 2. 正文标签写错名或用了方括号：改成配置的正文标签
+  if (!bodyTokens().length) {
+    const alias = replyBodyAlias(mes, replyCheckMask(mes), rules);
+    if (alias) {
+      const { open, close } = alias;
+      mes = mes.slice(0, open.start) + `<${body}>` + (close ? mes.slice(open.end, close.start) + `</${body}>` + mes.slice(close.end) : mes.slice(open.end));
+      steps.push(close ? `把 ${open.raw}…${close.raw} 改成 <${body}>…</${body}>` : `把 ${open.raw} 改成 <${body}>`);
+    }
+  }
+  // 3. 正文落在思考标签里
+  {
+    const masked = replyCheckMask(mes);
+    const tokens = replyTagTokens(masked, new Set([bodyKey, ...thinking])).filter((t) => !t.selfClosing);
+    const bodyOpen = tokens.find((t) => t.key === bodyKey && !t.closing);
+    const thinkOpen = bodyOpen && [...tokens].reverse().find((t) => thinking.has(t.key) && !t.closing && t.start < bodyOpen.start);
+    if (thinkOpen) {
+      const thinkClose = tokens.find((t) => t.key === thinkOpen.key && t.closing && t.start > thinkOpen.start);
+      const closedBefore = thinkClose && thinkClose.start < bodyOpen.start;
+      if (!thinkClose) {
+        // 思考标签没有结束：在正文开始前补上
+        mes = mes.slice(0, bodyOpen.start).trimEnd() + `\n</${thinkOpen.name}>\n` + mes.slice(bodyOpen.start);
+        steps.push(`在 <${body}> 前补上 </${thinkOpen.name}>，让思考区在正文开始前结束`);
+      } else if (!closedBefore) {
+        const bodyClose = tokens.find((t) => t.key === bodyKey && t.closing && t.start > bodyOpen.start);
+        if (bodyClose && bodyClose.end <= thinkClose.start) {
+          // 整段正文在思考区内：移到思考区结束之后
+          const block = mes.slice(bodyOpen.start, bodyClose.end);
+          const inner = mes.slice(0, bodyOpen.start).trimEnd() + "\n" + mes.slice(bodyClose.end, thinkClose.start).trimStart();
+          mes = inner.trimEnd() + "\n" + mes.slice(thinkClose.start, thinkClose.end) + "\n" + block + mes.slice(thinkClose.end);
+          steps.push(`把 <${body}>…</${body}> 从 <${thinkOpen.name}> 里移到 </${thinkOpen.name}> 之后`);
+        }
+      }
+    }
+  }
+  // 4. 只有开头或只有结尾：补齐另一半
+  {
+    const masked = replyCheckMask(mes);
+    const tokens = bodyTokens();
+    const opens = tokens.filter((t) => !t.closing), closes = tokens.filter((t) => t.closing);
+    if (opens.length === 1 && !closes.length) {
+      const after = replyTagTokens(masked).find((t) => !t.closing && !t.selfClosing && t.start > opens[0].end && (requiredKeys.has(t.key) || thinking.has(t.key)));
+      let end = after ? after.start : mes.length;
+      const trim = () => { while (end > opens[0].end && /\s/.test(mes[end - 1])) end--; };
+      trim();
+      // 末尾单独成行的完整标签块（如状态栏）留在正文之外
+      let tail = null;
+      if (!after) {
+        const pairs = replyPairRanges(masked).filter((r) => r.start > opens[0].end && r.key !== bodyKey);
+        for (let r; (r = pairs.find((x) => x.end === end && /(^|\n)[ \t]*$/.test(mes.slice(0, x.start))));) { end = r.start; tail = r; trim(); }
+      }
+      const stop = after || tail;
+      mes = mes.slice(0, end) + `\n</${body}>` + (stop ? "\n" + mes.slice(end).replace(/^\s*/, "") : mes.slice(end));
+      steps.push(stop ? `在 ${masked.slice(stop.start, masked.indexOf(">", stop.start) + 1)} 前补上 </${body}>` : `在回复末尾补上 </${body}>`);
+    } else if (closes.length === 1 && !opens.length) {
+      const thinkClose = replyTagTokens(masked, thinking).filter((t) => t.closing && t.end <= closes[0].start).at(-1);
+      let start = thinkClose ? thinkClose.end : 0;
+      while (start < closes[0].start && /\s/.test(mes[start])) start++;
+      mes = mes.slice(0, start) + `<${body}>\n` + mes.slice(start);
+      steps.push(thinkClose ? `在 </${thinkClose.name}> 之后补上 <${body}>` : `在回复开头补上 <${body}>`);
+    }
+  }
+  if (!steps.length) return null;
+  return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "" }) };
 }

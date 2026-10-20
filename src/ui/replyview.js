@@ -10,7 +10,7 @@ async function replyFormatDialog(name) {
     <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）</span><input class="pa-input" data-r="thinking" value="${esc(saved.thinkingTag || "")}" maxlength="40"></label>
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
-    <p class="pa-hint">检测掉标签、重复/未闭合标签、正文裹进思考标签、正文夹入思考标签和部分疑似推理标题。代码块和注释中的标签示例不计。纯文字的思考泄露无法可靠识别，提醒也不能保证模型遵守；不会改写回复或补造正文。续写时不自动提醒，以免重复标签。模型单独返回的 reasoning 字段不参与检查。</p>
+    <p class="pa-hint">检测掉标签、重复/未闭合标签、正文裹进思考标签、正文夹入思考标签、正文标签外的大段文字（爆思维链）和部分疑似推理标题。代码块和注释中的标签示例不计。可见回复没有正文标签时，会在本地查看思考区里是否有正文标签，不展示、不发送思考内容。标签改名、补齐、移出思考区可一键修正，只动标签位置、不增删文字；掉出的正文无法补造。提醒不能保证模型遵守；续写时不自动提醒，以免重复标签。</p>
     <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
     <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
     <div data-r="result" aria-live="polite"></div>
@@ -32,21 +32,49 @@ async function replyFormatDialog(name) {
     return value;
   };
   const result = body.querySelector('[data-r="result"]');
-  body.addEventListener("click", (e) => {
-    const button = e.target.closest('[data-r="latest"], [data-r="paste"]');
+  let pending = null, undo = null;
+  const check = (mode) => {
+    const config = read();
+    let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字", reasoning = "", latest = null;
+    if (mode === "latest") {
+      latest = latestReplyForCheck(ctx().chat);
+      if (!latest) { result.innerHTML = '<p class="pa-hint">没有可检查的 AI 回复（不检查开场白、用户和系统消息）。</p>'; pending = null; return; }
+      text = latest.message.mes;
+      reasoning = latest.message.extra?.reasoning || "";
+      source = `聊天第 ${latest.index + 1} 条消息`;
+    }
+    const report = checkReplyFormat(text, config, { reasoning });
+    const reminder = buildReplyReminder(report, config);
+    const plan = report.issues.length ? planReplyFix(text, config, { reasoning }) : null;
+    pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
+    const left = plan ? plan.after.issues : [];
+    const fix = plan ? `<div class="pa-card"><b>可修正的标签</b><ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+      <p class="pa-hint">${left.length ? `修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}` : "修正后未发现配置范围内的格式问题。"}只移动或补写标签，不增删文字。</p>
+      <details><summary>修正后原文预览</summary><pre class="pa-pre">${esc(plan.text)}</pre></details>
+      ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不会写回聊天，可复制上面的预览。</p>'}</div>` : "";
+    result.innerHTML = `<p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : '<p class="pa-hint">这不代表正文语义、所有变量或其他输出格式已验证。</p>'}`;
+  };
+  body.addEventListener("click", async (e) => {
+    const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"]');
     if (!button) return;
     try {
-      const config = read();
-      let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字";
-      if (button.dataset.r === "latest") {
-        const latest = latestReplyForCheck(ctx().chat);
-        if (!latest) { result.innerHTML = '<p class="pa-hint">没有可检查的 AI 回复（不检查开场白、用户和系统消息）。</p>'; return; }
-        text = latest.message.mes;
-        source = `聊天第 ${latest.index + 1} 条消息`;
+      if (button.dataset.r === "fix") {
+        if (!pending) return;
+        button.disabled = true;
+        undo = await applyReplyFix(pending.index, pending.plan, pending.snapshot);
+        check("latest");
+        result.insertAdjacentHTML("afterbegin", `<p class="pa-p">已修正聊天第 ${undo.index + 1} 条消息的标签。<button class="pa-link" data-r="undo-fix">撤销</button></p>`);
+        return;
       }
-      const report = checkReplyFormat(text, config);
-      const reminder = buildReplyReminder(report, config);
-      result.innerHTML = `<p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}</li>`).join("")}</ul><details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : '<p class="pa-hint">这不代表正文语义、所有变量或其他输出格式已验证。</p>'}`;
+      if (button.dataset.r === "undo-fix") {
+        if (!undo) return;
+        await undoReplyFix(undo);
+        undo = null;
+        check("latest");
+        result.insertAdjacentHTML("afterbegin", '<p class="pa-p">已撤销修正。</p>');
+        return;
+      }
+      check(button.dataset.r);
     } catch (e) { result.innerHTML = `<p class="pa-warn">${esc(e.message)}</p>`; }
   });
   const semanticResult = body.querySelector('[data-r="semantic-result"]');

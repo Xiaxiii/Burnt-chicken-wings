@@ -159,7 +159,7 @@ function analyzeIndexed(draft, manual) {
   const cotSet = new Set(cotIds);
   const vars = /* @__PURE__ */ new Map();
   const touch = (name) => {
-    if (!vars.has(name)) vars.set(name, { writers: [], readers: [], initOnly: [] });
+    if (!vars.has(name)) vars.set(name, { writers: [], readers: [], initOnly: [], checkers: [] });
     return vars.get(name);
   };
   const writesOf = /* @__PURE__ */ new Map();
@@ -176,6 +176,12 @@ function analyzeIndexed(draft, manual) {
         r.add(key);
         continue;
       }
+      // hasvar / varexists 只判断有没有，不输出值：记作开关用途，不当成内容读取
+      if (m.op === "has") {
+        touch(key).checkers.push(id);
+        continue;
+      }
+      if (m.op === "flush") continue;
       if (m.op === "set" || m.op === "add") {
         if (isBlankValue(m.value)) {
           touch(key).initOnly.push(id);
@@ -194,6 +200,7 @@ function analyzeIndexed(draft, manual) {
     v.writers = [...new Set(v.writers)];
     v.readers = [...new Set(v.readers)];
     v.initOnly = [...new Set(v.initOnly)];
+    v.checkers = [...new Set(v.checkers)];
   }
   const cot = cotIds.map((id) => {
     const reads = [...readsOf.get(id) || []].map((name) => ({
@@ -305,7 +312,7 @@ function analyzeIndexed(draft, manual) {
   const issues = [];
   const optional = [];
   for (const [name, v] of vars) {
-    if (v.writers.length && !v.readers.length && !/cot$/i.test(name)) {
+    if (v.writers.length && !v.readers.length && !v.checkers.length && !/cot$/i.test(name)) {
       const off = [...allReaders.get(name) || []].map((x) => draft.prompt(x)?.name || x);
       const why = off.length ? `。读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等条目" : ""}未开启` : "。预设中没有找到读取它的条目（用脚本、条件宏或其他扩展读取的，这里看不出来）";
       const registrationOnly = v.writers.every(id => detectShape(draft.prompt(id)?.content).shape === "tagname");
@@ -316,8 +323,10 @@ function analyzeIndexed(draft, manual) {
       optional.push({ varName: name, ids: v.readers });
     }
   }
+  // 与上面「间接读到」同一口径：读取它的条目再写入思维链读取的变量，或被思维链点名，都算思维链读到了
+  const reachesCot = (v) => v.readers.some((r) => cotSet.has(r) || [...writesOf.get(r) || []].some((k2) => (vars.get(k2)?.readers || []).some((x) => cotSet.has(x))) || !!findMention(r));
   for (const [name, v] of vars) {
-    if (/cot$/i.test(name) && v.writers.length && !v.readers.some((r) => cotSet.has(r))) {
+    if (/cot$/i.test(name) && v.writers.length && !reachesCot(v)) {
       issues.push({ kind: "cotfrag", varName: name, ids: v.writers, text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
     }
   }

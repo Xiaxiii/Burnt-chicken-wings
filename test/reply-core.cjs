@@ -1,9 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask } = new Function(
+const { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix } = new Function(
   fs.readFileSync(path.join(__dirname, '../src/core/replycheck.js'), 'utf8') +
-  '\nreturn { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask };'
+  '\nreturn { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix };'
 )();
 let passed = 0;
 function test(name, run) {
@@ -129,5 +129,73 @@ test('reminder uses configured complete tags and never asks to reveal thoughts',
   assert(reminder.includes('思考标签之外'));
   assert(reminder.includes('不要复述上一轮'));
   assert(reminder.includes('无需展示思考过程'));
+});
+
+test('analysis written before the body tag is reported with an excerpt', () => {
+  const report = checkReplyFormat('我需要先检查用户要求，再安排剧情，然后写出符合人设的对话内容。\n<content>故事正文。</content>');
+  const issue = report.issues.find((i) => i.kind === 'outside');
+  assert(issue && issue.text.startsWith('正文标签前'));
+  assert(issue.excerpt.startsWith('我需要先检查用户要求'));
+  assert.match(buildReplyReminder(report), /正文标签外不要写任何分析/);
+});
+test('loose text after the body is reported, tag blocks, code and short endings are not', () => {
+  assert(kinds('<content>正文。</content>\n以上是本轮正文。接下来我会继续推进剧情，并在下一轮安排角色登场。').includes('outside'));
+  clean('<content>正文。</content>\n<状态栏>积分：3，等级：D，位格：凡人，道具：无</状态栏>');
+  clean('<content>正文。</content>\n```\n状态栏代码块里的说明文字很长很长很长很长很长很长\n```');
+  clean('<content>正文。</content>\n<!-- 这里是很长很长很长很长很长很长很长很长的注释 -->');
+  clean('<content>正文。</content>\n（本轮完）');
+  clean('<think>分析写在思考标签里，不论多长都不算正文外的文字。</think>\n<content>正文。</content>');
+});
+test('body swallowed into the reasoning field is detected only when the visible reply lacks the body tag', () => {
+  assert(kinds('', undefined).includes('missing'));
+  const report = checkReplyFormat('', undefined, { reasoning: '我先想一想。\n<content>故事正文</content>' });
+  assert(report.issues.some((i) => i.kind === 'reasoning'));
+  assert.match(buildReplyReminder(report), /思考标签必须在 <content> 开始之前闭合/);
+  assert(!checkReplyFormat('<content>正文</content>', undefined, { reasoning: '计划：写 <content> 标签' }).issues.length);
+  assert(checkReplyFormat('', undefined, { reasoning: '很长的推理'.repeat(50) }).issues.some((i) => i.kind === 'reasoning'));
+  assert(!checkReplyFormat('掉标签的正文', undefined, { reasoning: '短推理' }).issues.some((i) => i.kind === 'reasoning'));
+});
+const letters = (s) => [...s.replace(/<[^<>]*>|【\/?[^】]*】|\[\/?[^\]]*\]/g, '').replace(/\s/g, '')].sort().join('');
+const fixed = (text, rules, extra) => {
+  const plan = planReplyFix(text, rules, extra);
+  assert(plan, text);
+  assert.equal(letters(plan.text + (plan.reasoning || '')), letters(text + (extra?.reasoning || '')), '修正不增删文字');
+  return plan;
+};
+test('fix renames misnamed or bracketed body tags', () => {
+  assert.equal(fixed('<正文>故事。</正文>').text, '<content>故事。</content>');
+  assert.equal(fixed('【content】故事。【/content】').text, '<content>故事。</content>');
+  assert.equal(fixed('[Story]故事。[/Story]').text, '<content>故事。</content>');
+  assert.equal(fixed('<content>故事。</content>'.replace(/content/g, '正文'), { bodyTag: 'story' }).text, '<story>故事。</story>');
+});
+test('fix closes an unclosed thought before the body and moves a swallowed body out', () => {
+  const a = fixed('<think>分析\n<content>故事。</content>');
+  assert.equal(a.text, '<think>分析\n</think>\n<content>故事。</content>');
+  assert.deepEqual(a.after.issues, []);
+  const b = fixed('<think>分析A<content>故事。</content>分析B</think>');
+  assert.equal(b.text, '<think>分析A\n分析B\n</think>\n<content>故事。</content>');
+  assert.deepEqual(b.after.issues, []);
+});
+test('fix adds a missing closing or opening body tag', () => {
+  const a = fixed('<content>故事很长。\n\n<状态栏>积分：3</状态栏>\n');
+  assert.equal(a.text, '<content>故事很长。\n</content>\n<状态栏>积分：3</状态栏>\n');
+  assert.equal(fixed('<content>故事').text, '<content>故事\n</content>');
+  assert.equal(fixed('<think>想</think>\n故事。</content>').text, '<think>想</think>\n<content>\n故事。</content>');
+  assert.equal(fixed('<content>故事', { requiredTags: ['摘要'] }).text, '<content>故事\n</content>');
+  assert.equal(fixed('<content>故事\n<摘要>概要</摘要>', { requiredTags: ['摘要'] }).text, '<content>故事\n</content>\n<摘要>概要</摘要>');
+});
+test('fix moves the body back from the reasoning field', () => {
+  const plan = fixed('', undefined, { reasoning: '我在想。\n<content>故事正文</content>' });
+  assert.equal(plan.text, '<content>故事正文</content>');
+  assert.equal(plan.reasoning, '我在想。');
+  assert(plan.reasoningChanged);
+  const open = fixed('<状态栏>x</状态栏>', undefined, { reasoning: '我在想。\n<content>故事正文' });
+  assert.equal(open.text, '<content>故事正文\n</content>\n<状态栏>x</状态栏>');
+});
+test('fix declines when only text or duplicates are wrong', () => {
+  assert.equal(planReplyFix('<content>好</content>'), null);
+  assert.equal(planReplyFix('只有正文没有标签'), null);
+  assert.equal(planReplyFix('<content>一</content><content>二</content>'), null);
+  assert.equal(planReplyFix('我先分析一下用户的要求和人设，然后安排剧情发展。<content>正文</content>'), null);
 });
 console.log(`${passed} reply-format tests passed`);

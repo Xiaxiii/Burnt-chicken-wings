@@ -1,7 +1,7 @@
-// 焦香鸡翅 2.2.6（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 焦香鸡翅 2.2.7（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "2.2.6";
-var CHANGELOG = "焦香鸡翅 2.2.6\n\n用于整理、缝合聊天补全预设，并提供思维链检查、方案、加载体检和预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」；或在输入框发送 /atelier、/焦香鸡翅。名称可在扩展页设置框中修改。\n修改即时自动保存。每批修改开始前自动备份。扩展版与脚本版同时安装时，只启动扩展版。\n\n2.2.6\n- 确认缝合正则时自动归组，默认用来源预设名，可在预览中改名；同名组继续使用，只收纳本次新增或替换的正则，不改变每条规则的开关与原生执行顺序。\n- 分组使用柏宝箱的预设正则分组格式，随目标预设保存、备份及撤销。需要在柏宝箱正则分组面板查看；酒馆原生面板仍为平铺列表。\n\n2.2.5\n- 缝合页新增「正则」：可从已安装预设或完整预设 JSON 文件选择内置正则，默认选显示美化，不需要先选提示词或插入位置。\n- 预览查找与替换内容、冲突处理及最终顺序；完全重复自动跳过，同名或同 ID 可保留两份、跳过或指定替换。保留原开关、作用位置及额外字段，支持自动备份和撤销。\n- 保留目标预设原生正则启用状态；当前已获许可的预设保存后通知酒馆刷新，尚未启用的仍由酒馆正则面板开启。\n\n2.2.4\n- 大预设列表、分析和缝合规划共用批次读取索引，思维链区段每批只扫描一次；折叠分组按需生成条目，搜索仍可找到组内内容。\n- 保存状态更新不再重画列表，隐藏页面停止无关刷新；缝合预览每批复用同一份分析，去除近不透明面板的冗余背景模糊。\n- 主题按实际底色调整文字、强调色、开关边框与勾选颜色，修复浅底浅字及宿主样式造成的不可见控件，支持动态换主题。\n- 预设和世界书的缝合预览新增左右拨动的总开关：右边全开、左边全关，只设置本次待缝入条目；确认后生效，取消不改目标，仍可逐条调整。\n\n2.2.3\n- 分组开关只修改分组自身，不再联动内部条目；全关条目不会被一起打开，关闭期间的手动选择也会保留。保存和方案恢复分别处理分组标记与条目开关。\n\n2.2.2\n- 修复「↓ 一键开关 ↓」等箭头标题、常见框线标题和装饰分隔线未识别的问题；标题正文较长也能识别箭头边界。\n- 智能分组支持将未分组条目移入已有分区：匹配分区标题、明确名称前缀及唯一的组内共用变量；同名或冲突候选需手动选择。\n- 未识别归属的条目仍会列出，可手动指定目标；所有归组操作先预览完整顺序，支持取消、撤销及过期预览保护。\n\n2.2.1\n- 整理页自动提示被拆成多段的分区；「智能分组」可批量归整，支持逐组勾选、完整顺序预览和一次撤销。\n- 按已有归属将同组成员集中到各组首段，保留组内先后、正文与开关；不按名称猜测未分组条目的归属。\n- 普通保存改为仅刷新柏宝箱分组缓存，不再广播「预设导入完成」，避免误触发其他扩展的导入自动迁移。\n\n2.2.0\n- 思维链页新增「变量顺序与现状」：检查先读后写、清空后读取、未读即覆盖；不执行宏、不自动调整顺序。\n- 可读取当前聊天与全局变量的状态摘要，按需开启生成前后变化对比，只保留在本页内存中，不显示变量正文。\n- 「正文格式检查」新增可选 AI 语义审查，复用酒馆当前聊天补全连接；手动审查或按预设开启生成后自动审查，默认关闭。引用原文疑似片段供人工确认，不删改聊天。\n- 模型审查支持取消、超时与过期结果丢弃；审查请求不执行回复中的变量宏。变量扫描不再把注释中的示例算成读写。\n\n2.1.0\n- 思维链页新增「正文格式检查」：自定义正文与必需标签，检查标签缺失、重复、不闭合、正文与思考标签相互嵌套，并提示部分疑似推理标题。\n- 可按预设开启「发现问题时，下一轮提醒 AI」，只检查上一条回复的当前原文，问题消失后停止提醒；不改写聊天，不要求展示思考过程。\n- 明确变量修复范围，思维链片段、计数和动态变量名不再通过通用修复新增读取，避免误输出。\n\n2.0.1\n- 编辑条目：弹窗占屏幕高度八成，正文框填满剩余空间。\n- 「写法」右侧新增展开按钮。展开后正文占满整个弹窗，再点一次恢复。\n\n2.0.0\n- 适配 TT 等 App 内嵌网页：面板高度按实际可见区域计算，底部页签不再被挤出屏幕。\n- 网页未覆盖状态栏或底部横条时，不再重复留出安全区空白。全屏网页（如添加到主屏幕）保留安全区。\n- 适用于 iPhone、iPad、安卓手机、平板和电脑。Safari 浏览器收起工具栏时，保留底部横条位置。\n\n1.9.9\n- 清理 → 角色卡：按需加载的同名角色卡，自动向服务器读取完整内容后比较。比较结果列出不同之处，如「描述、开场白」。\n- 「重新检测」重新读取角色卡内容并比较。\n- 扩展页：「更新」「刷新页面」按钮靠右；更新说明显示最近两个版本。\n\n1.9.8\nAPI 规则\n- 换预设时，API 不变。\n- 切换方案时，恢复方案保存时的预设、条目开关、人设和 API。\n- 切换方案不再修改「使用中」站点，各方案的 API 互不覆盖。\n- 未记录 API 的方案，切换时 API 不变。方案列表标注「未记录 API」，可在 ✏️ 中补充。\n- 删除「切换预设后，自动连回『使用中』的站点」「切换预设时，不让预设带着的连接设置覆盖当前连接」两项。升级后自动关闭酒馆的「预设绑定连接」。\n方案\n- 保存方案时自动记录预设、条目开关、人设和 API，窗口内列出将保存的内容。API 无需先存为站点。\n- 方案列表每条显示 API（站点名或网址，以及模型）。\n- ✏️ 菜单：「换 API 站点」改为「更换 API」，可选当前连接、已存站点或不记录；「用现在的状态覆盖」同时更新人设和 API。\n文字\n- 设置项、说明和提示改为简明表述。设置项的补充说明收入「说明」，点击展开。\n\n1.9.7\n- 缝合页搜索改为在列表中筛选。点击 🔍 输入关键词，「从」「到」列表即时显示匹配条目，分组自动展开。\n- 搜索词保留至手动清除。列表上方可修改或清除。\n\n1.9.6\n- 缝合页「从」「到」两栏新增 🔍 搜索，可搜名称、分组名、标签和正文。\n\n1.9.5\n- 双层分组提示新增「保留，不再提示」。部分扩展（如转移工具 preset-transfer）会持续写回自己的分组数据。选择保留后，该预设不再提示，保存时也不再删除这份数据。\n\n1.9.4\n- 扩展页设置框重新排版。「加载与兼容」「更新说明」默认收起，标题右侧显示概况。删除不可用的「应用推荐配置」「停用加速」和重复的「加载体检」按钮。\n- 检查更新显示「已是最新版本（版本号）」或「检测到新版本（版本号）」。已更新未刷新时，提示刷新页面。\n- 魔棒菜单中「焦香鸡翅」固定在最下方。\n- 方案列表显示 API 站点名。\n- ✏️ 菜单完成一项操作后返回菜单，点击 ✕ 关闭。\n- 改归属角色：新增「取消归属」按钮。\n\n1.9.3\n- 换角色或聊天时，提示当前预设和模型，3 秒后关闭。可在「更多 → 方案」底部关闭。\n- 双层分组：与柏宝箱分组同编号的旧副本一并去除。\n- 双层分组被写回时，记录写回的扩展并在提示中注明。\n- 保存预设时原地更新酒馆内存中的预设，防止其他扩展用旧数据覆盖。\n\n1.9.2\n- 方案按角色卡分组，点击箭头展开。当前角色排在最前；可改为按预设或人设分组。\n- 方案列表每条显示名称、预设、人设和时间，右侧为「切换」和 ✏️。\n- 保存方案时可归到当前角色，可设置进入聊天时自动切换。\n- 当前角色没有当前预设的方案时，列表上方提示保存。\n- 新增 🗑️ 批量删除，可整组勾选。\n- 删除方案区的预设选择框，删除「当前连接」中的「用于」一行。\n- 修复：同一聊天内手动换预设后被自动换回。自动套用改为仅在进入聊天时执行一次。\n- 自动套用可绑定单个聊天或某个角色的全部聊天。\n\n1.9.1\n- 整理页搜索分两层：先列名称、标签、分组名匹配的条目；仅正文匹配的条目点击「正文里还有 N 条」后列出，并显示匹配句。\n- 思维链页：「变量未被读取」改为「没发出去的内容」，每条注明条目、变量和原因，详情折叠。\n- 缝合预览：条目标题固定为两行，修复 iPhone 上的错位。\n- 清理 → 扩展数据：正确识别酒馆助手和柏宝箱的数据，补充酒馆内置数据的识别。\n- 清理 → 预设：无可勾选预设时不显示「取消全选」。\n- 大小为 0 时显示「0 B」。\n\n1.9.0\n手机排版（更紧凑）\n- 预设、世界书的选择改成小按钮「名称 ▾」，点开是可搜索的列表，预设多的时候好找；手机上省掉「预设」二字。\n- 缝合页：来源、目标各一行，「从 [预设 ▾] [名称 ▾] ⋯」「到 [预设 ▾] [名称 ▾]」，不再另放搜索框（点 ▾ 弹出的列表本身可以搜索）；去掉目标上方的提示句，位置提示放进底栏。\n- 预设、世界书的选择列表不论多少项都带搜索。\n- 整理页工具栏收成一行：预设、🔍 搜索、＋ 新建（条目或分组）、⋯ 工具。\n- 说明文字默认收起成一行「ⓘ 说明」：清理各栏、方案、连接选项、背景图。清理各栏顶部只留一行数字摘要。\n- 加载体检：顶部一行摘要（启动用时、预设、扩展数据、角色卡），建议只显示一句结论，原因收进「为什么」，「去清理 ›」和它放在同一行；时间线、请求表、排行等都收进「详细数据」。\n- 配色改成小色块，只留圆点和名称（说明放在长按 / 悬停提示里）。\n- 思维链页五个统计在手机上排成一行。\n- 清理页排序改成小字「↕ 大小」，点开选排序方式。\n- 复选框不再沿用酒馆的实心方块样式，改成细边框，勾选后填色。\n- 扩展数据：「实际检测」「勾选疑似残留」改成小字，和「ⓘ 说明」放在同一行。\n- 加载体检：每条建议只显示一句短结论，带数字的完整说明和原因收进「ⓘ 详情」。\n- 角色卡：同名组可以「忽略」（或「全部忽略」），这次打开酒馆期间不再提示；点「重新检测」或下次打开酒馆重新检测时会再列出。\n- 方案页「保存当前状态为方案」「＋ 添加站点」按钮改小。\n- 修正缝合预览在手机上显示不全、平板上左右乱滑：长名称（分组下拉框、条目名）不再把弹窗撑宽。\n- 手机基础字号回到 14px，触屏按钮和输入框高度收紧。\n\n数据安全\n- 删除世界书、扩展数据、预设前的备份是交给浏览器下载的，浏览器可能拦截或下载失败。现在下载后先停下来，确认文件已经保存再删除；可以重新下载或取消删除。\n- 预设正在自动保存时删除或归档它，会先等这次保存结束再删除，删完不会被晚到的保存写回来。\n- 关闭面板时先等正在进行的保存结束。「放弃修改」改为「放弃没存上的部分」，并说明已经自动保存的不会撤回。\n- 浏览器存储写满、需要清理旧草稿时，只清当前账号的草稿，不动同一浏览器里其他账号的。\n- 站点密钥在酒馆密钥库里没了、本浏览器里还有时，重新存进去后记下新编号，之后连接不会每次再存一把。\n\n功能\n- 方案卡片的「使用中」要求预设正在用、开关一致、人设和 API 站点也对得上；只有开关一致时标「开关一致」。\n- 分组上的「关闭」标记只有柏宝箱运行时才会挡住组内条目。没有柏宝箱时，整组开关和条目是否生效按条目自己的开关显示。\n- 世界书比对改称「条目完全相同」，写明比较范围；读取失败的世界书单独列出，不再悄悄跳过。\n- 角色卡「内容相同」改为「文字设定相同（头像图片未比较）」，并写明比较了哪些内容。\n- 扩展数据「多半是卸载残留」改为「疑似卸载残留，删除前请核对」：没找到使用者不等于可以安全删除。\n- 1.8.0 误把「柏宝箱」改成了「百宝箱」，改回「柏宝箱」。\n\n加载体检\n- 时间点分开显示：页面 DOM 就绪、酒馆启动完成、启动完成后仍在进行的请求。「聊天可操作」测不到时写「未测得」，不再用启动完成的时间代替。\n- 请求按类别统计：全部角色列表和单张角色详情分开，不再当成重复下载；柏宝库、鸡尾酒+ 的快速接口归到对应类别并注明。\n- 体积分为实际传输、压缩后、解压后；跨域拿不到的写「未取得」，不再用压缩后的大小冒充实际传输。\n- 同类请求同时进行时按时间段并集计算，不相加。\n- 去掉「小请求耗时长＝排队」的判断；「实测服务器下载速度」改为「接收速率估计」，并说明不是服务器带宽上限。\n- 设置读取不止一次、启动时有设置保存时，只说明记录到的事实，不再指认是哪个扩展。\n- 新增「每笔请求明细」（等待首字节、接收阶段）和「导出诊断报告」（脱敏，不上传）。\n- 清理页的「打开约快 X 秒」改为「设置下载约少 X（估计）」。\n\n加载与兼容（扩展页设置框）\n- 新增「加载与兼容」：显示已在运行的柏宝箱、鸡尾酒、鸡尾酒+、酒馆助手，柏宝库、鸡尾酒+ 的启动桥接，页面由谁的 Service Worker 控制，以及本次设置读取实际走了谁的接口。平时只看页面上已有的信息，不发请求。\n- 「检查兼容性」：读取扩展列表、探测柏宝库和鸡尾酒+ 的后端，把「安装」「开启」「后端可用」「运行中」「版本」分开显示；版本标「已识别但未验证」或「未知」。\n- 按方面列出由谁负责：设置／预设读取、角色列表、扩展清单与预加载这三项，两个功能都开着时提示重叠，建议只保留一个。本扩展不改其他扩展的开关。\n- 本扩展目前没有自己的读取加速，「应用推荐配置」「停用加速」显示为不可用，并写明原因。\n- 设置框「检查更新」同时显示当前分支和提交号，装测试分支时可以确认装的是哪一版。\n\n说明\n- 本版本没有开发启动读取加速。要先用新的体检比较开关现有加速（柏宝库、鸡尾酒+）前后的实际传输，确认仍有缺口再决定；测量步骤见 docs/implementation-1.9.0.md。\n- 以上改动只在模拟页面里测试过，还没有在真实酒馆和真机上验证。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
+var VERSION = "2.2.7";
+var CHANGELOG = "焦香鸡翅 2.2.7\n\n用于整理、缝合聊天补全预设，并提供思维链检查、方案、加载体检和预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」；或在输入框发送 /atelier、/焦香鸡翅。名称可在扩展页设置框中修改。\n修改即时自动保存。每批修改开始前自动备份。扩展版与脚本版同时安装时，只启动扩展版。\n\n2.2.7\n- 正文格式检查新增「爆思维链」：正文标签前后有大段没被标签包住的文字时列出原文片段；正文被酒馆解析进思考区（可见回复没有正文标签、思考区里有）也能查出，只在本地看标签位置，不展示、不发送思考内容。\n- 新增「修正这条回复」：正文标签写错名或用了方括号、只有开头或结尾、思考标签没闭合把正文裹进去、正文被解析进思考区，可预览后一键修正。只改名、补齐或移动标签，不增删文字；回复变化后拒绝过期修正，可撤销。\n- 下一轮提醒按上一轮的具体问题补一句针对性要求（正文被裹进思考区、正文前写了分析、正文后有零散文字、掉标签）。\n- 变量检查统一识别 {{getvar 名}} 空格写法和 hasvar/varexists；只用 hasvar 判断存在的变量当作开关，不再建议补读取。\n- 修复「间接读到」与「思维链没读」同时出现：片段变量经中间条目被思维链读到时不再误报；一条写多个变量时，说明列表里指的是哪个变量。\n- 卡顿：面板开着时自动保存不再每次通知酒馆刷新预设（酒馆收到后会试生成一遍并重画原生条目列表），关面板或切到后台时合并通知一次；读取和核对预设不再整份复制三遍；本地草稿只在保存失败、被挡住、切后台或关页面时写入。\n\n2.2.6\n- 确认缝合正则时自动归组，默认用来源预设名，可在预览中改名；同名组继续使用，只收纳本次新增或替换的正则，不改变每条规则的开关与原生执行顺序。\n- 分组使用柏宝箱的预设正则分组格式，随目标预设保存、备份及撤销。需要在柏宝箱正则分组面板查看；酒馆原生面板仍为平铺列表。\n\n2.2.5\n- 缝合页新增「正则」：可从已安装预设或完整预设 JSON 文件选择内置正则，默认选显示美化，不需要先选提示词或插入位置。\n- 预览查找与替换内容、冲突处理及最终顺序；完全重复自动跳过，同名或同 ID 可保留两份、跳过或指定替换。保留原开关、作用位置及额外字段，支持自动备份和撤销。\n- 保留目标预设原生正则启用状态；当前已获许可的预设保存后通知酒馆刷新，尚未启用的仍由酒馆正则面板开启。\n\n2.2.4\n- 大预设列表、分析和缝合规划共用批次读取索引，思维链区段每批只扫描一次；折叠分组按需生成条目，搜索仍可找到组内内容。\n- 保存状态更新不再重画列表，隐藏页面停止无关刷新；缝合预览每批复用同一份分析，去除近不透明面板的冗余背景模糊。\n- 主题按实际底色调整文字、强调色、开关边框与勾选颜色，修复浅底浅字及宿主样式造成的不可见控件，支持动态换主题。\n- 预设和世界书的缝合预览新增左右拨动的总开关：右边全开、左边全关，只设置本次待缝入条目；确认后生效，取消不改目标，仍可逐条调整。\n\n2.2.3\n- 分组开关只修改分组自身，不再联动内部条目；全关条目不会被一起打开，关闭期间的手动选择也会保留。保存和方案恢复分别处理分组标记与条目开关。\n\n2.2.2\n- 修复「↓ 一键开关 ↓」等箭头标题、常见框线标题和装饰分隔线未识别的问题；标题正文较长也能识别箭头边界。\n- 智能分组支持将未分组条目移入已有分区：匹配分区标题、明确名称前缀及唯一的组内共用变量；同名或冲突候选需手动选择。\n- 未识别归属的条目仍会列出，可手动指定目标；所有归组操作先预览完整顺序，支持取消、撤销及过期预览保护。\n\n2.2.1\n- 整理页自动提示被拆成多段的分区；「智能分组」可批量归整，支持逐组勾选、完整顺序预览和一次撤销。\n- 按已有归属将同组成员集中到各组首段，保留组内先后、正文与开关；不按名称猜测未分组条目的归属。\n- 普通保存改为仅刷新柏宝箱分组缓存，不再广播「预设导入完成」，避免误触发其他扩展的导入自动迁移。\n\n2.2.0\n- 思维链页新增「变量顺序与现状」：检查先读后写、清空后读取、未读即覆盖；不执行宏、不自动调整顺序。\n- 可读取当前聊天与全局变量的状态摘要，按需开启生成前后变化对比，只保留在本页内存中，不显示变量正文。\n- 「正文格式检查」新增可选 AI 语义审查，复用酒馆当前聊天补全连接；手动审查或按预设开启生成后自动审查，默认关闭。引用原文疑似片段供人工确认，不删改聊天。\n- 模型审查支持取消、超时与过期结果丢弃；审查请求不执行回复中的变量宏。变量扫描不再把注释中的示例算成读写。\n\n2.1.0\n- 思维链页新增「正文格式检查」：自定义正文与必需标签，检查标签缺失、重复、不闭合、正文与思考标签相互嵌套，并提示部分疑似推理标题。\n- 可按预设开启「发现问题时，下一轮提醒 AI」，只检查上一条回复的当前原文，问题消失后停止提醒；不改写聊天，不要求展示思考过程。\n- 明确变量修复范围，思维链片段、计数和动态变量名不再通过通用修复新增读取，避免误输出。\n\n2.0.1\n- 编辑条目：弹窗占屏幕高度八成，正文框填满剩余空间。\n- 「写法」右侧新增展开按钮。展开后正文占满整个弹窗，再点一次恢复。\n\n2.0.0\n- 适配 TT 等 App 内嵌网页：面板高度按实际可见区域计算，底部页签不再被挤出屏幕。\n- 网页未覆盖状态栏或底部横条时，不再重复留出安全区空白。全屏网页（如添加到主屏幕）保留安全区。\n- 适用于 iPhone、iPad、安卓手机、平板和电脑。Safari 浏览器收起工具栏时，保留底部横条位置。\n\n1.9.9\n- 清理 → 角色卡：按需加载的同名角色卡，自动向服务器读取完整内容后比较。比较结果列出不同之处，如「描述、开场白」。\n- 「重新检测」重新读取角色卡内容并比较。\n- 扩展页：「更新」「刷新页面」按钮靠右；更新说明显示最近两个版本。\n\n1.9.8\nAPI 规则\n- 换预设时，API 不变。\n- 切换方案时，恢复方案保存时的预设、条目开关、人设和 API。\n- 切换方案不再修改「使用中」站点，各方案的 API 互不覆盖。\n- 未记录 API 的方案，切换时 API 不变。方案列表标注「未记录 API」，可在 ✏️ 中补充。\n- 删除「切换预设后，自动连回『使用中』的站点」「切换预设时，不让预设带着的连接设置覆盖当前连接」两项。升级后自动关闭酒馆的「预设绑定连接」。\n方案\n- 保存方案时自动记录预设、条目开关、人设和 API，窗口内列出将保存的内容。API 无需先存为站点。\n- 方案列表每条显示 API（站点名或网址，以及模型）。\n- ✏️ 菜单：「换 API 站点」改为「更换 API」，可选当前连接、已存站点或不记录；「用现在的状态覆盖」同时更新人设和 API。\n文字\n- 设置项、说明和提示改为简明表述。设置项的补充说明收入「说明」，点击展开。\n\n1.9.7\n- 缝合页搜索改为在列表中筛选。点击 🔍 输入关键词，「从」「到」列表即时显示匹配条目，分组自动展开。\n- 搜索词保留至手动清除。列表上方可修改或清除。\n\n1.9.6\n- 缝合页「从」「到」两栏新增 🔍 搜索，可搜名称、分组名、标签和正文。\n\n1.9.5\n- 双层分组提示新增「保留，不再提示」。部分扩展（如转移工具 preset-transfer）会持续写回自己的分组数据。选择保留后，该预设不再提示，保存时也不再删除这份数据。\n\n1.9.4\n- 扩展页设置框重新排版。「加载与兼容」「更新说明」默认收起，标题右侧显示概况。删除不可用的「应用推荐配置」「停用加速」和重复的「加载体检」按钮。\n- 检查更新显示「已是最新版本（版本号）」或「检测到新版本（版本号）」。已更新未刷新时，提示刷新页面。\n- 魔棒菜单中「焦香鸡翅」固定在最下方。\n- 方案列表显示 API 站点名。\n- ✏️ 菜单完成一项操作后返回菜单，点击 ✕ 关闭。\n- 改归属角色：新增「取消归属」按钮。\n\n1.9.3\n- 换角色或聊天时，提示当前预设和模型，3 秒后关闭。可在「更多 → 方案」底部关闭。\n- 双层分组：与柏宝箱分组同编号的旧副本一并去除。\n- 双层分组被写回时，记录写回的扩展并在提示中注明。\n- 保存预设时原地更新酒馆内存中的预设，防止其他扩展用旧数据覆盖。\n\n1.9.2\n- 方案按角色卡分组，点击箭头展开。当前角色排在最前；可改为按预设或人设分组。\n- 方案列表每条显示名称、预设、人设和时间，右侧为「切换」和 ✏️。\n- 保存方案时可归到当前角色，可设置进入聊天时自动切换。\n- 当前角色没有当前预设的方案时，列表上方提示保存。\n- 新增 🗑️ 批量删除，可整组勾选。\n- 删除方案区的预设选择框，删除「当前连接」中的「用于」一行。\n- 修复：同一聊天内手动换预设后被自动换回。自动套用改为仅在进入聊天时执行一次。\n- 自动套用可绑定单个聊天或某个角色的全部聊天。\n\n1.9.1\n- 整理页搜索分两层：先列名称、标签、分组名匹配的条目；仅正文匹配的条目点击「正文里还有 N 条」后列出，并显示匹配句。\n- 思维链页：「变量未被读取」改为「没发出去的内容」，每条注明条目、变量和原因，详情折叠。\n- 缝合预览：条目标题固定为两行，修复 iPhone 上的错位。\n- 清理 → 扩展数据：正确识别酒馆助手和柏宝箱的数据，补充酒馆内置数据的识别。\n- 清理 → 预设：无可勾选预设时不显示「取消全选」。\n- 大小为 0 时显示「0 B」。\n\n1.9.0\n手机排版（更紧凑）\n- 预设、世界书的选择改成小按钮「名称 ▾」，点开是可搜索的列表，预设多的时候好找；手机上省掉「预设」二字。\n- 缝合页：来源、目标各一行，「从 [预设 ▾] [名称 ▾] ⋯」「到 [预设 ▾] [名称 ▾]」，不再另放搜索框（点 ▾ 弹出的列表本身可以搜索）；去掉目标上方的提示句，位置提示放进底栏。\n- 预设、世界书的选择列表不论多少项都带搜索。\n- 整理页工具栏收成一行：预设、🔍 搜索、＋ 新建（条目或分组）、⋯ 工具。\n- 说明文字默认收起成一行「ⓘ 说明」：清理各栏、方案、连接选项、背景图。清理各栏顶部只留一行数字摘要。\n- 加载体检：顶部一行摘要（启动用时、预设、扩展数据、角色卡），建议只显示一句结论，原因收进「为什么」，「去清理 ›」和它放在同一行；时间线、请求表、排行等都收进「详细数据」。\n- 配色改成小色块，只留圆点和名称（说明放在长按 / 悬停提示里）。\n- 思维链页五个统计在手机上排成一行。\n- 清理页排序改成小字「↕ 大小」，点开选排序方式。\n- 复选框不再沿用酒馆的实心方块样式，改成细边框，勾选后填色。\n- 扩展数据：「实际检测」「勾选疑似残留」改成小字，和「ⓘ 说明」放在同一行。\n- 加载体检：每条建议只显示一句短结论，带数字的完整说明和原因收进「ⓘ 详情」。\n- 角色卡：同名组可以「忽略」（或「全部忽略」），这次打开酒馆期间不再提示；点「重新检测」或下次打开酒馆重新检测时会再列出。\n- 方案页「保存当前状态为方案」「＋ 添加站点」按钮改小。\n- 修正缝合预览在手机上显示不全、平板上左右乱滑：长名称（分组下拉框、条目名）不再把弹窗撑宽。\n- 手机基础字号回到 14px，触屏按钮和输入框高度收紧。\n\n数据安全\n- 删除世界书、扩展数据、预设前的备份是交给浏览器下载的，浏览器可能拦截或下载失败。现在下载后先停下来，确认文件已经保存再删除；可以重新下载或取消删除。\n- 预设正在自动保存时删除或归档它，会先等这次保存结束再删除，删完不会被晚到的保存写回来。\n- 关闭面板时先等正在进行的保存结束。「放弃修改」改为「放弃没存上的部分」，并说明已经自动保存的不会撤回。\n- 浏览器存储写满、需要清理旧草稿时，只清当前账号的草稿，不动同一浏览器里其他账号的。\n- 站点密钥在酒馆密钥库里没了、本浏览器里还有时，重新存进去后记下新编号，之后连接不会每次再存一把。\n\n功能\n- 方案卡片的「使用中」要求预设正在用、开关一致、人设和 API 站点也对得上；只有开关一致时标「开关一致」。\n- 分组上的「关闭」标记只有柏宝箱运行时才会挡住组内条目。没有柏宝箱时，整组开关和条目是否生效按条目自己的开关显示。\n- 世界书比对改称「条目完全相同」，写明比较范围；读取失败的世界书单独列出，不再悄悄跳过。\n- 角色卡「内容相同」改为「文字设定相同（头像图片未比较）」，并写明比较了哪些内容。\n- 扩展数据「多半是卸载残留」改为「疑似卸载残留，删除前请核对」：没找到使用者不等于可以安全删除。\n- 1.8.0 误把「柏宝箱」改成了「百宝箱」，改回「柏宝箱」。\n\n加载体检\n- 时间点分开显示：页面 DOM 就绪、酒馆启动完成、启动完成后仍在进行的请求。「聊天可操作」测不到时写「未测得」，不再用启动完成的时间代替。\n- 请求按类别统计：全部角色列表和单张角色详情分开，不再当成重复下载；柏宝库、鸡尾酒+ 的快速接口归到对应类别并注明。\n- 体积分为实际传输、压缩后、解压后；跨域拿不到的写「未取得」，不再用压缩后的大小冒充实际传输。\n- 同类请求同时进行时按时间段并集计算，不相加。\n- 去掉「小请求耗时长＝排队」的判断；「实测服务器下载速度」改为「接收速率估计」，并说明不是服务器带宽上限。\n- 设置读取不止一次、启动时有设置保存时，只说明记录到的事实，不再指认是哪个扩展。\n- 新增「每笔请求明细」（等待首字节、接收阶段）和「导出诊断报告」（脱敏，不上传）。\n- 清理页的「打开约快 X 秒」改为「设置下载约少 X（估计）」。\n\n加载与兼容（扩展页设置框）\n- 新增「加载与兼容」：显示已在运行的柏宝箱、鸡尾酒、鸡尾酒+、酒馆助手，柏宝库、鸡尾酒+ 的启动桥接，页面由谁的 Service Worker 控制，以及本次设置读取实际走了谁的接口。平时只看页面上已有的信息，不发请求。\n- 「检查兼容性」：读取扩展列表、探测柏宝库和鸡尾酒+ 的后端，把「安装」「开启」「后端可用」「运行中」「版本」分开显示；版本标「已识别但未验证」或「未知」。\n- 按方面列出由谁负责：设置／预设读取、角色列表、扩展清单与预加载这三项，两个功能都开着时提示重叠，建议只保留一个。本扩展不改其他扩展的开关。\n- 本扩展目前没有自己的读取加速，「应用推荐配置」「停用加速」显示为不可用，并写明原因。\n- 设置框「检查更新」同时显示当前分支和提交号，装测试分支时可以确认装的是哪一版。\n\n说明\n- 本版本没有开发启动读取加速。要先用新的体检比较开关现有加速（柏宝库、鸡尾酒+）前后的实际传输，确认仍有缺口再决定；测量步骤见 docs/implementation-1.9.0.md。\n- 以上改动只在模拟页面里测试过，还没有在真实酒馆和真机上验证。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
 
 // src/ui/dom.js
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
@@ -232,16 +232,21 @@ function presetIndex(name) {
   const { preset_names } = pm().getPresetList();
   return Array.isArray(preset_names) ? preset_names.indexOf(name) : preset_names[name];
 }
-function readPreset(name) {
+// 当前预设的条目以酒馆内存（oai_settings）为准，其他字段取预设列表。
+// 只拼出引用、不复制；大预设每复制一次都要几十毫秒，以前读一次要整份复制三遍。
+var LIVE_PRESET_KEYS = ["prompts", "prompt_order", "extensions"];
+function presetView(name) {
   const { presets } = pm().getPresetList();
   const idx = presetIndex(name);
   if (idx === void 0 || idx < 0 || !presets[idx]) throw new Error(`未找到预设「${name}」`);
-  const base = structuredClone(presets[idx]);
-  if (name === currentPresetName() && mods.openai?.getChatCompletionPreset) {
-    const live = mods.openai.getChatCompletionPreset(mods.openai.oai_settings);
-    for (const k of ["prompts", "prompt_order", "extensions"]) if (live[k] !== void 0) base[k] = structuredClone(live[k]);
-  }
-  return base;
+  const live = name === currentPresetName() ? mods.openai?.oai_settings : null;
+  if (!live) return presets[idx];
+  const view = { ...presets[idx] };
+  for (const k of LIVE_PRESET_KEYS) if (live[k] !== void 0) view[k] = live[k];
+  return view;
+}
+function readPreset(name) {
+  return structuredClone(presetView(name));
 }
 function replaceInPlace(target, src) {
   for (const k of Object.keys(target)) if (!(k in src)) delete target[k];
@@ -253,6 +258,32 @@ function refreshBaibaiGroupCache(name) {
   if (!state || typeof state !== "object" || state.presetPromptGroupRuntimePresetName !== name) return;
   delete state.presetPromptGroupRuntimePresetName;
   delete state.presetPromptGroupRuntimeState;
+}
+// 酒馆收到 OAI_PRESET_CHANGED_AFTER 后会把整份提示词试生成一遍（算 token）、再重画原生条目列表，
+// 大预设在手机上每次要卡一两秒。面板开着时连续修改只记下来，关面板或切到后台时通知一次。
+// 生成直接读 oai_settings（保存时已原地更新），不依赖这个通知。
+var pendingPresetNotice = null;
+async function notifyPresetChangedAfter(name) {
+  if (typeof panelVisible === "function" && panelVisible()) {
+    pendingPresetNotice = name;
+    return;
+  }
+  pendingPresetNotice = null;
+  const et2 = ctx().eventTypes || ctx().event_types;
+  await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
+}
+async function flushPresetNotice() {
+  const name = pendingPresetNotice;
+  pendingPresetNotice = null;
+  // 期间在酒馆里换了预设：酒馆换预设时自己会刷新，旧通知作废
+  if (!name || name !== currentPresetName()) return;
+  try {
+    refreshBaibaiGroupCache(name);
+    const et2 = ctx().eventTypes || ctx().event_types;
+    await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
+  } catch (e) {
+    console.warn("[焦香鸡翅] 通知酒馆刷新预设失败", e);
+  }
 }
 // backup：写之前把服务器上的旧版本存一份备份（每批修改只存一次，由调用方决定）
 async function writePreset(name, data, reason = "保存", { backup = true } = {}) {
@@ -297,7 +328,7 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     // 不清缓存时，柏宝箱下一次保存会把旧分组写回来。以前借用导入事件清缓存，
     // 会误触发其他扩展的「导入自动迁移」；现在仅清理已核对的两个运行时字段。
     refreshBaibaiGroupCache(name);
-    await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
+    await notifyPresetChangedAfter(name);
     // 原生正则每次执行都读取预设数据；PRESET_CHANGED 还会刷新正则面板。
     // 仅通知已获原生许可的预设，避免在本面板下弹出酒馆的首次信任确认。
     const activation = presetRegexActivationInfo(name);
@@ -2310,7 +2341,11 @@ function checkpoint(d) {
 function queueAutoSave(name) {
   clearTimeout(autoTimers.get(name));
   // 冲突或备份失败时，等用户决定，不再自动重试（否则会一直弹窗或直接盖掉别处的修改）
-  if (saveBlocked.has(name)) return;
+  if (saveBlocked.has(name)) {
+    const d = drafts.get(name);
+    if (d?.dirty) checkpoint(d);
+    return;
+  }
   autoTimers.set(name, setTimeout(() => {
     autoTimers.delete(name);
     saveDraft(name, "自动保存").catch((e) => handleSaveError(name, e));
@@ -2318,6 +2353,8 @@ function queueAutoSave(name) {
 }
 function handleSaveError(name, e) {
   saveErrors.set(name, e.message);
+  const d = drafts.get(name);
+  if (d?.dirty) checkpoint(d);
   if (e.kind === "conflict" || e.kind === "backup") {
     saveBlocked.set(name, { kind: e.kind, message: e.message });
     notifyDraft(name);
@@ -2417,14 +2454,20 @@ function unblock(name) {
 function notifyDraft(name, kind = "status") {
   for (const fn of listeners) { try { fn(name, kind); } catch (e) { console.error(e); } }
 }
+// 本地草稿不再每改一下就整份写进 localStorage（大预设每次要整份序列化，手机上明显卡）。
+// 350 毫秒后自动保存成功就不需要草稿；保存失败、被挡住、切到后台或关页面时才写草稿。
 function emitChange(name) {
   const d = drafts.get(name);
-  if (d?.dirty) { checkpoint(d); queueAutoSave(name); }
+  if (d?.dirty) queueAutoSave(name);
   notifyDraft(name, "content");
 }
 function presetSig(p) {
   try { return JSON.stringify({ prompts: p?.prompts, prompt_order: p?.prompt_order, extensions: p?.extensions }); }
   catch { return null; }
+}
+// 只核对是否一致时不必先复制整份预设
+function livePresetSig(name) {
+  return presetSig(presetView(name));
 }
 // 让核心逻辑（缝合、接入思维链）也认得「思维链」页里手动指定的思维链
 function attachCotManual(d) {
@@ -2521,7 +2564,7 @@ function dropClean() {
     // 旧版会继续拿内存里的旧草稿干活，下一次自动保存就把这些改动盖回去。
     // 现在发现酒馆里的预设和上次保存的不一样，就丢掉旧草稿重新读。
     let live = null;
-    try { live = presetSig(readPreset(n)); } catch { live = null; }
+    try { live = livePresetSig(n); } catch { live = null; }
     if (!d.savedSig || live !== d.savedSig) drafts.delete(n);
   }
 }
@@ -2538,7 +2581,7 @@ async function saveDraft(name, reason = "保存") {
       // 写之前核对：酒馆里的预设和上次读到/存进去的是否一样。不一样说明别处改过，不能直接盖
       if (!d.forceOnce && d.savedSig) {
         let live = null;
-        try { live = presetSig(readPreset(name)); } catch { live = null; }
+        try { live = livePresetSig(name); } catch { live = null; }
         if (live !== null && live !== d.savedSig) {
           checkpoint(d);
           throw Object.assign(new Error("预设在别处被修改过"), { kind: "conflict" });
@@ -2553,7 +2596,7 @@ async function saveDraft(name, reason = "保存") {
       d.skipBackupOnce = false;
       d.batchSaved = true;
       // 每次写完都记下新的基准，下一轮核对才不会把自己刚写的当成「别处改过」
-      try { d.savedSig = presetSig(readPreset(name)); } catch { d.savedSig = presetSig(data); }
+      try { d.savedSig = livePresetSig(name); } catch { d.savedSig = presetSig(data); }
       if (drafts.get(name) !== d) break;
       if (JSON.stringify(d.toPreset()) === sent) {
         d.dirty = false;
@@ -2591,7 +2634,7 @@ async function confirmDraft(name) {
 }
 
 // src/core/macros.js
-var VAR_MACRO = /^(set|get|add|inc|dec)(global)?var$/i;
+var VAR_MACRO = /^(set|get|add|inc|dec|has|flush|delete)(global)?var$|^(global)?varexists$/i;
 function scanTopMacros(text) {
   const out = [];
   const s = String(text ?? "");
@@ -2629,19 +2672,24 @@ function scanTopMacros(text) {
   }
   return out;
 }
+// 与「变量顺序」检查共用的写法：{{getvar::x}}，也接受单参数的空格写法 {{getvar x}}。
+// hasvar / varexists 记为 has（存在判断），deletevar / flushvar 记为 flush。
 function parseVarMacro(inner) {
-  const first = inner.indexOf("::");
-  const head = (first < 0 ? inner : inner.slice(0, first)).trim();
-  const m = VAR_MACRO.exec(head);
+  const head = /^\s*([a-z]+)(?=::|\s|$)/i.exec(inner);
+  if (!head) return null;
+  const m = VAR_MACRO.exec(head[1]);
   if (!m) return null;
-  const rest = first < 0 ? "" : inner.slice(first + 2);
+  const op = m[1] ? m[1].toLowerCase() === "delete" ? "flush" : m[1].toLowerCase() : "has";
+  const after = inner.slice(head[0].length);
+  if (after && !/^(::|\s)/.test(after)) return null;
+  const rest = after.trimStart().replace(/^::/, "");
   const second = rest.indexOf("::");
   const name = (second < 0 ? rest : rest.slice(0, second)).trim();
   const value = second < 0 ? null : rest.slice(second + 2);
   return {
-    op: m[1].toLowerCase(),
-    // set | get | add | inc | dec
-    scope: m[2] ? "global" : "local",
+    op,
+    // set | get | add | inc | dec | has | flush
+    scope: m[2] || m[3] ? "global" : "local",
     name,
     value
   };
@@ -2934,7 +2982,7 @@ function analyzeIndexed(draft, manual) {
   const cotSet = new Set(cotIds);
   const vars = /* @__PURE__ */ new Map();
   const touch = (name) => {
-    if (!vars.has(name)) vars.set(name, { writers: [], readers: [], initOnly: [] });
+    if (!vars.has(name)) vars.set(name, { writers: [], readers: [], initOnly: [], checkers: [] });
     return vars.get(name);
   };
   const writesOf = /* @__PURE__ */ new Map();
@@ -2951,6 +2999,12 @@ function analyzeIndexed(draft, manual) {
         r.add(key);
         continue;
       }
+      // hasvar / varexists 只判断有没有，不输出值：记作开关用途，不当成内容读取
+      if (m.op === "has") {
+        touch(key).checkers.push(id);
+        continue;
+      }
+      if (m.op === "flush") continue;
       if (m.op === "set" || m.op === "add") {
         if (isBlankValue(m.value)) {
           touch(key).initOnly.push(id);
@@ -2969,6 +3023,7 @@ function analyzeIndexed(draft, manual) {
     v.writers = [...new Set(v.writers)];
     v.readers = [...new Set(v.readers)];
     v.initOnly = [...new Set(v.initOnly)];
+    v.checkers = [...new Set(v.checkers)];
   }
   const cot = cotIds.map((id) => {
     const reads = [...readsOf.get(id) || []].map((name) => ({
@@ -3080,7 +3135,7 @@ function analyzeIndexed(draft, manual) {
   const issues = [];
   const optional = [];
   for (const [name, v] of vars) {
-    if (v.writers.length && !v.readers.length && !/cot$/i.test(name)) {
+    if (v.writers.length && !v.readers.length && !v.checkers.length && !/cot$/i.test(name)) {
       const off = [...allReaders.get(name) || []].map((x) => draft.prompt(x)?.name || x);
       const why = off.length ? `。读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等条目" : ""}未开启` : "。预设中没有找到读取它的条目（用脚本、条件宏或其他扩展读取的，这里看不出来）";
       const registrationOnly = v.writers.every(id => detectShape(draft.prompt(id)?.content).shape === "tagname");
@@ -3091,8 +3146,10 @@ function analyzeIndexed(draft, manual) {
       optional.push({ varName: name, ids: v.readers });
     }
   }
+  // 与上面「间接读到」同一口径：读取它的条目再写入思维链读取的变量，或被思维链点名，都算思维链读到了
+  const reachesCot = (v) => v.readers.some((r) => cotSet.has(r) || [...writesOf.get(r) || []].some((k2) => (vars.get(k2)?.readers || []).some((x) => cotSet.has(x))) || !!findMention(r));
   for (const [name, v] of vars) {
-    if (/cot$/i.test(name) && v.writers.length && !v.readers.some((r) => cotSet.has(r))) {
+    if (/cot$/i.test(name) && v.writers.length && !reachesCot(v)) {
       issues.push({ kind: "cotfrag", varName: name, ids: v.writers, text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
     }
   }
@@ -3176,6 +3233,8 @@ function variableRepairPlan(d, key, manual = d.cotManual || {}) {
     .filter((o) => listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && WRITE.includes(m.op)));
   if (!touches.length) throw new Error("没有开启的条目写入该变量");
   if (/cot$/i.test(name)) throw new Error("该变量可能保存思维链片段，请使用「接入思维链」核对读取位置，未添加通用读取");
+  const checker = d.order.find((o) => d.isActive(o.identifier) && listVarMacros(d.prompt(o.identifier)?.content).some((m) => same(m) && m.op === "has"));
+  if (checker) throw new Error(`「${d.prompt(checker.identifier)?.name || checker.identifier}」用 hasvar 判断该变量是否存在，它更像内部开关，不需要把值输出给模型，未添加通用读取`);
   for (const o of touches) {
     const p = d.prompt(o.identifier);
     const nm = p.name || o.identifier;
@@ -3372,7 +3431,7 @@ function bindVariableWatch(on, events) {
 }
 
 // src/core/replycheck.js
-// 只检查可见回复的标签与明显格式问题，不改写回复，也不索取思考过程。
+// 只检查可见回复的标签与明显格式问题，也不索取思考过程。改写只在用户确认「修正标签」后进行，且只移动或补写标签。
 function replyRuleTag(value, field) {
   if (typeof value !== "string" || !/^[A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39}$/u.test(value.trim())) {
     throw new Error(`${field}须为 1–40 个字的标签名，以字母、中文或下划线开头，仅含字母、数字、中文、下划线或短横线`);
@@ -3468,7 +3527,49 @@ function replyCheckMask(text, preserveCode = false) {
   }).join("");
 }
 
-function checkReplyFormat(text, inputRules) {
+// 正文标签外、未被任何成对标签包住的文字。代码块与注释已被遮住，单个 HTML 标签本身不算字。
+function replyPairRanges(masked) {
+  const ranges = [];
+  const stack = [];
+  const any = /<\s*(\/?)\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]*)(?:\s+[^<>]*?)?\s*(\/?)>/gu;
+  let match;
+  while ((match = any.exec(masked))) {
+    if (match[3]) continue;
+    const key = match[2].toLowerCase();
+    if (!match[1]) { stack.push({ key, start: match.index }); continue; }
+    const index = stack.map((open) => open.key).lastIndexOf(key);
+    if (index < 0) continue;
+    ranges.push({ key, start: stack[index].start, end: any.lastIndex });
+    stack.splice(index);
+  }
+  return ranges;
+}
+function replyLooseText(source, masked, covered) {
+  const ranges = [...covered, ...replyPairRanges(masked)].sort((a, b) => a.start - b.start);
+  const parts = [];
+  let cursor = 0;
+  const take = (end) => {
+    if (end <= cursor) return;
+    const visible = masked.slice(cursor, end).replace(/<[^<>]*>/g, (tag) => " ".repeat(tag.length));
+    const letters = (visible.match(/[\p{L}\p{N}]/gu) || []).length;
+    if (letters) parts.push({ start: cursor, end, letters, excerpt: source.slice(cursor, end).replace(/<[^<>]*>/g, "").replace(/\s+/g, " ").trim().slice(0, 80) });
+  };
+  for (const range of ranges) {
+    take(range.start);
+    cursor = Math.max(cursor, range.end);
+  }
+  take(masked.length);
+  return parts;
+}
+
+// 推理字段只在本地查标签位置，不展示、不发送。正文标签已在可见回复里时不看推理，避免把模型自述的计划误判。
+function replyReasoningHasBody(reasoning, bodyTag) {
+  const text = replyCheckMask(String(reasoning || ""));
+  const name = bodyTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`<\\s*${name}(?:\\s+[^<>]*?)?\\s*>`, "iu").test(text);
+}
+
+function checkReplyFormat(text, inputRules, extra = {}) {
   const rules = normalizeReplyRules(inputRules);
   const source = String(text == null ? "" : text);
   const masked = replyCheckMask(source);
@@ -3479,11 +3580,11 @@ function checkReplyFormat(text, inputRules) {
   const stats = new Map([...watched].map((key) => [key, { opens: 0, closes: 0, selfClosing: 0, ranges: [] }]));
   const issues = [];
   const seen = new Set();
-  const add = (kind, text, tag) => {
+  const add = (kind, text, tag, excerpt) => {
     const key = `${kind}\n${tag || ""}\n${text}`;
     if (!seen.has(key)) {
       seen.add(key);
-      issues.push({ kind, text, ...(tag ? { tag } : {}) });
+      issues.push({ kind, text, ...(tag ? { tag } : {}), ...(excerpt ? { excerpt } : {}) });
     }
   };
   const stack = [];
@@ -3535,6 +3636,22 @@ function checkReplyFormat(text, inputRules) {
     else if (!stat.closes) add("missing", `缺少 </${tag}> 结束标签`, tag);
     if (stat.opens + stat.selfClosing > 1 || stat.closes > 1) add("duplicate", `「${tag}」应完整成对出现一次，当前重复出现`, tag);
   }
+  const body = stats.get(bodyKey);
+  const reasoning = typeof extra.reasoning === "string" ? extra.reasoning : "";
+  if (!body.opens && !body.closes && reasoning.trim()) {
+    if (replyReasoningHasBody(reasoning, rules.bodyTag)) add("reasoning", `酒馆把带 <${rules.bodyTag}> 的部分解析进了思考区，聊天里看到的正文可能缺失或不全`, rules.bodyTag);
+    else if (!source.replace(/<[^<>]*>/g, "").trim() && reasoning.trim().length >= 200) add("reasoning", "可见回复为空，但思考区有大段内容；正文可能被整段解析进思考区", rules.bodyTag);
+  }
+  if (body.opens) {
+    const covered = [...scopeRanges];
+    for (const [key] of required) for (const range of stats.get(key).ranges) covered.push(range);
+    const firstBody = Math.min(...body.ranges.map((range) => range.start), ...scopeRanges.filter((range) => range.key === bodyKey).map((range) => range.start));
+    for (const part of replyLooseText(replyCheckMask(source, true), masked, covered)) {
+      if (part.letters < 20) continue;
+      if (part.end <= firstBody) add("outside", `正文标签前有约 ${part.letters} 字没有被任何标签包住，可能是外泄的思考或分析（爆思维链）`, rules.bodyTag, part.excerpt);
+      else add("outside", `正文结束后还有约 ${part.letters} 字没有被标签包住，可能是外泄的分析、总结或掉出正文的段落`, rules.bodyTag, part.excerpt);
+    }
+  }
   const visibleSource = replyCheckMask(source, true);
   for (const range of stats.get(bodyKey).ranges) {
     const content = visibleSource.slice(range.contentStart, range.contentEnd).replace(/<[^<>]*>/g, "").trim();
@@ -3557,7 +3674,143 @@ function buildReplyReminder(report, inputRules) {
   if (!report?.issues?.length) return "";
   const rules = normalizeReplyRules(inputRules || report.rules);
   const tags = [rules.bodyTag, ...rules.requiredTags].filter((tag, index, list) => list.findIndex((item) => item.toLowerCase() === tag.toLowerCase()) === index);
-  return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。正文不夹入思考步骤或内部分析；无需展示思考过程，也不要复述上一轮内容。`;
+  const kinds = new Set(report.issues.map((issue) => issue.kind));
+  const body = `<${rules.bodyTag}>`;
+  // 按上一轮的具体问题加一句针对性要求，只说格式，不要求展示思考
+  const extra = [];
+  if (kinds.has("swallowed") || kinds.has("reasoning")) extra.push(`上一轮正文被写进了思考区：思考标签必须在 ${body} 开始之前闭合。`);
+  if (report.issues.some((issue) => issue.kind === "outside" && issue.text.startsWith("正文标签前"))) extra.push(`上一轮在 ${body} 之前直接输出了分析文字：正文标签外不要写任何分析、计划或说明。`);
+  else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文写完即结束，不追加说明或总结。`);
+  if (kinds.has("leak")) extra.push(`正文内不得出现思考标签。`);
+  if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
+  return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}正文不夹入思考步骤或内部分析；无需展示思考过程，也不要复述上一轮内容。`;
+}
+
+// ---- 修正标签：只改名、补齐或移动标签，不增删正文文字。修不了的返回 null，交给人工。
+var REPLY_BODY_ALIASES = ["正文", "正文内容", "内容", "故事", "回复", "content", "contents", "body", "main", "maintext", "main_text", "story", "text", "reply", "response", "output"];
+function replyTagTokens(masked, keys) {
+  const out = [];
+  const tags = /<\s*(\/?)\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]*)(?:\s+[^<>]*?)?\s*(\/?)>/gu;
+  let match;
+  while ((match = tags.exec(masked))) {
+    const key = match[2].toLowerCase();
+    if (keys && !keys.has(key)) continue;
+    out.push({ key, name: match[2], closing: !!match[1], selfClosing: !!match[3], start: match.index, end: tags.lastIndex });
+  }
+  return out;
+}
+function replyBodyAlias(source, masked, rules) {
+  const thinking = new Set(rules.thinkingTags.map((tag) => tag.toLowerCase()));
+  const taken = new Set(rules.requiredTags.map((tag) => tag.toLowerCase()));
+  const names = REPLY_BODY_ALIASES.filter((name) => !thinking.has(name.toLowerCase()) && !taken.has(name.toLowerCase()));
+  if (!names.some((name) => name.toLowerCase() === rules.bodyTag.toLowerCase())) names.push(rules.bodyTag);
+  const escaped = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const forms = [
+    [new RegExp(`<\\s*(${escaped})\\s*>`, "giu"), (name) => new RegExp(`<\\s*/\\s*${name}\\s*>`, "iu")],
+    [new RegExp(`【\\s*(${escaped})\\s*】`, "giu"), (name) => new RegExp(`【\\s*/\\s*${name}\\s*】`, "iu")],
+    [new RegExp(`\\[\\s*(${escaped})\\s*\\]`, "giu"), (name) => new RegExp(`\\[\\s*/\\s*${name}\\s*\\]`, "iu")]
+  ];
+  for (const [openRe, closeOf] of forms) {
+    let open;
+    while ((open = openRe.exec(masked))) {
+      const isBody = open[1].toLowerCase() === rules.bodyTag.toLowerCase();
+      // 尖括号写法的正确标签名已由检查器处理；这里只接手方括号写法或别名
+      if (isBody && open[0].startsWith("<")) continue;
+      const rest = masked.slice(openRe.lastIndex);
+      const close = closeOf(open[1].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).exec(rest);
+      return {
+        open: { start: open.index, end: openRe.lastIndex, raw: source.slice(open.index, openRe.lastIndex) },
+        close: close ? { start: openRe.lastIndex + close.index, end: openRe.lastIndex + close.index + close[0].length, raw: close[0] } : null
+      };
+    }
+  }
+  return null;
+}
+function planReplyFix(text, inputRules, extra = {}) {
+  const rules = normalizeReplyRules(inputRules);
+  const body = rules.bodyTag, bodyKey = body.toLowerCase();
+  const thinking = new Set(rules.thinkingTags.map((tag) => tag.toLowerCase()));
+  const requiredKeys = new Set(rules.requiredTags.map((tag) => tag.toLowerCase()));
+  let mes = String(text == null ? "" : text);
+  let reasoning = typeof extra.reasoning === "string" ? extra.reasoning : null;
+  const steps = [];
+  const bodyTokens = () => replyTagTokens(replyCheckMask(mes), new Set([bodyKey])).filter((t) => !t.selfClosing);
+  // 1. 正文被酒馆解析进思考区：把思考区里的正文块移回可见回复开头
+  if (reasoning && !bodyTokens().length && replyReasoningHasBody(reasoning, body)) {
+    const masked = replyCheckMask(reasoning);
+    const tokens = replyTagTokens(masked, new Set([bodyKey])).filter((t) => !t.selfClosing);
+    const open = tokens.find((t) => !t.closing);
+    const close = open && tokens.find((t) => t.closing && t.start > open.start);
+    const end = close ? close.end : reasoning.length;
+    let block = reasoning.slice(open.start, end).trim();
+    if (!close) block += `\n</${body}>`;
+    reasoning = (reasoning.slice(0, open.start).trimEnd() + "\n" + reasoning.slice(end).trimStart()).trim();
+    mes = block + (mes.trim() ? "\n" + mes.trimStart() : "");
+    steps.push(`把思考区里的 <${body}>…</${body}> 移回可见回复开头${close ? "" : "，并补上结束标签"}`);
+  }
+  // 2. 正文标签写错名或用了方括号：改成配置的正文标签
+  if (!bodyTokens().length) {
+    const alias = replyBodyAlias(mes, replyCheckMask(mes), rules);
+    if (alias) {
+      const { open, close } = alias;
+      mes = mes.slice(0, open.start) + `<${body}>` + (close ? mes.slice(open.end, close.start) + `</${body}>` + mes.slice(close.end) : mes.slice(open.end));
+      steps.push(close ? `把 ${open.raw}…${close.raw} 改成 <${body}>…</${body}>` : `把 ${open.raw} 改成 <${body}>`);
+    }
+  }
+  // 3. 正文落在思考标签里
+  {
+    const masked = replyCheckMask(mes);
+    const tokens = replyTagTokens(masked, new Set([bodyKey, ...thinking])).filter((t) => !t.selfClosing);
+    const bodyOpen = tokens.find((t) => t.key === bodyKey && !t.closing);
+    const thinkOpen = bodyOpen && [...tokens].reverse().find((t) => thinking.has(t.key) && !t.closing && t.start < bodyOpen.start);
+    if (thinkOpen) {
+      const thinkClose = tokens.find((t) => t.key === thinkOpen.key && t.closing && t.start > thinkOpen.start);
+      const closedBefore = thinkClose && thinkClose.start < bodyOpen.start;
+      if (!thinkClose) {
+        // 思考标签没有结束：在正文开始前补上
+        mes = mes.slice(0, bodyOpen.start).trimEnd() + `\n</${thinkOpen.name}>\n` + mes.slice(bodyOpen.start);
+        steps.push(`在 <${body}> 前补上 </${thinkOpen.name}>，让思考区在正文开始前结束`);
+      } else if (!closedBefore) {
+        const bodyClose = tokens.find((t) => t.key === bodyKey && t.closing && t.start > bodyOpen.start);
+        if (bodyClose && bodyClose.end <= thinkClose.start) {
+          // 整段正文在思考区内：移到思考区结束之后
+          const block = mes.slice(bodyOpen.start, bodyClose.end);
+          const inner = mes.slice(0, bodyOpen.start).trimEnd() + "\n" + mes.slice(bodyClose.end, thinkClose.start).trimStart();
+          mes = inner.trimEnd() + "\n" + mes.slice(thinkClose.start, thinkClose.end) + "\n" + block + mes.slice(thinkClose.end);
+          steps.push(`把 <${body}>…</${body}> 从 <${thinkOpen.name}> 里移到 </${thinkOpen.name}> 之后`);
+        }
+      }
+    }
+  }
+  // 4. 只有开头或只有结尾：补齐另一半
+  {
+    const masked = replyCheckMask(mes);
+    const tokens = bodyTokens();
+    const opens = tokens.filter((t) => !t.closing), closes = tokens.filter((t) => t.closing);
+    if (opens.length === 1 && !closes.length) {
+      const after = replyTagTokens(masked).find((t) => !t.closing && !t.selfClosing && t.start > opens[0].end && (requiredKeys.has(t.key) || thinking.has(t.key)));
+      let end = after ? after.start : mes.length;
+      const trim = () => { while (end > opens[0].end && /\s/.test(mes[end - 1])) end--; };
+      trim();
+      // 末尾单独成行的完整标签块（如状态栏）留在正文之外
+      let tail = null;
+      if (!after) {
+        const pairs = replyPairRanges(masked).filter((r) => r.start > opens[0].end && r.key !== bodyKey);
+        for (let r; (r = pairs.find((x) => x.end === end && /(^|\n)[ \t]*$/.test(mes.slice(0, x.start))));) { end = r.start; tail = r; trim(); }
+      }
+      const stop = after || tail;
+      mes = mes.slice(0, end) + `\n</${body}>` + (stop ? "\n" + mes.slice(end).replace(/^\s*/, "") : mes.slice(end));
+      steps.push(stop ? `在 ${masked.slice(stop.start, masked.indexOf(">", stop.start) + 1)} 前补上 </${body}>` : `在回复末尾补上 </${body}>`);
+    } else if (closes.length === 1 && !opens.length) {
+      const thinkClose = replyTagTokens(masked, thinking).filter((t) => t.closing && t.end <= closes[0].start).at(-1);
+      let start = thinkClose ? thinkClose.end : 0;
+      while (start < closes[0].start && /\s/.test(mes[start])) start++;
+      mes = mes.slice(0, start) + `<${body}>\n` + mes.slice(start);
+      steps.push(thinkClose ? `在 </${thinkClose.name}> 之后补上 <${body}>` : `在回复开头补上 <${body}>`);
+    }
+  }
+  if (!steps.length) return null;
+  return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "" }) };
 }
 
 // src/core/semanticreview.js
@@ -3616,11 +3869,11 @@ function prepareReplyGuard(type, _options, dryRun) {
     // 续写需要延续已有标签，要求再输出一整对可能制造重复，留给手动检查。
     if (!replyGuardAvailable(c) || !config?.enabled || dryRun || ["quiet", "impersonate", "first_message", "continue"].includes(type)) return;
     if (c.mainApi && c.mainApi !== "openai") return;
-    // 按当前 mes 重算，编辑、删除、滑动后不会沿用旧问题；不检查 extra.reasoning。
+    // 按当前 mes 重算，编辑、删除、滑动后不会沿用旧问题。extra.reasoning 只在可见回复没有正文标签时本地查标签位置。
     const latest = latestReplyForCheck(c.chat);
     if (!latest) return;
     const rules = normalizeReplyRules(config);
-    const reminder = buildReplyReminder(checkReplyFormat(latest.message.mes, rules), rules);
+    const reminder = buildReplyReminder(checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning }), rules);
     if (reminder) c.setExtensionPrompt(REPLY_GUARD_KEY, reminder, 1, 0, false, 0);
   } catch (e) {
     console.warn("[焦香鸡翅] 正文格式检查失败", e);
@@ -3630,6 +3883,42 @@ function bindReplyGuard(on, events) {
   on(events.GENERATION_AFTER_COMMANDS, prepareReplyGuard);
   for (const ev of [events.CHAT_CHANGED, events.PRESET_CHANGED, events.GENERATION_STARTED, events.GENERATION_ENDED, events.GENERATION_STOPPED]) on(ev, clearReplyGuard);
   cleanups.push(clearReplyGuard);
+}
+
+// 修正标签：确认后改写这一楼的原文（及推理字段），保留修正前内容供撤销。
+function replyMessageSnapshot(index) {
+  const c = ctx(), m = c.chat?.[index];
+  if (!m) return null;
+  return JSON.stringify([String(c.getCurrentChatId?.() || c.chatId || ""), index, m.swipe_id ?? null, m.mes, m.extra?.reasoning ?? null]);
+}
+async function writeReplyMessage(index, mes, reasoning) {
+  const c = ctx(), m = c.chat[index];
+  m.mes = mes;
+  if (Array.isArray(m.swipes) && Number.isInteger(m.swipe_id) && m.swipes[m.swipe_id] !== undefined) m.swipes[m.swipe_id] = mes;
+  if (reasoning !== undefined) {
+    m.extra = m.extra || {};
+    m.extra.reasoning = reasoning;
+    const info = Array.isArray(m.swipe_info) && Number.isInteger(m.swipe_id) ? m.swipe_info[m.swipe_id] : null;
+    if (info?.extra) info.extra.reasoning = reasoning;
+  }
+  c.updateMessageBlock?.(index, m);
+  const ev = c.eventTypes || c.event_types;
+  // 与酒馆手动编辑一致地通知，让其他扩展（如状态栏渲染）按新原文刷新
+  if (ev?.MESSAGE_EDITED) await c.eventSource?.emit(ev.MESSAGE_EDITED, index);
+  if (ev?.MESSAGE_UPDATED) await c.eventSource?.emit(ev.MESSAGE_UPDATED, index);
+  await c.saveChat?.();
+}
+async function applyReplyFix(index, plan, snapshot) {
+  if (replyMessageSnapshot(index) !== snapshot) throw new Error("这条回复已变化，请重新检查");
+  const m = ctx().chat[index];
+  const undo = { index, mes: m.mes, reasoning: plan.reasoningChanged ? (m.extra?.reasoning ?? "") : undefined };
+  await writeReplyMessage(index, plan.text, plan.reasoningChanged ? plan.reasoning : undefined);
+  undo.snapshot = replyMessageSnapshot(index);
+  return undo;
+}
+async function undoReplyFix(undo) {
+  if (replyMessageSnapshot(undo.index) !== undo.snapshot) throw new Error("这条回复在修正后又被改动，无法撤销");
+  await writeReplyMessage(undo.index, undo.mes, undo.reasoning);
 }
 
 // src/maintenance/semanticreview.js
@@ -7862,7 +8151,7 @@ function mountCot(page, app) {
                 <li><span class="pa-lv pa-lv-maybe">文字提及</span><span>思维链中出现该条目的名称或标签。</span></li>
                 <li><span class="pa-lv pa-lv-none">未提及</span><span>思维链中没有出现该条目。</span></li>
                 <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">待核对</span><span>条目把内容存进变量，但没有找到对应的开启读取条目，内容可能没有进入提示词。用脚本、世界书或其他扩展读取的情况，此处无法完整判断。</span></li>
-                <li><span class="pa-lv pa-lv-term">变量修复范围</span><span>识别 set/get/add/inc/dec 的本地与全局变量宏。自动修复仅补缺失的读取、整理部分缝合包裹；计数、思维链片段、条件、脚本、复杂嵌套、动态变量名、读写顺序、被清空覆盖、MVU/酒馆助手等变量系统需人工核对，不代表所有变量问题都能修复。</span></li>
+                <li><span class="pa-lv pa-lv-term">变量修复范围</span><span>识别 set/get/add/inc/dec/hasvar 的本地与全局变量宏（含 {{getvar 名}} 空格写法）。只用 hasvar 判断存在的变量视为开关，不提示补读取。自动修复仅补缺失的读取、整理部分缝合包裹；计数、思维链片段、条件、脚本、复杂嵌套、动态变量名、读写顺序、被清空覆盖、MVU/酒馆助手等变量系统需人工核对，不代表所有变量问题都能修复。</span></li>
                 <li><span class="pa-lv pa-lv-term">接入思维链</span><span>在思维链中加入对该条目的读取或提及，使模型思考时考虑这条内容。按本预设原有的写法添加（变量读取或文字提及），可撤销。规则类条目通常不需要接入；文风、人设、玩法等需要模型重点落实的条目可以接入。</span></li>
                 <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链条目名称特殊、未被自动识别时，在此手动指定；识别错误的，在对应思维链下点「不是思维链」。</span></li>
             </ul>
@@ -7886,8 +8175,10 @@ function mountCot(page, app) {
           : off
             ? `这条把内容存进了变量「${vn}」，读取它的 ${off} 没开，内容可能未进入提示词。开启前请核对原本用途。`
             : `这条把内容存进了变量「${vn}」，未找到开启的读取条目，内容可能未进入提示词。如果是酒馆助手脚本、世界书或其他扩展在读，需要结合实际发送的提示词核对。`;
+        // 同一条目可能写多个变量：下方「变量读到/间接读到」说的是另一个变量，这里只说这一个
+        const other = i.ids.filter((id) => ["var", "chain"].includes(a.coverage.get(id)?.level)).map((id) => `「${nm(id)}」经变量「${esc(String(a.coverage.get(id).via).split(" → ")[0].replace(/^全局:/, ""))}」已被思维链读到`);
         html += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main">${i.ids.map((id) => `「${nm(id)}」`).join("")} → 变量「${vn}」</span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
-                    <p class="pa-hint">${why}</p>
+                    <p class="pa-hint">${why}</p>${other.length ? `<p class="pa-hint">${other.join("；")}，与这里不矛盾：这里说的是变量「${vn}」。</p>` : ""}
                     <div class="pa-card-act">${off ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(i.readersOff.join("|"))}">开启读取它的条目</button>` : ""}
                     <button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
       }
@@ -8080,7 +8371,7 @@ async function replyFormatDialog(name) {
     <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）</span><input class="pa-input" data-r="thinking" value="${esc(saved.thinkingTag || "")}" maxlength="40"></label>
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
-    <p class="pa-hint">检测掉标签、重复/未闭合标签、正文裹进思考标签、正文夹入思考标签和部分疑似推理标题。代码块和注释中的标签示例不计。纯文字的思考泄露无法可靠识别，提醒也不能保证模型遵守；不会改写回复或补造正文。续写时不自动提醒，以免重复标签。模型单独返回的 reasoning 字段不参与检查。</p>
+    <p class="pa-hint">检测掉标签、重复/未闭合标签、正文裹进思考标签、正文夹入思考标签、正文标签外的大段文字（爆思维链）和部分疑似推理标题。代码块和注释中的标签示例不计。可见回复没有正文标签时，会在本地查看思考区里是否有正文标签，不展示、不发送思考内容。标签改名、补齐、移出思考区可一键修正，只动标签位置、不增删文字；掉出的正文无法补造。提醒不能保证模型遵守；续写时不自动提醒，以免重复标签。</p>
     <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
     <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
     <div data-r="result" aria-live="polite"></div>
@@ -8102,21 +8393,49 @@ async function replyFormatDialog(name) {
     return value;
   };
   const result = body.querySelector('[data-r="result"]');
-  body.addEventListener("click", (e) => {
-    const button = e.target.closest('[data-r="latest"], [data-r="paste"]');
+  let pending = null, undo = null;
+  const check = (mode) => {
+    const config = read();
+    let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字", reasoning = "", latest = null;
+    if (mode === "latest") {
+      latest = latestReplyForCheck(ctx().chat);
+      if (!latest) { result.innerHTML = '<p class="pa-hint">没有可检查的 AI 回复（不检查开场白、用户和系统消息）。</p>'; pending = null; return; }
+      text = latest.message.mes;
+      reasoning = latest.message.extra?.reasoning || "";
+      source = `聊天第 ${latest.index + 1} 条消息`;
+    }
+    const report = checkReplyFormat(text, config, { reasoning });
+    const reminder = buildReplyReminder(report, config);
+    const plan = report.issues.length ? planReplyFix(text, config, { reasoning }) : null;
+    pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
+    const left = plan ? plan.after.issues : [];
+    const fix = plan ? `<div class="pa-card"><b>可修正的标签</b><ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+      <p class="pa-hint">${left.length ? `修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}` : "修正后未发现配置范围内的格式问题。"}只移动或补写标签，不增删文字。</p>
+      <details><summary>修正后原文预览</summary><pre class="pa-pre">${esc(plan.text)}</pre></details>
+      ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不会写回聊天，可复制上面的预览。</p>'}</div>` : "";
+    result.innerHTML = `<p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : '<p class="pa-hint">这不代表正文语义、所有变量或其他输出格式已验证。</p>'}`;
+  };
+  body.addEventListener("click", async (e) => {
+    const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"]');
     if (!button) return;
     try {
-      const config = read();
-      let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字";
-      if (button.dataset.r === "latest") {
-        const latest = latestReplyForCheck(ctx().chat);
-        if (!latest) { result.innerHTML = '<p class="pa-hint">没有可检查的 AI 回复（不检查开场白、用户和系统消息）。</p>'; return; }
-        text = latest.message.mes;
-        source = `聊天第 ${latest.index + 1} 条消息`;
+      if (button.dataset.r === "fix") {
+        if (!pending) return;
+        button.disabled = true;
+        undo = await applyReplyFix(pending.index, pending.plan, pending.snapshot);
+        check("latest");
+        result.insertAdjacentHTML("afterbegin", `<p class="pa-p">已修正聊天第 ${undo.index + 1} 条消息的标签。<button class="pa-link" data-r="undo-fix">撤销</button></p>`);
+        return;
       }
-      const report = checkReplyFormat(text, config);
-      const reminder = buildReplyReminder(report, config);
-      result.innerHTML = `<p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}</li>`).join("")}</ul><details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : '<p class="pa-hint">这不代表正文语义、所有变量或其他输出格式已验证。</p>'}`;
+      if (button.dataset.r === "undo-fix") {
+        if (!undo) return;
+        await undoReplyFix(undo);
+        undo = null;
+        check("latest");
+        result.insertAdjacentHTML("afterbegin", '<p class="pa-p">已撤销修正。</p>');
+        return;
+      }
+      check(button.dataset.r);
     } catch (e) { result.innerHTML = `<p class="pa-warn">${esc(e.message)}</p>`; }
   });
   const semanticResult = body.querySelector('[data-r="semantic-result"]');
@@ -10721,6 +11040,7 @@ async function close({ fromBack = false } = {}) {
       actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃没存上的部分", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
     });
     if (!r) return;
+    if (r === "keep") dirty.forEach((d) => checkpoint(d));
     if (r === "drop") dirty.forEach((d) => dropDraft(d.name));
     if (r === "save") {
       for (const d of dirty) {
@@ -10736,6 +11056,7 @@ async function close({ fromBack = false } = {}) {
   }
   rootEl2.hidden = true;
   document.documentElement.classList.remove("pa-open");
+  flushPresetNotice();
   if (backArmed) {
     backArmed = false;
     try { history.back(); } catch {}
@@ -11118,9 +11439,9 @@ async function start() {
   watchMirrorWrites();
   const checkpointAll = () => { for (const d of dirtyDrafts()) checkpoint(d); };
   window.addEventListener("pagehide", checkpointAll);
-  const hiddenCheckpoint = () => { if (document.hidden) checkpointAll(); };
+  const hiddenCheckpoint = () => { if (document.hidden) { checkpointAll(); flushPresetNotice(); } };
   document.addEventListener("visibilitychange", hiddenCheckpoint);
-  cleanups.push(() => { checkpointAll(); window.removeEventListener("pagehide", checkpointAll); document.removeEventListener("visibilitychange", hiddenCheckpoint); for(const t of autoTimers.values()) clearTimeout(t); });
+  cleanups.push(() => { checkpointAll(); flushPresetNotice(); window.removeEventListener("pagehide", checkpointAll); document.removeEventListener("visibilitychange", hiddenCheckpoint); for(const t of autoTimers.values()) clearTimeout(t); });
   window.addEventListener("popstate", onPopState);
   document.addEventListener("keydown", onRootKey);
   cleanups.push(() => { window.removeEventListener("popstate", onPopState); document.removeEventListener("keydown", onRootKey); });

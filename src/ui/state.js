@@ -83,7 +83,11 @@ function checkpoint(d) {
 function queueAutoSave(name) {
   clearTimeout(autoTimers.get(name));
   // 冲突或备份失败时，等用户决定，不再自动重试（否则会一直弹窗或直接盖掉别处的修改）
-  if (saveBlocked.has(name)) return;
+  if (saveBlocked.has(name)) {
+    const d = drafts.get(name);
+    if (d?.dirty) checkpoint(d);
+    return;
+  }
   autoTimers.set(name, setTimeout(() => {
     autoTimers.delete(name);
     saveDraft(name, "自动保存").catch((e) => handleSaveError(name, e));
@@ -91,6 +95,8 @@ function queueAutoSave(name) {
 }
 function handleSaveError(name, e) {
   saveErrors.set(name, e.message);
+  const d = drafts.get(name);
+  if (d?.dirty) checkpoint(d);
   if (e.kind === "conflict" || e.kind === "backup") {
     saveBlocked.set(name, { kind: e.kind, message: e.message });
     notifyDraft(name);
@@ -190,14 +196,20 @@ function unblock(name) {
 function notifyDraft(name, kind = "status") {
   for (const fn of listeners) { try { fn(name, kind); } catch (e) { console.error(e); } }
 }
+// 本地草稿不再每改一下就整份写进 localStorage（大预设每次要整份序列化，手机上明显卡）。
+// 350 毫秒后自动保存成功就不需要草稿；保存失败、被挡住、切到后台或关页面时才写草稿。
 function emitChange(name) {
   const d = drafts.get(name);
-  if (d?.dirty) { checkpoint(d); queueAutoSave(name); }
+  if (d?.dirty) queueAutoSave(name);
   notifyDraft(name, "content");
 }
 function presetSig(p) {
   try { return JSON.stringify({ prompts: p?.prompts, prompt_order: p?.prompt_order, extensions: p?.extensions }); }
   catch { return null; }
+}
+// 只核对是否一致时不必先复制整份预设
+function livePresetSig(name) {
+  return presetSig(presetView(name));
 }
 // 让核心逻辑（缝合、接入思维链）也认得「思维链」页里手动指定的思维链
 function attachCotManual(d) {
@@ -294,7 +306,7 @@ function dropClean() {
     // 旧版会继续拿内存里的旧草稿干活，下一次自动保存就把这些改动盖回去。
     // 现在发现酒馆里的预设和上次保存的不一样，就丢掉旧草稿重新读。
     let live = null;
-    try { live = presetSig(readPreset(n)); } catch { live = null; }
+    try { live = livePresetSig(n); } catch { live = null; }
     if (!d.savedSig || live !== d.savedSig) drafts.delete(n);
   }
 }
@@ -311,7 +323,7 @@ async function saveDraft(name, reason = "保存") {
       // 写之前核对：酒馆里的预设和上次读到/存进去的是否一样。不一样说明别处改过，不能直接盖
       if (!d.forceOnce && d.savedSig) {
         let live = null;
-        try { live = presetSig(readPreset(name)); } catch { live = null; }
+        try { live = livePresetSig(name); } catch { live = null; }
         if (live !== null && live !== d.savedSig) {
           checkpoint(d);
           throw Object.assign(new Error("预设在别处被修改过"), { kind: "conflict" });
@@ -326,7 +338,7 @@ async function saveDraft(name, reason = "保存") {
       d.skipBackupOnce = false;
       d.batchSaved = true;
       // 每次写完都记下新的基准，下一轮核对才不会把自己刚写的当成「别处改过」
-      try { d.savedSig = presetSig(readPreset(name)); } catch { d.savedSig = presetSig(data); }
+      try { d.savedSig = livePresetSig(name); } catch { d.savedSig = presetSig(data); }
       if (drafts.get(name) !== d) break;
       if (JSON.stringify(d.toPreset()) === sent) {
         d.dirty = false;

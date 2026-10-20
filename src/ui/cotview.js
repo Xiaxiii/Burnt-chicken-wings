@@ -128,7 +128,7 @@ function mountCot(page, app) {
                 <li><span class="pa-lv pa-lv-maybe">文字提及</span><span>思维链中出现该条目的名称或标签。</span></li>
                 <li><span class="pa-lv pa-lv-none">未提及</span><span>思维链中没有出现该条目。</span></li>
                 <li><span class="pa-lv pa-lv-none" style="color:var(--pa-warn)">待核对</span><span>条目把内容存进变量，但没有找到对应的开启读取条目，内容可能没有进入提示词。用脚本、世界书或其他扩展读取的情况，此处无法完整判断。</span></li>
-                <li><span class="pa-lv pa-lv-term">变量修复范围</span><span>识别 set/get/add/inc/dec 的本地与全局变量宏。自动修复仅补缺失的读取、整理部分缝合包裹；计数、思维链片段、条件、脚本、复杂嵌套、动态变量名、读写顺序、被清空覆盖、MVU/酒馆助手等变量系统需人工核对，不代表所有变量问题都能修复。</span></li>
+                <li><span class="pa-lv pa-lv-term">变量修复范围</span><span>识别 set/get/add/inc/dec/hasvar 的本地与全局变量宏（含 {{getvar 名}} 空格写法）。只用 hasvar 判断存在的变量视为开关，不提示补读取。自动修复仅补缺失的读取、整理部分缝合包裹；计数、思维链片段、条件、脚本、复杂嵌套、动态变量名、读写顺序、被清空覆盖、MVU/酒馆助手等变量系统需人工核对，不代表所有变量问题都能修复。</span></li>
                 <li><span class="pa-lv pa-lv-term">接入思维链</span><span>在思维链中加入对该条目的读取或提及，使模型思考时考虑这条内容。按本预设原有的写法添加（变量读取或文字提及），可撤销。规则类条目通常不需要接入；文风、人设、玩法等需要模型重点落实的条目可以接入。</span></li>
                 <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链条目名称特殊、未被自动识别时，在此手动指定；识别错误的，在对应思维链下点「不是思维链」。</span></li>
             </ul>
@@ -152,8 +152,10 @@ function mountCot(page, app) {
           : off
             ? `这条把内容存进了变量「${vn}」，读取它的 ${off} 没开，内容可能未进入提示词。开启前请核对原本用途。`
             : `这条把内容存进了变量「${vn}」，未找到开启的读取条目，内容可能未进入提示词。如果是酒馆助手脚本、世界书或其他扩展在读，需要结合实际发送的提示词核对。`;
+        // 同一条目可能写多个变量：下方「变量读到/间接读到」说的是另一个变量，这里只说这一个
+        const other = i.ids.filter((id) => ["var", "chain"].includes(a.coverage.get(id)?.level)).map((id) => `「${nm(id)}」经变量「${esc(String(a.coverage.get(id).via).split(" → ")[0].replace(/^全局:/, ""))}」已被思维链读到`);
         html += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main">${i.ids.map((id) => `「${nm(id)}」`).join("")} → 变量「${vn}」</span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
-                    <p class="pa-hint">${why}</p>
+                    <p class="pa-hint">${why}</p>${other.length ? `<p class="pa-hint">${other.join("；")}，与这里不矛盾：这里说的是变量「${vn}」。</p>` : ""}
                     <div class="pa-card-act">${off ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(i.readersOff.join("|"))}">开启读取它的条目</button>` : ""}
                     <button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button><button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
       }
