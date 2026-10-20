@@ -1,4 +1,4 @@
-# 焦香鸡翅（焦香鸡翅）· Burnt chicken wings 🍗
+# 焦香鸡翅· Burnt chicken wings 🍗
 
 SillyTavern（酒馆）聊天补全预设工具：整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。
 
