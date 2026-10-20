@@ -15,6 +15,7 @@
  "core/replycheck.js",
  "core/semanticreview.js",
  "maintenance/replyguard.js",
+ "maintenance/reasoningbind.js",
  "maintenance/semanticreview.js",
  "ui/list.js",
  "ui/sorttags.js",

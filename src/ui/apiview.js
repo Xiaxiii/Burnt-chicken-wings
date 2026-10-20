@@ -85,6 +85,10 @@ function mountApi(liveBox, sitesBox) {
         <div class="pa-card">
             <label class="pa-inline-check"><input type="checkbox" data-o="chattoast" ${s.chatToast !== false ? "checked" : ""}> 换角色或聊天时，提示当前预设和模型</label>
             ${tip("换预设，API 不变。<br>切换方案，恢复方案保存时的预设、条目开关、人设和 API。<br>提示显示 3 秒后自动关闭。")}
+        </div>
+        <div class="pa-card">
+            <label class="pa-inline-check"><input type="checkbox" data-o="reasoningfollow" ${s.reasoningFollowPreset === true ? "checked" : ""}> 切换预设时，同时切换推理格式</label>
+            ${tip(`开启后，离开一个预设时记下酒馆「推理内容格式化」的设置（自动解析、前缀、后缀等），再切回该预设时自动恢复。未记过的预设保持当前设置。${Object.keys(s.reasoningByPreset || {}).length ? `<br>已记住 ${Object.keys(s.reasoningByPreset).length} 个预设。<button class="pa-link" data-a="reasoningclear">清除记录</button>` : ""}`, "说明")}
         </div>`;
   }
   async function getModels(site) {
@@ -224,12 +228,26 @@ function mountApi(liveBox, sitesBox) {
       settings().chatToast = e.target.checked;
       saveSettings();
     }
+    if (o === "reasoningfollow") {
+      settings().reasoningFollowPreset = e.target.checked;
+      // 打开时先记下当前预设现在的推理格式
+      if (e.target.checked) { initReasoningFollow(); rememberReasoning(); }
+      saveSettings();
+      render();
+    }
   };
   sitesBox.addEventListener("change", onChange);
   const onClick = async (e) => {
     const a = e.target.closest("[data-a]")?.dataset.a;
     if (!a) return;
     const site = sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id);
+    if (a === "reasoningclear") {
+      if (!await confirmBox("清除推理格式记录", "清除所有预设记住的推理格式？当前酒馆设置不变。", "清除")) return;
+      settings().reasoningByPreset = {};
+      if (reasoningFollowOn()) rememberReasoning();
+      saveSettings();
+      return render();
+    }
     if (a === "livemodel" || a === "sitemodel") {
       const live = liveConnection();
       const target = a === "sitemodel" ? site : sites().find((x) => x.id === settings().activeSiteId);
