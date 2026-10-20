@@ -159,7 +159,7 @@ function analyzeIndexed(draft, manual) {
   const cotSet = new Set(cotIds);
   const vars = /* @__PURE__ */ new Map();
   const touch = (name) => {
-    if (!vars.has(name)) vars.set(name, { writers: [], readers: [], initOnly: [] });
+    if (!vars.has(name)) vars.set(name, { writers: [], readers: [], initOnly: [], checkers: [] });
     return vars.get(name);
   };
   const writesOf = /* @__PURE__ */ new Map();
@@ -176,6 +176,12 @@ function analyzeIndexed(draft, manual) {
         r.add(key);
         continue;
       }
+      // hasvar / varexists 只判断有没有，不输出值：记作开关用途，不当成内容读取
+      if (m.op === "has") {
+        touch(key).checkers.push(id);
+        continue;
+      }
+      if (m.op === "flush") continue;
       if (m.op === "set" || m.op === "add") {
         if (isBlankValue(m.value)) {
           touch(key).initOnly.push(id);
@@ -194,6 +200,7 @@ function analyzeIndexed(draft, manual) {
     v.writers = [...new Set(v.writers)];
     v.readers = [...new Set(v.readers)];
     v.initOnly = [...new Set(v.initOnly)];
+    v.checkers = [...new Set(v.checkers)];
   }
   const cot = cotIds.map((id) => {
     const reads = [...readsOf.get(id) || []].map((name) => ({
@@ -302,25 +309,40 @@ function analyzeIndexed(draft, manual) {
       allReaders.get(key).add(id);
     }
   }
+  // 名字只差大小写或空格的变量：酒馆变量名区分大小写，{{setvar::NSFWcot}} 和 {{getvar::NSFWCoT}} 是两个变量
+  const normName = (key) => key.toLowerCase().replace(/\s+/g, "");
+  const readNames = /* @__PURE__ */ new Map();
+  for (const id of order) {
+    for (const m of listVarMacros(draft.prompt(id)?.content || "")) {
+      if (m.op !== "get" || !m.name) continue;
+      const key = (m.scope === "global" ? "全局:" : "") + m.name;
+      if (!readNames.has(normName(key))) readNames.set(normName(key), new Set());
+      readNames.get(normName(key)).add(key);
+    }
+  }
+  const similarOf = (name) => [...readNames.get(normName(name)) || []].filter((k) => k !== name);
   const issues = [];
   const optional = [];
   for (const [name, v] of vars) {
-    if (v.writers.length && !v.readers.length && !/cot$/i.test(name)) {
+    if (v.writers.length && !v.readers.length && !v.checkers.length && !/cot$/i.test(name)) {
       const off = [...allReaders.get(name) || []].map((x) => draft.prompt(x)?.name || x);
       const why = off.length ? `。读取它的「${off.slice(0, 2).join("」「")}」${off.length > 2 ? "等条目" : ""}未开启` : "。预设中没有找到读取它的条目（用脚本、条件宏或其他扩展读取的，这里看不出来）";
       const registrationOnly = v.writers.every(id => detectShape(draft.prompt(id)?.content).shape === "tagname");
       if (registrationOnly) continue;
-      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], text: `写入变量「${name}」，但没有找到读取它的开启条目，这部分内容可能不会发送${why}` });
+      issues.push({ kind: "dead", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], similar: similarOf(name), text: `写入变量「${name}」，但没有找到读取它的开启条目，这部分内容可能不会发送${why}` });
     }
     if (v.readers.length && !v.writers.length) {
       optional.push({ varName: name, ids: v.readers });
     }
   }
+  // 有开启的条目读它，内容就会发给模型；读的位置是预设作者的设计（如万事成真在「格式强调」的部件清单里读草稿小CoT），不算没读
   for (const [name, v] of vars) {
-    if (/cot$/i.test(name) && v.writers.length && !v.readers.some((r) => cotSet.has(r))) {
-      issues.push({ kind: "cotfrag", varName: name, ids: v.writers, text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
+    if (/cot$/i.test(name) && v.writers.length && !v.readers.length && !v.checkers.length) {
+      issues.push({ kind: "cotfrag", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], similar: similarOf(name), text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
     }
   }
-  return { cotIds, vars, cot, coverage, issues, optional, activeSet };
+  // 同时开着几套思维链：开启条目里单独一行的 <thinking>、<think>、<ECoT> 这类开头各算一套
+  const openers = active.filter((id) => !draft.isMarker(id) && /^[ \t]*<\s*(?:thinking|think|[\w-]*cot[\w-]*)\s*>[ \t]*$/im.test(String(draft.prompt(id)?.content || "")));
+  return { cotIds, vars, cot, coverage, issues, optional, activeSet, openers };
 }
 

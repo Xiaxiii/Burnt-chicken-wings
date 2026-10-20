@@ -140,6 +140,9 @@ async function boot(ctx) {
   await page.waitForTimeout(400);
   await page.click("text=全部展开").catch(() => {});
   await page.locator(".pa-list .pa-row .pa-switch").first().click();
+  // 单次修改不再立刻整份写草稿（等自动保存）；关页面/切后台时才写，这里模拟关页面
+  assert.equal(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("presetAtelier:recovery:v180:default-user:") && !k.endsWith(":旧预设")).length), 0, "点一下开关不立刻写整份草稿");
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   await page.waitForTimeout(200);
   const left = await page.evaluate(([o, m]) => [localStorage.getItem(o) !== null, localStorage.getItem(m) !== null], [otherKey, mineKey]);
   assert.deepEqual(left, [true, false], "别的账号的草稿保留，当前账号的旧草稿清掉");

@@ -331,7 +331,7 @@ test("双层分组——成员只是同名分组的一部分时不算重复（1.
   assert.deepEqual(d.toPreset().extensions.entryGrouping.map((g) => g.id), ["x1"]);
 });
 
-test("分组开关独立于内部条目，保存后两种状态分别保留（2.0.2）", () => {
+test("分组开关独立于内部条目，保存后两种状态分别保留（2.2.3）", () => {
   const d = mk([["a", "甲", "x"], ["b", "乙", "y"], ["c", "丙", "z"]]);
   const gid = d.createGroup("组", ["a", "b", "c"]);
   d.setEnabled(["c"], false);
@@ -543,8 +543,17 @@ test("诊断报告：去掉查询参数，角色、头像、聊天文件名换�
   assert.ok(rep.gaps.some((x) => x.includes("聊天可操作")));
 });
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);
+require("./reply-core.cjs");
+require("./reply-runtime.cjs");
+require("./variable-safety.cjs");
+require("./variable-flow.cjs");
+require("./semantic-review.cjs");
+require("./group-repair.cjs");
+require("./host-save.cjs");
+require("./group-classify.cjs");
 require("./group-toggle.cjs");
 require("./performance-core.cjs");
 require("./performance-list.cjs");
+
 require("./regex-core.cjs");
 require("./regex-host.cjs");

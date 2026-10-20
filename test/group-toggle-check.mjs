@@ -1,12 +1,25 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import fixture from './fixtures/group-toggle.cjs';
-import { choose } from './choose.mjs';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [], title = '独立分组开关合成测试';
 const saved = page => page.evaluate(n => structuredClone(window.__mock.presets[window.__mock.names.indexOf(n)]), title);
 const states = p => p.prompt_order[0].order.map(o => [o.identifier, o.enabled]);
 const group = (page, id) => page.locator(`[data-page=organize] .pa-group[data-gid="${id}"]`);
+async function choosePreset(page, name) {
+  const slot = page.locator('[data-page=organize] .pa-picker-slot');
+  if (await slot.locator('select').count()) {
+    await slot.locator('select').selectOption(name);
+  } else {
+    await slot.locator('.pa-namebtn').click();
+    await page.waitForSelector('.pa-npick-item');
+    assert.equal(await page.evaluate(name => {
+      const item = [...document.querySelectorAll('.pa-npick-item')].find(x => x.dataset.v === name);
+      if (item) item.click();
+      return !!item;
+    }, name), true);
+  }
+}
 async function waitGroup(page, id, on) {
   await page.waitForFunction(({ title, id, on }) => {
     const m = window.__mock, p = m.presets[m.names.indexOf(title)];
@@ -31,7 +44,7 @@ try {
       if (gateSupported) window.__baiBaiToolkitExtensionInstalled = {};
       window.__presetAtelier.open('organize');
     }, { title, preset: original, gateSupported });
-    await choose(page, '[data-page=organize] .pa-picker-slot .pa-namebtn', title);
+    await choosePreset(page, title);
     const theater = group(page, 'theater'), extras = group(page, 'extras');
     assert.equal(await theater.locator('.pa-count').innerText(), '1/3');
     assert.equal(await extras.locator('.pa-count').innerText(), '0/2');
@@ -69,7 +82,7 @@ try {
       window.__presetAtelier.open('more', 'schemes');
     }, title);
     for (const h of await page.locator('.pa-sgroup:not(.open) .pa-sghead').all()) await h.click();
-    await page.locator('.pa-srow[data-id="parent-only"] [data-a=apply]').click();
+    await page.locator('[data-id="parent-only"] [data-a=apply]').click();
     await waitGroup(page, 'theater', true);
     assert.deepEqual(states(await saved(page)), chosen);
     assert.deepEqual((await saved(page)).prompts, original.prompts);

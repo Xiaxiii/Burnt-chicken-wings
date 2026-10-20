@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const sourceCode = ['core/model.js', 'core/regex.js'].map(file => fs.readFileSync(path.join(__dirname, '..', 'src', file), 'utf8')).join('\n');
-const A = new Function(sourceCode + '\nreturn { Draft, presetRegexList, presetRegexSnapshot, presetRegexGroupSnapshot, planPresetRegexTransfer, validatePresetRegexTransfer, applyPresetRegexTransfer };')();
+const A = new Function(sourceCode + '\nreturn { Draft, presetRegexList, presetRegexSnapshot, presetRegexGroupSnapshot, planPresetRegexTransfer, validatePresetRegexTransfer, applyPresetRegexTransfer, presetRegexFormatDeps };')();
 const clone = value => JSON.parse(JSON.stringify(value));
 const rule = (id, scriptName, extra = {}) => ({
   id, scriptName, findRegex: '/<status>([\\s\\S]*?)<\\/status>/g',
@@ -545,6 +545,18 @@ test('一次确认把正则与分组一起保存、重读和撤销，不影响�
   assert.equal(to.undo(), '缝合预设正则并分组');
   assert.deepEqual(to.toPreset(), before);
   assert.deepEqual(from.toPreset(), sourceBefore);
+});
+
+test('缝来的格式条目依赖来源显示正则时提醒，目标已有同标签正则或纯发送用正则不提醒', () => {
+  const tail = rule('tail', '果实尾', { findRegex: '/serial[:：](.*)\\ntime[:：](.*)\\nscene\\s*:(.*)/g' });
+  const hidden = rule('hide', '隐藏思考', { findRegex: '/<think>[\\s\\S]*?<\\/think>/g', markdownOnly: false, promptOnly: true });
+  const off = rule('off', '关掉的', { findRegex: '/<off>(.*)<\\/off>/g', disabled: true });
+  const [from, to] = pair([rule('s', '状态栏美化'), tail, hidden, off]);
+  const deps = A.presetRegexFormatDeps(from, to, ['正文末尾输出 <status>\n积分：</status>', '每轮结尾输出：\nserial: 编号\ntime: 时间\nscene: 场景', '<think>想</think>\n<off>x</off>', '普通文风']);
+  assert.deepEqual(deps.map(list => list.map(x => [x.index, x.mark])), [[[0, '<status>']], [[1, 'serial: time: scene:']], [], []]);
+  const [, covered] = pair([], [rule('t', '目标自己的状态栏', { findRegex: '/<STATUS>(.*)<\\/STATUS>/gi' })]);
+  assert.deepEqual(A.presetRegexFormatDeps(from, covered, ['输出 <status></status>'])[0], []);
+  assert.deepEqual(A.presetRegexFormatDeps(draft('坏', 'x'), to, ['<status>']), [[]], '来源正则数据不对时不报错');
 });
 
 console.log(`${passed} 项预设正则搬运核心检查通过`);

@@ -73,7 +73,7 @@ function mountCleanup(sec) {
     <div class="pa-movebar pa-clean-act" hidden></div>`;
   const body = sec.querySelector(".pa-clean-body");
   const act = sec.querySelector(".pa-clean-act");
-  const st = { filter: null, sort: "size", sel: new Set(), rows: [], busy: false, open: new Set(), kind: "preset" };
+  const st = { filter: null, sort: "size", sel: new Set(), rows: [], busy: false, open: new Set(), kind: "preset", pairOpen: new Set(), pairMore: false };
   sec.querySelector(".pa-ckinds").addEventListener("click", (e) => {
     const b = e.target.closest("[data-kind]");
     if (!b || st.busy) return;
@@ -148,9 +148,9 @@ function mountCleanup(sec) {
     const max = all[0] ? Math.max(...all.map((r) => r.size)) : 1;
     const since = settings().presetUseSince;
     const tagChip = (t) => `<span class="pa-chip pa-ctag-${t.k}" title="${esc(t.t)}">${esc(t.t)}</span>`;
-    const row = (r) => `<label class="pa-crow${r.current ? " pa-locked" : ""}${st.sel.has(r.name) ? " on" : ""}">
+    const row = (r, role = "") => `<label class="pa-crow${r.current ? " pa-locked" : ""}${st.sel.has(r.name) ? " on" : ""}">
         <input type="checkbox" data-c="pick" data-n="${esc(r.name)}" ${r.current ? "disabled" : ""} ${st.sel.has(r.name) ? "checked" : ""}>
-        <span class="pa-crow-main"><b>${esc(r.name)}</b><span class="pa-crow-tags">${r.current ? '<span class="pa-chip pa-chip-cot">当前使用</span>' : ""}${r.tags.map(tagChip).join("")}${r.inUse.map((w) => `<span class="pa-chip pa-ctag-use" title="${esc(w)}在用">${esc(w)}在用</span>`).join("")}${r.lastUse ? `<span class="pa-chip pa-chip-dim">${relDay(r.lastUse)}</span>` : since && Date.now() - since > 7 * 864e5 ? '<span class="pa-chip pa-chip-dim">开始记录后未用过</span>' : ""}</span></span>
+        <span class="pa-crow-main"><b>${esc(r.name)}</b><span class="pa-crow-tags">${role}${r.current ? '<span class="pa-chip pa-chip-cot">当前使用</span>' : ""}${role ? "" : r.tags.map(tagChip).join("")}${r.inUse.map((w) => `<span class="pa-chip pa-ctag-use" title="${esc(w)}在用">${esc(w)}在用</span>`).join("")}${r.lastUse ? `<span class="pa-chip pa-chip-dim">${relDay(r.lastUse)}</span>` : since && Date.now() - since > 7 * 864e5 ? '<span class="pa-chip pa-chip-dim">开始记录后未用过</span>' : ""}</span></span>
         <span class="pa-crow-size"><i class="pa-bar"><b style="width:${Math.max(2, Math.round(r.size / max * 100))}%"></b></i><em>${fmtSize(r.size)}</em></span>
       </label>`;
     const archRow = (a, i) => `<div class="pa-crow pa-crow-arch">
@@ -159,12 +159,39 @@ function mountCleanup(sec) {
         <span class="pa-crow-btns"><button class="pa-btn pa-btn-s pa-btn-soft" data-c="restore" data-i="${i}">恢复</button><button class="pa-btn pa-btn-s" data-c="adl" data-i="${i}">下载</button><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-c="adel" data-i="${i}">删除</button></span>
       </div>`;
     const list = view();
+    // 「可清理」按相近的两份（或一份与它的几个旧版）折叠成组，两边都列出来，由玩家决定清理哪一份
+    const byName = new Map(all.map((r) => [r.name, r]));
+    const groups = [];
+    if (st.filter === "suggest") {
+      const at = new Map();
+      for (const r of list) {
+        const ref = r.tags[0]?.ref;
+        const keep = byName.get(ref);
+        if (!keep) { groups.push({ keep: null, items: [r] }); continue; }
+        if (!at.has(ref)) { at.set(ref, { keep, items: [] }); groups.push(at.get(ref)); }
+        at.get(ref).items.push(r);
+      }
+    }
+    const keepWhy = (k, o) => k.current ? "当前使用" : k.inUse.length ? `${k.inUse[0]}在用` : (k.lastUse || 0) > (o.lastUse || 0) ? "最近用过" : o.tags[0]?.k === "old" ? "版本更新" : "";
+    const PAIR_MAX = 8;
+    const pair = (g) => {
+      const first = g.items[0], key = g.keep?.name || first.name;
+      const picked = [g.keep, ...g.items].filter((r) => r && st.sel.has(r.name)).length;
+      const why = g.keep ? keepWhy(g.keep, first) : "";
+      const head = g.keep ? (g.items.length === 1 ? `<b>${esc(first.name)}</b><span class="pa-dim"> ↔ </span><b>${esc(g.keep.name)}</b>` : `<b>${esc(g.keep.name)}</b><span class="pa-dim"> 与 ${g.items.length} 份相近</span>`) : `<b>${esc(first.name)}</b>`;
+      return `<details class="pa-cpair" data-pair="${esc(key)}" ${st.pairOpen.has(key) ? "open" : ""}>
+        <summary><span class="pa-cpair-t">${head}</span><span class="pa-crow-tags">${g.items.length === 1 ? tagChip({ k: first.tags[0].k, t: first.tags[0].t.replace(/^与「[^」]*」\s*/, "") }) : ""}${picked ? `<span class="pa-chip pa-chip-warn">已选 ${picked}</span>` : ""}</span></summary>
+        <p class="pa-hint">勾选要清理的一份，两份均可选。${why ? `建议保留「${esc(g.keep.name)}」（${why}）。` : ""}</p>
+        <div class="pa-clist">${g.keep ? row(g.keep, '<span class="pa-chip pa-chip-cot">建议保留</span>') : ""}${g.items.map((r) => row(r, `<span class="pa-chip pa-ctag-${r.tags[0].k}">${esc(r.tags[0].t.replace(/^与「[^」]*」\s*/, "") || "可清理")}</span>`)).join("")}</div>
+      </details>`;
+    };
+    const pairsHtml = () => `${groups.slice(0, st.pairMore ? groups.length : PAIR_MAX).map(pair).join("")}${groups.length > PAIR_MAX && !st.pairMore ? `<button class="pa-link" data-c="pairmore">再显示 ${groups.length - PAIR_MAX} 组</button>` : ""}`;
     body.innerHTML = `
       <div class="pa-sum">
         <p class="pa-sum-main"><b>${all.length}</b> 个预设 · <b>${fmtSize(total)}</b>${arch.length ? ` · 已归档 ${arch.length}` : ""}${sugg.length ? ` · <span class="pa-warn">可清理 ${sugg.length}（${fmtSize(suggSize)}）</span>` : ""}</p>
         <div class="pa-stack" aria-hidden="true">${[...all].sort((a, b) => (b.suggest - a.suggest) || (b.size - a.size)).map((r) => `<i class="${st.sel.has(r.name) ? "sel" : r.suggest ? "sug" : ""}" style="flex-grow:${r.size}" title="${esc(r.name)} ${fmtSize(r.size)}"></i>`).join("")}</div>
-        ${tip(`<p>酒馆每次打开都会随设置读取全部聊天补全预设${est ? `，按本次设置请求的实际传输折算约占 ${fmtSize(est.wire)}${est.times > 1 ? `；本次记录到 ${est.times} 笔设置读取` : ""}` : ""}。大小是内存中序列化后的统计量，折算值只是估计。</p>
-          ${others.n ? `<p>另有文本补全等其他类型的预设 ${others.n} 个，共 ${fmtSize(others.size)}，也会随设置读取；这一页只处理聊天补全预设。</p>` : ""}
+        ${tip(`<p>酒馆每次打开都读取全部聊天补全预设${est ? `，约占设置下载 ${fmtSize(est.wire)}（估计）` : ""}。</p>
+          ${others.n ? `<p>其他类型预设 ${others.n} 个（${fmtSize(others.size)}）同样随设置读取，本页不处理。</p>` : ""}
           ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再读取。</p>` : ""}
           <p>条形图：<span class="pa-key"><i class="sug"></i>可考虑清理</span> <span class="pa-key"><i></i>其余</span> <span class="pa-key"><i class="sel"></i>已勾选</span></p>
           <ul class="pa-legend">
@@ -174,7 +201,7 @@ function mountCleanup(sec) {
             <li><span class="pa-chip pa-ctag-near">条目相同</span><span>与另一个预设的大部分条目相同。</span></li>
             <li><span class="pa-chip pa-ctag-use">在用</span><span>被方案或连接配置使用。</span></li>
           </ul>
-          <p>归档：移出预设文件夹，存到服务器的用户文件目录，打开酒馆时不再读取，换设备也能恢复。标签只是提示，清理哪些由你决定；正在使用的预设不能勾选。</p>`)}
+          <p>归档：移出预设文件夹、存入服务器，打开酒馆时不再读取，可随时恢复。标签仅作提示；正在使用的预设不能勾选。</p>`)}
       </div>
       <div class="pa-clean-bar">
         <div class="pa-seg pa-seg-s" role="tablist">
@@ -185,7 +212,7 @@ function mountCleanup(sec) {
         ${st.filter !== "arch" ? `<button type="button" class="pa-sortbtn" data-c="sort" aria-label="排序方式">↕ ${{ size: "大小", used: "最近使用", name: "名称" }[st.sort] || "大小"}</button>` : ""}
       </div>
       ${st.filter === "arch" ? arch.length ? `<div class="pa-clist">${arch.map(archRow).join("")}</div>` : '<p class="pa-empty">还没有归档的预设。</p>'
-        : `${list.length ? `${list.some((r) => !r.current) ? `<div class="pa-clist-head"><button class="pa-link" data-c="all">${list.filter((r) => !r.current).every((r) => st.sel.has(r.name)) ? "取消全选" : "全选本页"}</button></div>` : ""}<div class="pa-clist">${list.map(row).join("")}</div>` : '<p class="pa-empty">没有可清理的预设。</p>'}
+        : `${list.length ? `${list.some((r) => !r.current) ? `<div class="pa-clist-head"><button class="pa-link" data-c="all">${list.filter((r) => !r.current).every((r) => st.sel.has(r.name)) ? "取消全选" : st.filter === "suggest" ? "全选可清理" : "全选本页"}</button></div>` : ""}${st.filter === "suggest" ? `<div class="pa-clist">${pairsHtml()}</div>` : `<div class="pa-clist">${list.map((r) => row(r)).join("")}</div>`}` : '<p class="pa-empty">没有可清理的预设。</p>'}
 `}`;
     drawBar();
   }
@@ -313,6 +340,11 @@ function mountCleanup(sec) {
     emitChange(currentPresetName());
     render();
   }
+  // 折叠组的展开状态在重画后保留
+  sec.addEventListener("toggle", (e) => {
+    const g = e.target.closest?.("[data-pair]");
+    if (g) g.open ? st.pairOpen.add(g.dataset.pair) : st.pairOpen.delete(g.dataset.pair);
+  }, true);
   sec.addEventListener("change", (e) => {
     const t = e.target;
     if (t.matches("[data-c=pick]")) {
@@ -339,6 +371,7 @@ function mountCleanup(sec) {
     const b = e.target.closest("button[data-c]");
     if (!b || st.busy) return;
     const c = b.dataset.c;
+    if (c === "pairmore") { st.pairMore = true; return draw(); }
     const names = st.rows.filter((r) => st.sel.has(r.name)).map((r) => r.name);
     if (c === "all") {
       const vis = view().filter((r) => !r.current);

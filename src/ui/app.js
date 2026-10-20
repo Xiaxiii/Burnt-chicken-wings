@@ -237,6 +237,7 @@ async function close({ fromBack = false } = {}) {
       actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃没存上的部分", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
     });
     if (!r) return;
+    if (r === "keep") dirty.forEach((d) => checkpoint(d));
     if (r === "drop") dirty.forEach((d) => dropDraft(d.name));
     if (r === "save") {
       for (const d of dirty) {
@@ -252,6 +253,7 @@ async function close({ fromBack = false } = {}) {
   }
   rootEl2.hidden = true;
   document.documentElement.classList.remove("pa-open");
+  flushPresetNotice();
   if (backArmed) {
     backArmed = false;
     try { history.back(); } catch {}
@@ -613,6 +615,9 @@ function bindEvents() {
     if (rootEl2 && !rootEl2.hidden) show(current);
   });
   on(et2.CHAT_CHANGED, () => onChatChanged());
+  bindReplyGuard(on, et2);
+  bindVariableWatch(on, et2);
+  bindSemanticReview(on, et2);
 }
 async function start() {
   const prev = globalThis.__presetAtelier;
@@ -631,9 +636,9 @@ async function start() {
   watchMirrorWrites();
   const checkpointAll = () => { for (const d of dirtyDrafts()) checkpoint(d); };
   window.addEventListener("pagehide", checkpointAll);
-  const hiddenCheckpoint = () => { if (document.hidden) checkpointAll(); };
+  const hiddenCheckpoint = () => { if (document.hidden) { checkpointAll(); flushPresetNotice(); } };
   document.addEventListener("visibilitychange", hiddenCheckpoint);
-  cleanups.push(() => { checkpointAll(); window.removeEventListener("pagehide", checkpointAll); document.removeEventListener("visibilitychange", hiddenCheckpoint); for(const t of autoTimers.values()) clearTimeout(t); });
+  cleanups.push(() => { checkpointAll(); flushPresetNotice(); window.removeEventListener("pagehide", checkpointAll); document.removeEventListener("visibilitychange", hiddenCheckpoint); for(const t of autoTimers.values()) clearTimeout(t); });
   window.addEventListener("popstate", onPopState);
   document.addEventListener("keydown", onRootKey);
   cleanups.push(() => { window.removeEventListener("popstate", onPopState); document.removeEventListener("keydown", onRootKey); });

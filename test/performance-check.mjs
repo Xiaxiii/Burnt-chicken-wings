@@ -143,17 +143,18 @@ try {
     await page.waitForSelector('.pa-review .pa-item');
     assert.equal(await page.evaluate(() => window.__perf.analyses) - beforePreviewAnalyses, 2, '4条预览只分析来源与目标各一次');
     assert.equal(await page.locator('.pa-review .pa-item').count(), 4);
-    assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), 4);
-    assert.equal(await page.locator('[data-enable-count]').innerText(), '缝后开启：4 / 4');
+    // 缝后开关默认与来源一致：source-1 在来源里关着
+    assert.deepEqual(await page.locator('.pa-review [data-c=on]').evaluateAll(xs => xs.map(x => x.checked)), [true, false, true, true]);
+    assert.equal(await page.locator('[data-enable-count]').innerText(), '部分开启：3 / 4');
     const master = page.locator('[data-enable-toggle]');
-    assert.deepEqual(await master.evaluate(x => [x.checked, x.indeterminate]), [true, false]);
+    assert.deepEqual(await master.evaluate(x => [x.checked, x.indeterminate]), [false, true]);
     await page.evaluate(() => {
       window.__perf.bulk = {
         article: document.querySelector('.pa-review .pa-item'), input: document.querySelector('.pa-review [data-c=on]'),
         analyses: window.__perf.analyses, regions: window.__perf.regions, renders: window.__perf.renders.length
       };
     });
-    for (const on of [false, true, false]) {
+    for (const on of [true, false, true, false]) {
       await master.setChecked(on);
       assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), on ? 4 : 0);
       assert.equal(await page.locator('[data-enable-count]').innerText(), `缝后开启：${on ? 4 : 0} / 4`);

@@ -48,11 +48,27 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(300);
 await page.click('[data-m="clean"]');
-await page.waitForSelector(".pa-crow");
+await page.waitForSelector(".pa-cpair");
 await page.waitForTimeout(300);
-const rows = await page.$$eval(".pa-crow", (xs) => xs.map((x) => x.querySelector("b").textContent + " | " + [...x.querySelectorAll(".pa-chip")].map((c) => c.textContent).join(",")));
-console.log(rows.join("\n"));
+// 「可清理」按相近的两份折叠成组，默认收起
+assert.equal(await page.$$eval(".pa-cpair", (xs) => xs.length), 2);
+assert.equal(await page.$$eval(".pa-cpair[open]", (xs) => xs.length), 0, "默认折叠");
+const heads = await page.$$eval(".pa-cpair > summary", (xs) => xs.map((x) => x.textContent));
+assert.ok(heads.some((h) => h.includes("双人成行 V6.0(1)") && h.includes("↔") && h.includes("完全相同")), "组标题同时列出两份");
+for (const sum of await page.$$(".pa-cpair > summary")) await sum.click();
+await page.waitForTimeout(150);
+const all2 = await page.$$eval(".pa-cpair .pa-crow", (xs) => xs.map((x) => x.querySelector("b").textContent + " | " + [...x.querySelectorAll(".pa-chip")].map((c) => c.textContent).join(",")));
+console.log(all2.join("\n"));
+assert.equal(all2.length, 4, "两份都列出来：建议保留 + 可清理");
+assert.equal(all2.filter((r) => r.includes("建议保留")).length, 2);
+const rows = all2.filter((r) => !r.includes("建议保留"));
 assert.equal(rows.length, 2, "可清理：旧版本 + 重复的一份");
+// 勾选后重画，展开状态保留
+await page.locator('.pa-cpair .pa-crow', { hasText: "建议保留" }).filter({ hasText: "双人成行" }).locator("input").check();
+await page.waitForTimeout(100);
+assert.equal(await page.$$eval(".pa-cpair[open]", (xs) => xs.length), 2, "勾选后保持展开");
+assert.match(await page.locator(".pa-cpair", { hasText: "双人成行" }).locator("summary").innerText(), /已选 1/);
+await page.locator('.pa-cpair .pa-crow', { hasText: "建议保留" }).filter({ hasText: "双人成行" }).locator("input").uncheck();
 assert.ok(rows.some((r) => r.startsWith("【众生相】Claude-Lite-v1.7") && r.includes("有新版") && r.includes("方案「旧文风」在用")));
 assert.ok(rows.some((r) => r.startsWith("双人成行 V6.0(1)") && r.includes("完全相同")));
 await page.screenshot({ path: S + "c-1-suggest.png" });

@@ -94,10 +94,52 @@ function watchTheme(root) {
   // 扩展/脚本重载走应用现有销毁流程，释放旧面板和媒体监听。
   if (typeof cleanups !== "undefined") cleanups.push(stop);
 }
+// 美化若用 !important 强改普通文字颜色（span、p、div 等），面板文字会跟着变、看不清。
+// 打开或换主题时用探针比对：被改了就启用 pa-guard，把面板自己的字色规则加上 !important 再套一层。
+function hostForcesText(root) {
+  const want = "rgb(1, 2, 3)";
+  const probe = document.createElement("pa-probe");
+  probe.setAttribute("style", `position:absolute!important;visibility:hidden!important;pointer-events:none!important;color:${want}!important;-webkit-text-fill-color:${want}!important`);
+  probe.innerHTML = "<span></span><p></p><b></b><strong></strong><small></small><em></em><label></label><div></div><li></li><summary></summary><h3></h3><h4></h4><code></code>";
+  root.append(probe);
+  const forced = [...probe.children].some((el) => {
+    const cs = getComputedStyle(el);
+    return cs.color !== want || (cs.webkitTextFillColor && cs.webkitTextFillColor !== want);
+  });
+  probe.remove();
+  return forced;
+}
+function guardRules() {
+  if (document.getElementById("pa-guard-style")) return;
+  const sheet = document.getElementById("pa-style")?.sheet;
+  if (!sheet) return;
+  const out = ["#pa-root.pa-guard :where(b, strong, p, span, label, small, em, i, details, summary, li, dt, dd, div, h1, h2, h3, h4, h5, a, code, pre, td, th, article, header, section) { color: inherit !important; -webkit-text-fill-color: currentColor !important; }"];
+  const walk = (rules, wrap) => {
+    for (const rule of rules) {
+      const at = rule instanceof CSSMediaRule ? "@media" : typeof CSSSupportsRule !== "undefined" && rule instanceof CSSSupportsRule ? "@supports" : "";
+      if (at) { walk(rule.cssRules, (t) => wrap(`${at} ${rule.conditionText} { ${t} }`)); continue; }
+      const sel = rule.selectorText, color = rule.style?.getPropertyValue("color");
+      if (!sel || !color || !sel.includes("#pa-root")) continue;
+      const fill = rule.style.getPropertyValue("-webkit-text-fill-color") || "currentColor";
+      out.push(wrap(`${sel.replaceAll("#pa-root", "#pa-root.pa-guard")} { color: ${color} !important; -webkit-text-fill-color: ${fill} !important; }`));
+    }
+  };
+  walk(sheet.cssRules, (t) => t);
+  const style = document.createElement("style");
+  style.id = "pa-guard-style";
+  style.textContent = out.join("\n");
+  document.head.append(style);
+  if (typeof cleanups !== "undefined") cleanups.push(() => style.remove());
+}
 var bgUrl = null;
 function applyTheme(root) {
   if (!root) return;
   watchTheme(root);
+  root.classList.remove("pa-guard");
+  if (hostForcesText(root)) {
+    guardRules();
+    root.classList.add("pa-guard");
+  }
   // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
   const id = THEMES.some((t) => t.id === settings().theme) ? settings().theme : "follow";
   root.dataset.theme = id;

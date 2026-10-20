@@ -1,4 +1,4 @@
-var VAR_MACRO = /^(set|get|add|inc|dec)(global)?var$/i;
+var VAR_MACRO = /^(set|get|add|inc|dec|has|flush|delete)(global)?var$|^(global)?varexists$/i;
 function scanTopMacros(text) {
   const out = [];
   const s = String(text ?? "");
@@ -36,19 +36,24 @@ function scanTopMacros(text) {
   }
   return out;
 }
+// 与「变量顺序」检查共用的写法：{{getvar::x}}，也接受单参数的空格写法 {{getvar x}}。
+// hasvar / varexists 记为 has（存在判断），deletevar / flushvar 记为 flush。
 function parseVarMacro(inner) {
-  const first = inner.indexOf("::");
-  const head = (first < 0 ? inner : inner.slice(0, first)).trim();
-  const m = VAR_MACRO.exec(head);
+  const head = /^\s*([a-z]+)(?=::|\s|$)/i.exec(inner);
+  if (!head) return null;
+  const m = VAR_MACRO.exec(head[1]);
   if (!m) return null;
-  const rest = first < 0 ? "" : inner.slice(first + 2);
+  const op = m[1] ? m[1].toLowerCase() === "delete" ? "flush" : m[1].toLowerCase() : "has";
+  const after = inner.slice(head[0].length);
+  if (after && !/^(::|\s)/.test(after)) return null;
+  const rest = after.trimStart().replace(/^::/, "");
   const second = rest.indexOf("::");
   const name = (second < 0 ? rest : rest.slice(0, second)).trim();
   const value = second < 0 ? null : rest.slice(second + 2);
   return {
-    op: m[1].toLowerCase(),
-    // set | get | add | inc | dec
-    scope: m[2] ? "global" : "local",
+    op,
+    // set | get | add | inc | dec | has | flush
+    scope: m[2] || m[3] ? "global" : "local",
     name,
     value
   };
@@ -57,6 +62,8 @@ function listVarMacros(text, depth = 0) {
   const res = [];
   if (depth > 6) return res;
   for (const mac of scanTopMacros(text)) {
+    // 注释中的示例不参与变量读写或修复判断。
+    if (/^\s*\/\//.test(mac.inner)) continue;
     const v = parseVarMacro(mac.inner);
     if (v) {
       res.push({ ...v, start: mac.start, end: mac.end, depth });

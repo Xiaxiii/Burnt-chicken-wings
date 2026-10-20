@@ -66,20 +66,58 @@ function presetIndex(name) {
   const { preset_names } = pm().getPresetList();
   return Array.isArray(preset_names) ? preset_names.indexOf(name) : preset_names[name];
 }
-function readPreset(name) {
+// 当前预设的条目以酒馆内存（oai_settings）为准，其他字段取预设列表。
+// 只拼出引用、不复制；大预设每复制一次都要几十毫秒，以前读一次要整份复制三遍。
+var LIVE_PRESET_KEYS = ["prompts", "prompt_order", "extensions"];
+function presetView(name) {
   const { presets } = pm().getPresetList();
   const idx = presetIndex(name);
   if (idx === void 0 || idx < 0 || !presets[idx]) throw new Error(`未找到预设「${name}」`);
-  const base = structuredClone(presets[idx]);
-  if (name === currentPresetName() && mods.openai?.getChatCompletionPreset) {
-    const live = mods.openai.getChatCompletionPreset(mods.openai.oai_settings);
-    for (const k of ["prompts", "prompt_order", "extensions"]) if (live[k] !== void 0) base[k] = structuredClone(live[k]);
-  }
-  return base;
+  const live = name === currentPresetName() ? mods.openai?.oai_settings : null;
+  if (!live) return presets[idx];
+  const view = { ...presets[idx] };
+  for (const k of LIVE_PRESET_KEYS) if (live[k] !== void 0) view[k] = live[k];
+  return view;
+}
+function readPreset(name) {
+  return structuredClone(presetView(name));
 }
 function replaceInPlace(target, src) {
   for (const k of Object.keys(target)) if (!(k in src)) delete target[k];
   Object.assign(target, src);
+}
+// 柏宝箱的分组运行时缓存在全局状态里。只使当前预设的缓存失效，普通保存不广播导入事件。
+function refreshBaibaiGroupCache(name) {
+  const state = globalThis.__baiBaiToolkitExtensionInstalled;
+  if (!state || typeof state !== "object" || state.presetPromptGroupRuntimePresetName !== name) return;
+  delete state.presetPromptGroupRuntimePresetName;
+  delete state.presetPromptGroupRuntimeState;
+}
+// 酒馆收到 OAI_PRESET_CHANGED_AFTER 后会把整份提示词试生成一遍（算 token）、再重画原生条目列表，
+// 大预设在手机上每次要卡一两秒。面板开着时连续修改只记下来，关面板或切到后台时通知一次。
+// 生成直接读 oai_settings（保存时已原地更新），不依赖这个通知。
+var pendingPresetNotice = null;
+async function notifyPresetChangedAfter(name) {
+  if (typeof panelVisible === "function" && panelVisible()) {
+    pendingPresetNotice = name;
+    return;
+  }
+  pendingPresetNotice = null;
+  const et2 = ctx().eventTypes || ctx().event_types;
+  await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
+}
+async function flushPresetNotice() {
+  const name = pendingPresetNotice;
+  pendingPresetNotice = null;
+  // 期间在酒馆里换了预设：酒馆换预设时自己会刷新，旧通知作废
+  if (!name || name !== currentPresetName()) return;
+  try {
+    refreshBaibaiGroupCache(name);
+    const et2 = ctx().eventTypes || ctx().event_types;
+    await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
+  } catch (e) {
+    console.warn("[焦香鸡翅] 通知酒馆刷新预设失败", e);
+  }
 }
 // backup：写之前把服务器上的旧版本存一份备份（每批修改只存一次，由调用方决定）
 async function writePreset(name, data, reason = "保存", { backup = true } = {}) {
@@ -121,17 +159,10 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     else s.extensions = structuredClone(data.extensions || {});
     ctx().saveSettingsDebounced();
     const et2 = ctx().eventTypes || ctx().event_types;
-    // 1.3.5：柏宝箱会把「当前预设」的分组缓存在内存里，只在换预设、导入、改名时才重新读。
-    // 不提醒它的话，它下一次保存会拿旧分组把刚改的盖回去（表现为：新建的分组没了，看起来像只改了个名）。
-    // 「预设导入完成」这个事件酒馆本体没人监听，柏宝箱收到后只会清掉这个预设的分组缓存、重新从预设里读。
-    if (ctx().extensionSettings?.baiBaiToolkit && et2.OAI_PRESET_IMPORT_READY) {
-      try {
-        await ctx().eventSource.emit(et2.OAI_PRESET_IMPORT_READY, { presetName: name, data: structuredClone(data) });
-      } catch (e) {
-        console.warn("[焦香鸡翅] 通知柏宝箱刷新分组失败", e);
-      }
-    }
-    await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
+    // 不清缓存时，柏宝箱下一次保存会把旧分组写回来。以前借用导入事件清缓存，
+    // 会误触发其他扩展的「导入自动迁移」；现在仅清理已核对的两个运行时字段。
+    refreshBaibaiGroupCache(name);
+    await notifyPresetChangedAfter(name);
     // 原生正则每次执行都读取预设数据；PRESET_CHANGED 还会刷新正则面板。
     // 仅通知已获原生许可的预设，避免在本面板下弹出酒馆的首次信任确认。
     const activation = presetRegexActivationInfo(name);

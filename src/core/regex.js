@@ -212,3 +212,46 @@ function applyPresetRegexTransfer(targetDraft, plan, sourceDraft) {
   }
   return true;
 }
+
+// 缝来的格式条目（状态栏、正文尾）要靠来源预设的显示正则才能变成美化；目标没有对应正则时，缝过去只会显示原文。
+// 只比对查找表达式里的固定标记：<标签> 和「字段:」，不编译、不执行正则。
+var REGEX_ANCHOR_SKIP = new Set(["br", "div", "span", "p", "b", "i", "a", "img", "style", "script", "details", "summary", "http", "https"]);
+function presetRegexAnchors(rule) {
+  const find = String(rule?.findRegex || "").replace(/\\(?=[/<>:：])/g, "");
+  const tags = new Set(), fields = new Set();
+  for (const m of find.matchAll(/(?<![?\\])<(?:\\s\*)?\/?(?:\\s\*)?([A-Za-z_\u3400-\u9fff][\w\u3400-\u9fff-]{0,30})/g)) {
+    const t = m[1].toLowerCase();
+    if (!REGEX_ANCHOR_SKIP.has(t)) tags.add(t);
+  }
+  // \n、\s 这类转义先换成空格，字段名才分得开
+  const plain = find.replace(/\\[nrtsSdDwWbB]/g, " ");
+  for (const m of plain.matchAll(/(?:^|[^\w\u3400-\u9fff\\])([A-Za-z\u3400-\u9fff][\w\u3400-\u9fff]{1,20})(?:\s*[*+?])?(?:[:：]|\[[:：]{2}\])/g)) {
+    const f = m[1].toLowerCase();
+    if (!REGEX_ANCHOR_SKIP.has(f)) fields.add(f);
+  }
+  return { tags, fields };
+}
+function presetRegexFormatDeps(sourceDraft, targetDraft, texts) {
+  let source, target;
+  try { source = presetRegexList(sourceDraft); target = presetRegexList(targetDraft); } catch { return texts.map(() => []); }
+  const display = source.map((rule, index) => ({ rule, index })).filter(({ rule }) => presetRegexRuleValid(rule) && !rule.disabled && !(rule.promptOnly && !rule.markdownOnly) && (rule.placement || []).includes(2));
+  const covered = { tags: new Set(), fields: new Set() };
+  for (const rule of target) {
+    if (!presetRegexRuleValid(rule)) continue;
+    const a = presetRegexAnchors(rule);
+    a.tags.forEach((t) => covered.tags.add(t));
+    a.fields.forEach((f) => covered.fields.add(f));
+  }
+  const anchors = display.map((x) => ({ ...x, ...presetRegexAnchors(x.rule) }));
+  return texts.map((text) => {
+    const content = String(text || "").toLowerCase();
+    const out = [];
+    for (const x of anchors) {
+      const tag = [...x.tags].find((t) => !covered.tags.has(t) && new RegExp(`<\\s*/?\\s*${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?=[\\s>])`).test(content));
+      const field = !tag && x.tags.size === 0 ? [...x.fields].filter((f) => !covered.fields.has(f) && new RegExp(`(^|[^\\w\u3400-\u9fff])${f}\\s*[:：]`, "m").test(content)) : [];
+      if (tag) out.push({ index: x.index, name: x.rule.scriptName || "未命名正则", mark: `<${tag}>` });
+      else if (field.length >= 2) out.push({ index: x.index, name: x.rule.scriptName || "未命名正则", mark: field.slice(0, 3).map((f) => `${f}:`).join(" ") });
+    }
+    return out;
+  });
+}
