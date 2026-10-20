@@ -8,8 +8,23 @@ function replyTagGuess(name) {
     return guessReplyTags(texts, regexTags);
   } catch { return null; }
 }
+// 酒馆「推理内容格式化」的前缀，如 <ECoT>：预设用它包思考，检查时当作思考标签
+function stReasoningTag(c = ctx()) {
+  const r = c.powerUserSettings?.reasoning;
+  const m = /^<\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39})\s*>$/u.exec(String(r?.prefix || "").trim());
+  return m ? { tag: m[1], autoParse: !!r.auto_parse } : null;
+}
+// 模型自带思考（Gemini、Claude 等返回的推理）已经放进思考区时，酒馆不再自动解析 <ECoT>，它会留在正文里
+function nativeReasoningNote(message) {
+  const st = stReasoningTag();
+  if (!st?.autoParse || !message?.extra?.reasoning || message.extra.reasoning_type !== "model") return "";
+  if (!new RegExp(`<\\s*${st.tag}\\s*>`, "iu").test(replyCheckMask(String(message.mes || "")))) return "";
+  return `<div class="pa-card pa-card-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型自己返回了思考内容，酒馆就不再把预设要求的 &lt;${esc(st.tag)}&gt; 解析进思考区。所以生成时 &lt;${esc(st.tag)}&gt; 会先在正文里出现，写完才被美化正则收起，看起来像两条思维链。想只留预设的思维链：在酒馆「AI 响应配置」关掉「请求思维链」。模型照样会思考，只是不再把它的思考发回来。</p></div>`;
+}
 async function replyFormatDialog(name) {
   const saved = replyGuardConfig(name);
+  const stTag = stReasoningTag();
+  const thinkingDefault = saved.thinkingTag ?? (stTag && !/^think(ing)?$/i.test(stTag.tag) ? stTag.tag : "");
   const fresh = !saved.bodyTag;
   const guess = replyTagGuess(name);
   const bodyDefault = saved.bodyTag || guess?.bodyTag || "content";
@@ -22,7 +37,8 @@ async function replyFormatDialog(name) {
     ${fresh && guess ? guess.bodyTag ? `<p class="pa-hint">按预设识别：条目里有 ${guess.count} 处 &lt;${esc(guess.bodyTag)}&gt;，已填入。不对请改。</p>` : '<p class="pa-warn">预设开着的条目里没找到正文标签。如果预设不要求用标签包正文，不要开启下一轮提醒，否则会让 AI 输出预设没要求的标签。</p>' : ""}
     ${guess?.suggest.length ? `<p class="pa-hint">预设的显示正则靠 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 显示美化，想检查这些有没有掉，可填进下面的必需标签。</p>` : ""}
     <label class="pa-field"><span>额外必需标签（可选，逗号分隔）</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要"></label>
-    <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）</span><input class="pa-input" data-r="thinking" value="${esc(saved.thinkingTag || "")}" maxlength="40"></label>
+    <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40"></label>
+    ${!saved.thinkingTag && thinkingDefault ? `<p class="pa-hint">已按酒馆「推理内容格式化」的前缀填入 &lt;${esc(thinkingDefault)}&gt;。</p>` : ""}
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     <p class="pa-hint">检测掉标签、重复/未闭合标签、正文裹进思考标签、正文夹入思考标签、正文标签外的大段文字（爆思维链）和部分疑似推理标题。代码块和注释中的标签示例不计。可见回复没有正文标签时，会在本地查看思考区里是否有正文标签，不展示、不发送思考内容。标签改名、补齐、移出思考区可一键修正，只动标签位置、不增删文字；掉出的正文无法补造。提醒不能保证模型遵守；续写时不自动提醒，以免重复标签。</p>
@@ -67,7 +83,8 @@ async function replyFormatDialog(name) {
       <p class="pa-hint">${left.length ? `修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}` : "修正后未发现配置范围内的格式问题。"}只移动或补写标签，不增删文字。</p>
       <details><summary>修正后原文预览</summary><pre class="pa-pre">${esc(plan.text)}</pre></details>
       ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不会写回聊天，可复制上面的预览。</p>'}</div>` : "";
-    result.innerHTML = `<p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : '<p class="pa-hint">这不代表正文语义、所有变量或其他输出格式已验证。</p>'}`;
+    const note = latest ? nativeReasoningNote(latest.message) : "";
+    result.innerHTML = note + `<p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : '<p class="pa-hint">这不代表正文语义、所有变量或其他输出格式已验证。</p>'}`;
   };
   body.addEventListener("click", async (e) => {
     const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"]');

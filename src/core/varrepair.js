@@ -105,20 +105,28 @@ function variableRepairPlan(d, key, manual = d.cotManual || {}) {
 // 默认放进读取其他片段变量最多的思维链，紧跟最后一个片段读取；没有片段读取时放在 </thinking> 之前，再不行放到末尾。
 function cotReadChoices(d, manual = d.cotManual || {}) {
   const a = analyze(d, manual);
+  // 与思维链开头（<ECoT>、<thinking> 那一条）同组的条目才是思维链主体；名字带 CoT 的格式条目不算
+  const openerGroups = new Set(a.openers.map((id) => d.groupOf(id) || id));
   return a.cotIds.map((id, index) => {
-    const content = String(d.prompt(id)?.content || "");
+    const p = d.prompt(id), content = String(p?.content || "");
+    const main = openerGroups.has(d.groupOf(id) || id);
     const frag = listVarMacros(content).filter((m) => m.op === "get" && /cot$/i.test(m.name)).length;
-    return { id, index, frag, closes: /^[ \t]*<\/thinking>[ \t]*$/im.test(content) };
-  }).sort((x, y) => y.frag - x.frag || Number(y.closes) - Number(x.closes) || y.index - x.index);
+    // 有分步标题、够长、不是 assistant 预填的，才像思维链正文；「卡CoT」这类几行的预填排后面
+    const body = p?.role !== "assistant" && content.trim().length >= 80 && /^[ \t]*#{1,4}\s*\S/m.test(content);
+    return { id, index, frag, main, body, closes: /^[ \t]*<\/\s*(?:thinking|think|[\w-]*cot[\w-]*)\s*>[ \t]*$/im.test(content) };
+  }).sort((x, y) => y.frag - x.frag || Number(y.main) - Number(x.main) || Number(y.body) - Number(x.body) || Number(y.closes) - Number(x.closes) || y.index - x.index);
 }
 function cotReadLine(content) {
   const lines = String(content || "").split("\n");
   let after = -1;
   lines.forEach((line, i) => { if (/\{\{\s*get(?:global)?var(?:::|\s)[^{}]*cot\s*\}\}/i.test(line)) after = i; });
   if (after >= 0) return after + 1;
-  const close = lines.findIndex((line) => /^[ \t]*<\/thinking>[ \t]*$/i.test(line));
+  const close = lines.findIndex((line) => /^[ \t]*<\/\s*(?:thinking|think|[\w-]*cot[\w-]*)\s*>[ \t]*$/i.test(line));
   if (close >= 0) return close;
-  return lines.length;
+  // 没有结束标签时放在最后一个分步标题（通常是「输出格式」）之前
+  let heading = -1;
+  lines.forEach((line, i) => { if (/^[ \t]*#{1,2}\s*\S/.test(line)) heading = i; });
+  return heading >= 0 ? heading : lines.length;
 }
 function cotReadPlan(d, key, cotId, line, manual = d.cotManual || {}) {
   const scope = key.startsWith("全局:") ? "global" : "local";

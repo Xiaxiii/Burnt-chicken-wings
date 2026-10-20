@@ -335,13 +335,14 @@ function analyzeIndexed(draft, manual) {
       optional.push({ varName: name, ids: v.readers });
     }
   }
-  // 与上面「间接读到」同一口径：读取它的条目再写入思维链读取的变量，或被思维链点名，都算思维链读到了
-  const reachesCot = (v) => v.readers.some((r) => cotSet.has(r) || [...writesOf.get(r) || []].some((k2) => (vars.get(k2)?.readers || []).some((x) => cotSet.has(x))) || !!findMention(r));
+  // 有开启的条目读它，内容就会发给模型；读的位置是预设作者的设计（如万事成真在「格式强调」的部件清单里读草稿小CoT），不算没读
   for (const [name, v] of vars) {
-    if (/cot$/i.test(name) && v.writers.length && !reachesCot(v)) {
+    if (/cot$/i.test(name) && v.writers.length && !v.readers.length && !v.checkers.length) {
       issues.push({ kind: "cotfrag", varName: name, ids: v.writers, readersOff: [...allReaders.get(name) || []], similar: similarOf(name), text: `包含思维链片段「${name}」，但开启的思维链未读取它` });
     }
   }
-  return { cotIds, vars, cot, coverage, issues, optional, activeSet };
+  // 同时开着几套思维链：开启条目里单独一行的 <thinking>、<think>、<ECoT> 这类开头各算一套
+  const openers = active.filter((id) => !draft.isMarker(id) && /^[ \t]*<\s*(?:thinking|think|[\w-]*cot[\w-]*)\s*>[ \t]*$/im.test(String(draft.prompt(id)?.content || "")));
+  return { cotIds, vars, cot, coverage, issues, optional, activeSet, openers };
 }
 

@@ -80,6 +80,23 @@ try {
   assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chat[2].extra.reasoning), '我在想。\n<content>被吞进思考区的正文</content>');
   ok('正文被解析进思考区时可移回，回复变化后拒绝过期修正，撤销还原推理字段');
 
+  await page.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '取消' }).click();
+  // 酒馆推理前缀是 <ECoT>，模型又自带思考：<ECoT> 留在正文，说明原因；ECoT 当作思考标签，不算爆思维链
+  await page.evaluate(() => {
+    const c = window.SillyTavern.getContext();
+    c.powerUserSettings.reasoning = { auto_parse: true, prefix: '<ECoT>', suffix: '</ECoT>' };
+    c.chat[2] = { is_user: false, mes: '<ECoT>\n# 确认身份\n我是作者，开始仔细思考本轮剧情要怎么写，写够字数。\n</ECoT>\n<content>正文。</content>', extra: { reasoning: 'Processing Complex Instructions', reasoning_type: 'model' } };
+  });
+  await page.click('[data-reply-format]');
+  assert.equal(await page.locator('[data-r=thinking]').inputValue(), 'ECoT');
+  await page.click('[data-r=latest]');
+  assert.match(await result.innerText(), /<ECoT> 留在了正文里/);
+  assert.match(await result.innerText(), /请求思维链/);
+  assert.match(await result.innerText(), /未发现配置范围内的格式问题/);
+  await page.evaluate(() => { window.SillyTavern.getContext().chat[2].extra.reasoning_type = 'parsed'; });
+  await page.click('[data-r=latest]');
+  assert.doesNotMatch(await result.innerText(), /留在了正文里/);
+  ok('模型自带思考挤掉 <ECoT> 时说明原因和关法；推理前缀自动当作思考标签');
   await page.fill('[data-r=sample]', '我需要先检查用户要求，再安排剧情，然后写出符合人设的对话内容。\n<content>故事。</content>');
   await page.click('[data-r=paste]');
   assert.match(await result.innerText(), /爆思维链/);

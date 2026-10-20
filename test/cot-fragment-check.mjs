@@ -79,6 +79,27 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('.pa-dead').length === 2);
   assert.equal((await stored(page)).prompts.find((x) => x.identifier === 'mis').content, '{{setvar::TheaterCoT::\n- 小剧场怎么写\n}}');
   ok('写入与读取的变量名只差大小写时，可把写入改成读取用的名字');
+  assert.equal(await page.locator('.pa-cot .pa-card-warn', { hasText: '套思维链开头' }).count(), 0);
+  await page.evaluate(() => {
+    const m = window.__mock.presets[0];
+    m.prompts.push({ identifier: 'cot-nsfw', name: '开nsfw思考，关其他思考', content: '<ECoT>\n# 确认身份\n- 本轮如何写', role: 'system' });
+    m.prompt_order[0].order.push({ identifier: 'cot-nsfw', enabled: true });
+    Object.assign(window.__mock.live, structuredClone(m));
+    window.__presetAtelier.open('organize'); window.__presetAtelier.open('cot');
+  });
+  await page.locator('.pa-cot .pa-card-warn', { hasText: '同时开着 2 套思维链开头' }).waitFor();
+  assert.match(await page.locator('.pa-cot .pa-card-warn', { hasText: '套思维链开头' }).innerText(), /思维链主体.*开nsfw思考，关其他思考/s);
+  ok('同时开着两套思维链开头时提醒');
+  // 读取方不是思维链、但开着（如格式条目的部件清单），片段内容照样会发出，不算没读
+  await page.evaluate(() => {
+    const m = window.__mock.presets[0];
+    m.prompts.push({ identifier: 'fmt', name: '📌 格式强调', content: '部件：{{getvar::content}}({{getvar::草稿检查小CoT}})', role: 'system' });
+    m.prompt_order[0].order.push({ identifier: 'fmt', enabled: true });
+    Object.assign(window.__mock.live, structuredClone(m));
+    window.__presetAtelier.open('organize'); window.__presetAtelier.open('cot');
+  });
+  await page.waitForFunction(() => ![...document.querySelectorAll('.pa-dead')].some((x) => x.textContent.includes('草稿检查小CoT')));
+  ok('片段变量由开启的非思维链条目读取时不再报「思维链没读」');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();

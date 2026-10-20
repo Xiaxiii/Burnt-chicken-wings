@@ -122,6 +122,9 @@ function mountCot(page, app) {
     let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
             <p>${a.cotIds.length ? `思维链${style}。` : "未识别到开启的思维链，可在下方手动指定。"}${dead.length ? `有 <b>${dead.length}</b> 项变量读取待核对，见下方。` : "当前未发现缺少读取的问题；执行顺序和脚本仍需核对。"}</p>
         </div>
+        ${a.openers.length > 1 ? `<div class="pa-card pa-card-warn"><b>同时开着 ${a.openers.length} 套思维链开头</b>
+            <p class="pa-hint">${a.openers.map((id) => `「${nm(id)}」`).join("")}各自以思考标签开头。模型会连着写几套思考，思考变长、容易爆思维链，内容也可能互相打架。一般只该开一套：看条目名称或作者说明（例如名字里写着「关其他思考」）。</p>
+            <div class="pa-card-act"><button class="pa-link" data-goto="${esc(a.openers.join("|"))}">在整理页查看</button></div></div>` : ""}
         <details class="pa-card pa-explain-card"><summary><b>说明</b></summary>
             <ul class="pa-legend">
                 <li><span class="pa-lv pa-lv-ok">变量读到</span><span>思维链通过 {{getvar}} 读取该条目写入的变量。</span></li>
