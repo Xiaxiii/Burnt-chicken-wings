@@ -143,7 +143,7 @@ async function resolveSaveProblem(name) {
   if (b.kind === "conflict") {
     const v = await sheet({
       title: "预设在别处被修改过",
-      body: `<p class="pa-p">「${esc(name)}」在你开始修改之后，被酒馆或其他扩展改过。继续保存会盖掉那些修改，所以已暂停自动保存。</p><p class="pa-hint">你的修改还在。可以先下载两个版本再决定。</p>`,
+      body: `<p class="pa-p">「${esc(name)}」在本次修改开始后被酒馆或其他扩展改动。继续保存会覆盖这些改动，自动保存已暂停。</p><p class="pa-hint">当前修改仍保留，可先下载两个版本再决定。</p>`,
       actions: [
         { label: "下载两个版本", value: "dl" },
         { label: "放弃我的修改", kind: "danger", value: "drop" },

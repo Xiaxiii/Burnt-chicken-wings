@@ -19,7 +19,7 @@ function nativeReasoningNote(message) {
   const st = stReasoningTag();
   if (!st?.autoParse || !message?.extra?.reasoning || message.extra.reasoning_type !== "model") return "";
   if (!new RegExp(`<\\s*${st.tag}\\s*>`, "iu").test(replyCheckMask(String(message.mes || "")))) return "";
-  return `<div class="pa-card pa-card-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型自己返回了思考内容，酒馆就不再把预设要求的 &lt;${esc(st.tag)}&gt; 解析进思考区。所以生成时 &lt;${esc(st.tag)}&gt; 会先在正文里出现，写完才被美化正则收起，看起来像两条思维链。想只留预设的思维链：在酒馆「AI 响应配置」关掉「请求思维链」。模型照样会思考，只是不再把它的思考发回来。</p></div>`;
+  return `<div class="pa-card pa-card-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型回传了自己的思考，酒馆不再把 &lt;${esc(st.tag)}&gt; 解析进思考区，生成时它先出现在正文中，写完才被美化正则收起。只保留预设思维链：酒馆「AI 响应配置」关闭「请求思维链」。模型仍会思考，只是不再回传。</p></div>`;
 }
 async function replyFormatDialog(name) {
   const saved = replyGuardConfig(name);
@@ -32,21 +32,25 @@ async function replyFormatDialog(name) {
   const semanticAvailable = semanticReviewAvailable();
   let reviewCancel = null;
   const body = el(`<div class="pa-form">
-    <p class="pa-hint">为「${esc(name)}」设置。标签名要与预设的输出格式一致；可先手动检查，开启后只在该预设使用中、有问题时向下一轮加入临时格式提醒。</p>
+    <p class="pa-hint">按预设分别设置，当前为「${esc(name)}」。标签名须与预设的输出格式一致。</p>
     <label class="pa-field"><span>正文标签名（不填尖括号）</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40"></label>
-    ${fresh && guess ? guess.bodyTag ? `<p class="pa-hint">按预设识别：条目里有 ${guess.count} 处 &lt;${esc(guess.bodyTag)}&gt;，已填入。不对请改。</p>` : '<p class="pa-warn">预设开着的条目里没找到正文标签。如果预设不要求用标签包正文，不要开启下一轮提醒，否则会让 AI 输出预设没要求的标签。</p>' : ""}
-    ${guess?.suggest.length ? `<p class="pa-hint">预设的显示正则靠 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 显示美化，想检查这些有没有掉，可填进下面的必需标签。</p>` : ""}
+    ${fresh && guess ? guess.bodyTag ? `<p class="pa-hint">已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。</p>` : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
+    ${guess?.suggest.length ? `<p class="pa-hint">显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入必需标签。</p>` : ""}
     <label class="pa-field"><span>额外必需标签（可选，逗号分隔）</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要"></label>
     <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40"></label>
-    ${!saved.thinkingTag && thinkingDefault ? `<p class="pa-hint">已按酒馆「推理内容格式化」的前缀填入 &lt;${esc(thinkingDefault)}&gt;。</p>` : ""}
+    ${!saved.thinkingTag && thinkingDefault ? `<p class="pa-hint">已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。</p>` : ""}
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
-    <p class="pa-hint">检测掉标签、重复/未闭合标签、正文裹进思考标签、正文夹入思考标签、正文标签外的大段文字（爆思维链）和部分疑似推理标题。代码块和注释中的标签示例不计。可见回复没有正文标签时，会在本地查看思考区里是否有正文标签，不展示、不发送思考内容。标签改名、补齐、移出思考区可一键修正，只动标签位置、不增删文字；掉出的正文无法补造。提醒不能保证模型遵守；续写时不自动提醒，以免重复标签。</p>
+    <details class="pa-card"><summary>检测范围</summary><ul class="pa-notes">
+      <li>检查掉标签、重复或未闭合、正文裹进思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
+      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。</li>
+      <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
+      <li>一键修正只改名、补齐或移动标签，不增删文字。提醒不保证模型遵守。</li></ul></details>
     <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
     <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
     <div data-r="result" aria-live="polite"></div>
     <details class="pa-card"><summary>AI 语义审查（可选）</summary>
-      <p class="pa-hint">使用酒馆当前聊天补全连接，发送这一条可见回复，检查疑似任务规划、自我指令等内部分析。每次会增加一次模型请求、耗时和费用；不主动附带完整聊天或变量值。审查会误判，只提供片段供你确认，不自动删改正文。</p>
+      <p class="pa-hint">通过酒馆当前连接发送这一条回复，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用；结果可能误判，仅供核对，不改动正文。</p>
       <label class="pa-field-row"><input type="checkbox" data-r="semantic" ${saved.semanticAfterReply ? "checked" : ""} ${semanticAvailable ? "" : "disabled"}>生成完成后自动语义审查（默认关闭）</label>
       ${semanticAvailable ? "" : '<p class="pa-warn">当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。结构检查仍可使用。</p>'}
       <div class="pa-toolbar"><button class="pa-btn" data-r="ai-latest" ${semanticAvailable ? "" : "disabled"}>AI 审查最近回复</button><button class="pa-btn" data-r="ai-paste" ${semanticAvailable ? "" : "disabled"}>AI 审查粘贴文字</button><button class="pa-btn" data-r="ai-cancel" hidden>取消审查</button><button class="pa-link" data-r="ai-result">查看最近结果</button></div>

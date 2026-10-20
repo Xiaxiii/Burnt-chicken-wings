@@ -549,7 +549,7 @@ function mountSuture(page, app) {
     if (a === "dsttype") return setDstType(await pickName({ title: "缝到哪里", current: st.dstType, search: false, items: [{ value: "preset", label: "预设" }, { value: "world", label: "世界书" }] }));
     if (a === "srcmenu") {
       const v = await pickBox("更多操作", [
-        { label: "搬到新版…", sub: "预设出了新版本时：来源选旧版、目标选新版，把旧版里你缝进去的条目按原位置搬过去", value: "migrate" },
+        { label: "搬到新版…", sub: "来源选旧版、目标选新版，将旧版中缝入的条目按原位置搬到新版", value: "migrate" },
         { label: "清空已选条目", value: "clearpicked" }
       ]);
       if (v === "migrate") {
@@ -765,7 +765,7 @@ function mountSuture(page, app) {
       if (raw && !raw.constant && (raw.key || []).length) warns.push(`在世界书中按关键词触发（${raw.key.slice(0, 4).join("、")}${raw.key.length > 4 ? "等" : ""}），缝进预设后会一直生效`);
       if (hasScript(it.src.content || "")) warns.push("含脚本（如 EJS），需要安装相应插件才能生效");
       if (hasConditional(it.src.content || "")) warns.push("含 {{if}} 条件，条件中的变量需在目标中存在");
-      for (const dep of it.regexDeps || []) warns.push(`这条要求输出 ${dep.mark}，来源预设靠正则「${dep.name}」显示成美化；目标预设没有对应正则，缝过去只会显示原文。确认缝合后可一起缝这条正则`);
+      for (const dep of it.regexDeps || []) warns.push(`这条要求输出 ${dep.mark}，来源预设靠正则「${dep.name}」显示成美化，目标预设没有对应正则，缝入后只显示原文。确认缝合后可一起缝入`);
       for (const k of it.desc?.needsVars || []) {
         const nm2 = k.replace(/^全局:/, "");
         const has = d.preset.prompts.some((p) => listVarMacros(p.content || "").some((m) => m.name === nm2 && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)));
@@ -836,7 +836,7 @@ function mountSuture(page, app) {
       let warn = bar.querySelector(".pa-hookbar-warn");
       if (!warn) { warn = document.createElement("p"); warn.className = "pa-warn pa-hookbar-warn"; bar.append(warn); }
       warn.hidden = rec <= 10;
-      warn.textContent = rec > 10 ? `推荐的 ${rec} 条在来源预设里本来就被思维链读到。全部接入会让思维链多出 ${rec} 个问题，思考变长、容易爆思维链；整套缝合时，建议只接入最需要模型重点落实的几条。` : "";
+      warn.textContent = rec > 10 ? `推荐的 ${rec} 条在来源中已被思维链读取。全部接入将增加 ${rec} 个思考问题，思考变长、易爆思维链。整套缝合时，只接入需重点落实的几条。` : "";
     };
     paintHookBar();
     body.querySelector(".pa-hookbar").addEventListener("click", (e) => {
@@ -1002,7 +1002,7 @@ function mountSuture(page, app) {
     toast(`已缝合 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条接入思维链` : ""}${inits.length ? `，初始化条目已添加变量 ${inits.join("、")}` : ""}`, "success");
     for (const [sd, set] of regexDeps) {
       const names = [...set].map((i) => presetRegexList(sd)[i]?.scriptName || "未命名正则");
-      const go = await sheet({ title: "一起缝显示正则？", body: `<p class="pa-p">刚缝进来的条目要求模型输出特定格式，来源「${esc(sd.name)}」用正则「${esc(names.join("」「"))}」把它显示成美化。目标预设没有对应正则，不缝的话聊天里只会显示原文。</p><p class="pa-hint">接下来会打开正则缝合预览，已预选这几条，可再调整。</p>`, actions: [{ label: "以后再说", value: false }, { label: "去缝正则", kind: "primary", value: true }] });
+      const go = await sheet({ title: "一起缝显示正则？", body: `<p class="pa-p">刚缝入的条目要求特定输出格式，来源「${esc(sd.name)}」用正则「${esc(names.join("」「"))}」将其显示为美化。目标预设缺少对应正则，不缝入则聊天中只显示原文。</p><p class="pa-hint">下一步打开正则缝合，已预选这几条。</p>`, actions: [{ label: "以后再说", value: false }, { label: "去缝正则", kind: "primary", value: true }] });
       if (go) {
         try { await presetRegexDialog(sd, d, { preselect: [...set] }); } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
       }
@@ -1227,7 +1227,7 @@ function mountSuture(page, app) {
     });
     if (!cands.length) return toast(`「${old.name}」中没有找到需要搬到「${neu.name}」的条目`);
     const body = el(`<div>
-      <p class="pa-p">从「${esc(old.name)}」搬到「${esc(neu.name)}」。有缝合记录的条目已勾选；没有记录、但新版中没有的条目未勾选，它们可能是你加的，也可能是作者在新版中删掉的，请自行判断。</p>
+      <p class="pa-p">从「${esc(old.name)}」搬到「${esc(neu.name)}」。有缝合记录的条目已勾选；没有记录、但新版中没有的条目未勾选，可能是后来添加的，也可能是作者在新版中删除的，需自行核对。</p>
       <div class="pa-mig">${cands.map((c, i) => `<label class="pa-crow${c.on ? " on" : ""}"><input type="checkbox" data-i="${i}" ${c.on ? "checked" : ""}>
         <span class="pa-crow-main"><b>${esc(c.p.name || c.id)}</b><span class="pa-crow-tags">${c.recorded ? '<span class="pa-chip pa-chip-cot">缝合记录</span>' : '<span class="pa-chip">新版中没有</span>'}${c.hook ? '<span class="pa-chip">原先接入思维链</span>' : ""}<span class="pa-chip pa-chip-dim">${esc(placeText(neu, fixPlace(neu, c.marker) || { at: "top" }))}</span></span></span></label>`).join("")}</div>
       <p class="pa-hint">下一步会打开缝合预览，可逐条检查写法和思维链。早于 1.6.0 缝合的条目没有记录，只能按「新版中没有」找出。</p></div>`);

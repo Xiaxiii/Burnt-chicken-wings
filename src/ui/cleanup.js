@@ -181,7 +181,7 @@ function mountCleanup(sec) {
       const head = g.keep ? (g.items.length === 1 ? `<b>${esc(first.name)}</b><span class="pa-dim"> ↔ </span><b>${esc(g.keep.name)}</b>` : `<b>${esc(g.keep.name)}</b><span class="pa-dim"> 与 ${g.items.length} 份相近</span>`) : `<b>${esc(first.name)}</b>`;
       return `<details class="pa-cpair" data-pair="${esc(key)}" ${st.pairOpen.has(key) ? "open" : ""}>
         <summary><span class="pa-cpair-t">${head}</span><span class="pa-crow-tags">${g.items.length === 1 ? tagChip({ k: first.tags[0].k, t: first.tags[0].t.replace(/^与「[^」]*」\s*/, "") }) : ""}${picked ? `<span class="pa-chip pa-chip-warn">已选 ${picked}</span>` : ""}</span></summary>
-        <p class="pa-hint">勾选要清理的那一份，两份都可以选。${why ? `建议保留「${esc(g.keep.name)}」（${why}）。` : ""}</p>
+        <p class="pa-hint">勾选要清理的一份，两份均可选。${why ? `建议保留「${esc(g.keep.name)}」（${why}）。` : ""}</p>
         <div class="pa-clist">${g.keep ? row(g.keep, '<span class="pa-chip pa-chip-cot">建议保留</span>') : ""}${g.items.map((r) => row(r, `<span class="pa-chip pa-ctag-${r.tags[0].k}">${esc(r.tags[0].t.replace(/^与「[^」]*」\s*/, "") || "可清理")}</span>`)).join("")}</div>
       </details>`;
     };
@@ -190,8 +190,8 @@ function mountCleanup(sec) {
       <div class="pa-sum">
         <p class="pa-sum-main"><b>${all.length}</b> 个预设 · <b>${fmtSize(total)}</b>${arch.length ? ` · 已归档 ${arch.length}` : ""}${sugg.length ? ` · <span class="pa-warn">可清理 ${sugg.length}（${fmtSize(suggSize)}）</span>` : ""}</p>
         <div class="pa-stack" aria-hidden="true">${[...all].sort((a, b) => (b.suggest - a.suggest) || (b.size - a.size)).map((r) => `<i class="${st.sel.has(r.name) ? "sel" : r.suggest ? "sug" : ""}" style="flex-grow:${r.size}" title="${esc(r.name)} ${fmtSize(r.size)}"></i>`).join("")}</div>
-        ${tip(`<p>酒馆每次打开都会随设置读取全部聊天补全预设${est ? `，按本次设置请求的实际传输折算约占 ${fmtSize(est.wire)}${est.times > 1 ? `；本次记录到 ${est.times} 笔设置读取` : ""}` : ""}。大小是内存中序列化后的统计量，折算值只是估计。</p>
-          ${others.n ? `<p>另有文本补全等其他类型的预设 ${others.n} 个，共 ${fmtSize(others.size)}，也会随设置读取；这一页只处理聊天补全预设。</p>` : ""}
+        ${tip(`<p>酒馆每次打开都读取全部聊天补全预设${est ? `，约占设置下载 ${fmtSize(est.wire)}（估计）` : ""}。</p>
+          ${others.n ? `<p>其他类型预设 ${others.n} 个（${fmtSize(others.size)}）同样随设置读取，本页不处理。</p>` : ""}
           ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再读取。</p>` : ""}
           <p>条形图：<span class="pa-key"><i class="sug"></i>可考虑清理</span> <span class="pa-key"><i></i>其余</span> <span class="pa-key"><i class="sel"></i>已勾选</span></p>
           <ul class="pa-legend">
@@ -201,7 +201,7 @@ function mountCleanup(sec) {
             <li><span class="pa-chip pa-ctag-near">条目相同</span><span>与另一个预设的大部分条目相同。</span></li>
             <li><span class="pa-chip pa-ctag-use">在用</span><span>被方案或连接配置使用。</span></li>
           </ul>
-          <p>归档：移出预设文件夹，存到服务器的用户文件目录，打开酒馆时不再读取，换设备也能恢复。标签只是提示，清理哪些由你决定；正在使用的预设不能勾选。</p>`)}
+          <p>归档：移出预设文件夹、存入服务器，打开酒馆时不再读取，可随时恢复。标签仅作提示；正在使用的预设不能勾选。</p>`)}
       </div>
       <div class="pa-clean-bar">
         <div class="pa-seg pa-seg-s" role="tablist">

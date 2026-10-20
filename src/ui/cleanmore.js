@@ -166,7 +166,7 @@ function mountCleanKind(kind, box) {
             <p>「可能已卸载」只是按名称推测。「实际检测」会下载已安装扩展的脚本，查找谁在使用这些数据；扩展用拼接出来的名字读数据时查不出来，结果只能作参考。</p>
             <p>正在使用的数据不能勾选。删除前会先下载一份备份（JSON），需要时可交给对应扩展重新导入。</p>`)}<span class="pa-golinks">${orphans.length ? `<button type="button" class="pa-golink" data-x="pickorphans">勾选 ${orphans.length} 项疑似残留</button>` : ""}<button type="button" class="pa-golink" data-x="scan" ${S.busy ? "disabled" : ""}>${S.busy ? "检测中…" : scan ? "重新检测 ›" : "实际检测 ›"}</button></span></div>
           ${S.busy ? '<p class="pa-hint pa-ck-prog"></p>' : ""}
-          ${scan ? `<p class="pa-hint">${orphans.length ? "勾选后请逐项确认名称再删除。" : "没有找到疑似残留的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」没有查完，标「请确认」的需要你自己判断。` : ""}</p>` : ""}</div>
+          ${scan ? `<p class="pa-hint">${orphans.length ? "勾选后请逐项确认名称再删除。" : "没有找到疑似残留的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」没有查完，标「请确认」的需自行判断。` : ""}</p>` : ""}</div>
         ${err ? `<p class="pa-warn">${esc(err)}</p>` : ""}
         <div class="pa-clist">${list.map((r) => `<label class="pa-crow${S.sel.has(r.k) ? " on" : ""}${r.state === "core" || r.state === "used" ? " pa-locked" : ""}">
           ${chk(r.k, S.sel.has(r.k), r.state === "core" || r.state === "used")}
