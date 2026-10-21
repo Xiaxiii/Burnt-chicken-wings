@@ -245,6 +245,20 @@ async function writeWorldEntries(name, fields, afterUid) {
   }
   return made.map((e) => e.uid);
 }
+// 改世界书里已有的一条（按 uid 找），只写传进来的字段
+async function updateWorldEntry(name, uid, fields) {
+  const wi = mods.wi;
+  if (!wi?.loadWorldInfo || !wi?.saveWorldInfo) throw new Error("无法写入世界书，酒馆版本可能过旧");
+  const data = await wi.loadWorldInfo(name);
+  const e = Object.values(data?.entries || {}).find((x) => String(x.uid) === String(uid));
+  if (!e) throw new Error("条目已不存在");
+  Object.assign(e, fields);
+  await wi.saveWorldInfo(name, data, true);
+  try {
+    wi.reloadEditor?.(name);
+  } catch {
+  }
+}
 function listPersonas() {
   const map = ctx().powerUserSettings?.personas || {};
   return Object.entries(map).map(([avatar, name]) => ({ avatar, name }));

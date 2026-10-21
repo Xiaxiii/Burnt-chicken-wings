@@ -74,7 +74,7 @@ function renderIndexedList(draft, o) {
     return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}" tabindex="0">
             <span class="pa-check" aria-hidden="true"></span>
             ${hits.get(id)?.body ? `<span class="pa-namebox"><span class="pa-name">${esc(name)}</span><small class="pa-hitline">正文：${hits.get(id).snip}</small></span>` : `<span class="pa-name">${markText(name, q)}</span>`}${badge ? `<span class="pa-badges">${badge}</span>` : ""}
-            <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="${o.mode === "organize" ? "查看或编辑" : "查看内容"}" title="${o.mode === "organize" ? "查看或编辑" : "查看内容"}">${ICON.eye}</button>
+            <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" ${on ? "checked" : ""}><i></i></label>` : ""}
             ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="拖动">${ICON.grip}</span>` : ""}
         </div>${at ? mark : ""}`;
