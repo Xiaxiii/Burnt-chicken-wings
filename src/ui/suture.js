@@ -253,7 +253,7 @@ function mountSuture(page, app) {
       srcList._items = items;
       const wq = qOf("src").toLowerCase();
       const shown = wq ? items.filter((it) => String(it.name).toLowerCase().includes(wq) || String(it.content || "").toLowerCase().includes(wq)) : items;
-      srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看内容">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
+      srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
     } else {
       srcList.dataset.kind = "paste";
       const pasted = [...st.picked.entries()].filter(([k]) => k.startsWith("paste:"));
@@ -287,7 +287,7 @@ function mountSuture(page, app) {
       const r = e.target.closest("[data-wid]");
       if (!r) return;
       const it = srcList._items.find((x) => x.id === r.dataset.wid);
-      if (peekBtn) return showText(it.name, it.content);
+      if (peekBtn) return editWorldEntry(st.srcWorld, it.uid, it.name, it.content);
       st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: `世界书 ${st.srcWorld}`, raw: it.raw });
       return renderSrc();
     }
@@ -315,14 +315,65 @@ function mountSuture(page, app) {
     if (!row) return;
     const id = row.dataset.id;
     const p = d.prompt(id);
-    if (peekBtn) return showText(p.name, p.content);
+    if (peekBtn) return editPresetEntry(d, id);
     if (d.isMarker(id)) return toast("系统位置条目不能缝合");
     const k = srcList._keyOf(id);
     st.picked.has(k) ? st.picked.delete(k) : st.picked.set(k, { name: p.name, content: p.content, prompt: p, from: d.name, srcDraft: d, srcId: id });
     renderSrc();
   });
-  function showText(name, content) {
-    sheet({ title: name, body: `<pre class="pa-pre">${esc(content || "（空）")}</pre>`, wide: true, actions: [] });
+  // 「查看」弹窗可以直接改（和整理页一样，点了正文才弹键盘）：
+  // 已安装预设存回预设（可撤销），文件只改这次读入的内容，世界书写回世界书（写前备份）。已选的条目跟着更新
+  function syncPicked(test, patch, rawPatch) {
+    for (const v of st.picked.values()) {
+      if (!test(v)) continue;
+      Object.assign(v, patch);
+      if (v.raw && rawPatch) Object.assign(v.raw, rawPatch);
+    }
+  }
+  async function editPresetEntry(d, id) {
+    const p = d.prompt(id);
+    if (!p) return;
+    const file = d === st.fileDraft;
+    const r = await editEntrySheet(p, { marker: d.isMarker(id), hint: file ? "只改这次读入的文件内容，不会写回文件。" : `保存后写入预设「${d.name}」，可撤销。` });
+    if (!r) return;
+    // 弹窗开着时草稿可能被换过（切换预设、别处修改），按名称重新取
+    let dd = d;
+    if (!file) {
+      try { dd = getDraft(d.name); } catch (e) { return toast(e.message, "error"); }
+    }
+    const cur = dd.prompt(id);
+    if (!cur) return toast("条目已不存在，未保存", "warning");
+    const next = entryChanges(cur, r);
+    if (!next) return;
+    if (file) Object.assign(cur, next);
+    else mutate(dd, "编辑条目", (x) => Object.assign(x.prompt(id), next));
+    syncPicked((v) => v.srcId === id && v.from === dd.name, { name: cur.name, content: cur.content, prompt: cur, srcDraft: dd });
+    renderSrc();
+    toast("已保存", "success");
+  }
+  async function editWorldEntry(wname, uid, name, content) {
+    const r = await editEntrySheet({ name, content }, { promptOnly: true, hint: `保存后写入世界书「${wname}」。` });
+    if (!r || r.name === name && r.content === content) return;
+    const fields = { content: r.content };
+    if (r.name !== name) fields.comment = r.name;
+    try {
+      await backupPut(`世界书：${wname}`, await mods.wi.loadWorldInfo(wname), "编辑前");
+    } catch (e) {
+      if (!await confirmBox("备份失败", `编辑前备份世界书「${wname}」没有成功（${e.message}）。仍要保存吗？`, "仍要保存")) return;
+    }
+    try {
+      await updateWorldEntry(wname, uid, fields);
+    } catch (e) {
+      return toast("保存失败：" + e.message, "error");
+    }
+    syncPicked((v) => v.raw && String(v.raw.uid) === String(uid) && v.from === `世界书 ${wname}`, { name: r.name, content: r.content }, fields);
+    st.worldCache.delete(wname);
+    toast("已保存", "success");
+    if (st.srcType === "world" && st.srcWorld === wname) renderSrc();
+    if (st.dstType === "world" && st.dstWorld === wname) {
+      try { await loadWbDraft(true); } catch {}
+      renderDst();
+    }
   }
   // 世界书目标：把条目包装成一个只读的「预设」，列表、选位置都沿用预设那一套（没有分组）
   async function loadWbDraft(force = false) {
@@ -421,8 +472,9 @@ function mountSuture(page, app) {
       const d2 = st.wbDraft;
       if (!d2) return;
       if (e.target.closest("[data-act]")?.dataset.act === "peek") {
-        const p = d2.prompt(e.target.closest(".pa-row").dataset.id);
-        return showText(p.name, p.content);
+        const id = e.target.closest(".pa-row").dataset.id;
+        const p = d2.prompt(id);
+        return editWorldEntry(d2.name, d2.wb[id].uid, p.name, p.content);
       }
       const m2 = placeFromClick(d2, e, false);
       if (!m2) return;
@@ -432,8 +484,7 @@ function mountSuture(page, app) {
     const d = target();
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "peek") {
-      const p = d.prompt(e.target.closest(".pa-row").dataset.id);
-      return showText(p.name, p.content);
+      return editPresetEntry(d, e.target.closest(".pa-row").dataset.id);
     }
     const head = e.target.closest(".pa-ghead");
     if (head && act === "collapse") {

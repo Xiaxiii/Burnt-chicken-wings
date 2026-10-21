@@ -14,6 +14,65 @@ function dupBannerHtml(d, dups) {
     : "先把其他设备、其他标签页里的酒馆刷新一下（或关掉），再点「再去掉一次」。如果分组显示已经正常，也可以点「保留，不再提示」。";
   return `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>重复的一层去掉过（${when(fixed)}），又被写回来了。</b></p><small>${who}<br>${todo}<br>共 ${dups.length} 个分组重复：${names}。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="keep">保留，不再提示</button><button class="pa-btn pa-btn-s" data-dup="fix">再去掉一次</button></div></div>`;
 }
+// 编辑条目弹窗（整理页、缝合页共用）。打开时不把光标放进输入框：手机上点了正文才弹键盘。
+// promptOnly：世界书条目只有名称和正文。返回填写的值，取消返回 null；由调用方决定写到哪里
+async function editEntrySheet(p, { marker = false, promptOnly = false, hint = "", title = "编辑条目" } = {}) {
+  const s = detectShape(p.content);
+  const info = s.shape === "wrap" || s.shape === "tagname" ? `${SHAPE_LABEL[s.shape]}「${s.varName}」` : SHAPE_LABEL[s.shape];
+  const depthPos = p.injection_position === 1;
+  const body = el(`<div class="pa-form">
+          ${hint ? `<p class="pa-hint pa-edit-where">${esc(hint)}</p>` : ""}
+          <label class="pa-field"><span>名称</span><input class="pa-input" data-f="name" value="${esc(p.name || "")}"></label>
+          ${marker ? '<p class="pa-hint">系统位置条目，正文由酒馆填入，这里只能改名称。</p>' : `
+          ${promptOnly ? "" : `<div class="pa-item-ctl">
+            <label class="pa-field"><span>角色</span><select class="pa-select" data-f="role">${[["system", "系统"], ["user", "用户"], ["assistant", "AI"]].map(([k, l]) => `<option value="${k}" ${(p.role || "system") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+            <label class="pa-field"><span>位置</span><select class="pa-select" data-f="pos"><option value="0" ${depthPos ? "" : "selected"}>按条目顺序</option><option value="1" ${depthPos ? "selected" : ""}>插入聊天记录（按深度）</option></select></label>
+            <label class="pa-field" data-show="depth" ${depthPos ? "" : "hidden"}><span>深度</span><input class="pa-input" type="number" min="0" data-f="depth" value="${esc(p.injection_depth ?? 4)}"></label>
+            <label class="pa-field" data-show="depth" ${depthPos ? "" : "hidden"}><span>同深度时的顺序</span><input class="pa-input" type="number" data-f="order" value="${esc(p.injection_order ?? 100)}"></label>
+          </div>`}
+          <div class="pa-edit-bar"><p class="pa-hint">写法：${esc(info)}</p><button type="button" class="pa-icon-btn pa-expand" data-f="expand" aria-label="展开正文" title="展开正文">${ICON.expand}</button></div>
+          <textarea class="pa-input pa-text pa-edit-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
+      </div>`);
+  // 展开：正文占满弹窗，其他设置先收起；再点一次恢复。触屏上不顺手聚焦，免得一展开就弹键盘
+  body.querySelector("[data-f=expand]")?.addEventListener("click", (e) => {
+    const sh = body.closest(".pa-sheet");
+    const on = !sh.classList.contains("pa-sheet-max");
+    sh.classList.toggle("pa-sheet-max", on);
+    e.currentTarget.innerHTML = on ? ICON.collapse : ICON.expand;
+    e.currentTarget.setAttribute("aria-label", on ? "收起正文" : "展开正文");
+    e.currentTarget.title = on ? "收起正文" : "展开正文";
+    if (matchMedia("(pointer:fine)").matches) body.querySelector("[data-f=content]")?.focus({ preventScroll: true });
+  });
+  body.querySelector("[data-f=pos]")?.addEventListener("change", (e) => {
+    body.querySelectorAll("[data-show=depth]").forEach((x) => { x.hidden = e.target.value !== "1"; });
+  });
+  // 输入时不保存；点「保存」才写入，点「取消」或 ✕ 不改动
+  return sheet({
+    title, body, wide: true, noFocus: true,
+    onMount: (w) => { if (!marker) w.querySelector(".pa-sheet").classList.add("pa-sheet-edit"); },
+    actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => {
+      const v = (k) => w.querySelector(`[data-f=${k}]`)?.value;
+      return { name: v("name"), content: v("content"), role: v("role"), pos: v("pos"), depth: v("depth"), order: v("order") };
+    } }]
+  });
+}
+// 把弹窗填的值换成条目字段；只返回有变化的部分（没有变化返回 null）
+function entryChanges(cur, r) {
+  const next = { name: r.name };
+  if (r.content !== void 0) {
+    next.content = r.content;
+    if (r.role !== void 0) {
+      next.role = r.role || "system";
+      next.injection_position = r.pos === "1" ? 1 : 0;
+      if (next.injection_position === 1) {
+        next.injection_depth = Math.max(0, Math.floor(Number(r.depth) || 0));
+        next.injection_order = Math.floor(Number(r.order) || 100);
+      }
+    }
+  }
+  const changed = Object.entries(next).some(([k, v]) => (cur[k] ?? (k === "role" ? "system" : k === "injection_position" ? 0 : "")) !== v);
+  return changed ? next : null;
+}
 function mountOrganize(page) {
   const st = {
     selected: /* @__PURE__ */ new Set(),
@@ -462,61 +521,14 @@ function mountOrganize(page) {
   async function peek(d, id) {
     const p = d.prompt(id);
     if (!p) return;
-    const s = detectShape(p.content);
-    const info = s.shape === "wrap" || s.shape === "tagname" ? `${SHAPE_LABEL[s.shape]}「${s.varName}」` : SHAPE_LABEL[s.shape];
-    const marker = d.isMarker(id);
-    const depthPos = p.injection_position === 1;
-    const body = el(`<div class="pa-form">
-            <label class="pa-field"><span>名称</span><input class="pa-input" data-f="name" value="${esc(p.name || "")}"></label>
-            ${marker ? '<p class="pa-hint">系统位置条目，正文由酒馆填入，这里只能改名称。</p>' : `
-            <div class="pa-item-ctl">
-              <label class="pa-field"><span>角色</span><select class="pa-select" data-f="role">${[["system", "系统"], ["user", "用户"], ["assistant", "AI"]].map(([k, l]) => `<option value="${k}" ${(p.role || "system") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-              <label class="pa-field"><span>位置</span><select class="pa-select" data-f="pos"><option value="0" ${depthPos ? "" : "selected"}>按条目顺序</option><option value="1" ${depthPos ? "selected" : ""}>插入聊天记录（按深度）</option></select></label>
-              <label class="pa-field" data-show="depth" ${depthPos ? "" : "hidden"}><span>深度</span><input class="pa-input" type="number" min="0" data-f="depth" value="${esc(p.injection_depth ?? 4)}"></label>
-              <label class="pa-field" data-show="depth" ${depthPos ? "" : "hidden"}><span>同深度时的顺序</span><input class="pa-input" type="number" data-f="order" value="${esc(p.injection_order ?? 100)}"></label>
-            </div>
-            <div class="pa-edit-bar"><p class="pa-hint">写法：${esc(info)}</p><button type="button" class="pa-icon-btn pa-expand" data-f="expand" aria-label="展开正文" title="展开正文">${ICON.expand}</button></div>
-            <textarea class="pa-input pa-text pa-edit-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
-        </div>`);
-    // 展开：正文占满弹窗，其他设置先收起；再点一次恢复
-    body.querySelector("[data-f=expand]")?.addEventListener("click", (e) => {
-      const sh = body.closest(".pa-sheet");
-      const on = !sh.classList.contains("pa-sheet-max");
-      sh.classList.toggle("pa-sheet-max", on);
-      e.currentTarget.innerHTML = on ? ICON.collapse : ICON.expand;
-      e.currentTarget.setAttribute("aria-label", on ? "收起正文" : "展开正文");
-      e.currentTarget.title = on ? "收起正文" : "展开正文";
-      body.querySelector("[data-f=content]")?.focus({ preventScroll: true });
-    });
-    body.querySelector("[data-f=pos]")?.addEventListener("change", (e) => {
-      body.querySelectorAll("[data-show=depth]").forEach((x) => { x.hidden = e.target.value !== "1"; });
-    });
-    // 输入时不保存；点「保存」才写进预设，点「取消」或 ✕ 不改动
-    const r = await sheet({
-      title: "编辑条目", body, wide: true, noFocus: true,
-      onMount: (w) => { if (!marker) w.querySelector(".pa-sheet").classList.add("pa-sheet-edit"); },
-      actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => {
-        const v = (k) => w.querySelector(`[data-f=${k}]`)?.value;
-        return { name: v("name"), content: v("content"), role: v("role"), pos: v("pos"), depth: v("depth"), order: v("order") };
-      } }]
-    });
+    const r = await editEntrySheet(p, { marker: d.isMarker(id) });
     if (!r) return;
     // 弹窗开着时草稿可能被换过（切换预设、别处修改），按名称重新取
     const dd = getDraft(d.name);
     const cur = dd.prompt(id);
     if (!cur) return toast("条目已不存在，未保存", "warning");
-    const next = { name: r.name };
-    if (r.content !== void 0) {
-      next.content = r.content;
-      next.role = r.role || "system";
-      next.injection_position = r.pos === "1" ? 1 : 0;
-      if (next.injection_position === 1) {
-        next.injection_depth = Math.max(0, Math.floor(Number(r.depth) || 0));
-        next.injection_order = Math.floor(Number(r.order) || 100);
-      }
-    }
-    const changed = Object.entries(next).some(([k, v]) => (cur[k] ?? (k === "role" ? "system" : k === "injection_position" ? 0 : "")) !== v);
-    if (!changed) return;
+    const next = entryChanges(cur, r);
+    if (!next) return;
     mutate(dd, "编辑条目", (x) => Object.assign(x.prompt(id), next));
     toast("已保存", "success");
   }
