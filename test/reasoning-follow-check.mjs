@@ -75,6 +75,17 @@ try {
   assert.match(await rows.nth(1).innerText(), /ECoT · <ECoT> … <\/ECoT> · 自动解析、显示隐藏内容/);
   ok('列表显示每个预设记住的推理格式');
 
+  // 可折叠，收起状态记住，重画后保持
+  await page.locator('.pa-rfold > summary').click();
+  assert.equal(await rows.nth(0).isVisible(), false, '点标题收起');
+  await page.waitForFunction(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.reasoningListFold === true);
+  await page.locator('[data-m="look"]').click();
+  await page.locator('[data-m="schemes"]').click();
+  assert.equal(await page.locator('.pa-rfold').evaluate((d) => d.open), false, '重画后仍收起');
+  await page.locator('.pa-rfold > summary').click();
+  assert.equal(await rows.nth(0).isVisible(), true);
+  ok('记录列表可折叠，记住收起状态');
+
   // 改其他预设的记录：只改记录，切过去才套用；换模板带出模板的前后缀
   await rows.nth(1).locator('[data-a=reasoningedit]').click();
   await sheet.locator('textarea[data-k=separator]').waitFor();
