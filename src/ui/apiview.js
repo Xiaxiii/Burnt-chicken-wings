@@ -169,7 +169,7 @@ function mountApi(liveBox, sitesBox) {
           <button class="pa-link" data-a="reasoningedit">修改</button>${x.cur ? "" : '<button class="pa-link" data-a="reasoningdel">删除</button>'}
         </div>`;
     return `<div class="pa-rlist">${rows.map(row).join("") || '<p class="pa-hint">还没有记录。</p>'}</div>
-        <div class="pa-rlist-foot"><button class="pa-link" data-a="reasoningadd">＋ 给其他预设设置</button>${rows.some((x) => !x.cur) ? '<button class="pa-link" data-a="reasoningclear">清除记录</button>' : ""}</div>`;
+        <div class="pa-rlist-foot"><button class="pa-link" data-a="reasoningadd">＋ 给其他预设设置</button><span><button class="pa-link" data-a="reasoningrefresh">刷新</button>${rows.some((x) => !x.cur) ? '<button class="pa-link" data-a="reasoningclear">清除记录</button>' : ""}</span></div>`;
   }
   async function getModels(site) {
     return withSiteKey(site, () => fetchModelList(site));
@@ -328,6 +328,8 @@ function mountApi(liveBox, sitesBox) {
       saveSettings();
       return render();
     }
+    // 在酒馆面板里改过推理设置后，重读「当前」那行
+    if (a === "reasoningrefresh") return render();
     if (a === "reasoningedit" || a === "reasoningadd") {
       let name = e.target.closest(".pa-rrow")?.dataset.name;
       if (a === "reasoningadd") {

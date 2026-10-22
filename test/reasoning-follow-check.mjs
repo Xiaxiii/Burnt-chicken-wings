@@ -104,6 +104,15 @@ try {
   assert.equal((await stored(names[0])).prefix, '<cot>');
   ok('修改当前预设立即改酒馆设置');
 
+  // 在酒馆面板里改过后，点「刷新」显示新值
+  await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning.prefix = '<fresh>'; });
+  assert.doesNotMatch(await page.locator('.pa-rrow.pa-srow-on').innerText(), /<fresh>/);
+  await page.locator('[data-a=reasoningrefresh]').click();
+  assert.match(await page.locator('.pa-rrow.pa-srow-on').innerText(), /<fresh>/);
+  await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning.prefix = '<cot>'; });
+  await page.locator('[data-a=reasoningrefresh]').click();
+  ok('点刷新显示酒馆里改过的设置');
+
   // 删除一条记录；给没记录的预设新建一条
   await page.locator(`.pa-rrow[data-name="${names[1]}"] [data-a=reasoningdel]`).click();
   await sheet.locator('.pa-btn-danger').click();
