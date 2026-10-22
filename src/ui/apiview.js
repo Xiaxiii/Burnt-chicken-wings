@@ -33,6 +33,72 @@ async function pickModel(list, cur, { title = "选择模型" } = {}) {
   return picked;
 }
 const modelBtn = (cur, attr) => `<button class="pa-model-btn" ${attr} title="${esc(cur || "")}"><span>${esc(cur || "选择模型")}</span><i>▾</i></button>`;
+// 2.3.3 推理格式记录：列表里看每个预设记住的设置，点「修改」手动改
+var REASONING_FLAGS = [["auto_parse", "自动解析"], ["add_to_prompts", "添加到提示词"], ["auto_expand", "自动展开"], ["show_hidden", "显示隐藏内容"]];
+const showBreaks = (s) => String(s ?? "").replace(/\r?\n/g, "↵");
+function reasoningSummary(r) {
+  const wrap = r.prefix || r.suffix ? `${showBreaks(r.prefix)} … ${showBreaks(r.suffix)}` : "无前后缀";
+  const flags = [r.auto_parse ? "自动解析" : "不自动解析", ...REASONING_FLAGS.slice(1).filter(([k]) => r[k] === true).map(([, label]) => label)];
+  return [r.name, wrap, flags.join("、")].filter(Boolean).join(" · ");
+}
+function reasoningTemplates() {
+  try {
+    const list = ctx().getPresetManager?.("reasoning")?.getPresetList?.()?.presets;
+    if (Array.isArray(list) && list.length) return list.filter((t) => t?.name);
+  } catch {}
+  return [...document.querySelectorAll("#reasoning_select option")].map((o) => ({ name: o.value })).filter((t) => t.name);
+}
+// live：这是当前预设、跟随开着，保存即改酒馆现在的设置
+async function editReasoning(name, init, live) {
+  const base = { ...(reasoningNow() || {}), ...init };
+  const has = (k) => base[k] !== undefined;
+  const tpls = reasoningTemplates();
+  if (has("name") && base.name && !tpls.some((t) => t.name === base.name)) tpls.unshift({ name: base.name });
+  const text = (k, label) => has(k) ? `<label class="pa-field"><span>${label}<i class="pa-rws"></i></span><textarea class="pa-input pa-rtext" data-k="${k}" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea></label>` : "";
+  const body = el(`<div class="pa-form">
+      <p class="pa-hint">${live ? "当前预设：保存后立即改酒馆「推理内容格式化」的设置。" : "切到这个预设时套用。"}</p>
+      ${has("name") ? `<label class="pa-field"><span>模板</span>${tpls.length ? `<select class="pa-select" data-k="name">${tpls.map((t) => `<option value="${esc(t.name)}"${t.name === base.name ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select>` : `<input class="pa-input" data-k="name" value="${esc(base.name)}">`}</label>` : ""}
+      ${text("prefix", "前缀")}${text("suffix", "后缀")}${text("separator", "分隔符")}
+      <div class="pa-rflags">${REASONING_FLAGS.filter(([k]) => has(k)).map(([k, label]) => `<label class="pa-inline-check"><input type="checkbox" data-k="${k}"${base[k] ? " checked" : ""}> ${label}</label>`).join("")}</div>
+      ${has("max_additions") ? `<label class="pa-field"><span>添加到提示词的最大条数</span><input class="pa-input" type="number" min="0" max="999" step="1" inputmode="numeric" data-k="max_additions" value="${esc(base.max_additions)}"></label>` : ""}
+    </div>`);
+  // 只有换行或空格时框里看着是空的，在标题旁标出来
+  const mark = (t) => { t.closest(".pa-field").querySelector(".pa-rws").textContent = t.value && !t.value.trim() ? `（${showBreaks(t.value).replace(/ /g, "␣")}）` : ""; };
+  // 前后缀常以换行开头，写进 HTML 会被吞掉，所以直接赋值
+  body.querySelectorAll("textarea[data-k]").forEach((t) => {
+    t.value = String(base[t.dataset.k] ?? "");
+    mark(t);
+    t.addEventListener("input", () => mark(t));
+  });
+  // 换模板时和酒馆一样带出该模板的前缀、后缀、分隔符
+  body.querySelector("select[data-k=name]")?.addEventListener("change", (e) => {
+    const t = tpls.find((x) => x.name === e.target.value);
+    for (const k of ["prefix", "suffix", "separator"]) {
+      const box = body.querySelector(`textarea[data-k=${k}]`);
+      if (box && typeof t?.[k] === "string") {
+        box.value = t[k];
+        mark(box);
+      }
+    }
+  });
+  return sheet({
+    title: `推理格式：${name}`,
+    body,
+    noFocus: true,
+    actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => {
+      const out = { ...init };
+      w.querySelectorAll("[data-k]").forEach((x) => {
+        const k = x.dataset.k;
+        if (x.type === "checkbox") out[k] = x.checked;
+        else if (k === "max_additions") {
+          const n = Math.round(Number(x.value));
+          out[k] = x.value.trim() !== "" && Number.isFinite(n) ? Math.min(999, Math.max(0, n)) : base[k];
+        } else out[k] = x.value;
+      });
+      return out;
+    } }]
+  });
+}
 // liveBox：当前连接；sitesBox：站点列表和选项（「方案」页把方案放在两者之间）
 function mountApi(liveBox, sitesBox) {
   const sites = () => settings().sites;
@@ -88,8 +154,22 @@ function mountApi(liveBox, sitesBox) {
         </div>
         <div class="pa-card">
             <label class="pa-inline-check"><input type="checkbox" data-o="reasoningfollow" ${s.reasoningFollowPreset === true ? "checked" : ""}> 切换预设时，同时切换推理格式</label>
-            ${tip(`开启后，离开一个预设时记下酒馆「推理内容格式化」的设置（自动解析、前缀、后缀等），再切回该预设时自动恢复。未记过的预设保持当前设置。${Object.keys(s.reasoningByPreset || {}).length ? `<br>已记住 ${Object.keys(s.reasoningByPreset).length} 个预设。<button class="pa-link" data-a="reasoningclear">清除记录</button>` : ""}`, "说明")}
+            ${tip(`开启后，离开一个预设时记下酒馆「推理内容格式化」的设置（自动解析、前缀、后缀等），再切回该预设时自动恢复。未记过的预设保持当前设置。${s.reasoningFollowPreset === true ? "<br>下方列出各预设记住的设置，可点「修改」手动改；改当前预设就是改酒馆现在的设置。" : Object.keys(s.reasoningByPreset || {}).length ? `<br>已记住 ${Object.keys(s.reasoningByPreset).length} 个预设。<button class="pa-link" data-a="reasoningclear">清除记录</button>` : ""}`, "说明")}
+            ${s.reasoningFollowPreset === true ? reasoningList() : ""}
         </div>`;
+  }
+  // 跟随开着时，当前预设的记录就是酒馆现在的设置（离开时会照它记下），所以显示实时值，不给删除
+  function reasoningList() {
+    const store = reasoningStore();
+    const live = reasoningNow();
+    const rows = Object.keys(store).filter((n) => n !== reasoningPreset).sort((a, b) => a.localeCompare(b, "zh")).map((n) => ({ name: n, r: store[n], cur: false }));
+    if (reasoningPreset && live) rows.unshift({ name: reasoningPreset, r: live, cur: true });
+    const row = (x) => `<div class="pa-srow pa-rrow${x.cur ? " pa-srow-on" : ""}" data-name="${esc(x.name)}">
+          <div class="pa-srow-main"><b title="${esc(x.name)}">${esc(x.name)}</b>${x.cur ? '<span class="pa-chip">当前</span>' : ""}<small title="${esc(reasoningSummary(x.r))}">${esc(reasoningSummary(x.r))}</small></div>
+          <button class="pa-link" data-a="reasoningedit">修改</button>${x.cur ? "" : '<button class="pa-link" data-a="reasoningdel">删除</button>'}
+        </div>`;
+    return `<div class="pa-rlist">${rows.map(row).join("") || '<p class="pa-hint">还没有记录。</p>'}</div>
+        <div class="pa-rlist-foot"><button class="pa-link" data-a="reasoningadd">＋ 给其他预设设置</button><span><button class="pa-link" data-a="reasoningrefresh">刷新</button>${rows.some((x) => !x.cur) ? '<button class="pa-link" data-a="reasoningclear">清除记录</button>' : ""}</span></div>`;
   }
   async function getModels(site) {
     return withSiteKey(site, () => fetchModelList(site));
@@ -245,6 +325,35 @@ function mountApi(liveBox, sitesBox) {
       if (!await confirmBox("清除推理格式记录", "清除所有预设记住的推理格式？当前酒馆设置不变。", "清除")) return;
       settings().reasoningByPreset = {};
       if (reasoningFollowOn()) rememberReasoning();
+      saveSettings();
+      return render();
+    }
+    // 在酒馆面板里改过推理设置后，重读「当前」那行
+    if (a === "reasoningrefresh") return render();
+    if (a === "reasoningedit" || a === "reasoningadd") {
+      let name = e.target.closest(".pa-rrow")?.dataset.name;
+      if (a === "reasoningadd") {
+        const store = reasoningStore();
+        const items = listPresets().filter((n) => n !== reasoningPreset && !store[n]).map((n) => ({ label: n, value: n }));
+        if (!items.length) return toast("所有预设都已有记录", "info");
+        name = await pickBox("给哪个预设设置推理格式", items, { hint: "先填入酒馆现在的设置，可再修改。" });
+        if (!name) return;
+      }
+      const cur = name === reasoningPreset;
+      const init = cur ? reasoningNow() : reasoningStore()[name] || reasoningNow();
+      if (!init) return toast("酒馆没有「推理内容格式化」设置", "warning");
+      const r = await editReasoning(name, init, cur);
+      if (!r) return;
+      reasoningStore()[name] = r;
+      if (cur) applyReasoning(r);
+      saveSettings();
+      toast(cur ? "已改酒馆现在的推理格式" : `已保存「${name}」的推理格式`, "success");
+      return render();
+    }
+    if (a === "reasoningdel") {
+      const name = e.target.closest(".pa-rrow")?.dataset.name;
+      if (!name || !await confirmBox("删除推理格式记录", `删除「${name}」记住的推理格式？切到它时将保持当时的设置。`, "删除", true)) return;
+      delete reasoningStore()[name];
       saveSettings();
       return render();
     }

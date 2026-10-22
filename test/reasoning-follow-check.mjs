@@ -59,9 +59,79 @@ try {
   assert.deepEqual(await dom(), { prefix: '<think>', parse: false, select: 'DeepSeek' });
   ok('开启后离开预设时记下格式，切回时恢复，并同步酒馆面板');
 
-  await box.uncheck();
+  // 记录列表：当前预设显示酒馆现在的设置、不能删；其他预设显示记住的设置
+  await page.evaluate(() => {
+    const c = window.SillyTavern.getContext(), orig = c.getPresetManager;
+    const templates = [{ name: 'DeepSeek', prefix: '<think>\n', suffix: '\n</think>', separator: '\n\n' }, { name: 'ECoT', prefix: '<ECoT>', suffix: '</ECoT>', separator: '\n' }];
+    c.getPresetManager = (api) => api === 'reasoning' ? { getPresetList: () => ({ presets: templates }) } : orig(api);
+  });
+  const stored = (n) => page.evaluate((n) => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier.reasoningByPreset[n]), n);
+  const rows = page.locator('.pa-rrow');
+  const sheet = page.locator('.pa-sheet-mask:not(.pa-out)');
+  assert.equal(await rows.count(), 2);
+  assert.equal(await rows.nth(0).getAttribute('data-name'), names[1]);
+  assert.match(await rows.nth(0).innerText(), /当前[\s\S]*<think> … <\/think>/);
+  assert.equal(await rows.nth(0).locator('[data-a=reasoningdel]').count(), 0, '当前预设不给删除');
+  assert.match(await rows.nth(1).innerText(), /ECoT · <ECoT> … <\/ECoT> · 自动解析、显示隐藏内容/);
+  ok('列表显示每个预设记住的推理格式');
+
+  // 改其他预设的记录：只改记录，切过去才套用；换模板带出模板的前后缀
+  await rows.nth(1).locator('[data-a=reasoningedit]').click();
+  await sheet.locator('textarea[data-k=separator]').waitFor();
+  assert.equal(await sheet.locator('textarea[data-k=separator]').inputValue(), '\n', '开头的换行不丢');
+  assert.equal(await sheet.locator('.pa-field:has(textarea[data-k=separator]) .pa-rws').innerText(), '（↵）', '只有换行时标出来');
+  await sheet.locator('select[data-k=name]').selectOption('DeepSeek');
+  assert.equal(await sheet.locator('textarea[data-k=prefix]').inputValue(), '<think>\n', '换模板带出前缀');
+  await sheet.locator('textarea[data-k=suffix]').fill('</think>');
+  await sheet.locator('input[data-k=auto_parse]').uncheck();
+  await sheet.locator('input[data-k=max_additions]').fill('3');
+  await sheet.locator('.pa-btn-primary').click();
+  const edited = { ...A, name: 'DeepSeek', prefix: '<think>\n', suffix: '</think>', separator: '\n\n', auto_parse: false, max_additions: 3 };
+  assert.deepEqual(await stored(names[0]), edited);
+  assert.deepEqual(await now(), B, '改其他预设的记录不动酒馆现在的设置');
   await switchTo(names[0]);
-  assert.deepEqual(await now(), B, '关闭后不再切换');
+  assert.deepEqual(await now(), edited, '切过去套用改过的记录');
+  ok('修改其他预设的记录，切过去时套用');
+
+  // 改当前预设：立即改酒馆设置并同步酒馆面板
+  await page.locator('.pa-rrow.pa-srow-on [data-a=reasoningedit]').click();
+  await sheet.locator('textarea[data-k=prefix]').fill('<cot>');
+  await sheet.locator('input[data-k=show_hidden]').uncheck();
+  await sheet.locator('.pa-btn-primary').click();
+  assert.equal((await now()).prefix, '<cot>');
+  assert.equal((await now()).show_hidden, false);
+  assert.equal(await page.evaluate(() => document.getElementById('reasoning_prefix').value), '<cot>');
+  assert.equal((await stored(names[0])).prefix, '<cot>');
+  ok('修改当前预设立即改酒馆设置');
+
+  // 在酒馆面板里改过后，点「刷新」显示新值
+  await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning.prefix = '<fresh>'; });
+  assert.doesNotMatch(await page.locator('.pa-rrow.pa-srow-on').innerText(), /<fresh>/);
+  await page.locator('[data-a=reasoningrefresh]').click();
+  assert.match(await page.locator('.pa-rrow.pa-srow-on').innerText(), /<fresh>/);
+  await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning.prefix = '<cot>'; });
+  await page.locator('[data-a=reasoningrefresh]').click();
+  ok('点刷新显示酒馆里改过的设置');
+
+  // 删除一条记录；给没记录的预设新建一条
+  await page.locator(`.pa-rrow[data-name="${names[1]}"] [data-a=reasoningdel]`).click();
+  await sheet.locator('.pa-btn-danger').click();
+  assert.equal(await stored(names[1]), undefined);
+  await page.locator('[data-a=reasoningadd]').click();
+  await sheet.locator('.pa-pick-item').filter({ hasText: names[1] }).click();
+  await sheet.locator('textarea[data-k=prefix]').waitFor();
+  assert.equal(await sheet.locator('textarea[data-k=prefix]').inputValue(), '<cot>', '新建时先填酒馆现在的设置');
+  await sheet.locator('textarea[data-k=prefix]').fill('<new>');
+  await sheet.locator('.pa-btn-primary').click();
+  assert.equal((await stored(names[1])).prefix, '<new>');
+  assert.equal((await now()).prefix, '<cot>');
+  ok('可删除记录，也可给没记录的预设新建');
+
+  await box.uncheck();
+  assert.equal(await rows.count(), 0, '关闭后不显示列表');
+  const before = await now();
+  await switchTo(names[1]);
+  assert.deepEqual(await now(), before, '关闭后不再切换');
   ok('关闭后切换预设不改推理格式');
   assert.deepEqual(errors, []);
 } finally {
