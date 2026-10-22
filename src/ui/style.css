@@ -1154,3 +1154,11 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-sheet-edit { height: calc(var(--pa-vh, 100dvh) * .86); }
     #pa-root .pa-sheet-max { height: calc(var(--pa-vh, 100dvh) - 24px); max-height: none; max-width: none; border-radius: 16px; }
 }
+/* 2.3.3 推理格式记录：列表和修改窗 */
+#pa-root .pa-rlist { margin-top: 8px; border-top: 1px dashed var(--pa-line); }
+#pa-root .pa-rrow .pa-link { flex: none; padding: 4px; }
+#pa-root .pa-rlist-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
+#pa-root .pa-rflags { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+#pa-root .pa-rtext { resize: vertical; }
+#pa-root .pa-rrow .pa-srow-main small { white-space: normal; overflow-wrap: anywhere; }
+#pa-root .pa-rws { font-style: normal; margin-left: 4px; }
