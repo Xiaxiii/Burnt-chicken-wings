@@ -168,8 +168,10 @@ function mountApi(liveBox, sitesBox) {
           <div class="pa-srow-main"><b title="${esc(x.name)}">${esc(x.name)}</b>${x.cur ? '<span class="pa-chip">当前</span>' : ""}<small title="${esc(reasoningSummary(x.r))}">${esc(reasoningSummary(x.r))}</small></div>
           <button class="pa-link" data-a="reasoningedit">修改</button>${x.cur ? "" : '<button class="pa-link" data-a="reasoningdel">删除</button>'}
         </div>`;
-    return `<div class="pa-rlist">${rows.map(row).join("") || '<p class="pa-hint">还没有记录。</p>'}</div>
-        <div class="pa-rlist-foot"><button class="pa-link" data-a="reasoningadd">＋ 给其他预设设置</button><span><button class="pa-link" data-a="reasoningrefresh">刷新</button>${rows.some((x) => !x.cur) ? '<button class="pa-link" data-a="reasoningclear">清除记录</button>' : ""}</span></div>`;
+    // 2.3.4 可折叠，记住收起状态
+    return `<details class="pa-rfold"${settings().reasoningListFold === true ? "" : " open"}><summary>记住的推理格式（${rows.length}）</summary>
+        <div class="pa-rlist">${rows.map(row).join("") || '<p class="pa-hint">还没有记录。</p>'}</div>
+        <div class="pa-rlist-foot"><button class="pa-link" data-a="reasoningadd">＋ 给其他预设设置</button><span><button class="pa-link" data-a="reasoningrefresh">刷新</button>${rows.some((x) => !x.cur) ? '<button class="pa-link" data-a="reasoningclear">清除记录</button>' : ""}</span></div></details>`;
   }
   async function getModels(site) {
     return withSiteKey(site, () => fetchModelList(site));
@@ -317,6 +319,14 @@ function mountApi(liveBox, sitesBox) {
     }
   };
   sitesBox.addEventListener("change", onChange);
+  // toggle 不冒泡，用捕获
+  sitesBox.addEventListener("toggle", (e) => {
+    if (!e.target.classList?.contains("pa-rfold")) return;
+    const fold = !e.target.open;
+    if (settings().reasoningListFold === fold) return;
+    settings().reasoningListFold = fold;
+    saveSettings();
+  }, true);
   const onClick = async (e) => {
     const a = e.target.closest("[data-a]")?.dataset.a;
     if (!a) return;
