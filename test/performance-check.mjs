@@ -91,11 +91,13 @@ try {
     assert.equal(await page.evaluate(() => window.__perf.renders.length - window.__perf.before), 0, '仅保存状态通知不重建列表');
     assert.equal(await page.evaluate(() => window.__perf.anchor.isConnected), true);
 
-    // 实际单项修改后保存完成不重复重建DOM；正文、其他角色顺序和其余1199个开关均保留。
+    // 单条开关就地改这一行，不重建列表；保存开始、完成也不重建。正文、其他角色顺序和其余1199个开关均保留。
     const beforeToggle = await page.evaluate(() => window.__perf.renders.length);
     await list.locator('[data-id="perf-1"] .pa-switch').click();
     await waitSaved(page, p => p.prompt_order[0].order[1].enabled === true);
-    assert.equal(await page.evaluate(() => window.__perf.renders.length) - beforeToggle, 1, '实际修改只渲染一次，不因保存开始或完成重复重建');
+    assert.equal(await page.evaluate(() => window.__perf.renders.length) - beforeToggle, 0, '单条开关不重建列表');
+    assert.equal(await list.locator('[data-id="perf-1"]').evaluate((r) => !r.classList.contains('pa-off') && r.querySelector('[data-act=toggle]').checked), true, '这一行就地改成开启');
+    assert.equal(await page.evaluate(() => window.__perf.anchor.isConnected), true, '列表节点没有被替换');
     const expected = structuredClone(original); expected.prompt_order[0].order[1].enabled = true;
     let now = await saved(page);
     assert.deepEqual(now.prompts, expected.prompts);

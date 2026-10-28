@@ -173,6 +173,21 @@ function mountOrganize(page) {
       }, 1600);
     }
   }
+  // 2.3.6 只改选中状态时不重建整个列表：直接改各行、各组的勾选样式和底栏
+  function paintSel() {
+    const d = draft();
+    list.querySelectorAll(".pa-row[data-id]").forEach((r) => r.classList.toggle("pa-sel", st.selected.has(r.dataset.id)));
+    list.querySelectorAll(".pa-group[data-gid]:not(.pa-gempty-box)").forEach((sec) => {
+      const gid = sec.dataset.gid;
+      const ids = d.order.filter((o) => d.groupOf(o.identifier) === gid).map((o) => o.identifier);
+      const all = ids.length > 0 && ids.every((i) => st.selected.has(i));
+      sec.classList.toggle("pa-gsel", all);
+      sec.querySelector(":scope > .pa-ghead [data-act=gselect]")?.setAttribute("aria-pressed", String(all));
+    });
+    const n = st.selected.size;
+    selbar.hidden = n === 0;
+    page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
+  }
   const ordered = () => {
     const d = draft();
     return settings().keepClickOrder ? [...st.selected] : d.sortByOrder([...st.selected]);
@@ -253,6 +268,7 @@ function mountOrganize(page) {
     if (act === "drag" || act === "gdrag") return;
     if (e.target.closest(".pa-switch") && act !== "toggle" && act !== "gtoggle") return;
     if (act === "toggle") {
+      patchNext = { kind: "row", id: rowEl.dataset.id };
       mutate(d, "开关", (x) => x.setEnabled([rowEl.dataset.id], actEl.checked));
       return;
     }
@@ -284,6 +300,7 @@ function mountOrganize(page) {
         return render();
       }
       if (act === "gtoggle") {
+        patchNext = { kind: "group", gid };
         mutate(d, "分组开关", (x) => x.setGroupEnabled(gid, actEl.checked));
         return;
       }
@@ -292,14 +309,14 @@ function mountOrganize(page) {
         const ids = d.order.filter((o) => d.groupOf(o.identifier) === gid).map((o) => o.identifier);
         const all = ids.every((i) => st.selected.has(i));
         ids.forEach((i) => all ? st.selected.delete(i) : st.selected.add(i));
-        return render();
+        return paintSel();
       }
       return;
     }
     if (rowEl) {
       const id = rowEl.dataset.id;
       st.selected.has(id) ? st.selected.delete(id) : st.selected.add(id);
-      render();
+      paintSel();
     }
   });
   search.addEventListener("input", () => {
@@ -376,14 +393,14 @@ function mountOrganize(page) {
     const ids = ordered();
     if (a === "none") {
       st.selected.clear();
-      return render();
+      return paintSel();
     }
     if (a === "all") {
       // 只选看得见的：折叠分组里的条目不选，免得接着「关闭」「删除」动到看不见的条目
       list.querySelectorAll(".pa-row").forEach((r) => {
         if (!r.closest(".pa-collapsed")) st.selected.add(r.dataset.id);
       });
-      return render();
+      return paintSel();
     }
     if (a === "more") {
       const v = await pickBox(`已选 ${ids.length} 条`, [
@@ -764,8 +781,37 @@ function mountOrganize(page) {
     if (drag && e.pointerId === drag.pid) endDrag(true);
   });
   list.addEventListener("pointercancel", () => endDrag(false));
+  // 2.3.6 单条开关、分组开关只改了开关状态：就地改这一行（或这一组）和计数，不重建整个列表
+  let patchNext = null;
+  function patchSwitch(p) {
+    const d = draft();
+    if (p.kind === "group") {
+      list.querySelectorAll(`.pa-group[data-gid="${CSS.escape(p.gid)}"]`).forEach((sec) => {
+        const off = d.groupOff(p.gid);
+        sec.classList.toggle("pa-goff", off);
+        const box = sec.querySelector(":scope > .pa-ghead [data-act=gtoggle]");
+        if (box) box.checked = !off;
+      });
+      return true;
+    }
+    const row = list.querySelector(`.pa-row[data-id="${CSS.escape(p.id)}"]`);
+    const b = d.blocks().find((x) => x.ids.includes(p.id));
+    if (!row || !b) return false;
+    const en = new Map(d.order.map((x) => [x.identifier, x.enabled !== false]));
+    row.classList.toggle("pa-off", !en.get(p.id));
+    const box = row.querySelector("[data-act=toggle]");
+    if (box) box.checked = en.get(p.id);
+    const count = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead .pa-count");
+    if (count) count.textContent = `${b.ids.filter((i) => en.get(i)).length}/${b.ids.length}`;
+    return true;
+  }
   const off = onDraftChange((name, kind) => {
-    if (kind !== "status" && name === focusPreset() && draftViewVisible(page)) render();
+    const p = patchNext;
+    patchNext = null;
+    if (kind !== "status" && name === focusPreset() && draftViewVisible(page)) {
+      if (p && kind === "content" && patchSwitch(p)) return;
+      render();
+    }
   });
   return { render: () => {
     picker.refresh();

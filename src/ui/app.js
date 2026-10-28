@@ -491,34 +491,45 @@ function applyFloatBall() {
   if (settings().floatBall !== true) return ball?.remove();
   if (ball) return placeBall(ball);
   ball = el(`<button id="pa-ball" type="button" aria-label="打开${esc(appName())}" title="${esc(appName())}"><i class="fa-solid fa-scissors"></i></button>`);
-  let start = null, moved = false;
+  let start = null, moved = false, frame = 0, dx = 0, dy = 0;
   // 酒馆在 html 上监听 mousedown/touchstart，点到抽屉外就收起打开着的抽屉（扩展页等）。拖球、点球都不该让它收起
   for (const t of ["mousedown", "touchstart", "click"]) ball.addEventListener(t, (e) => e.stopPropagation());
+  // 拖动时只改 transform，每帧最多一次，不触发重新排版；松手再落到 left/top
+  const paint = () => {
+    frame = 0;
+    ball.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+  };
   ball.addEventListener("pointerdown", (e) => {
     if (e.button) return;
     const r = ball.getBoundingClientRect();
-    start = { x: e.clientX, y: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top };
+    start = { x: e.clientX, y: e.clientY, left: r.left, top: r.top, w: window.innerWidth, h: window.innerHeight };
     moved = false;
     try { ball.setPointerCapture(e.pointerId); } catch {}
   });
   ball.addEventListener("pointermove", (e) => {
     if (!start) return;
     if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
-    moved = true;
-    ball.classList.add("pa-ball-drag");
-    const w = window.innerWidth, h = window.innerHeight;
-    ball.style.left = Math.min(w - BALL, Math.max(0, e.clientX - start.dx)) + "px";
-    ball.style.top = Math.min(h - BALL, Math.max(0, e.clientY - start.dy)) + "px";
+    if (!moved) { moved = true; ball.classList.add("pa-ball-drag"); }
+    dx = Math.min(start.w - BALL, Math.max(0, start.left + e.clientX - start.x)) - start.left;
+    dy = Math.min(start.h - BALL, Math.max(0, start.top + e.clientY - start.y)) - start.top;
+    if (!frame) frame = requestAnimationFrame(paint);
   });
   const drop = () => {
     if (!start) return;
+    const s0 = start;
     start = null;
-    ball.classList.remove("pa-ball-drag");
+    if (frame) { cancelAnimationFrame(frame); frame = 0; }
     if (!moved) return;
-    const r = ball.getBoundingClientRect();
-    const w = window.innerWidth, h = window.innerHeight;
-    settings().floatBallPos = { x: r.left + BALL / 2 < w / 2 ? 0 : 1, y: Math.min(1, Math.max(0, (r.top - BALL_GAP) / Math.max(1, h - BALL - BALL_GAP * 2))) };
+    const left = s0.left + dx, top = s0.top + dy;
+    ball.style.left = left + "px";
+    ball.style.top = top + "px";
+    ball.style.transform = "";
+    dx = dy = 0;
+    settings().floatBallPos = { x: left + BALL / 2 < s0.w / 2 ? 0 : 1, y: Math.min(1, Math.max(0, (top - BALL_GAP) / Math.max(1, s0.h - BALL - BALL_GAP * 2))) };
     saveSettings();
+    // 先落在松手的位置并让浏览器算好，再去掉拖动标记贴边，才有从松手处滑过去的动画
+    void ball.offsetLeft;
+    ball.classList.remove("pa-ball-drag");
     placeBall(ball);
   };
   ball.addEventListener("pointerup", drop);

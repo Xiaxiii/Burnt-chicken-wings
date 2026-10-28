@@ -145,7 +145,7 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
   if (idx !== void 0 && idx >= 0) {
     // 原地替换：别的扩展可能拿着旧对象的引用，换成新对象的话它下次保存会把旧内容写回去
     const cur = presets[idx];
-    if (cur && typeof cur === "object") replaceInPlace(cur, structuredClone(data));
+    if (cur && typeof cur === "object") { replaceInPlace(cur, structuredClone(data)); forgetSize(cur); }
     else presets[idx] = structuredClone(data);
   }
   if (name === currentPresetName() && restChanged) {
