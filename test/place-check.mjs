@@ -164,11 +164,12 @@ await page.locator(".pa-mpick-item", { hasText: "claude-sonnet" }).click(); awai
 await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
 const site = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites.find((s) => s.name === "测试站"));
 check(site?.model === "claude-sonnet" && site.models.length === 2, "站点保存了模型和列表");
-// 切到这个站点，再存方案（应记录 API 站点）
+// 切到这个站点，再存方案（API 默认不记录，选「当前连接」后记录 API 站点）
 await page.locator(".pa-site", { hasText: "测试站" }).locator('[data-a="use"]').click(); await page.waitForTimeout(2500);
 await page.click('[data-s="new"]'); await page.waitForTimeout(300);
 await page.fill('.pa-sheet [data-f="name"]', "测试方案");
 check(/测试站/.test(await page.locator(".pa-sheet .pa-save-list").innerText()), "保存窗口列出将保存的 API");
+await page.selectOption('.pa-sheet [data-f="api"]', "__live");
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
 const sc = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.schemes.find((s) => s.name === "测试方案"));
 check(sc?.siteId === site.id && sc.conn?.siteId === site.id && !!sc.conn.model, "方案记录了 API（站点和模型）");

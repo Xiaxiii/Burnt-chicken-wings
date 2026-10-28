@@ -353,6 +353,9 @@ function addSettingsEntry() {
             <div class="pa-set-why" data-a="why" tabindex="0" role="button" aria-label="说明" title="说明">?</div>
           </div>
           <div class="pa-set-note pa-set-whynote" hidden>在页面顶部往下拖时，浏览器会刷新整个酒馆（iPhone、iPad 的 Safari 最常见，安卓 Chrome 也会）。开启后阻止这种刷新；浏览器的刷新按钮照常可用。</div>
+          <div class="pa-set-row pa-set-optrow">
+            <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="floatBall" ${settings().floatBall === true ? "checked" : ""}><span>显示悬浮球</span></label>
+          </div>
         </div>
         <div class="pa-set-maint"></div>
         ${log.length ? `<details class="pa-set-log pa-set-fold"><summary><span class="pa-set-fold-t">更新说明</span><small class="pa-set-sum">${esc(log[0].head)}</small></summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
@@ -444,6 +447,7 @@ function addSettingsEntry() {
   box.addEventListener("click", handler);
   box.addEventListener("keydown", handler);
   box.addEventListener("change", (e) => {
+    if (e.target.closest("[data-opt=floatBall]")) return setFloatBall(e.target.checked);
     const t = e.target.closest("[data-opt=noPullRefresh]");
     if (!t) return;
     settings().noPullRefresh = t.checked;
@@ -463,6 +467,65 @@ function applyPullGuard() {
     st.textContent = "html, body { overscroll-behavior-y: none; }";
     document.head.append(st);
   } else if (!on && st) st.remove();
+}
+// 2.3.5 悬浮球：点一下打开，按住拖动换位置，松手贴到左右边。默认关闭，扩展页设置框和「更多 → 外观」里开关
+var BALL = 44, BALL_GAP = 8;
+function setFloatBall(on) {
+  settings().floatBall = on;
+  saveSettings();
+  applyFloatBall();
+  const box = document.querySelector("#pa-settings [data-opt=floatBall]");
+  if (box) box.checked = on;
+}
+// 位置按可移动范围的比例存，换横竖屏、改窗口大小后仍在同一侧
+function placeBall(ball) {
+  const p = settings().floatBallPos || { x: 1, y: 0.6 };
+  const w = window.innerWidth, h = window.innerHeight;
+  ball.style.left = Math.round(BALL_GAP + Math.min(1, Math.max(0, p.x)) * Math.max(0, w - BALL - BALL_GAP * 2)) + "px";
+  ball.style.top = Math.round(BALL_GAP + Math.min(1, Math.max(0, p.y)) * Math.max(0, h - BALL - BALL_GAP * 2)) + "px";
+}
+function applyFloatBall() {
+  let ball = document.getElementById("pa-ball");
+  if (settings().floatBall !== true) return ball?.remove();
+  if (ball) return placeBall(ball);
+  ball = el(`<button id="pa-ball" type="button" aria-label="打开${esc(appName())}" title="${esc(appName())}"><i class="fa-solid fa-scissors"></i></button>`);
+  let start = null, moved = false;
+  ball.addEventListener("pointerdown", (e) => {
+    if (e.button) return;
+    const r = ball.getBoundingClientRect();
+    start = { x: e.clientX, y: e.clientY, dx: e.clientX - r.left, dy: e.clientY - r.top };
+    moved = false;
+    try { ball.setPointerCapture(e.pointerId); } catch {}
+  });
+  ball.addEventListener("pointermove", (e) => {
+    if (!start) return;
+    if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
+    moved = true;
+    ball.classList.add("pa-ball-drag");
+    const w = window.innerWidth, h = window.innerHeight;
+    ball.style.left = Math.min(w - BALL, Math.max(0, e.clientX - start.dx)) + "px";
+    ball.style.top = Math.min(h - BALL, Math.max(0, e.clientY - start.dy)) + "px";
+  });
+  const drop = () => {
+    if (!start) return;
+    start = null;
+    ball.classList.remove("pa-ball-drag");
+    if (!moved) return;
+    const r = ball.getBoundingClientRect();
+    const w = window.innerWidth, h = window.innerHeight;
+    settings().floatBallPos = { x: r.left + BALL / 2 < w / 2 ? 0 : 1, y: Math.min(1, Math.max(0, (r.top - BALL_GAP) / Math.max(1, h - BALL - BALL_GAP * 2))) };
+    saveSettings();
+    placeBall(ball);
+  };
+  ball.addEventListener("pointerup", drop);
+  ball.addEventListener("pointercancel", drop);
+  // 拖动结束时浏览器还会补发一次 click，不算打开
+  ball.addEventListener("click", () => {
+    if (moved) { moved = false; return; }
+    open();
+  });
+  document.body.append(ball);
+  placeBall(ball);
 }
 function registerSlash() {
   try {
@@ -652,6 +715,10 @@ async function start() {
   cleanups.push(() => document.getElementById("pa-pull-guard")?.remove());
   addMenuEntry();
   addSettingsEntry();
+  try { applyFloatBall(); } catch {}
+  const replaceBall = () => { const b = document.getElementById("pa-ball"); if (b) placeBall(b); };
+  window.addEventListener("resize", replaceBall);
+  cleanups.push(() => { window.removeEventListener("resize", replaceBall); document.getElementById("pa-ball")?.remove(); });
   registerSlash();
   bindEvents();
   try { notePresetUse(currentPresetName(), { save: false }); } catch {}
@@ -722,4 +789,6 @@ function nameRowHtml() {
 }
 function refreshAppName() {
   document.querySelectorAll(".pa-appname").forEach((x) => { x.textContent = appName(); });
+  const ball = document.getElementById("pa-ball");
+  if (ball) { ball.title = appName(); ball.setAttribute("aria-label", `打开${appName()}`); }
 }

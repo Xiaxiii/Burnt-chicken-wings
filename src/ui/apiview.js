@@ -150,7 +150,7 @@ function mountApi(liveBox, sitesBox) {
         ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
         <div class="pa-card">
             <label class="pa-inline-check"><input type="checkbox" data-o="chattoast" ${s.chatToast !== false ? "checked" : ""}> 换角色或聊天时，提示当前预设和模型</label>
-            ${tip("换预设，API 不变。<br>切换方案，恢复方案保存时的预设、条目开关、人设和 API。<br>提示显示 3 秒后自动关闭。")}
+            ${tip("换预设，API 不变。<br>切换方案，恢复方案保存时的预设、条目开关和人设；方案记了 API 的，也换成它。<br>提示显示 3 秒后自动关闭。")}
         </div>
         <div class="pa-card">
             <label class="pa-inline-check"><input type="checkbox" data-o="reasoningfollow" ${s.reasoningFollowPreset === true ? "checked" : ""}> 切换预设时，同时切换推理格式</label>
