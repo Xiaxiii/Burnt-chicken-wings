@@ -306,7 +306,6 @@ function bgPanel() {
         ${bg.on ? '<button class="pa-btn" data-bg="off">移除</button>' : ""}
       </div>
       ${bg.on ? `<label class="pa-field pa-field-row"><span>遮罩</span><input type="range" min="0" max="90" step="5" value="${Math.round((bg.veil ?? 0.55) * 100)}" data-bg="veil"><em class="pa-bg-veil-n">${Math.round((bg.veil ?? 0.55) * 100)}%</em></label>` : ""}
-      ${tip("图片只保存在本浏览器，不上传。遮罩越高，文字越清楚。")}
     </div>`;
 }
 function bindBgPanel(box, rerender) {

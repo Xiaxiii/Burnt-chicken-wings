@@ -17,11 +17,18 @@ function mountMore(page, app) {
     })(),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><div class="pa-ballrow"><h3 class="pa-h">悬浮球</h3><label class="pa-switch" title="显示悬浮球"><input type="checkbox" data-o="floatball" aria-label="显示悬浮球"><i></i></label></div><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">文字大小</h3><div class="pa-fsslot"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
+      box.innerHTML = `<div class="pa-scroll"><div class="pa-ballrow"><h3 class="pa-h">悬浮球</h3><label class="pa-switch" title="显示悬浮球"><input type="checkbox" data-o="floatball" aria-label="显示悬浮球"><i></i></label></div><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">文字大小</h3><div class="pa-fsslot"></div><div class="pa-hrow"><h3 class="pa-h">背景图</h3><button class="pa-why" data-bgwhy type="button" aria-label="说明" aria-expanded="false" title="说明">ⓘ</button></div><div class="pa-whynote" hidden>图片只保存在本浏览器，不上传。遮罩越高，文字越清楚。</div><div class="pa-bgslot"></div></div>`;
       const slot = box.querySelector(".pa-look");
       const bgSlot = box.querySelector(".pa-bgslot");
       const fsSlot = box.querySelector(".pa-fsslot");
       bindFontSize(fsSlot);
+      // 2.3.6 背景图的说明放在标题同一行最右边
+      const bgWhy = box.querySelector("[data-bgwhy]");
+      bgWhy.addEventListener("click", () => {
+        const note = bgWhy.parentElement.nextElementSibling;
+        note.hidden = !note.hidden;
+        bgWhy.setAttribute("aria-expanded", String(!note.hidden));
+      });
       const ballBox = box.querySelector("[data-o=floatball]");
       ballBox.addEventListener("change", () => setFloatBall(ballBox.checked));
       const render = () => {

@@ -149,19 +149,21 @@ function mountApi(liveBox, sitesBox) {
         <div class="pa-row-head"><h3 class="pa-h">${active ? "其他站点" : "API 站点"}</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
         ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
         <div class="pa-card pa-optcard">
-            ${optRow("chattoast", `<label class="pa-inline-check"><input type="checkbox" data-o="chattoast" ${s.chatToast !== false ? "checked" : ""}> 换角色或聊天时，提示当前预设和模型</label>`, "",
+            ${optRow("chattoast", `<label class="pa-inline-check"><input type="checkbox" data-o="chattoast" ${s.chatToast !== false ? "checked" : ""}> 换角色或聊天时，提示当前预设和模型</label>`,
               "换预设，API 不变。<br>切换方案，恢复方案保存时的预设、条目开关和人设；方案记了 API 的，也换成它。<br>提示显示 3 秒后自动关闭。")}
+        </div>
+        <div class="pa-card pa-optcard">
             ${optRow("reasoning", `<label class="pa-inline-check"><input type="checkbox" data-o="reasoningfollow" ${s.reasoningFollowPreset === true ? "checked" : ""}> 切换预设时，同时切换推理格式</label>`,
-              s.reasoningFollowPreset === true ? `<button class="pa-btn pa-btn-s" data-a="reasoninglist">已记 ${reasoningRows().length} 个 ›</button>` : "",
-              `开启后，离开一个预设时记下酒馆「推理内容格式化」的设置（自动解析、前缀、后缀等），再切回该预设时自动恢复。未记过的预设保持当前设置。${s.reasoningFollowPreset === true ? "<br>点「已记 N 个」查看、修改各预设记住的设置；改当前预设就是改酒馆现在的设置。" : Object.keys(s.reasoningByPreset || {}).length ? `<br>已记住 ${Object.keys(s.reasoningByPreset).length} 个预设。<button class="pa-link" data-a="reasoningclear">清除记录</button>` : ""}`)}
+              `开启后，离开一个预设时记下酒馆「推理内容格式化」的设置（自动解析、前缀、后缀等），再切回该预设时自动恢复。未记过的预设保持当前设置。${s.reasoningFollowPreset === true ? "<br>点下方「记住的推理格式」查看、修改各预设记住的设置；改当前预设就是改酒馆现在的设置。" : Object.keys(s.reasoningByPreset || {}).length ? `<br>已记住 ${Object.keys(s.reasoningByPreset).length} 个预设。<button class="pa-link" data-a="reasoningclear">清除记录</button>` : ""}`)}
+            ${s.reasoningFollowPreset === true ? `<button class="pa-sublink" data-a="reasoninglist" type="button">▸ 记住的推理格式（${reasoningRows().length}）</button>` : ""}
         </div>`;
     if (reasoningBody?.isConnected) reasoningBody.innerHTML = reasoningList();
   }
-  // 2.3.6 选项一行：勾选在左，说明收成右边的「?」，点开在下面显示
+  // 2.3.6 选项一行：勾选在左，说明收成右边小小的 ⓘ，点开在下面显示
   const whyOpen = new Set();
-  function optRow(key, check, right, note) {
+  function optRow(key, check, note) {
     const on = whyOpen.has(key);
-    return `<div class="pa-optrow">${check}${right}<button class="pa-why" data-a="why" data-w="${key}" type="button" aria-label="说明" aria-expanded="${on}" title="说明">?</button></div>
+    return `<div class="pa-optrow">${check}<button class="pa-why" data-a="why" data-w="${key}" type="button" aria-label="说明" aria-expanded="${on}" title="说明">ⓘ</button></div>
         <div class="pa-whynote"${on ? "" : " hidden"}>${note}</div>`;
   }
   // 跟随开着时，当前预设的记录就是酒馆现在的设置（离开时会照它记下），所以显示实时值，不给删除

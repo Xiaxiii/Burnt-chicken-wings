@@ -52,7 +52,7 @@ function buildRoot() {
   rootEl2 = el(`<div id="pa-root" class="pa-root" hidden>
         <div class="pa-shell">
             <header class="pa-top">
-                <div class="pa-brand"><span class="pa-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span><b class="pa-appname">${esc(appName())}</b></div>
+                <div class="pa-brand"><span class="pa-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span><b class="pa-appname">${esc(appName())}</b><small class="pa-by">by EC</small></div>
                 <div class="pa-savebar" hidden>
                     <span class="pa-dirty-text"></span>
                     <button class="pa-btn" data-g="undo">撤销</button>
@@ -346,7 +346,7 @@ function addSettingsEntry() {
           <div class="pa-set-row pa-set-namerow">${nameRowHtml()}</div>
           <div class="pa-set-row">
             <span class="pa-set-k">版本</span>
-            <span class="pa-set-v">${esc(VERSION)}${kind}</span>
+            <span class="pa-set-v">${esc(VERSION)}${kind}<small class="pa-set-by">by EC</small></span>
             ${EXT_DIR ? '<div class="menu_button menu_button_icon pa-set-mini" data-a="check" tabindex="0" role="button"><i class="fa-solid fa-rotate"></i><span>检查更新</span></div>' : ""}
           </div>
           <div class="pa-set-status" hidden></div>
