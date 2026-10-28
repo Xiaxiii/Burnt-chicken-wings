@@ -31,6 +31,7 @@ await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout
 let st = await S();
 const mine = st.schemes.find((x) => x.name === "沈砚·正剧");
 assert.equal(mine.charKey, "shen.png");
+assert.equal(mine.conn, null, "API 默认不记录");
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chatMetadata.presetAtelierScheme), mine.id);
 ok("保存时记到当前角色，并绑定本聊天");
 
@@ -110,6 +111,37 @@ assert.equal(st.schemes.length, 0);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chatMetadata.presetAtelierScheme), undefined);
 assert.equal(await page.locator("[data-s=pickon]").count(), 0, "没有方案时不显示 🗑️");
 ok("🗑️ 勾选删除（单个、整组），绑定一起清掉");
+
+// 7) 保存时改选当前连接，下次沿用；覆盖默认不动 API；「API 和模型」改回不记录
+await page.click(".pa-head-btn[data-s=new]"); await page.waitForTimeout(200);
+assert.equal(await page.$eval(".pa-sheet [data-f=api]", (x) => x.value), "__none");
+assert.ok(await page.locator(".pa-sheet [data-f=apimodel]").isHidden(), "不记录时不显示模型");
+await page.selectOption(".pa-sheet [data-f=api]", "__live");
+assert.equal(await page.locator(".pa-sheet [data-f=apimodelbtn] span").innerText(), "claude-x");
+await page.fill(".pa-sheet [data-f=name]", "带API");
+await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
+st = await S();
+let withApi = st.schemes.find((x) => x.name === "带API");
+assert.equal(withApi.conn.url, "https://example.com/v1");
+assert.equal(withApi.conn.model, "claude-x");
+assert.equal(st.schemeApiPick, "__live");
+await page.click(".pa-head-btn[data-s=new]"); await page.waitForTimeout(200);
+assert.equal(await page.$eval(".pa-sheet [data-f=api]", (x) => x.value), "__live", "沿用上次的选择");
+await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+ok("保存方案时 API 默认不记录，可选当前连接，下次沿用");
+
+await page.evaluate(() => { window.__mock.live.custom_model = "other-model"; });
+await page.locator(".pa-srow", { hasText: "带API" }).locator("[data-a=edit]").click(); await page.waitForTimeout(200);
+await page.click(".pa-pick-item >> text=用现在的状态覆盖"); await page.waitForTimeout(200);
+assert.equal(await page.locator(".pa-sheet [data-f=api]").isChecked(), false, "默认不换 API");
+await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
+assert.equal((await S()).schemes.find((x) => x.name === "带API").conn.model, "claude-x");
+await page.click(".pa-pick-item >> text=API 和模型"); await page.waitForTimeout(200);
+await page.selectOption(".pa-sheet [data-f=api]", "__none");
+await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
+assert.equal((await S()).schemes.find((x) => x.name === "带API").conn, null);
+await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+ok("覆盖时 API 默认保留；「API 和模型」可改回不记录");
 
 assert.deepEqual(errs, []);
 console.log("方案检查全部通过");
