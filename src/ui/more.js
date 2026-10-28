@@ -17,7 +17,7 @@ function mountMore(page, app) {
     })(),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">文字大小</h3><div class="pa-fsslot"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div><h3 class="pa-h">悬浮球</h3><div class="pa-card"><label class="pa-inline-check"><input type="checkbox" data-o="floatball"> 显示悬浮球</label><p class="pa-hint">点一下打开，按住可拖动。扩展页设置框里也能开关。</p></div></div>`;
+      box.innerHTML = `<div class="pa-scroll"><div class="pa-ballrow"><h3 class="pa-h">悬浮球</h3><label class="pa-switch" title="显示悬浮球"><input type="checkbox" data-o="floatball" aria-label="显示悬浮球"><i></i></label></div><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">文字大小</h3><div class="pa-fsslot"></div><h3 class="pa-h">背景图</h3><div class="pa-bgslot"></div></div>`;
       const slot = box.querySelector(".pa-look");
       const bgSlot = box.querySelector(".pa-bgslot");
       const fsSlot = box.querySelector(".pa-fsslot");

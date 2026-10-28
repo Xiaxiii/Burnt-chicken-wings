@@ -184,6 +184,7 @@ function open(tab, sub) {
   rootEl2.hidden = false;
   syncViewport();
   document.documentElement.classList.add("pa-open");
+  document.getElementById("pa-ball")?.setAttribute("hidden", "");
   show(tab || current);
   pushBackState();
   setTimeout(flushAsks, 0);
@@ -253,6 +254,7 @@ async function close({ fromBack = false } = {}) {
   }
   rootEl2.hidden = true;
   document.documentElement.classList.remove("pa-open");
+  document.getElementById("pa-ball")?.removeAttribute("hidden");
   flushPresetNotice();
   if (backArmed) {
     backArmed = false;
@@ -490,6 +492,8 @@ function applyFloatBall() {
   if (ball) return placeBall(ball);
   ball = el(`<button id="pa-ball" type="button" aria-label="打开${esc(appName())}" title="${esc(appName())}"><i class="fa-solid fa-scissors"></i></button>`);
   let start = null, moved = false;
+  // 酒馆在 html 上监听 mousedown/touchstart，点到抽屉外就收起打开着的抽屉（扩展页等）。拖球、点球都不该让它收起
+  for (const t of ["mousedown", "touchstart", "click"]) ball.addEventListener(t, (e) => e.stopPropagation());
   ball.addEventListener("pointerdown", (e) => {
     if (e.button) return;
     const r = ball.getBoundingClientRect();
@@ -522,8 +526,10 @@ function applyFloatBall() {
   // 拖动结束时浏览器还会补发一次 click，不算打开
   ball.addEventListener("click", () => {
     if (moved) { moved = false; return; }
+    if (rootEl2 && !rootEl2.hidden) return;
     open();
   });
+  if (rootEl2 && !rootEl2.hidden) ball.hidden = true;
   document.body.append(ball);
   placeBall(ball);
 }

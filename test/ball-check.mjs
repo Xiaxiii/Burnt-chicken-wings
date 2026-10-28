@@ -17,6 +17,8 @@ assert.ok(await page.$("#pa-ball"), "勾选后出现");
 assert.equal((await S()).floatBall, true);
 ok("扩展页设置框里开启");
 
+// 酒馆在 html 上听 mousedown/touchstart 收起抽屉；拖球、点球不能传到那里
+await page.evaluate(() => { window.__htmlDown = 0; document.documentElement.addEventListener("mousedown", () => window.__htmlDown++); document.documentElement.addEventListener("touchstart", () => window.__htmlDown++); });
 // 拖到左半边，松手贴左边
 let r = await page.$eval("#pa-ball", (b) => b.getBoundingClientRect().toJSON());
 await page.mouse.move(r.x + 22, r.y + 22);
@@ -28,15 +30,18 @@ r = await page.$eval("#pa-ball", (b) => b.getBoundingClientRect().toJSON());
 assert.equal(Math.round(r.x), 8, "贴到左边");
 assert.equal((await S()).floatBallPos.x, 0);
 assert.ok(await page.$eval("#pa-root", (x) => x.hidden).catch(() => true), "拖动不算打开");
-ok("拖动后贴边并记住位置");
+assert.equal(await page.evaluate(() => window.__htmlDown), 0, "不触发酒馆收起抽屉");
+ok("拖动后贴边并记住位置，不收起酒馆面板");
 
 await page.click("#pa-ball"); await page.waitForTimeout(400);
 assert.equal(await page.$eval("#pa-root", (x) => x.hidden), false, "点一下打开");
 assert.equal(await page.$eval("#pa-ball", (b) => getComputedStyle(b).display), "none", "面板打开时隐藏");
+assert.equal(await page.evaluate(() => window.__htmlDown), 0, "点球不触发酒馆收起抽屉");
 ok("点一下打开面板");
 
 await page.evaluate(() => window.__presetAtelier.open("more", "look")); await page.waitForTimeout(300);
 const look = page.locator("[data-mp=look] [data-o=floatball]");
+assert.ok(await page.$eval("[data-mp=look] .pa-scroll", (x) => x.firstElementChild.matches(".pa-ballrow")), "在配色上面");
 assert.equal(await look.isChecked(), true);
 await look.uncheck(); await page.waitForTimeout(100);
 assert.equal(await page.$("#pa-ball"), null, "外观里关闭");
