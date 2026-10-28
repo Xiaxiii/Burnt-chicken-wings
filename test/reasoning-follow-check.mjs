@@ -70,7 +70,7 @@ try {
   const sheet = page.locator('.pa-sheet-mask:not(.pa-out)').last();
   // 记录列表不在卡片里，点「已记 N 个」在单独的窗口里打开
   assert.equal(await page.locator('.pa-plan-sites .pa-rrow').count(), 0, '卡片里不放列表');
-  assert.equal(await page.locator('[data-a=reasoninglist]').innerText(), '已记 2 个 ›');
+  assert.equal(await page.locator('[data-a=reasoninglist]').innerText(), '▸ 记住的推理格式（2）');
   await page.locator('[data-a=reasoninglist]').click();
   await rows.first().waitFor();
   assert.equal(await rows.count(), 2);
@@ -135,7 +135,7 @@ try {
   await sheet.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '完成' }).click();
   await page.waitForTimeout(300);
   await box.uncheck();
-  assert.equal(await page.locator('[data-a=reasoninglist]').count(), 0, '关闭后不显示「已记 N 个」');
+  assert.equal(await page.locator('[data-a=reasoninglist]').count(), 0, '关闭后不显示记录入口');
   const before = await now();
   await switchTo(names[1]);
   assert.deepEqual(await now(), before, '关闭后不再切换');
