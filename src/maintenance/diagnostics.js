@@ -46,10 +46,36 @@ function fmtMs(ms) {
 }
 function jsonSize(v) {
   try {
-    return new Blob([JSON.stringify(v ?? null)]).size;
+    return utf8Len(JSON.stringify(v ?? null));
   } catch {
     return 0;
   }
+}
+// 按字符算 UTF-8 字节数，不必为了取长度再建一个 Blob
+function utf8Len(s) {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0x80) n += 1;
+    else if (c < 0x800) n += 2;
+    else if (c >= 0xd800 && c <= 0xdbff && i + 1 < s.length) { n += 4; i++; }
+    else n += 3;
+  }
+  return n;
+}
+// 2.3.6 预设大小按对象缓存：体检、清理页每次打开都要把所有预设整份序列化，预设多时切页明显卡。
+// 本扩展原地改写预设时调 forgetSize；酒馆保存预设会换成新对象，自然重算。别处原地改的，最多一分钟后重算
+var sizeCache = new WeakMap();
+function presetSize(obj) {
+  if (!obj || typeof obj !== "object") return jsonSize(obj);
+  const hit = sizeCache.get(obj);
+  if (hit && Date.now() - hit.at < 6e4) return hit.n;
+  const n = jsonSize(obj);
+  sizeCache.set(obj, { n, at: Date.now() });
+  return n;
+}
+function forgetSize(obj) {
+  if (obj && typeof obj === "object") sizeCache.delete(obj);
 }
 
 // ---- 请求分类
@@ -242,7 +268,7 @@ function allPresetSizes() {
       for (const n of names) {
         if (api === "openai" && n === "gui") continue;
         const data = api === "openai" && n === currentPresetName() ? (() => { try { return readPreset(n); } catch { return null; } })() : list.presets?.[idxOf(n)];
-        if (data) out.push({ api, name: n, size: jsonSize(data) });
+        if (data) out.push({ api, name: n, size: presetSize(data) });
       }
     } catch {
     }
@@ -251,9 +277,12 @@ function allPresetSizes() {
 }
 // 估算：这么多字节（内存中序列化大小）的预设，大约占设置下载里多少实际传输。
 // 按「本次设置请求的实际传输 ÷ 内存中设置和预设的总大小」等比例折算，假设压缩率均匀。拿不到实际传输时不估算。
+// 清理页勾选时会连着估算很多次，总大小 2 秒内复用
+var rawSizeMemo = null;
 function wireEstimate(bytes) {
   const m = measureLoad();
-  const raw = allPresetSizes().reduce((n, x) => n + x.size, 0) + jsonSize(ctx().extensionSettings || {});
+  if (!rawSizeMemo || Date.now() - rawSizeMemo.at > 2e3) rawSizeMemo = { at: Date.now(), n: allPresetSizes().reduce((n, x) => n + x.size, 0) + jsonSize(ctx().extensionSettings || {}) };
+  const raw = rawSizeMemo.n;
   if (!m.settingsOnce || !raw) return null;
   const wire = bytes * Math.min(1, m.settingsOnce / raw);
   return { wire, secs: m.rate ? wire / m.rate : null, times: m.settingsCount };
