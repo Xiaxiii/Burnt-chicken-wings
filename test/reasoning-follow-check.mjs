@@ -67,24 +67,18 @@ try {
   });
   const stored = (n) => page.evaluate((n) => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier.reasoningByPreset[n]), n);
   const rows = page.locator('.pa-rrow');
-  const sheet = page.locator('.pa-sheet-mask:not(.pa-out)');
+  const sheet = page.locator('.pa-sheet-mask:not(.pa-out)').last();
+  // 记录列表不在卡片里，点「已记 N 个」在单独的窗口里打开
+  assert.equal(await page.locator('.pa-plan-sites .pa-rrow').count(), 0, '卡片里不放列表');
+  assert.equal(await page.locator('[data-a=reasoninglist]').innerText(), '已记 2 个 ›');
+  await page.locator('[data-a=reasoninglist]').click();
+  await rows.first().waitFor();
   assert.equal(await rows.count(), 2);
   assert.equal(await rows.nth(0).getAttribute('data-name'), names[1]);
   assert.match(await rows.nth(0).innerText(), /当前[\s\S]*<think> … <\/think>/);
   assert.equal(await rows.nth(0).locator('[data-a=reasoningdel]').count(), 0, '当前预设不给删除');
   assert.match(await rows.nth(1).innerText(), /ECoT · <ECoT> … <\/ECoT> · 自动解析、显示隐藏内容/);
   ok('列表显示每个预设记住的推理格式');
-
-  // 可折叠，收起状态记住，重画后保持
-  await page.locator('.pa-rfold > summary').click();
-  assert.equal(await rows.nth(0).isVisible(), false, '点标题收起');
-  await page.waitForFunction(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.reasoningListFold === true);
-  await page.locator('[data-m="look"]').click();
-  await page.locator('[data-m="schemes"]').click();
-  assert.equal(await page.locator('.pa-rfold').evaluate((d) => d.open), false, '重画后仍收起');
-  await page.locator('.pa-rfold > summary').click();
-  assert.equal(await rows.nth(0).isVisible(), true);
-  ok('记录列表可折叠，记住收起状态');
 
   // 改其他预设的记录：只改记录，切过去才套用；换模板带出模板的前后缀
   await rows.nth(1).locator('[data-a=reasoningedit]').click();
@@ -138,8 +132,10 @@ try {
   assert.equal((await now()).prefix, '<cot>');
   ok('可删除记录，也可给没记录的预设新建');
 
+  await sheet.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '完成' }).click();
+  await page.waitForTimeout(300);
   await box.uncheck();
-  assert.equal(await rows.count(), 0, '关闭后不显示列表');
+  assert.equal(await page.locator('[data-a=reasoninglist]').count(), 0, '关闭后不显示「已记 N 个」');
   const before = await now();
   await switchTo(names[1]);
   assert.deepEqual(await now(), before, '关闭后不再切换');

@@ -1155,11 +1155,15 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-sheet-max { height: calc(var(--pa-vh, 100dvh) - 24px); max-height: none; max-width: none; border-radius: 16px; }
 }
 /* 2.3.3 推理格式记录：列表和修改窗 */
-#pa-root .pa-rfold { margin-top: 8px; border-top: 1px dashed var(--pa-line); }
-#pa-root .pa-rfold > summary { cursor: pointer; list-style: none; padding: 8px 4px 2px; font-size: .9em; color: var(--pa-dim); user-select: none; -webkit-user-select: none; }
-#pa-root .pa-rfold > summary::-webkit-details-marker { display: none; }
-#pa-root .pa-rfold > summary::before { content: "▸"; display: inline-block; width: 1.2em; }
-#pa-root .pa-rfold[open] > summary::before { content: "▾"; }
+/* 2.3.6 选项卡片：每行勾选在左，说明「?」在最右，两行之间虚线分隔 */
+#pa-root .pa-optcard { padding-top: 4px; padding-bottom: 4px; }
+#pa-root .pa-optrow { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+#pa-root .pa-optrow + .pa-whynote + .pa-optrow, #pa-root .pa-whynote + .pa-optrow { border-top: 1px dashed var(--pa-line); }
+#pa-root .pa-optrow > .pa-inline-check { flex: 1 1 auto; min-width: 0; margin: 0; }
+#pa-root .pa-optrow > .pa-btn { flex: none; }
+#pa-root .pa-why { flex: none; width: 22px; height: 22px; padding: 0; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: .78em; line-height: 1; cursor: pointer; background: none; border: 1px solid currentColor; color: var(--pa-dim); }
+#pa-root .pa-why[aria-expanded="true"] { color: var(--pa-text); }
+#pa-root .pa-whynote { margin: 0 0 8px; padding: 6px 8px; border-left: 2px solid var(--pa-line); font-size: .82em; line-height: 1.5; color: var(--pa-dim); }
 #pa-root .pa-rrow .pa-link { flex: none; padding: 4px; }
 #pa-root .pa-rlist-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
 #pa-root .pa-rflags { display: flex; flex-wrap: wrap; gap: 6px 16px; }
@@ -1168,8 +1172,14 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-rws { font-style: normal; margin-left: 4px; }
 /* 2.3.5 方案的 API 选择 */
 #pa-root .pa-conn-pick { display: grid; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--pa-line); }
+/* 2.3.6 可展开的说明前加小三角 */
+#pa-root .pa-tip-fold > summary::before { content: "▸"; display: inline-block; width: 1.1em; }
+#pa-root .pa-tip-fold[open] > summary::before { content: "▾"; }
+/* 2.3.6 外观页顶部的悬浮球开关：名称在左，开关在最右 */
+#pa-root .pa-ballrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 2px 8px; }
+#pa-root .pa-ballrow .pa-h { margin: 0; }
 /* 2.3.5 悬浮球（在 #pa-root 之外，跟随酒馆主题；面板打开时隐藏） */
 #pa-ball { position: fixed; z-index: 10005; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(28,26,30,.92)); color: var(--SmartThemeBodyColor, #e6e1d8); box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 18px; cursor: pointer; opacity: .85; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 #pa-ball:not(.pa-ball-drag) { transition: left .18s ease, top .18s ease; }
 #pa-ball:hover, #pa-ball.pa-ball-drag { opacity: 1; }
-html.pa-open #pa-ball { display: none; }
+html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
