@@ -75,7 +75,13 @@ function presetSize(obj) {
   return n;
 }
 function forgetSize(obj) {
-  if (obj && typeof obj === "object") sizeCache.delete(obj);
+  if (obj && typeof obj === "object") { sizeCache.delete(obj); scanCache.delete(obj); }
+}
+// 2.4.0 清理页：预设对象 → 大小、指纹、条目指纹。和 sizeCache 一样 1 分钟内有效，本扩展原地改写预设时清掉
+var scanCache = new WeakMap();
+function scanCached(obj) {
+  const hit = obj && typeof obj === "object" ? scanCache.get(obj) : null;
+  return hit && Date.now() - hit.at < 6e4 ? hit : null;
 }
 
 // ---- 请求分类

@@ -102,7 +102,11 @@ async function editReasoning(name, init, live) {
 // liveBox：当前连接；sitesBox：站点列表和选项（「方案」页把方案放在两者之间）
 function mountApi(liveBox, sitesBox) {
   const sites = () => settings().sites;
-  const open = /* @__PURE__ */ new Set();
+  // 2.4.0：底部选项行点开的（只在面板打开期间记住）
+  const optOpen = /* @__PURE__ */ new Set();
+  const shortLabel = (source) => (SOURCES[source]?.label || source || "—").split("（")[0];
+  // 2.4.0：站点按网址分组；官方接口归一组，OpenRouter 单独一组
+  const siteGroup = (x) => x.source === "custom" ? hostOf(x.url) || "自定义" : x.source === "openrouter" ? "openrouter.ai" : "官方 API";
   function render() {
     const live = liveConnection();
     const s = settings();
@@ -118,53 +122,56 @@ function mountApi(liveBox, sitesBox) {
     const modelDiff = sameSite && live.model && active.model && live.model !== active.model;
     const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => schemeConn(sc)?.siteId === id).map((sc) => sc.preset))];
     const dot = `<span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span>`;
-    // 1.4.1：「当前连接」就是使用中的站点卡片，不再单独一块；当前连接还没存成站点时，用同样样式显示
-    const siteCard = (x, isLive) => {
-      const isOpen = isLive || open.has(x.id);
-      return `<article class="pa-card pa-site${isLive ? " pa-site-on" : ""}${isOpen ? " pa-open" : ""}" data-id="${esc(x.id)}">
-            <header ${isLive ? "" : 'data-a="toggle"'}>${isLive ? "" : `<span class="pa-site-caret">${isOpen ? "▾" : "▸"}</span>`}<b>${esc(x.name)}</b>${isLive ? '<span class="pa-chip">使用中</span>' : ""}<small class="pa-site-model">${usedBy(x.id).length ? `预设：${esc(usedBy(x.id).join("、"))}` : isLive ? "" : esc(x.model || "")}</small>
-              ${isLive ? dot : '<button class="pa-btn pa-btn-primary pa-btn-s" data-a="use">切换</button>'}</header>
-            ${isOpen ? `<dl class="pa-site-dl">
-              <dt>类型</dt><dd>${esc(SOURCES[x.source]?.label || x.source)}</dd>
-              ${x.url ? `<dt>网址</dt><dd>${esc(x.url)}</dd>` : ""}
-              <dt>密钥</dt><dd>${esc(x.keyMask || (x.secretId ? "已保存" : "使用当前密钥"))}</dd>
-              <dt>模型</dt><dd>${modelBtn(isLive ? live.model : x.model, isLive ? 'data-a="livemodel"' : 'data-a="sitemodel"')}${x.source === "custom" && !isLive ? '<button class="pa-link" data-a="fetch">获取模型列表</button>' : ""}
-                ${isLive && modelDiff ? `<span class="pa-hint">站点记的是「${esc(x.model)}」。切换预设后会换回它。</span><button class="pa-link" data-a="keepmodel">改记为当前模型</button>` : ""}</dd>
-              ${x.note ? `<dt>备注</dt><dd>${esc(x.note)}</dd>` : ""}
-            </dl>
-            <div class="pa-card-act">${isLive ? '<button class="pa-btn" data-a="reconnect">重新连接</button>' : ""}<button class="pa-btn" data-a="edit">编辑</button>${x.source === "custom" && isLive ? '<button class="pa-btn" data-a="fetch">获取模型列表</button>' : ""}<button class="pa-btn pa-btn-danger-soft" data-a="del">删除</button></div>` : ""}
+    // 2.4.0：当前连接只留名称、网址、模型；类型、密钥、备注和操作收进 ⋯
+    const sub = live.url || src?.label || "";
+    liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">当前连接</h3></div>
+        <article class="pa-card pa-site pa-site-on pa-live"${active ? ` data-id="${esc(active.id)}"` : ""}>
+            <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more" data-a="livemore" aria-label="连接详情" title="连接详情">⋯</button></header>
+            ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
+            ${modelBtn(live.model, 'data-a="livemodel"')}
+            ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(active.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
+    const groups = /* @__PURE__ */ new Map();
+    for (const x of sites()) {
+      const k = siteGroup(x);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(x);
+    }
+    const closed = new Set(s.siteGroupsClosed || []);
+    const siteRow = (x) => {
+      const used = usedBy(x.id);
+      const on = x.id === s.activeSiteId;
+      const info = [x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
+      return `<div class="pa-srow pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
+            <div class="pa-srow-main pa-site-name" data-a="edit" title="查看、编辑"><b>${esc(x.name)}</b><small class="pa-site-model">${esc(info)}</small></div>
+            ${on ? '<span class="pa-chip">使用中</span>' : '<button class="pa-btn pa-btn-s" data-a="use">切换</button>'}</div>`;
     };
-    liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">当前连接</h3></div>` + (active ? siteCard(active, true) : `<article class="pa-card pa-site pa-site-on pa-open">
-            <header><b>${esc(src?.label?.split("（")[0] || live.source || "—")}${live.url ? ` ${esc(hostOf(live.url))}` : ""}</b><span class="pa-chip pa-chip-dim">未保存为站点</span><small class="pa-site-model"></small>${dot}</header>
-            <dl class="pa-site-dl">
-              ${live.url ? `<dt>网址</dt><dd>${esc(live.url)}</dd>` : ""}
-              ${live.secretMask ? `<dt>密钥</dt><dd>${esc(live.secretMask)}</dd>` : ""}
-              <dt>模型</dt><dd>${modelBtn(live.model, 'data-a="livemodel"')}</dd>
-            </dl>
-            <div class="pa-card-act"><button class="pa-btn" data-a="reconnect">重新连接</button><button class="pa-btn pa-btn-primary" data-a="capture">保存为站点</button></div>
-        </article>`);
-    const others = sites().filter((x) => x.id !== s.activeSiteId);
+    const groupHtml = [...groups].map(([k, list]) => {
+      const isOpen = !closed.has(k);
+      return `<section class="pa-sgroup${isOpen ? " open" : ""}" data-sg="${esc(k)}">
+            <header class="pa-sghead" data-a="sgfold" tabindex="0"><span class="pa-sgcaret">${isOpen ? "▾" : "▸"}</span><b>${esc(k)}</b><small>${list.length} 个</small></header>
+            ${isOpen ? `<div class="pa-sgbody">${list.map(siteRow).join("")}</div>` : ""}</section>`;
+    }).join("");
+    const info = (t, d) => `<div class="pa-srow"><div class="pa-srow-main"><b>${t}</b><small>${d}</small></div></div>`;
+    const follow = s.reasoningFollowPreset === true;
+    const rows = follow ? reasoningRows() : [];
+    const kept = Object.keys(s.reasoningByPreset || {}).length;
+    const reasoningBody = follow
+      ? rows.map(reasoningRow).join("") + '<button class="pa-srow pa-optadd" data-a="reasoningadd" type="button">＋ 给其他预设设置</button>'
+      : info("开启后", "离开预设时记下推理格式，切回时恢复") + (kept ? `<div class="pa-srow"><div class="pa-srow-main"><b>已记住 ${kept} 个预设</b></div><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningclear">清除</button></div>` : "");
     sitesBox.innerHTML = `
-        <div class="pa-row-head"><h3 class="pa-h">${active ? "其他站点" : "API 站点"}</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
-        ${others.length ? others.map((x) => siteCard(x, false)).join("") : `<p class="pa-empty">${active ? "暂无其他站点。" : "暂无站点。可点「＋ 添加站点」，或点上方「保存为站点」。"}</p>`}
-        <div class="pa-card pa-optcard">
-            ${optRow("chattoast", `<label class="pa-inline-check"><input type="checkbox" data-o="chattoast" ${s.chatToast !== false ? "checked" : ""}> 换角色或聊天时，提示当前预设和模型</label>`,
-              "换预设，API 不变。<br>切换方案，恢复方案保存时的预设、条目开关和人设；方案记了 API 的，也换成它。<br>提示显示 3 秒后自动关闭。")}
-        </div>
-        <div class="pa-card pa-optcard">
-            ${optRow("reasoning", `<label class="pa-inline-check"><input type="checkbox" data-o="reasoningfollow" ${s.reasoningFollowPreset === true ? "checked" : ""}> 切换预设时，同时切换推理格式</label>`,
-              `开启后，离开一个预设时记下酒馆「推理内容格式化」的设置（自动解析、前缀、后缀等），再切回该预设时自动恢复。未记过的预设保持当前设置。${s.reasoningFollowPreset === true ? "<br>点下方「记住的推理格式」查看、修改各预设记住的设置；改当前预设就是改酒馆现在的设置。" : Object.keys(s.reasoningByPreset || {}).length ? `<br>已记住 ${Object.keys(s.reasoningByPreset).length} 个预设。<button class="pa-link" data-a="reasoningclear">清除记录</button>` : ""}`)}
-            ${s.reasoningFollowPreset === true ? `<button class="pa-sublink" data-a="reasoninglist" type="button">▸ 记住的推理格式（${reasoningRows().length}）</button>` : ""}
-        </div>`;
-    if (reasoningBody?.isConnected) reasoningBody.innerHTML = reasoningList();
+        <div class="pa-row-head"><h3 class="pa-h">站点</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
+        ${groups.size ? `<p class="pa-hint pa-site-hint">点站点名查看、编辑完整信息</p>${groupHtml}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}
+        ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
+          info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
+        ${optCard("reasoning", `<input type="checkbox" data-o="reasoningfollow" aria-label="切换预设时，同时切换推理格式" ${follow ? "checked" : ""}>`, "切换预设时，同时切换推理格式", rows.length, reasoningBody)}`;
   }
-  // 2.3.6 选项一行：勾选在左，说明收成右边小小的 ⓘ，点开在下面显示
-  const whyOpen = new Set();
-  function optRow(key, check, note) {
-    const on = whyOpen.has(key);
-    return `<div class="pa-optrow">${check}<button class="pa-why" data-a="why" data-w="${key}" type="button" aria-label="说明" aria-expanded="${on}" title="说明">ⓘ</button></div>
-        <div class="pa-whynote"${on ? "" : " hidden"}>${note}</div>`;
+  // 2.4.0 选项行：只有方框管勾选，点这一行其他地方展开
+  function optCard(key, check, label, count, body) {
+    const on = optOpen.has(key);
+    return `<section class="pa-sgroup pa-optgroup${on ? " open" : ""}" data-w="${key}">
+        <header class="pa-sghead pa-opthead" data-a="optfold" tabindex="0" aria-expanded="${on}"><label class="pa-optcheck">${check}</label><span class="pa-optlabel">${label}</span>${count ? `<span class="pa-optcount">${count}</span>` : ""}<span class="pa-sgcaret">${on ? "▾" : "▸"}</span></header>
+        ${on ? `<div class="pa-sgbody">${body}</div>` : ""}</section>`;
   }
   // 跟随开着时，当前预设的记录就是酒馆现在的设置（离开时会照它记下），所以显示实时值，不给删除
   function reasoningRows() {
@@ -174,23 +181,32 @@ function mountApi(liveBox, sitesBox) {
     if (reasoningPreset && live) rows.unshift({ name: reasoningPreset, r: live, cur: true });
     return rows;
   }
-  // 2.3.6 记录列表从卡片里挪到单独的窗口
-  let reasoningBody = null;
-  function reasoningList() {
-    const rows = reasoningRows();
-    const row = (x) => `<div class="pa-srow pa-rrow${x.cur ? " pa-srow-on" : ""}" data-name="${esc(x.name)}">
-          <div class="pa-srow-main"><b title="${esc(x.name)}">${esc(x.name)}</b>${x.cur ? '<span class="pa-chip">当前</span>' : ""}<small title="${esc(reasoningSummary(x.r))}">${esc(reasoningSummary(x.r))}</small></div>
-          <button class="pa-link" data-a="reasoningedit">修改</button>${x.cur ? "" : '<button class="pa-link" data-a="reasoningdel">删除</button>'}
+  // 2.4.0：前缀放进小方框，自动解析用圆点表示；完整设置在悬停提示里
+  function reasoningRow(x) {
+    const tag = showBreaks(x.r.prefix).trim();
+    return `<div class="pa-srow pa-rrow${x.cur ? " pa-srow-on" : ""}" data-name="${esc(x.name)}">
+          <div class="pa-srow-main"><b title="${esc(x.name)}">${esc(x.name)}</b>${x.cur ? '<span class="pa-chip">当前</span>' : ""}<small class="pa-rfmt" title="${esc(reasoningSummary(x.r))}"><code class="pa-rtag">${esc(tag || "无前缀")}</code><span class="pa-rauto${x.r.auto_parse ? " on" : ""}">${x.r.auto_parse ? "自动解析" : "不解析"}</span></small></div>
+          <button class="pa-btn pa-btn-s" data-a="reasoningedit">修改</button>${x.cur ? "" : '<button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningdel">删除</button>'}
         </div>`;
-    return `<div class="pa-rlist">${rows.map(row).join("") || '<p class="pa-hint">还没有记录。</p>'}</div>
-        <div class="pa-rlist-foot"><button class="pa-link" data-a="reasoningadd">＋ 给其他预设设置</button><span><button class="pa-link" data-a="reasoningrefresh">刷新</button>${rows.some((x) => !x.cur) ? '<button class="pa-link" data-a="reasoningclear">清除记录</button>' : ""}</span></div>`;
   }
-  async function reasoningSheet() {
-    reasoningBody = el('<div class="pa-rsheet"></div>');
-    reasoningBody.innerHTML = reasoningList();
-    reasoningBody.addEventListener("click", onClick);
-    await sheet({ title: "记住的推理格式", body: reasoningBody, wide: true, noFocus: true, actions: [{ label: "完成", value: null }] });
-    reasoningBody = null;
+  // ⋯：当前连接的完整信息和操作
+  async function liveSheet() {
+    const live = liveConnection();
+    const active = sites().find((x) => x.id === settings().activeSiteId);
+    const source = active ? active.source : live.source;
+    const url = active ? active.url : live.url;
+    const key = active ? active.keyMask || (active.secretId ? "已保存" : "使用当前密钥") : live.secretMask;
+    const body = el(`<dl class="pa-site-dl">
+          <dt>类型</dt><dd>${esc(SOURCES[source]?.label || source || "—")}</dd>
+          ${url ? `<dt>网址</dt><dd>${esc(url)}</dd>` : ""}
+          ${key ? `<dt>密钥</dt><dd>${esc(key)}</dd>` : ""}
+          ${active?.note ? `<dt>备注</dt><dd>${esc(active.note)}</dd>` : ""}
+        </dl>`);
+    const actions = active
+      ? [{ label: "删除", kind: "danger-soft", value: "del" }, { label: "编辑", value: "edit" }, ...source === "custom" ? [{ label: "获取模型列表", value: "fetch" }] : [], { label: "重新连接", kind: "primary", value: "reconnect" }]
+      : [{ label: "重新连接", value: "reconnect" }, { label: "保存为站点", kind: "primary", value: "capture" }];
+    const a = await sheet({ title: active ? active.name : "当前连接", body, noFocus: true, actions });
+    if (a) await act(a, active);
   }
   async function getModels(site) {
     return withSiteKey(site, () => fetchModelList(site));
@@ -285,7 +301,7 @@ function mountApi(liveBox, sitesBox) {
           btn.textContent = "获取模型列表";
         });
       },
-      actions: [{ label: "取消", value: null }, {
+      actions: [...isNew ? [] : [{ label: "删除", kind: "danger-soft", value: "del" }], { label: "取消", value: null }, {
         label: "保存",
         kind: "primary",
         validate: (w) => {
@@ -303,9 +319,10 @@ function mountApi(liveBox, sitesBox) {
         value: read
       }]
     });
-    if (!r) {
+    if (!r || r === "del") {
       for (const k of madeKeys) await dropKey(k.source, k.id);
       if (madeLocal && isNew) setLocalKey(s.id, null);
+      if (r === "del") return act("del", site);
       return;
     }
     try {
@@ -341,13 +358,26 @@ function mountApi(liveBox, sitesBox) {
   const onClick = async (e) => {
     const a = e.target.closest("[data-a]")?.dataset.a;
     if (!a) return;
-    const site = sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id);
-    if (a === "reasoninglist") return reasoningSheet();
-    if (a === "why") {
+    if (a === "optfold") {
+      if (e.target.closest(".pa-optcheck")) return;
       const k = e.target.closest("[data-w]").dataset.w;
-      whyOpen.has(k) ? whyOpen.delete(k) : whyOpen.add(k);
+      optOpen.has(k) ? optOpen.delete(k) : optOpen.add(k);
       return render();
     }
+    if (a === "sgfold") {
+      const k = e.target.closest("[data-sg]").dataset.sg;
+      const list = settings().siteGroupsClosed = (settings().siteGroupsClosed || []).filter((x) => x !== k);
+      if (e.target.closest(".pa-sgroup").classList.contains("open")) list.push(k);
+      saveSettings();
+      return render();
+    }
+    const site = sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id);
+    return act(a, site, e.target.closest("button"), e.target);
+  };
+  // btn：点的按钮（连接、获取时显示进度）；from：点的位置（找推理格式那一行）
+  async function act(a, site, btn = null, from = null) {
+    const busy = (t) => { if (btn) { btn.disabled = true; btn.textContent = t; } };
+    if (a === "livemore") return liveSheet();
     if (a === "reasoningclear") {
       if (!await confirmBox("清除推理格式记录", "清除所有预设记住的推理格式？当前酒馆设置不变。", "清除")) return;
       settings().reasoningByPreset = {};
@@ -355,10 +385,8 @@ function mountApi(liveBox, sitesBox) {
       saveSettings();
       return render();
     }
-    // 在酒馆面板里改过推理设置后，重读「当前」那行
-    if (a === "reasoningrefresh") return render();
     if (a === "reasoningedit" || a === "reasoningadd") {
-      let name = e.target.closest(".pa-rrow")?.dataset.name;
+      let name = from?.closest(".pa-rrow")?.dataset.name;
       if (a === "reasoningadd") {
         const store = reasoningStore();
         const items = listPresets().filter((n) => n !== reasoningPreset && !store[n]).map((n) => ({ label: n, value: n }));
@@ -378,7 +406,7 @@ function mountApi(liveBox, sitesBox) {
       return render();
     }
     if (a === "reasoningdel") {
-      const name = e.target.closest(".pa-rrow")?.dataset.name;
+      const name = from?.closest(".pa-rrow")?.dataset.name;
       if (!name || !await confirmBox("删除推理格式记录", `删除「${name}」记住的推理格式？切到它时将保持当时的设置。`, "删除", true)) return;
       delete reasoningStore()[name];
       saveSettings();
@@ -406,16 +434,10 @@ function mountApi(liveBox, sitesBox) {
       }
       return render();
     }
-    if (a === "toggle") {
-      open.has(site.id) ? open.delete(site.id) : open.add(site.id);
-      return render();
-    }
     if (a === "new") return editSite(null);
     if (a === "edit") return editSite(site);
     if (a === "fetch") {
-      const btn = e.target.closest("button");
-      btn.disabled = true;
-      btn.textContent = "获取中…";
+      busy("获取中…");
       try {
         site.models = await getModels(site);
         saveSettings();
@@ -436,9 +458,7 @@ function mountApi(liveBox, sitesBox) {
     }
     if (a === "use" || a === "reconnect") {
       const target = a === "use" ? site : sites().find((x) => x.id === settings().activeSiteId);
-      const btn = e.target.closest("button");
-      btn.disabled = true;
-      btn.textContent = "连接中…";
+      busy("连接中…");
       try {
         if (target) {
           await applyConnection(target);
@@ -466,8 +486,11 @@ function mountApi(liveBox, sitesBox) {
       toast("已保存为站点", "success");
       render();
     }
-  };
+  }
   liveBox.addEventListener("click", onClick);
   sitesBox.addEventListener("click", onClick);
+  sitesBox.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".pa-sghead")) { e.preventDefault(); e.target.click(); }
+  });
   return { render };
 }

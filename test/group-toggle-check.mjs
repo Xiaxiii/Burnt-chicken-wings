@@ -81,7 +81,7 @@ try {
       c.extensionSettings.presetAtelier.schemes.push({ id: 'parent-only', name: '只切换分组', preset: title, scope: 'all', states: {}, groupStates: { theater: true } });
       window.__presetAtelier.open('more', 'schemes');
     }, title);
-    for (const h of await page.locator('.pa-sgroup:not(.open) .pa-sghead').all()) await h.click();
+    for (const h of await page.locator('.pa-plan-schemes .pa-sgroup:not(.open) .pa-sghead').all()) await h.click();
     await page.locator('[data-id="parent-only"] [data-a=apply]').click();
     await waitGroup(page, 'theater', true);
     assert.deepEqual(states(await saved(page)), chosen);

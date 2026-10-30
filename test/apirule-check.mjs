@@ -54,14 +54,16 @@ await page.waitForTimeout(1200);
 assert.equal((await live()).url, "https://mine/v1", "换预设 API 不变");
 ok("换预设：API 不变");
 
-// 4) 设置只剩一项勾选，规则收在右边的「?」里，点开才显示
-const row = page.locator(".pa-optrow", { hasText: "换角色或聊天时" });
-assert.equal(await row.locator("input[type=checkbox]").count(), 1);
-const note = row.locator("xpath=following-sibling::div[1]");
-assert.equal(await note.isVisible(), false, "说明默认收起");
-await row.locator("[data-a=why]").click(); await page.waitForTimeout(150);
-assert.match(await page.locator(".pa-optrow", { hasText: "换角色或聊天时" }).locator("xpath=following-sibling::div[1]").innerText(), /换预设，API 不变/);
-ok("设置只剩一项，规则在右边「?」里");
+// 4) 2.4.0：选项一行，只有方框管勾选；点这一行其他地方展开规则
+const card = page.locator(".pa-optgroup[data-w=chattoast]");
+const box = card.locator("input[data-o=chattoast]");
+assert.equal(await card.locator("input[type=checkbox]").count(), 1);
+assert.equal(await card.locator(".pa-sgbody").count(), 0, "规则默认收起");
+const was = await box.isChecked();
+await card.locator(".pa-optlabel").click(); await page.waitForTimeout(150);
+assert.equal(await box.isChecked(), was, "点文字不改勾选");
+assert.match(await card.locator(".pa-sgbody").innerText(), /换预设\s*API 不变/);
+ok("设置只剩一项，点这一行展开规则");
 
 assert.deepEqual(errs, []);
 console.log("API 规则检查通过");

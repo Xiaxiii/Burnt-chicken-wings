@@ -5,6 +5,8 @@ function toast(msg, type = "info") {
   else console.log("[焦香鸡翅]", msg);
 }
 var rootEl = null;
+// 等这一帧画出来再继续：先显示「正在…」，重活放到下一帧
+const nextPaint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 function setRoot(el2) {
   rootEl = el2;
 }

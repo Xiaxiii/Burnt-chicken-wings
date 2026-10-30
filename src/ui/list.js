@@ -89,13 +89,15 @@ function renderIndexedList(draft, o) {
   for (const b of draft.blocks()) {
     if (b.empty && (q || o.mode === "source")) continue;
     if (!b.groupId) {
-      const inner = b.ids.map(row).join("");
-      if (inner) html += `<div class="pa-loose">${inner}</div>`;
+      const rows = b.ids.map(row).filter(Boolean);
+      // --n：行数，屏幕外整块跳过渲染时按它占位（见样式 2.4.0）
+      if (rows.length) html += `<div class="pa-loose" style="--n:${rows.length}">${rows.join("")}</div>`;
       continue;
     }
     const g = draft.group(b.groupId);
     const isCol = !q && collapsed.has(b.groupId);
-    const visibleRows = isCol ? "" : b.ids.map(row).join("");
+    const shown = isCol ? [] : b.ids.map(row).filter(Boolean);
+    const visibleRows = shown.join("");
     if (q && !visibleRows) continue;
     const onCount = b.ids.filter((id) => enabledMap.get(id)).length;
     const allSel = b.ids.length && b.ids.every((id) => sel.has(id));
@@ -116,7 +118,7 @@ function renderIndexedList(draft, o) {
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
                 <span class="pa-handle" data-act="gdrag" aria-label="拖动分组">${ICON.grip}</span>` : ""}
             </header>
-            <div class="pa-gbody">${startSlot}${emptyNote}${visibleRows}</div>
+            <div class="pa-gbody" style="--n:${shown.length}">${startSlot}${emptyNote}${visibleRows}</div>
         </section>${afterHere ? mark : ""}`;
   }
   return html || '<p class="pa-empty">没有匹配的条目</p>';
