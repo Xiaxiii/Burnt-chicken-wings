@@ -1,5 +1,6 @@
 // 外观。默认跟随酒馆主题（自动改为不透明，避免背景透出影响阅读），也可选用内置配色。
 // 1.3.9：「花田」「晴野」为油画感渐变背景，替换原来的豆沙粉、雾霾蓝（沿用原 id，已选的设置不受影响）。
+// 2.3.8：「芽体」「菌落」为清透油画底 + 毛玻璃面板（glass）。
 // 自定义背景图存在本浏览器的 IndexedDB，不写进酒馆设置文件，不影响酒馆加载速度。
 var THEMES = [
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
@@ -12,6 +13,8 @@ var THEMES = [
   { id: "goose", fg: "#3d4540", name: "春和", sub: "粉绿水彩", dots: ["#fbded0", "#d1e5d9", "#bdcdb0"], paint: true },
   { id: "taro", fg: "#4a4160", name: "玫瑰芋泥", sub: "粉紫朦胧水彩", dots: ["#f5e8f3", "#cdbddb", "#9c91b8"], paint: true },
   { id: "dusk", fg: "#1f4a55", name: "日落海岸", sub: "海蓝到橘粉的晚霞", dots: ["#f3e8ab", "#f87078", "#026d81"], paint: true },
+  { id: "bud", fg: "#2f423d", name: "芽体", sub: "青绿珊瑚毛玻璃", dots: ["#a9d5d1", "#f0c9b8", "#657f78"], paint: true, glass: true },
+  { id: "colony", fg: "#303f47", name: "菌落", sub: "冷雾蓝紫毛玻璃", dots: ["#b8d4e7", "#d8d0e6", "#667d87"], paint: true, glass: true },
   { id: "night", name: "夜雾", sub: "深色", dots: ["#262a30", "#a9bfae", "#e4e1dc"] }
 ];
 function readColor(value) {
@@ -155,7 +158,9 @@ function applyTheme(root) {
   const id = effectiveTheme();
   root.dataset.theme = id;
   root.dataset.fs = fontSizePref();
-  root.classList.toggle("pa-painted", !!THEMES.find((t) => t.id === id)?.paint);
+  const theme = THEMES.find((t) => t.id === id);
+  root.classList.toggle("pa-painted", !!theme?.paint);
+  root.classList.toggle("pa-glass", !!theme?.glass);
   const host = getComputedStyle(document.body);
   const hostColors = ["--SmartThemeBlurTintColor", "--SmartThemeBodyColor", "--SmartThemeQuoteColor", "--SmartThemeEmColor", "--SmartThemeBorderColor"].map((key) => host.getPropertyValue(key).trim());
   const signature = JSON.stringify([id, ...(id === "follow" ? hostColors : [])]);
