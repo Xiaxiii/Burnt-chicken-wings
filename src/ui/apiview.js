@@ -32,7 +32,8 @@ async function pickModel(list, cur, { title = "选择模型" } = {}) {
   } });
   return picked;
 }
-const modelBtn = (cur, attr) => `<button class="pa-model-btn" ${attr} title="${esc(cur || "")}"><span>${esc(cur || "选择模型")}</span><i>▾</i></button>`;
+// arrow：有模型列表可选时才显示 ▾（2.4.1 当前连接拉取到列表后才出现）
+const modelBtn = (cur, attr, arrow = true) => `<button class="pa-model-btn" ${attr} title="${esc(cur || "")}"><span>${esc(cur || "选择模型")}</span>${arrow ? "<i>▾</i>" : ""}</button>`;
 // 2.3.3 推理格式记录：列表里看每个预设记住的设置，点「修改」手动改
 var REASONING_FLAGS = [["auto_parse", "自动解析"], ["add_to_prompts", "添加到提示词"], ["auto_expand", "自动展开"], ["show_hidden", "显示隐藏内容"]];
 const showBreaks = (s) => String(s ?? "").replace(/\r?\n/g, "↵");
@@ -99,14 +100,23 @@ async function editReasoning(name, init, live) {
     } }]
   });
 }
-// liveBox：当前连接；sitesBox：站点列表和选项（「方案」页把方案放在两者之间）
-function mountApi(liveBox, sitesBox) {
+// liveBox：当前连接；sitesBox：站点列表；optsBox：两个选项（「方案」页把方案放在当前连接和选项之间）
+function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   const sites = () => settings().sites;
   // 2.4.0：底部选项行点开的（只在面板打开期间记住）
   const optOpen = /* @__PURE__ */ new Set();
   const shortLabel = (source) => (SOURCES[source]?.label || source || "—").split("（")[0];
   // 2.4.0：站点按网址分组；官方接口归一组，OpenRouter 单独一组
   const siteGroup = (x) => x.source === "custom" ? hostOf(x.url) || "自定义" : x.source === "openrouter" ? "openrouter.ai" : "官方 API";
+  // 2.4.1：当前连接还没存成站点时，拉取到的模型列表先记在这里（面板打开期间）
+  let liveFetched = null;
+  const isSame = (site, live) => !!site && site.source === live.source && (site.source !== "custom" || (site.url || "") === (live.url || ""));
+  // 当前连接可选的模型：酒馆下拉框里的、站点记的、刚拉取到的
+  function liveModelList(live = liveConnection()) {
+    const active = sites().find((x) => x.id === settings().activeSiteId);
+    const fetched = liveFetched && liveFetched.source === live.source && liveFetched.url === (live.url || "") ? liveFetched.models : [];
+    return [...new Set([...liveModelOptions(), ...isSame(active, live) ? active.models || [] : [], ...fetched])];
+  }
   function render() {
     const live = liveConnection();
     const s = settings();
@@ -114,7 +124,7 @@ function mountApi(liveBox, sitesBox) {
     const src = SOURCES[live.source];
     const liveModels = liveModelOptions();
     // 使用中的站点只同步可选的模型列表；在酒馆里临时换的模型不悄悄写进站点，由用户决定要不要记下
-    const sameSite = active && active.source === live.source && (active.source !== "custom" || (active.url || "") === (live.url || ""));
+    const sameSite = isSame(active, live);
     if (sameSite && liveModels.length && JSON.stringify(active.models || []) !== JSON.stringify(liveModels)) {
       active.models = liveModels;
       saveSettings();
@@ -123,12 +133,13 @@ function mountApi(liveBox, sitesBox) {
     const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => schemeConn(sc)?.siteId === id).map((sc) => sc.preset))];
     const dot = `<span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span>`;
     // 2.4.0：当前连接只留名称、网址、模型；类型、密钥、备注和操作收进 ⋯
+    // 2.4.1：模型旁放「拉取」（中转站）和「测试」；拉取到列表后模型框才出现 ▾
     const sub = live.url || src?.label || "";
     liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">当前连接</h3></div>
         <article class="pa-card pa-site pa-site-on pa-live"${active ? ` data-id="${esc(active.id)}"` : ""}>
             <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more" data-a="livemore" aria-label="连接详情" title="连接详情">⋯</button></header>
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
-            ${modelBtn(live.model, 'data-a="livemodel"')}
+            <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0)}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="reconnect" type="button" aria-label="测试连接" title="测试连接">${ICON.bolt}</button></div>
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(active.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
     const groups = /* @__PURE__ */ new Map();
@@ -161,7 +172,8 @@ function mountApi(liveBox, sitesBox) {
       : info("开启后", "离开预设时记下推理格式，切回时恢复") + (kept ? `<div class="pa-srow"><div class="pa-srow-main"><b>已记住 ${kept} 个预设</b></div><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningclear">清除</button></div>` : "");
     sitesBox.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">站点</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
-        ${groups.size ? `<p class="pa-hint pa-site-hint">点站点名查看、编辑完整信息</p>${groupHtml}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}
+        ${groups.size ? `<p class="pa-hint pa-site-hint">点站点名查看、编辑完整信息</p>${groupHtml}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}`;
+    optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
         ${optCard("reasoning", `<input type="checkbox" data-o="reasoningfollow" aria-label="切换预设时，同时切换推理格式" ${follow ? "checked" : ""}>`, "切换预设时，同时切换推理格式", rows.length, reasoningBody)}`;
@@ -202,9 +214,10 @@ function mountApi(liveBox, sitesBox) {
           ${key ? `<dt>密钥</dt><dd>${esc(key)}</dd>` : ""}
           ${active?.note ? `<dt>备注</dt><dd>${esc(active.note)}</dd>` : ""}
         </dl>`);
+    // 拉取、测试在模型那一行，这里只留编辑、删除（没存成站点时是保存）
     const actions = active
-      ? [{ label: "删除", kind: "danger-soft", value: "del" }, { label: "编辑", value: "edit" }, ...source === "custom" ? [{ label: "获取模型列表", value: "fetch" }] : [], { label: "重新连接", kind: "primary", value: "reconnect" }]
-      : [{ label: "重新连接", value: "reconnect" }, { label: "保存为站点", kind: "primary", value: "capture" }];
+      ? [{ label: "删除", kind: "danger-soft", value: "del" }, { label: "编辑", kind: "primary", value: "edit" }]
+      : [{ label: "保存为站点", kind: "primary", value: "capture" }];
     const a = await sheet({ title: active ? active.name : "当前连接", body, noFocus: true, actions });
     if (a) await act(a, active);
   }
@@ -354,7 +367,7 @@ function mountApi(liveBox, sitesBox) {
       render();
     }
   };
-  sitesBox.addEventListener("change", onChange);
+  for (const box of new Set([sitesBox, optsBox])) box.addEventListener("change", onChange);
   const onClick = async (e) => {
     const a = e.target.closest("[data-a]")?.dataset.a;
     if (!a) return;
@@ -376,7 +389,13 @@ function mountApi(liveBox, sitesBox) {
   };
   // btn：点的按钮（连接、获取时显示进度）；from：点的位置（找推理格式那一行）
   async function act(a, site, btn = null, from = null) {
-    const busy = (t) => { if (btn) { btn.disabled = true; btn.textContent = t; } };
+    // 图标按钮（测试的闪电）忙时闪动，文字按钮换成提示文字
+    const busy = (t) => {
+      if (!btn) return;
+      btn.disabled = true;
+      if (btn.querySelector("svg")) btn.classList.add("pa-busy");
+      else btn.textContent = t;
+    };
     if (a === "livemore") return liveSheet();
     if (a === "reasoningclear") {
       if (!await confirmBox("清除推理格式记录", "清除所有预设记住的推理格式？当前酒馆设置不变。", "清除")) return;
@@ -415,13 +434,32 @@ function mountApi(liveBox, sitesBox) {
     if (a === "livemodel" || a === "sitemodel") {
       const live = liveConnection();
       const target = a === "sitemodel" ? site : sites().find((x) => x.id === settings().activeSiteId);
-      const list = a === "livemodel" ? liveModelOptions() : target?.models || [];
+      const list = a === "livemodel" ? liveModelList(live) : target?.models || [];
       const m = await pickModel(list, a === "livemodel" ? live.model : target?.model);
       if (!m) return;
       if (target) target.model = m;
       if (a === "livemodel" || target?.id === settings().activeSiteId) setLiveModel(m);
       saveSettings();
       toast(`模型已切换为 ${m}`, "success");
+      return render();
+    }
+    if (a === "livefetch") {
+      const live = liveConnection();
+      const active = sites().find((x) => x.id === settings().activeSiteId);
+      const same = isSame(active, live);
+      if (live.source === "custom" && !live.url) return toast("当前连接没有网址", "warning");
+      if (btn) { btn.disabled = true; btn.classList.add("pa-spin"); }
+      try {
+        const models = await getModels(same ? active : { name: "当前连接", source: live.source, url: live.url || "", secretId: live.secretId });
+        liveFetched = { source: live.source, url: live.url || "", models };
+        if (same) {
+          active.models = models;
+          saveSettings();
+        }
+        toast(models.length ? `已拉取 ${models.length} 个模型，点模型框的 ▾ 选择` : "站点未返回模型，可点模型框手动填写", models.length ? "success" : "warning");
+      } catch (err) {
+        toast("拉取失败：" + err.message, "error");
+      }
       return render();
     }
     if (a === "keepmodel") {
@@ -487,10 +525,10 @@ function mountApi(liveBox, sitesBox) {
       render();
     }
   }
-  liveBox.addEventListener("click", onClick);
-  sitesBox.addEventListener("click", onClick);
-  sitesBox.addEventListener("keydown", (e) => {
+  const onKey = (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".pa-sghead")) { e.preventDefault(); e.target.click(); }
-  });
+  };
+  for (const box of new Set([liveBox, sitesBox, optsBox])) box.addEventListener("click", onClick);
+  for (const box of new Set([sitesBox, optsBox])) box.addEventListener("keydown", onKey);
   return { render };
 }

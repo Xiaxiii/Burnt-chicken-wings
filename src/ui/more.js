@@ -7,10 +7,11 @@ function mountMore(page, app) {
   const sec = (k) => page.querySelector(`[data-mp="${k}"]`);
   const subs = {
     // 1.4.0：开关方案和 API 站点合并为一页：当前连接 → 方案 → 站点
+    // 2.4.0：两个选项（换角色提示、推理格式跟随预设）放在方案下面，站点那块只放站点
     schemes: (() => {
       const box = sec("schemes");
-      box.innerHTML = '<div class="pa-scroll pa-plan"><div class="pa-plan-live"></div><div class="pa-plan-schemes"></div><div class="pa-plan-sites"></div></div>';
-      const api = mountApi(box.querySelector(".pa-plan-live"), box.querySelector(".pa-plan-sites"));
+      box.innerHTML = '<div class="pa-scroll pa-plan"><div class="pa-plan-live"></div><div class="pa-plan-schemes"></div><div class="pa-plan-opts"></div><div class="pa-plan-sites"></div></div>';
+      const api = mountApi(box.querySelector(".pa-plan-live"), box.querySelector(".pa-plan-sites"), box.querySelector(".pa-plan-opts"));
       // 方案改动后刷新站点列表（站点标题显示被哪些预设的方案使用）
       const sc = mountSchemes(box.querySelector(".pa-plan-schemes"), { after: () => api.render() });
       return { render: () => sc.render(), destroy: sc.destroy };
