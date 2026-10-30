@@ -106,8 +106,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   // 2.4.0：底部选项行点开的（只在面板打开期间记住）
   const optOpen = /* @__PURE__ */ new Set();
   const shortLabel = (source) => (SOURCES[source]?.label || source || "—").split("（")[0];
-  // 2.4.0：站点按网址分组；官方接口归一组，OpenRouter 单独一组
-  const siteGroup = (x) => x.source === "custom" ? hostOf(x.url) || "自定义" : x.source === "openrouter" ? "openrouter.ai" : "官方 API";
   // 2.4.1：当前连接还没存成站点时，拉取到的模型列表先记在这里（面板打开期间）
   let liveFetched = null;
   const isSame = (site, live) => !!site && site.source === live.source && (site.source !== "custom" || (site.url || "") === (live.url || ""));
@@ -142,13 +140,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0)}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="reconnect" type="button" aria-label="测试连接" title="测试连接">${ICON.bolt}</button></div>
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(active.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
-    const groups = /* @__PURE__ */ new Map();
-    for (const x of sites()) {
-      const k = siteGroup(x);
-      if (!groups.has(k)) groups.set(k, []);
-      groups.get(k).push(x);
-    }
-    const closed = new Set(s.siteGroupsClosed || []);
+    // 2.4.0：站点不分组，每个一行
     const siteRow = (x) => {
       const used = usedBy(x.id);
       const on = x.id === s.activeSiteId;
@@ -157,12 +149,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <div class="pa-srow-main pa-site-name" data-a="edit" title="查看、编辑"><b>${esc(x.name)}</b><small class="pa-site-model">${esc(info)}</small></div>
             ${on ? '<span class="pa-chip">使用中</span>' : '<button class="pa-btn pa-btn-s" data-a="use">切换</button>'}</div>`;
     };
-    const groupHtml = [...groups].map(([k, list]) => {
-      const isOpen = !closed.has(k);
-      return `<section class="pa-sgroup${isOpen ? " open" : ""}" data-sg="${esc(k)}">
-            <header class="pa-sghead" data-a="sgfold" tabindex="0"><span class="pa-sgcaret">${isOpen ? "▾" : "▸"}</span><b>${esc(k)}</b><small>${list.length} 个</small></header>
-            ${isOpen ? `<div class="pa-sgbody">${list.map(siteRow).join("")}</div>` : ""}</section>`;
-    }).join("");
     const info = (t, d) => `<div class="pa-srow"><div class="pa-srow-main"><b>${t}</b><small>${d}</small></div></div>`;
     const follow = s.reasoningFollowPreset === true;
     const rows = follow ? reasoningRows() : [];
@@ -172,7 +158,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       : info("开启后", "离开预设时记下推理格式，切回时恢复") + (kept ? `<div class="pa-srow"><div class="pa-srow-main"><b>已记住 ${kept} 个预设</b></div><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningclear">清除</button></div>` : "");
     sitesBox.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">站点</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
-        ${groups.size ? `<p class="pa-hint pa-site-hint">点站点名查看、编辑完整信息</p>${groupHtml}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}`;
+        ${sites().length ? `<p class="pa-hint pa-site-hint">点站点名查看、编辑完整信息</p><div class="pa-sgroup pa-sitelist">${sites().map(siteRow).join("")}</div>` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
@@ -375,13 +361,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       if (e.target.closest(".pa-optcheck")) return;
       const k = e.target.closest("[data-w]").dataset.w;
       optOpen.has(k) ? optOpen.delete(k) : optOpen.add(k);
-      return render();
-    }
-    if (a === "sgfold") {
-      const k = e.target.closest("[data-sg]").dataset.sg;
-      const list = settings().siteGroupsClosed = (settings().siteGroupsClosed || []).filter((x) => x !== k);
-      if (e.target.closest(".pa-sgroup").classList.contains("open")) list.push(k);
-      saveSettings();
       return render();
     }
     const site = sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id);
