@@ -718,9 +718,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-live-diff { margin: 6px 0 0; }
 /* 2.4.0 站点：按网址分组，每个一行，点名称编辑 */
 #pa-root .pa-site-hint { margin: -2px 2px 8px; font-size: .82em; }
-#pa-root .pa-sitelist { padding: 2px 6px; }
+#pa-root .pa-sitecard { display: flex; align-items: center; gap: 8px; padding: 9px 12px; }
 #pa-root .pa-site-name { cursor: pointer; }
-#pa-root .pa-srow.pa-site > .pa-chip, #pa-root .pa-srow.pa-site > .pa-btn { flex: none; }
+#pa-root .pa-sitecard > .pa-chip, #pa-root .pa-sitecard > .pa-btn { flex: none; }
 #pa-root .pa-sheet .pa-site-dl { margin-top: 0; }
 /* 2.4.0 触屏：小控件的点按范围放大到约 44px（外观不变），手指不用对得那么准 */
 @media (pointer: coarse) {

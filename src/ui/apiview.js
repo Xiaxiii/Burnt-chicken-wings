@@ -140,12 +140,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0)}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="reconnect" type="button" aria-label="测试连接" title="测试连接">${ICON.bolt}</button></div>
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(active.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
-    // 2.4.0：站点不分组，每个一行
+    // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
     const siteRow = (x) => {
       const used = usedBy(x.id);
       const on = x.id === s.activeSiteId;
       const info = [x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
-      return `<div class="pa-srow pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
+      return `<div class="pa-sgroup pa-sitecard pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
             <div class="pa-srow-main pa-site-name" data-a="edit" title="查看、编辑"><b>${esc(x.name)}</b><small class="pa-site-model">${esc(info)}</small></div>
             ${on ? '<span class="pa-chip">使用中</span>' : '<button class="pa-btn pa-btn-s" data-a="use">切换</button>'}</div>`;
     };
@@ -158,7 +158,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       : info("开启后", "离开预设时记下推理格式，切回时恢复") + (kept ? `<div class="pa-srow"><div class="pa-srow-main"><b>已记住 ${kept} 个预设</b></div><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningclear">清除</button></div>` : "");
     sitesBox.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">站点</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
-        ${sites().length ? `<p class="pa-hint pa-site-hint">点站点名查看、编辑完整信息</p><div class="pa-sgroup pa-sitelist">${sites().map(siteRow).join("")}</div>` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}`;
+        ${sites().length ? `<p class="pa-hint pa-site-hint">点站点名查看、编辑完整信息</p>${sites().map(siteRow).join("")}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
