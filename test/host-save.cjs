@@ -26,7 +26,7 @@ function setup() {
     } }
   };
   globals.SillyTavern = { getContext: () => context };
-  const host = new Function('globalThis', 'toast', 'backupPut', 'structuredClone', code + '\nreturn {writePreset,refreshBaibaiGroupCache,mods};')(globals, () => {}, async () => {}, structuredClone);
+  const host = new Function('globalThis', 'toast', 'backupPut', 'structuredClone', 'forgetSize', code + '\nreturn {writePreset,refreshBaibaiGroupCache,mods};')(globals, () => {}, async () => {}, structuredClone, () => {});
   host.mods.openai = { oai_settings: live };
   return { host, context, globals, state, events, toasts, live, stored };
 }

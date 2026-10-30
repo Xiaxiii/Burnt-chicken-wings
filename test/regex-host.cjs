@@ -68,7 +68,7 @@ function setup(options = {}) {
     }
   };
   const globals = { SillyTavern: { getContext: () => context } };
-  const host = new Function('globalThis', 'toast', 'backupMock', 'structuredClone', 'console', hostSource + '\nbackupPut = backupMock;\nreturn {writePreset, presetRegexActivationInfo, readPreset, mods};')(
+  const host = new Function('globalThis', 'toast', 'backupMock', 'structuredClone', 'console', 'forgetSize', hostSource + '\nbackupPut = backupMock;\nreturn {writePreset, presetRegexActivationInfo, readPreset, mods};')(
     globals,
     (message, kind) => toasts.push({ message, kind }),
     async (name, data, reason) => {
@@ -77,7 +77,8 @@ function setup(options = {}) {
       if (control.failBackup) throw new Error('backup storage full');
     },
     copy,
-    { warn: (...args) => warnings.push(args) }
+    { warn: (...args) => warnings.push(args) },
+    () => {}
   );
   host.mods.openai = {
     oai_settings: live,
