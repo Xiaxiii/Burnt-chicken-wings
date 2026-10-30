@@ -74,7 +74,7 @@ function scheduleSemanticReview() {
     if (identity !== semanticReplyIdentity() || semanticMainGenerating || !replyGuardConfig()?.semanticAfterReply) return;
     try {
       const report = await reviewReplySemantics(text, { identity });
-      if (report.verdict === "suspected") toast("语义审查发现疑似内部分析，可在「思维链 → 格式检查」查看；请人工确认", "warning");
+      if (report.verdict === "suspected") toast("语义审查发现疑似内部分析，可在「思维链 → 格式」查看；请人工确认", "warning");
     } catch (error) { if (!/已取消/.test(error.message)) toast(`语义审查未完成：${error.message}`, "warning"); }
   }, 0);
 }

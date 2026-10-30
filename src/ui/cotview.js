@@ -80,7 +80,7 @@ async function hookExistingDialog(d, id) {
 function mountCot(page, app) {
   const st = { filter: "none" };
   page.innerHTML = `
-        <div class="pa-toolbar"><div class="pa-picker-slot"></div><button class="pa-btn pa-btn-soft" data-reply-format title="正文格式检查">格式检查</button><button class="pa-btn pa-btn-soft" data-variable-audit title="变量顺序与现状">变量顺序</button><button class="pa-btn pa-btn-primary" data-repair-all title="修复变量问题">修复变量</button></div>
+        <div class="pa-toolbar"><div class="pa-picker-slot"></div><button class="pa-btn pa-btn-soft" data-reply-format title="正文格式检查">格式</button><button class="pa-btn pa-btn-soft" data-variable-audit title="变量顺序与现状">变量</button><button class="pa-btn pa-btn-primary" data-repair-all title="修复变量问题">修复</button></div>
         <div class="pa-scroll pa-cot"></div>`;
   const box = page.querySelector(".pa-cot");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
