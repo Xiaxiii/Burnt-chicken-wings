@@ -500,10 +500,11 @@ html.pa-open body { overflow: hidden; }
 #pa-root[data-theme="bean"]     { --pa-tint:#f7ece9; --pa-text:#45343f; --pa-thread:#b0607e; --pa-em:#6a5562; --pa-line:#e3d1d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(176,96,126,.16); }
 #pa-root[data-theme="oat"]      { --pa-tint:#f6e6e3; --pa-text:#4a3438; --pa-thread:#b5566a; --pa-em:#6d5357; --pa-line:#e6cfcf; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4472e; --pa-ok:#5b7d4f; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }
 #pa-root[data-theme="sage"]     { --pa-tint:#f7efe8; --pa-text:#2c3a58; --pa-thread:#5a6e9e; --pa-em:#55607a; --pa-line:#e1d6d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b0604a; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(90,110,158,.16); }
-#pa-root[data-theme="matcha"]   { --pa-tint:#f9f1e4; --pa-text:#3a4433; --pa-thread:#5f7a52; --pa-em:#556049; --pa-line:#dfdcbf; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#a85a45; --pa-ok:#5f7a52; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }
 #pa-root[data-theme="goose"]    { --pa-tint:#f9f1e4; --pa-text:#3d4540; --pa-thread:#5f7f68; --pa-em:#59625b; --pa-line:#e3ddd0; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0604a; --pa-ok:#5f7f68; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); }
 #pa-root[data-theme="taro"]     { --pa-tint:#f6eef6; --pa-text:#4a4160; --pa-thread:#7b6fa3; --pa-em:#635a7c; --pa-line:#e3d9ea; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0566a; --pa-ok:#5b7d6a; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(156,145,184,.2); }
 #pa-root[data-theme="dusk"]     { --pa-tint:#fbf1e6; --pa-text:#1f4a55; --pa-thread:#026d81; --pa-em:#3f6670; --pa-line:#ead9cc; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#c4503f; --pa-ok:#3f7d5c; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(2,109,129,.14); }
+#pa-root[data-theme="bud"]      { --pa-tint:#f5f2ee; --pa-text:#2f423d; --pa-thread:#4f6c66; --pa-em:#4f625d; --pa-line:#dcd8d0; --pa-input-bg:rgba(255,255,255,.52); --pa-warn:#b8533f; --pa-ok:#3f7a5c; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.30); --pa-card-2:rgba(255,255,255,.48); --pa-sel:rgba(101,127,120,.15); --pa-shadow:rgba(101,127,120,.40); }
+#pa-root[data-theme="colony"]   { --pa-tint:#eff3f4; --pa-text:#303f47; --pa-thread:#536b78; --pa-em:#4f5f67; --pa-line:#d4dde0; --pa-input-bg:rgba(255,255,255,.52); --pa-warn:#ad5d48; --pa-ok:#46765d; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.30); --pa-card-2:rgba(255,255,255,.48); --pa-sel:rgba(102,125,135,.15); --pa-shadow:rgba(102,125,135,.40); }
 #pa-root[data-theme="night"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }
 #pa-root[data-theme]:not([data-theme="follow"]):not([data-theme="night"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }
 
@@ -714,17 +715,6 @@ html.pa-open body { overflow: hidden; }
         radial-gradient(ellipse 60% 26% at 76% 100%, rgba(236, 168, 112, .55), transparent 72%),
         radial-gradient(ellipse 48% 30% at 52% 46%, rgba(255, 249, 242, .80), transparent 72%),
         linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%);
-}
-/* 春芽：绿色水彩 FBECCF 7B986C D5D3A0 A2B891 F9F1E4 */
-#pa-root[data-theme="matcha"] .pa-shell, #pa-root .pa-paint-matcha {
-    background:
-        var(--pa-canvas),
-        radial-gradient(ellipse 30% 26% at 10% 66%, rgba(123, 152, 108, .56), transparent 70%),
-        radial-gradient(ellipse 42% 28% at 28% 44%, rgba(162, 184, 145, .62), transparent 70%),
-        radial-gradient(ellipse 40% 22% at 72% 26%, rgba(213, 211, 160, .55), transparent 70%),
-        radial-gradient(ellipse 38% 24% at 84% 84%, rgba(162, 184, 145, .58), transparent 70%),
-        radial-gradient(ellipse 30% 18% at 60% 62%, rgba(213, 211, 160, .40), transparent 70%),
-        linear-gradient(160deg, #f9f1e4 0%, #fbeccf 45%, #f6efd9 100%);
 }
 /* 春和：粉绿水彩 F0DEC6 BDCDB0 FBDED0 D1E5D9 F9F1E4 */
 #pa-root[data-theme="goose"] .pa-shell, #pa-root .pa-paint-goose {
@@ -1188,3 +1178,63 @@ html.pa-open body { overflow: hidden; }
 #pa-ball.pa-ball-drag { will-change: transform; }
 #pa-ball:hover, #pa-ball.pa-ball-drag { opacity: 1; }
 html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
+
+/* 2.3.8 芽体、菌落：清透油画底 + 毛玻璃面板（设了自定义背景图时让给背景图）。
+   为了滑动流畅，真正的背景模糊只给不随列表滚动的顶栏、标签栏；列表里的分组、卡片、输入框用半透明渐变和边缘高光做出玻璃感，不做实时模糊 */
+#pa-root {
+    /* 芽体 F9EEE8 F0C9B8 C5E1C5 A9D5D1 657F78：顶部深藻灰绿薄雾 → 生命青 → 一点嫩绿 → 浅珊瑚 → 珊瑚奶白 */
+    --pa-paint-bud:
+        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(101,127,120,.28), rgba(101,127,120,.10) 45%, transparent 75%),
+        radial-gradient(ellipse 58% 24% at 84% 16%, rgba(169,213,209,.84), rgba(169,213,209,.32) 45%, transparent 72%),
+        radial-gradient(ellipse 46% 20% at 8% 32%, rgba(169,213,209,.66), rgba(169,213,209,.24) 45%, transparent 72%),
+        radial-gradient(ellipse 34% 14% at 70% 47%, rgba(197,225,197,.56), rgba(197,225,197,.20) 45%, transparent 72%),
+        radial-gradient(ellipse 60% 24% at 74% 80%, rgba(240,201,184,.84), rgba(240,201,184,.32) 45%, transparent 72%),
+        radial-gradient(ellipse 48% 20% at 10% 92%, rgba(240,201,184,.66), rgba(240,201,184,.24) 45%, transparent 72%),
+        radial-gradient(ellipse 40% 8% at 40% 38%, rgba(255,255,255,.90), transparent 70%),
+        radial-gradient(ellipse 36% 7% at 58% 64%, rgba(255,255,255,.80), transparent 70%),
+        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(255,252,250,.70), transparent 72%),
+        linear-gradient(180deg, #e3eeec 0%, #ebf6f4 24%, #f6f8f2 50%, #fcede6 78%, #fcf4f0 100%);
+    /* 圆圆的芽体，边缘晕开，透过玻璃卡片像光斑 */
+    --pa-cells-bud:
+        radial-gradient(circle at 18% 24%, rgba(169,213,209,.85), rgba(169,213,209,.40) 22px, rgba(169,213,209,0) 50px),
+        radial-gradient(circle at 80% 36%, rgba(240,201,184,.85), rgba(240,201,184,.40) 16px, rgba(240,201,184,0) 40px),
+        radial-gradient(circle at 62% 56%, rgba(169,213,209,.80), rgba(169,213,209,.38) 26px, rgba(169,213,209,0) 58px),
+        radial-gradient(circle at 24% 70%, rgba(240,201,184,.85), rgba(240,201,184,.40) 20px, rgba(240,201,184,0) 46px),
+        radial-gradient(circle at 86% 86%, rgba(197,225,197,.80), rgba(197,225,197,.38) 18px, rgba(197,225,197,0) 42px),
+        radial-gradient(circle at 44% 92%, rgba(169,213,209,.72), rgba(169,213,209,.32) 14px, rgba(169,213,209,0) 34px);
+    /* 菌落 EEF5F0 C7D8D0 B8D4E7 D8D0E6 667D87：顶部标本灰蓝薄雾 → 菌落淡紫 → 冰雾蓝 → 菌落灰绿 → 冷雾白 */
+    --pa-paint-colony:
+        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(102,125,135,.28), rgba(102,125,135,.10) 45%, transparent 75%),
+        radial-gradient(ellipse 56% 24% at 16% 18%, rgba(216,208,230,.86), rgba(216,208,230,.32) 45%, transparent 72%),
+        radial-gradient(ellipse 44% 18% at 90% 26%, rgba(216,208,230,.64), rgba(216,208,230,.24) 45%, transparent 72%),
+        radial-gradient(ellipse 58% 24% at 76% 48%, rgba(184,212,231,.84), rgba(184,212,231,.32) 45%, transparent 72%),
+        radial-gradient(ellipse 44% 20% at 8% 56%, rgba(184,212,231,.64), rgba(184,212,231,.24) 45%, transparent 72%),
+        radial-gradient(ellipse 60% 24% at 28% 82%, rgba(199,216,208,.86), rgba(199,216,208,.32) 45%, transparent 72%),
+        radial-gradient(ellipse 46% 20% at 88% 92%, rgba(199,216,208,.66), rgba(199,216,208,.24) 45%, transparent 72%),
+        radial-gradient(ellipse 40% 8% at 58% 37%, rgba(255,255,255,.90), transparent 70%),
+        radial-gradient(ellipse 36% 7% at 38% 66%, rgba(255,255,255,.80), transparent 70%),
+        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(250,253,252,.70), transparent 72%),
+        linear-gradient(180deg, #e5eaed 0%, #f0eef6 20%, #ebf3f9 48%, #edf4f0 76%, #f4f9f6 100%);
+    /* 大小不一的圆形菌落，像培养皿里的光斑 */
+    --pa-cells-colony:
+        radial-gradient(circle at 76% 20%, rgba(216,208,230,.85), rgba(216,208,230,.40) 24px, rgba(216,208,230,0) 54px),
+        radial-gradient(circle at 20% 40%, rgba(184,212,231,.85), rgba(184,212,231,.40) 18px, rgba(184,212,231,0) 44px),
+        radial-gradient(circle at 30% 44%, rgba(184,212,231,.75), rgba(184,212,231,.30) 7px, rgba(184,212,231,0) 18px),
+        radial-gradient(circle at 70% 62%, rgba(199,216,208,.85), rgba(199,216,208,.40) 26px, rgba(199,216,208,0) 58px),
+        radial-gradient(circle at 16% 80%, rgba(216,208,230,.80), rgba(216,208,230,.38) 16px, rgba(216,208,230,0) 40px),
+        radial-gradient(circle at 60% 90%, rgba(184,212,231,.80), rgba(184,212,231,.38) 20px, rgba(184,212,231,0) 46px),
+        radial-gradient(circle at 68% 86%, rgba(184,212,231,.70), rgba(184,212,231,.30) 6px, rgba(184,212,231,0) 16px);
+}
+#pa-root[data-theme="bud"]:not(.pa-has-bg) .pa-shell { background: var(--pa-canvas), var(--pa-cells-bud), var(--pa-paint-bud); }
+#pa-root .pa-paint-bud { background: var(--pa-canvas), var(--pa-paint-bud); }
+#pa-root[data-theme="colony"]:not(.pa-has-bg) .pa-shell { background: var(--pa-canvas), var(--pa-cells-colony), var(--pa-paint-colony); }
+#pa-root .pa-paint-colony { background: var(--pa-canvas), var(--pa-paint-colony); }
+/* 顶栏、标签栏：真正的毛玻璃（不随列表滚动，模糊只算一次） */
+#pa-root.pa-glass .pa-top, #pa-root.pa-glass .pa-tabs { background: rgba(255, 255, 255, .24); border-bottom-color: rgba(255, 255, 255, .58); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }
+/* 浮在列表上的操作条随滚动重算模糊会卡，改成更实的半透明 */
+#pa-root.pa-glass :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: rgba(255, 255, 255, .72); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9); }
+/* 列表里的玻璃：斜向白色渐变 + 白色描边 + 上沿高光，不做实时模糊 */
+#pa-root.pa-glass :is(.pa-group, .pa-card) { background-image: linear-gradient(150deg, rgba(255, 255, 255, .30), rgba(255, 255, 255, 0) 62%); }
+:where(#pa-root.pa-glass) :is(.pa-group, .pa-card) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), inset 0 1px 0 rgba(255, 255, 255, .85); }
+#pa-root.pa-glass .pa-card { border-color: transparent; }
+#pa-root.pa-glass :is(.pa-input, .pa-select, .pa-model-btn) { border-color: rgba(255, 255, 255, .7); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8); }

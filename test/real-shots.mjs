@@ -5,7 +5,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, devi
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: "matcha" }; window.__presetAtelier.open("cot"); });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: "goose" }; window.__presetAtelier.open("cot"); });
 await page.waitForTimeout(500);
 await page.screenshot({ path: "test/shots/real-1-cot-zsx.png" });
 // 缝合：众生相 墟里春生 → Ariadne 笔法区
