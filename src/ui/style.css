@@ -702,7 +702,14 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-live > header .pa-chip-btn { max-width: none; background: none; font-family: inherit; cursor: pointer; }
 #pa-root .pa-live-more { flex: none; margin-left: auto; width: 28px; height: 24px; min-height: 0; color: var(--pa-dim); }
 #pa-root .pa-live-url { margin-top: 1px; font-size: .72em; line-height: 1.3; color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#pa-root .pa-live > .pa-model-btn { width: 100%; margin-top: 6px; min-height: 30px; }
+/* 2.4.1 模型那一行：模型框、拉取（圆圈箭头）、测试 */
+#pa-root .pa-live-model { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+#pa-root .pa-live-model > .pa-model-btn { flex: 1 1 auto; min-width: 0; min-height: 30px; }
+#pa-root .pa-live-fetch { flex: none; width: 32px; height: 30px; min-height: 0; color: var(--pa-dim); }
+#pa-root .pa-live-fetch svg { width: 17px; height: 17px; }
+#pa-root .pa-live-test { flex: none; min-height: 30px; }
+#pa-root .pa-spin svg { animation: pa-spin .8s linear infinite; }
+@keyframes pa-spin { to { transform: rotate(360deg); } }
 #pa-root .pa-live-diff { margin: 6px 0 0; }
 /* 2.4.0 站点：按网址分组，每个一行，点名称编辑 */
 #pa-root .pa-site-hint { margin: -2px 2px 8px; font-size: .82em; }
@@ -714,7 +721,8 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-chip-btn, #pa-root .pa-why, #pa-root .pa-golink, #pa-root .pa-sortbtn { position: relative; }
     #pa-root .pa-chip-btn { overflow: visible; }
     #pa-root .pa-switch::before, #pa-root .pa-chip-btn::before, #pa-root .pa-why::before, #pa-root .pa-golink::before, #pa-root .pa-sortbtn::before { content: ""; position: absolute; inset: -11px -6px; }
-    #pa-root .pa-live-more { width: 36px; height: 32px; }
+    #pa-root .pa-live-more, #pa-root .pa-live-fetch { width: 36px; height: 32px; }
+    #pa-root .pa-live-test { min-height: 32px; }
     #pa-root .pa-optcheck { padding: 12px 10px; margin: -12px -10px; }
 }
 /* 2.4.0 思维链页读取的变量名完整显示，不按小标签截断 */
