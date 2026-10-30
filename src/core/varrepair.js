@@ -86,7 +86,7 @@ function variableRepairPlan(d, key, manual = d.cotManual || {}) {
     if (p.injection_trigger?.length) throw new Error(`「${nm}」设有触发条件，触发时机需人工核对`);
     if (/\{\{(?:if|else|while|run|eval)|<%/i.test(p.content || "")) throw new Error(`「${nm}」含条件或脚本，需人工核对`);
     if (/\{\{[^{}]*\{\{/i.test(p.content || "") && !safeInterpolatedVariableText(p.content)) {
-      if (wrapperPlan(d, o.identifier)) throw new Error("存在未被读取的外层变量包裹。请先点顶部「修复变量问题」整理包裹");
+      if (wrapperPlan(d, o.identifier)) throw new Error("存在未被读取的外层变量包裹。请先点顶部「修复变量」整理包裹");
       throw new Error(`「${nm}」嵌套复杂，或外层变量被其他条目读取，未自动修改`);
     }
   }
