@@ -68,17 +68,20 @@ try {
   const stored = (n) => page.evaluate((n) => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier.reasoningByPreset[n]), n);
   const rows = page.locator('.pa-rrow');
   const sheet = page.locator('.pa-sheet-mask:not(.pa-out)').last();
-  // 记录列表不在卡片里，点「已记 N 个」在单独的窗口里打开
-  assert.equal(await page.locator('.pa-plan-sites .pa-rrow').count(), 0, '卡片里不放列表');
-  assert.equal(await page.locator('[data-a=reasoninglist]').innerText(), '▸ 记住的推理格式（2）');
-  await page.locator('[data-a=reasoninglist]').click();
+  // 2.4.0：收起时只显示条数；点这一行（不是方框）展开记录列表，方框不变
+  const card = page.locator('.pa-optgroup[data-w=reasoning]');
+  assert.equal(await card.locator('.pa-rrow').count(), 0, '收起时不显示列表');
+  assert.equal(await card.locator('.pa-optcount').innerText(), '2');
+  await card.locator('.pa-optlabel').click();
   await rows.first().waitFor();
+  assert.equal(await box.isChecked(), true, '点这一行只展开，不改勾选');
   assert.equal(await rows.count(), 2);
   assert.equal(await rows.nth(0).getAttribute('data-name'), names[1]);
-  assert.match(await rows.nth(0).innerText(), /当前[\s\S]*<think> … <\/think>/);
+  assert.match(await rows.nth(0).innerText(), /当前[\s\S]*<think>[\s\S]*不解析/);
   assert.equal(await rows.nth(0).locator('[data-a=reasoningdel]').count(), 0, '当前预设不给删除');
-  assert.match(await rows.nth(1).innerText(), /ECoT · <ECoT> … <\/ECoT> · 自动解析、显示隐藏内容/);
-  ok('列表显示每个预设记住的推理格式');
+  assert.match(await rows.nth(1).innerText(), /<ECoT>[\s\S]*自动解析/);
+  assert.match(await rows.nth(1).locator('.pa-rfmt').getAttribute('title'), /ECoT · <ECoT> … <\/ECoT> · 自动解析、显示隐藏内容/, '完整设置在悬停提示里');
+  ok('展开后列出每个预设记住的推理格式');
 
   // 改其他预设的记录：只改记录，切过去才套用；换模板带出模板的前后缀
   await rows.nth(1).locator('[data-a=reasoningedit]').click();
@@ -109,14 +112,16 @@ try {
   assert.equal((await stored(names[0])).prefix, '<cot>');
   ok('修改当前预设立即改酒馆设置');
 
-  // 在酒馆面板里改过后，点「刷新」显示新值
+  // 在酒馆面板里改过后，收起再展开显示新值
   await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning.prefix = '<fresh>'; });
   assert.doesNotMatch(await page.locator('.pa-rrow.pa-srow-on').innerText(), /<fresh>/);
-  await page.locator('[data-a=reasoningrefresh]').click();
+  await card.locator('.pa-optlabel').click();
+  await card.locator('.pa-optlabel').click();
   assert.match(await page.locator('.pa-rrow.pa-srow-on').innerText(), /<fresh>/);
   await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning.prefix = '<cot>'; });
-  await page.locator('[data-a=reasoningrefresh]').click();
-  ok('点刷新显示酒馆里改过的设置');
+  await card.locator('.pa-optlabel').click();
+  await card.locator('.pa-optlabel').click();
+  ok('收起再展开显示酒馆里改过的设置');
 
   // 删除一条记录；给没记录的预设新建一条
   await page.locator(`.pa-rrow[data-name="${names[1]}"] [data-a=reasoningdel]`).click();
@@ -132,10 +137,10 @@ try {
   assert.equal((await now()).prefix, '<cot>');
   ok('可删除记录，也可给没记录的预设新建');
 
-  await sheet.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '完成' }).click();
   await page.waitForTimeout(300);
   await box.uncheck();
-  assert.equal(await page.locator('[data-a=reasoninglist]').count(), 0, '关闭后不显示记录入口');
+  assert.equal(await card.locator('.pa-rrow').count(), 0, '关闭后不显示记录列表');
+  assert.match(await card.innerText(), /已记住 2 个预设/, '关闭后只显示记了几个、可清除');
   const before = await now();
   await switchTo(names[1]);
   assert.deepEqual(await now(), before, '关闭后不再切换');

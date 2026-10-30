@@ -688,6 +688,21 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-legend .pa-lv { justify-self: start; }
 #pa-root .pa-site > header .pa-dot { flex: none; white-space: nowrap; }
 #pa-root .pa-site > header .pa-chip { flex: none; }
+/* 2.4.0 当前连接：名称、小字网址、模型三行；其余在 ⋯ 里 */
+#pa-root .pa-live { padding: 8px 10px; }
+#pa-root .pa-live > header { cursor: default; gap: 6px; }
+#pa-root .pa-live > header .pa-dot { margin-left: 0; }
+#pa-root .pa-live > header b { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-live > header .pa-chip-btn { max-width: none; background: none; font-family: inherit; cursor: pointer; }
+#pa-root .pa-live-more { flex: none; margin-left: auto; width: 28px; height: 24px; min-height: 0; color: var(--pa-dim); }
+#pa-root .pa-live-url { margin-top: 1px; font-size: .72em; line-height: 1.3; color: var(--pa-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-live > .pa-model-btn { width: 100%; margin-top: 6px; min-height: 30px; }
+#pa-root .pa-live-diff { margin: 6px 0 0; }
+/* 2.4.0 站点：按网址分组，每个一行，点名称编辑 */
+#pa-root .pa-site-hint { margin: -2px 2px 8px; font-size: .82em; }
+#pa-root .pa-site-name { cursor: pointer; }
+#pa-root .pa-srow.pa-site > .pa-chip, #pa-root .pa-srow.pa-site > .pa-btn { flex: none; }
+#pa-root .pa-sheet .pa-site-dl { margin-top: 0; }
 
 /* 1.4.2 秋樱：粉色花海油画 */
 #pa-root[data-theme="oat"] .pa-shell, #pa-root .pa-paint-oat {
@@ -1145,20 +1160,25 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-sheet-max { height: calc(var(--pa-vh, 100dvh) - 24px); max-height: none; max-width: none; border-radius: 16px; }
 }
 /* 2.3.3 推理格式记录：列表和修改窗 */
-/* 2.3.6 选项卡片：勾选在左，说明 ⓘ 在最右；下面可另起一行小字链接 */
-#pa-root .pa-optcard { padding-top: 6px; padding-bottom: 6px; }
-#pa-root .pa-optrow { display: flex; align-items: center; gap: 8px; min-height: 34px; }
-#pa-root .pa-plan .pa-card .pa-optrow > .pa-inline-check { flex: 1 1 auto; min-width: 0; margin: 0; }
+/* 2.4.0 选项行：和分组一样可展开；只有方框管勾选 */
+#pa-root .pa-optlabel { flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-optcount { flex: none; font-size: .74em; line-height: 1.6; padding: 0 7px; border: 1px solid var(--pa-line); border-radius: 999px; color: var(--pa-dim); }
+#pa-root .pa-opthead .pa-sgcaret { flex: none; color: var(--pa-dim); }
+#pa-root .pa-optadd { display: flex; justify-content: center; width: 100%; background: none; border: 0; color: var(--pa-dim); font: inherit; cursor: pointer; }
+#pa-root .pa-optadd:hover { color: var(--pa-text); }
 #pa-root .pa-why { flex: none; padding: 4px 2px 4px 6px; margin: 0; background: none; border: 0; color: var(--pa-dim); font-size: .9em; line-height: 1; cursor: pointer; }
 #pa-root .pa-why[aria-expanded="true"] { color: var(--pa-text); }
 #pa-root .pa-whynote { margin: 2px 0 6px; padding: 4px 8px; border-left: 2px solid var(--pa-line); font-size: .82em; line-height: 1.5; color: var(--pa-dim); }
-#pa-root .pa-sublink { display: block; margin: 0 0 2px; padding: 2px 0; background: none; border: 0; color: var(--pa-dim); font-size: .82em; text-align: left; cursor: pointer; }
-#pa-root .pa-sublink:hover { color: var(--pa-text); }
-#pa-root .pa-rrow .pa-link { flex: none; padding: 4px; }
-#pa-root .pa-rlist-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 2px; }
 #pa-root .pa-rflags { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 #pa-root .pa-rtext { resize: vertical; }
-#pa-root .pa-rrow .pa-srow-main small { white-space: normal; overflow-wrap: anywhere; }
+/* 2.4.0 推理格式记录：前缀放小方框，自动解析用圆点 */
+#pa-root .pa-rrow .pa-btn-s { flex: none; }
+#pa-root .pa-srow-main small.pa-rfmt { display: flex; align-items: center; gap: 8px; margin-top: 3px; }
+#pa-root .pa-rtag { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 6px; border: 1px solid var(--pa-line); border-radius: 5px; background: var(--pa-input-bg); color: var(--pa-text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .95em; line-height: 1.6; }
+#pa-root .pa-rauto { flex: none; }
+#pa-root .pa-rauto::before { content: "○"; margin-right: 4px; }
+#pa-root .pa-rauto.on { color: var(--pa-ok); }
+#pa-root .pa-rauto.on::before { content: "●"; }
 #pa-root .pa-rws { font-style: normal; margin-left: 4px; }
 /* 2.3.5 方案的 API 选择 */
 #pa-root .pa-conn-pick { display: grid; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--pa-line); }
