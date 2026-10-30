@@ -1,4 +1,4 @@
-// 2.4.1 当前连接：模型旁的「拉取」「测试」；拉取到列表后模型框才出现 ▾。先构建并在仓库根目录运行 8765 静态服务。
+// 2.4.0 当前连接：模型旁的「拉取」「测试」；拉取到列表后模型框才出现 ▾。先构建并在仓库根目录运行 8765 静态服务。
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
@@ -20,7 +20,9 @@ try {
   const arrow = () => page.locator('.pa-live .pa-model-btn i').count();
   await page.locator('[data-a=livefetch]').waitFor();
   assert.equal(await arrow(), 0, '没有模型列表时不显示 ▾');
-  assert.equal(await page.locator('.pa-live [data-a=reconnect]').innerText(), '测试');
+  assert.equal(await page.locator('.pa-live [data-a=reconnect]').getAttribute('aria-label'), '测试连接');
+  assert.equal(await page.locator('.pa-plan-sites .pa-optgroup').count(), 0, '站点那块只放站点');
+  assert.equal(await page.locator('.pa-plan-opts .pa-optgroup').count(), 2, '两个选项在方案下面');
   ok('模型旁有拉取和测试，没拉取时模型框没有 ▾');
 
   await page.click('[data-a=livefetch]');

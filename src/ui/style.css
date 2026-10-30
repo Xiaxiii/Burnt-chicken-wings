@@ -398,6 +398,8 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-plan .pa-card .pa-inline-check { display: flex; margin: 4px 0; }
 #pa-root .pa-plan .pa-toolbar-flat { padding: 0 0 4px; }
 #pa-root .pa-plan-schemes, #pa-root .pa-plan-sites { margin-top: 14px; }
+#pa-root .pa-plan-opts { margin-top: 10px; }
+#pa-root .pa-plan-opts:empty { display: none; }
 
 /* ---------- 弹层 ---------- */
 #pa-root .pa-sheet-mask {
@@ -707,7 +709,10 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-live-model > .pa-model-btn { flex: 1 1 auto; min-width: 0; min-height: 30px; }
 #pa-root .pa-live-fetch { flex: none; width: 32px; height: 30px; min-height: 0; color: var(--pa-dim); }
 #pa-root .pa-live-fetch svg { width: 17px; height: 17px; }
-#pa-root .pa-live-test { flex: none; min-height: 30px; }
+#pa-root .pa-live-test { flex: none; width: 32px; height: 30px; min-height: 0; color: var(--pa-dim); }
+#pa-root .pa-live-test svg { width: 17px; height: 17px; }
+#pa-root .pa-busy svg { animation: pa-pulse .9s ease-in-out infinite; }
+@keyframes pa-pulse { 50% { opacity: .25; } }
 #pa-root .pa-spin svg { animation: pa-spin .8s linear infinite; }
 @keyframes pa-spin { to { transform: rotate(360deg); } }
 #pa-root .pa-live-diff { margin: 6px 0 0; }
@@ -721,8 +726,7 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-chip-btn, #pa-root .pa-why, #pa-root .pa-golink, #pa-root .pa-sortbtn { position: relative; }
     #pa-root .pa-chip-btn { overflow: visible; }
     #pa-root .pa-switch::before, #pa-root .pa-chip-btn::before, #pa-root .pa-why::before, #pa-root .pa-golink::before, #pa-root .pa-sortbtn::before { content: ""; position: absolute; inset: -11px -6px; }
-    #pa-root .pa-live-more, #pa-root .pa-live-fetch { width: 36px; height: 32px; }
-    #pa-root .pa-live-test { min-height: 32px; }
+    #pa-root .pa-live-more, #pa-root .pa-live-fetch, #pa-root .pa-live-test { width: 36px; height: 32px; }
     #pa-root .pa-optcheck { padding: 12px 10px; margin: -12px -10px; }
 }
 /* 2.4.0 思维链页读取的变量名完整显示，不按小标签截断 */
