@@ -170,7 +170,7 @@ function mountApi(liveBox, sitesBox) {
   function optCard(key, check, label, count, body) {
     const on = optOpen.has(key);
     return `<section class="pa-sgroup pa-optgroup${on ? " open" : ""}" data-w="${key}">
-        <header class="pa-sghead pa-opthead" data-a="optfold" tabindex="0" aria-expanded="${on}">${check}<span class="pa-optlabel">${label}</span>${count ? `<span class="pa-optcount">${count}</span>` : ""}<span class="pa-sgcaret">${on ? "▾" : "▸"}</span></header>
+        <header class="pa-sghead pa-opthead" data-a="optfold" tabindex="0" aria-expanded="${on}"><label class="pa-optcheck">${check}</label><span class="pa-optlabel">${label}</span>${count ? `<span class="pa-optcount">${count}</span>` : ""}<span class="pa-sgcaret">${on ? "▾" : "▸"}</span></header>
         ${on ? `<div class="pa-sgbody">${body}</div>` : ""}</section>`;
   }
   // 跟随开着时，当前预设的记录就是酒馆现在的设置（离开时会照它记下），所以显示实时值，不给删除
@@ -359,7 +359,7 @@ function mountApi(liveBox, sitesBox) {
     const a = e.target.closest("[data-a]")?.dataset.a;
     if (!a) return;
     if (a === "optfold") {
-      if (e.target.closest("input")) return;
+      if (e.target.closest(".pa-optcheck")) return;
       const k = e.target.closest("[data-w]").dataset.w;
       optOpen.has(k) ? optOpen.delete(k) : optOpen.add(k);
       return render();

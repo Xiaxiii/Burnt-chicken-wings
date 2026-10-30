@@ -134,7 +134,7 @@ html.pa-open body { overflow: hidden; }
     border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);
     -webkit-tap-highlight-color: transparent;
 }
-#pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); }
+@media (hover: hover) { #pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); } }
 #pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #pa-root .pa-input, #pa-root .pa-select {
     width: 100%; min-height: 38px; padding: 7px 10px;
@@ -223,7 +223,11 @@ html.pa-open body { overflow: hidden; }
     border-radius: 8px; cursor: pointer; user-select: none; -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent; position: relative;
 }
-#pa-root .pa-row:hover { background: var(--pa-card); }
+/* 2.4.0 悬停效果只给有鼠标的设备：手机、平板点过之后不会一直留着灰底 */
+@media (hover: hover) { #pa-root .pa-row:hover { background: var(--pa-card); } }
+/* 2.4.0 长列表：屏幕外的整组（和组外的一段条目）跳过排版、绘制和点击检测，展开、切页、点选不卡。
+   按组而不是按行：滑动时只需判断十几块。占位高度按行数估算，渲染过一次后记住真实高度；不支持的浏览器照常显示 */
+#pa-root .pa-gbody, #pa-root .pa-loose { content-visibility: auto; contain-intrinsic-height: auto calc(var(--n, 1) * (var(--pa-row-h) + 2px) + 8px); }
 #pa-root .pa-row.pa-off .pa-name { color: var(--pa-dim); }
 #pa-root .pa-row.pa-sep .pa-name { color: var(--pa-em); font-size: .92em; }
 #pa-root .pa-check { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--pa-line); }
@@ -284,7 +288,8 @@ html.pa-open body { overflow: hidden; }
     border: 1px dashed var(--pa-line); border-radius: 8px; background: transparent;
     color: var(--pa-dim); font-size: .85em; text-align: left; cursor: pointer;
 }
-#pa-root .pa-slot:hover, #pa-root .pa-slot:active { color: var(--pa-thread); border-color: var(--pa-thread); }
+#pa-root .pa-slot:active { color: var(--pa-thread); border-color: var(--pa-thread); }
+@media (hover: hover) { #pa-root .pa-slot:hover { color: var(--pa-thread); border-color: var(--pa-thread); } }
 #pa-root .pa-slot-in { margin: 2px 0 2px; border-color: transparent; }
 @media (pointer: coarse) { #pa-root .pa-slot { min-height: 36px; } }
 
@@ -314,7 +319,8 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-suture { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(160px, var(--pa-split, 50%)) 12px minmax(160px, 1fr); }
 #pa-root .pa-splitter { display: flex; align-items: center; justify-content: center; cursor: col-resize; touch-action: none; user-select: none; -webkit-user-select: none; }
 #pa-root .pa-splitter span { width: 4px; height: 44px; border-radius: 4px; background: var(--pa-line); transition: background .15s; }
-#pa-root .pa-splitter:hover span, #pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }
+#pa-root .pa-splitter.pa-dragging span, #pa-root .pa-splitter:focus-visible span { background: var(--pa-thread); }
+@media (hover: hover) { #pa-root .pa-splitter:hover span { background: var(--pa-thread); } }
 #pa-root .pa-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 #pa-root .pa-src { border-right: 0; }
 #pa-root .pa-pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px 4px; }
@@ -703,6 +709,19 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-site-name { cursor: pointer; }
 #pa-root .pa-srow.pa-site > .pa-chip, #pa-root .pa-srow.pa-site > .pa-btn { flex: none; }
 #pa-root .pa-sheet .pa-site-dl { margin-top: 0; }
+/* 2.4.0 触屏：小控件的点按范围放大到约 44px（外观不变），手指不用对得那么准 */
+@media (pointer: coarse) {
+    #pa-root .pa-chip-btn, #pa-root .pa-why, #pa-root .pa-golink, #pa-root .pa-sortbtn { position: relative; }
+    #pa-root .pa-chip-btn { overflow: visible; }
+    #pa-root .pa-switch::before, #pa-root .pa-chip-btn::before, #pa-root .pa-why::before, #pa-root .pa-golink::before, #pa-root .pa-sortbtn::before { content: ""; position: absolute; inset: -11px -6px; }
+    #pa-root .pa-live-more { width: 36px; height: 32px; }
+    #pa-root .pa-optcheck { padding: 12px 10px; margin: -12px -10px; }
+}
+/* 2.4.0 思维链页读取的变量名完整显示，不按小标签截断 */
+#pa-root .pa-reads .pa-chip { max-width: 100%; }
+/* 2.4.0 缝合页「从」那一行：栏窄时（手机、平板竖屏左右两栏）把「正则」收进 ⋯，给预设名腾地方 */
+#pa-root .pa-src > .pa-fromto { container-type: inline-size; }
+@container (max-width: 440px) { #pa-root .pa-fromto [data-st=regex] { display: none; } }
 
 /* 1.4.2 秋樱：粉色花海油画 */
 #pa-root[data-theme="oat"] .pa-shell, #pa-root .pa-paint-oat {
@@ -1014,13 +1033,13 @@ html.pa-open body { overflow: hidden; }
 
 /* 1.9 细调：排序小按钮、建议卡的「为什么 · 去清理」同一行、复选框不用酒馆的实心方块 */
 #pa-root .pa-sortbtn { flex: none; border: 0; background: none; padding: 4px 2px; color: var(--pa-dim); font: inherit; font-size: .85em; cursor: pointer; white-space: nowrap; }
-#pa-root .pa-sortbtn:hover { color: var(--pa-text); }
+@media (hover: hover) { #pa-root .pa-sortbtn:hover { color: var(--pa-text); } }
 #pa-root .pa-clean-bar { flex-wrap: nowrap; }
 #pa-root .pa-clean-bar .pa-seg { min-width: 0; }
 #pa-root .pa-tiprow { display: flex; align-items: flex-start; gap: 8px; }
 #pa-root .pa-tiprow > .pa-tip { flex: 1 1 auto; min-width: 0; }
 #pa-root .pa-golink { flex: none; border: 0; background: none; padding: 2px 0; color: var(--pa-thread); font: inherit; font-size: .82em; cursor: pointer; white-space: nowrap; }
-#pa-root .pa-golink:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (hover: hover) { #pa-root .pa-golink:hover { text-decoration: underline; text-underline-offset: 3px; } }
 #pa-root input[type=checkbox]:not(#pa-x) {
     /* 只保护鸡翅内的复选框；宿主美化常给 input 强制背景、宽度、遮罩。 */
     -webkit-appearance: none !important; appearance: none !important; flex: none; margin: 0 !important; padding: 0 !important; cursor: pointer;
@@ -1161,11 +1180,12 @@ html.pa-open body { overflow: hidden; }
 }
 /* 2.3.3 推理格式记录：列表和修改窗 */
 /* 2.4.0 选项行：和分组一样可展开；只有方框管勾选 */
+#pa-root .pa-optcheck { display: flex; flex: none; cursor: pointer; }
 #pa-root .pa-optlabel { flex: 1 1 auto; min-width: 0; }
 #pa-root .pa-optcount { flex: none; font-size: .74em; line-height: 1.6; padding: 0 7px; border: 1px solid var(--pa-line); border-radius: 999px; color: var(--pa-dim); }
 #pa-root .pa-opthead .pa-sgcaret { flex: none; color: var(--pa-dim); }
 #pa-root .pa-optadd { display: flex; justify-content: center; width: 100%; background: none; border: 0; color: var(--pa-dim); font: inherit; cursor: pointer; }
-#pa-root .pa-optadd:hover { color: var(--pa-text); }
+@media (hover: hover) { #pa-root .pa-optadd:hover { color: var(--pa-text); } }
 #pa-root .pa-why { flex: none; padding: 4px 2px 4px 6px; margin: 0; background: none; border: 0; color: var(--pa-dim); font-size: .9em; line-height: 1; cursor: pointer; }
 #pa-root .pa-why[aria-expanded="true"] { color: var(--pa-text); }
 #pa-root .pa-whynote { margin: 2px 0 6px; padding: 4px 8px; border-left: 2px solid var(--pa-line); font-size: .82em; line-height: 1.5; color: var(--pa-dim); }
@@ -1196,7 +1216,8 @@ html.pa-open body { overflow: hidden; }
 #pa-ball { position: fixed; z-index: 10005; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(28,26,30,.92)); color: var(--SmartThemeBodyColor, #e6e1d8); box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 18px; cursor: pointer; opacity: .85; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
 #pa-ball:not(.pa-ball-drag) { transition: left .18s ease, top .18s ease; }
 #pa-ball.pa-ball-drag { will-change: transform; }
-#pa-ball:hover, #pa-ball.pa-ball-drag { opacity: 1; }
+#pa-ball.pa-ball-drag { opacity: 1; }
+@media (hover: hover) { #pa-ball:hover { opacity: 1; } }
 html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 
 /* 2.3.8 芽体、菌落：清透油画底 + 毛玻璃面板（设了自定义背景图时让给背景图）。

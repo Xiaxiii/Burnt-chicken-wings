@@ -571,6 +571,14 @@ function mountSuture(page, app) {
     undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
     if (!undo.hidden) undo.textContent = `撤销刚缝的 ${st.lastWb.uids.length} 条`;
   }
+  async function regexSuture() {
+    if (st.dstType !== "preset" || !["preset", "file"].includes(st.srcType)) return toast("请使用来源预设或预设文件，并选择目标预设");
+    try {
+      const source = st.srcType === "file" ? st.fileDraft : st.srcPreset ? getDraft(st.srcPreset) : null;
+      if (!source) return toast("请先选择来源预设或预设文件");
+      return await presetRegexDialog(source, target());
+    } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
+  }
   page.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-st]")?.dataset.st;
     if (!a) return;
@@ -583,15 +591,7 @@ function mountSuture(page, app) {
       renderDst();
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
-    if (a === "regex") {
-      if (st.dstType !== "preset" || !["preset", "file"].includes(st.srcType)) return toast("请使用来源预设或预设文件，并选择目标预设");
-      try {
-        const source = st.srcType === "file" ? st.fileDraft : st.srcPreset ? getDraft(st.srcPreset) : null;
-        if (!source) return toast("请先选择来源预设或预设文件");
-        return await presetRegexDialog(source, target());
-      } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
-      return;
-    }
+    if (a === "regex") return regexSuture();
     if (a === "migrate") migrate();
     if (a === "picked") return pickedSheet();
     if (a === "srcsearch") return searchSrc();
@@ -599,10 +599,14 @@ function mountSuture(page, app) {
     if (a === "srctype") return setSrcType(await pickName({ title: "从哪里缝", current: st.srcType, search: false, items: SRC_TYPES.map(([k, l]) => ({ value: k, label: l })) }));
     if (a === "dsttype") return setDstType(await pickName({ title: "缝到哪里", current: st.dstType, search: false, items: [{ value: "preset", label: "预设" }, { value: "world", label: "世界书" }] }));
     if (a === "srcmenu") {
+      // 栏窄时「正则」按钮收起来了（见样式 2.4.0），放进这里
+      const regexHidden = !page.querySelector("[data-st=regex]")?.offsetParent;
       const v = await pickBox("更多操作", [
+        ...regexHidden ? [{ label: "缝制正则…", sub: "缝制来源预设中的正则", value: "regex" }] : [],
         { label: "搬到新版…", sub: "来源选旧版、目标选新版，将旧版中缝入的条目按原位置搬到新版", value: "migrate" },
         { label: "清空已选条目", value: "clearpicked" }
       ]);
+      if (v === "regex") return regexSuture();
       if (v === "migrate") {
         if (st.srcType !== "preset" || st.dstType !== "preset") return toast("请把来源和目标都切到「预设」：来源选旧版，目标选新版");
         return migrate();

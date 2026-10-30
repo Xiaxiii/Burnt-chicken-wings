@@ -97,6 +97,8 @@ function mountHealth(sec, { goClean } = {}) {
   async function run() {
     box.innerHTML = '<p class="pa-hint">正在检查…</p>';
     detail.hidden = true;
+    // 2.4.0：先让切页和「正在检查…」显示出来，下一帧再统计，点了不会卡住
+    await nextPaint();
     let r;
     try {
       r = await collectHealth();

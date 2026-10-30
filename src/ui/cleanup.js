@@ -104,17 +104,35 @@ function mountCleanup(sec) {
     const { presets } = pm().getPresetList();
     const cur = currentPresetName();
     const list = [];
+    // 2.4.0：先让切页显示出来再开始算
+    await nextPaint();
+    let slice = performance.now();
     for (const n of names) {
+      const obj = n === cur ? null : presets[presetIndex(n)];
+      // 2.4.0：1 分钟内算过的预设直接用结果，来回切页不再重算（见 scanCached）
+      const known = scanCached(obj);
+      if (known) {
+        list.push({ name: n, data: obj, full: known.full, size: known.size, prints: known.prints });
+        continue;
+      }
       let text;
       try {
-        text = n === cur ? presetText(n) : JSON.stringify(presets[presetIndex(n)] ?? null);
+        text = n === cur ? presetText(n) : JSON.stringify(obj ?? null);
       } catch {
         continue;
       }
       // 不再 JSON.parse 一份副本：77 个预设会多占几十 MB 内存，iOS 内存紧张时会直接刷新页面
       // 文本只用来算大小和指纹，算完就丢
-      list.push({ name: n, data: n === cur ? JSON.parse(text) : presets[presetIndex(n)], full: hashStr(text), size: new Blob([text]).size });
-      if (list.length % 10 === 0) await new Promise((r) => setTimeout(r, 0));
+      const data = n === cur ? JSON.parse(text) : obj;
+      // 条目指纹（找相似预设用）也在这里分段算好，一起记住
+      const sum = { full: hashStr(text), size: new Blob([text]).size, prints: promptPrints(data) };
+      if (obj && typeof obj === "object") scanCache.set(obj, { ...sum, at: Date.now() });
+      list.push({ name: n, data, ...sum });
+      // 2.4.0：按时间让出（每 30ms 一次），大预设多时界面不卡
+      if (performance.now() - slice > 30) {
+        await new Promise((r) => setTimeout(r, 0));
+        slice = performance.now();
+      }
     }
     st.rows = scanPresets(list, { current: cur, inUse: presetUsers(), lastUse: settings().presetUse || {} });
     for (const n of [...st.sel]) if (!st.rows.some((r) => r.name === n && !r.current)) st.sel.delete(n);
