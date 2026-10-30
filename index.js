@@ -10028,6 +10028,7 @@ function mountApi(liveBox, sitesBox) {
 // 自定义背景图存在本浏览器的 IndexedDB，不写进酒馆设置文件，不影响酒馆加载速度。
 var THEMES = [
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
+  { id: "system", name: "跟随手机系统", sub: "系统深色时用夜雾，浅色时用原来的配色", dots: ["#f4efe6", "#a9bfae", "#262a30"], auto: true },
   { id: "bean", fg: "#45343f", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
   { id: "mist", fg: "#2f3a46", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
   { id: "oat", fg: "#4a3438", name: "秋樱", sub: "粉色花海", dots: ["#f4dcd9", "#b5566a", "#a9b48c"], paint: true },
@@ -10157,6 +10158,17 @@ function guardRules() {
   if (typeof cleanups !== "undefined") cleanups.push(() => style.remove());
 }
 var bgUrl = null;
+// 「跟随手机系统」：系统深色用夜雾，浅色用切换前的配色（themeLight，默认跟随酒馆主题）。
+// 系统切换时由 watchTheme 里的 prefers-color-scheme 监听重新上色。
+function effectiveTheme() {
+  const valid = (id) => THEMES.some((t) => t.id === id);
+  // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
+  const id = valid(settings().theme) ? settings().theme : "follow";
+  if (id !== "system") return id;
+  if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) return "night";
+  const light = settings().themeLight;
+  return valid(light) && light !== "system" && light !== "night" ? light : "follow";
+}
 function applyTheme(root) {
   if (!root) return;
   watchTheme(root);
@@ -10165,8 +10177,7 @@ function applyTheme(root) {
     guardRules();
     root.classList.add("pa-guard");
   }
-  // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
-  const id = THEMES.some((t) => t.id === settings().theme) ? settings().theme : "follow";
+  const id = effectiveTheme();
   root.dataset.theme = id;
   root.dataset.fs = fontSizePref();
   root.classList.toggle("pa-painted", !!THEMES.find((t) => t.id === id)?.paint);
@@ -10306,7 +10317,7 @@ function themeCards() {
   const cur = settings().theme || "follow";
   return `<div class="pa-themes">${THEMES.map((t) => {
     const dots = t.dots || ["var(--SmartThemeBlurTintColor, #333)", "var(--SmartThemeQuoteColor, #e0a24a)", "var(--SmartThemeBodyColor, #ddd)"];
-    const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]};border-color:${t.dots[1]}55` : "";
+    const style = t.auto ? "" : t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]};border-color:${t.dots[1]}55` : "";
     return `<button class="pa-theme${t.paint ? ` pa-paint-${t.id}` : ""}" data-theme-id="${t.id}" aria-pressed="${t.id === cur}" title="${esc(t.sub)}" style="${style}">
         <span class="pa-theme-dots">${dots.map((c2) => `<i style="background:${c2}"></i>`).join("")}</span>
         <b>${esc(t.name)}</b></button>`;
@@ -10316,6 +10327,8 @@ function bindThemeCards(box, after) {
   box.addEventListener("click", (e) => {
     const b = e.target.closest("[data-theme-id]");
     if (!b) return;
+    const prev = settings().theme;
+    if (b.dataset.themeId === "system" && prev && prev !== "system" && prev !== "night") settings().themeLight = prev;
     settings().theme = b.dataset.themeId;
     saveSettings();
     applyTheme(document.getElementById("pa-root"));
