@@ -173,7 +173,7 @@ await page.selectOption('.pa-sheet [data-f="api"]', "__live");
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
 const sc = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.schemes.find((s) => s.name === "测试方案"));
 check(sc?.siteId === site.id && sc.conn?.siteId === site.id && !!sc.conn.model, "方案记录了 API（站点和模型）");
-check(/用于 /.test(await page.locator(".pa-sgroup .pa-site", { hasText: "测试站" }).locator(".pa-site-model").textContent()), "站点那一行显示用于哪些预设");
+check(/用于 /.test(await page.locator(".pa-sitelist .pa-site", { hasText: "测试站" }).locator(".pa-site-model").textContent()), "站点那一行显示用于哪些预设");
 await page.screenshot({ path: "test/shots/p-8-plan.png", fullPage: false });
 
 console.log(errs.length ? errs : "no page errors");
