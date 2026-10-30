@@ -1,4 +1,4 @@
-// 2.3.8 芽体、菌落：毛玻璃配色。顶栏、标签栏用真模糊，列表里的分组不做实时模糊（滑动流畅）；文字对比度够；截图。用法同 clean-check.mjs
+// 2.3.8 芽体、菌落：毛玻璃配色；去掉春芽。顶栏、标签栏用真模糊，列表里的分组不做实时模糊（滑动流畅）；文字对比度够；截图。用法同 clean-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert";
 const S = new URL("./shots/", import.meta.url).pathname;
@@ -47,6 +47,13 @@ for (const id of ["bud", "colony"]) {
 await page.click('[data-theme-id="dusk"]');
 await page.waitForTimeout(200);
 assert.ok(!(await page.evaluate(() => document.getElementById("pa-root").classList.contains("pa-glass"))));
+// 2.3.8 去掉了春芽：没有这个按钮，之前选过的回到跟随酒馆主题
+assert.equal(await page.locator('[data-theme-id="matcha"]').count(), 0);
+assert.equal(await page.evaluate(() => {
+  window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = "matcha";
+  window.__presetAtelier.open("organize");
+  return document.getElementById("pa-root").dataset.theme;
+}), "follow");
 assert.deepEqual(errs, []);
 console.log("毛玻璃配色检查全部通过");
 await browser.close();

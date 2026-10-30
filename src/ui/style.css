@@ -500,7 +500,6 @@ html.pa-open body { overflow: hidden; }
 #pa-root[data-theme="bean"]     { --pa-tint:#f7ece9; --pa-text:#45343f; --pa-thread:#b0607e; --pa-em:#6a5562; --pa-line:#e3d1d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4513e; --pa-ok:#5b8466; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(176,96,126,.16); }
 #pa-root[data-theme="oat"]      { --pa-tint:#f6e6e3; --pa-text:#4a3438; --pa-thread:#b5566a; --pa-em:#6d5357; --pa-line:#e6cfcf; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b4472e; --pa-ok:#5b7d4f; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }
 #pa-root[data-theme="sage"]     { --pa-tint:#f7efe8; --pa-text:#2c3a58; --pa-thread:#5a6e9e; --pa-em:#55607a; --pa-line:#e1d6d8; --pa-input-bg:rgba(255,255,255,.78); --pa-warn:#b0604a; --pa-ok:#4f7d55; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(90,110,158,.16); }
-#pa-root[data-theme="matcha"]   { --pa-tint:#f9f1e4; --pa-text:#3a4433; --pa-thread:#5f7a52; --pa-em:#556049; --pa-line:#dfdcbf; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#a85a45; --pa-ok:#5f7a52; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.44); --pa-card-2:rgba(255,255,255,.64); }
 #pa-root[data-theme="goose"]    { --pa-tint:#f9f1e4; --pa-text:#3d4540; --pa-thread:#5f7f68; --pa-em:#59625b; --pa-line:#e3ddd0; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0604a; --pa-ok:#5f7f68; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.46); --pa-card-2:rgba(255,255,255,.66); }
 #pa-root[data-theme="taro"]     { --pa-tint:#f6eef6; --pa-text:#4a4160; --pa-thread:#7b6fa3; --pa-em:#635a7c; --pa-line:#e3d9ea; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#b0566a; --pa-ok:#5b7d6a; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(156,145,184,.2); }
 #pa-root[data-theme="dusk"]     { --pa-tint:#fbf1e6; --pa-text:#1f4a55; --pa-thread:#026d81; --pa-em:#3f6670; --pa-line:#ead9cc; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#c4503f; --pa-ok:#3f7d5c; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(2,109,129,.14); }
@@ -716,17 +715,6 @@ html.pa-open body { overflow: hidden; }
         radial-gradient(ellipse 60% 26% at 76% 100%, rgba(236, 168, 112, .55), transparent 72%),
         radial-gradient(ellipse 48% 30% at 52% 46%, rgba(255, 249, 242, .80), transparent 72%),
         linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%);
-}
-/* 春芽：绿色水彩 FBECCF 7B986C D5D3A0 A2B891 F9F1E4 */
-#pa-root[data-theme="matcha"] .pa-shell, #pa-root .pa-paint-matcha {
-    background:
-        var(--pa-canvas),
-        radial-gradient(ellipse 30% 26% at 10% 66%, rgba(123, 152, 108, .56), transparent 70%),
-        radial-gradient(ellipse 42% 28% at 28% 44%, rgba(162, 184, 145, .62), transparent 70%),
-        radial-gradient(ellipse 40% 22% at 72% 26%, rgba(213, 211, 160, .55), transparent 70%),
-        radial-gradient(ellipse 38% 24% at 84% 84%, rgba(162, 184, 145, .58), transparent 70%),
-        radial-gradient(ellipse 30% 18% at 60% 62%, rgba(213, 211, 160, .40), transparent 70%),
-        linear-gradient(160deg, #f9f1e4 0%, #fbeccf 45%, #f6efd9 100%);
 }
 /* 春和：粉绿水彩 F0DEC6 BDCDB0 FBDED0 D1E5D9 F9F1E4 */
 #pa-root[data-theme="goose"] .pa-shell, #pa-root .pa-paint-goose {

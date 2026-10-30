@@ -1,6 +1,6 @@
 // 外观。默认跟随酒馆主题（自动改为不透明，避免背景透出影响阅读），也可选用内置配色。
 // 1.3.9：「花田」「晴野」为油画感渐变背景，替换原来的豆沙粉、雾霾蓝（沿用原 id，已选的设置不受影响）。
-// 2.3.8：「芽体」「菌落」为清透油画底 + 毛玻璃面板（glass）。
+// 2.3.8：「芽体」「菌落」为清透油画底 + 毛玻璃面板（glass）；去掉「春芽」。
 // 自定义背景图存在本浏览器的 IndexedDB，不写进酒馆设置文件，不影响酒馆加载速度。
 var THEMES = [
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
@@ -9,7 +9,6 @@ var THEMES = [
   { id: "mist", fg: "#2f3a46", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
   { id: "oat", fg: "#4a3438", name: "秋樱", sub: "粉色花海", dots: ["#f4dcd9", "#b5566a", "#a9b48c"], paint: true },
   { id: "sage", fg: "#2c3a58", name: "海雾", sub: "雾蓝粉橙水彩", dots: ["#f6e6da", "#5a6e9e", "#f0b878"], paint: true },
-  { id: "matcha", fg: "#3a4433", name: "春芽", sub: "绿色水彩", dots: ["#fbeccf", "#7b986c", "#a2b891"], paint: true },
   { id: "goose", fg: "#3d4540", name: "春和", sub: "粉绿水彩", dots: ["#fbded0", "#d1e5d9", "#bdcdb0"], paint: true },
   { id: "taro", fg: "#4a4160", name: "玫瑰芋泥", sub: "粉紫朦胧水彩", dots: ["#f5e8f3", "#cdbddb", "#9c91b8"], paint: true },
   { id: "dusk", fg: "#1f4a55", name: "日落海岸", sub: "海蓝到橘粉的晚霞", dots: ["#f3e8ab", "#f87078", "#026d81"], paint: true },
@@ -140,7 +139,7 @@ var bgUrl = null;
 // 系统切换时由 watchTheme 里的 prefers-color-scheme 监听重新上色。
 function effectiveTheme() {
   const valid = (id) => THEMES.some((t) => t.id === id);
-  // 1.4.0 去掉了薰衣草、海盐，选过的回到默认
+  // 1.4.0 去掉了薰衣草、海盐，2.3.8 去掉了春芽，选过的回到默认
   const id = valid(settings().theme) ? settings().theme : "follow";
   if (id !== "system") return id;
   if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) return "night";
