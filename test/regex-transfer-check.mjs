@@ -124,9 +124,15 @@ async function boot(width, targetPreset = target) {
   await choose(page, '.pa-dst-picker .pa-namebtn', targetName);
   return page;
 }
+// 2.4.0：栏窄时「正则」收进来源旁的 ⋯，从菜单点「缝制正则…」
+async function clickRegex(page) {
+  if (await page.locator('[data-st=regex]').isVisible()) return page.click('[data-st=regex]');
+  await page.click('[data-st=srcmenu]');
+  await page.locator('.pa-pick-item', { hasText: '缝制正则' }).click();
+}
 async function openRegex(page) {
   assert.equal(await page.locator('[data-st=go]').isDisabled(), true, '无需选择提示词或位置');
-  await page.click('[data-st=regex]');
+  await clickRegex(page);
   await dialog(page).waitFor();
 }
 async function waitSaved(page, count) {
@@ -365,7 +371,7 @@ try {
     if (broken === 'groups') state.groups = '格式损坏';
     if (broken === 'scripts') state.scripts = [];
     const page = await boot(390, invalid);
-    await page.click('[data-st=regex]');
+    await clickRegex(page);
     assert.equal(await dialog(page).count(), 0, '坏分组schema不能进入可确认预览');
     equal(await stored(page), invalid, '拒绝坏schema不覆盖原数据');
     equal(await stored(page, sourceName), source);
