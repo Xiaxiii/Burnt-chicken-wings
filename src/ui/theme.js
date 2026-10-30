@@ -133,7 +133,7 @@ function guardRules() {
   if (typeof cleanups !== "undefined") cleanups.push(() => style.remove());
 }
 var bgUrl = null;
-// 「跟随手机系统」：系统深色用夜雾，浅色用切换前的配色（themeLight，默认跟随酒馆主题）。
+// 2.3.7 「跟随手机系统」：系统深色用夜雾，浅色用切换前的配色（themeLight，默认跟随酒馆主题）。
 // 系统切换时由 watchTheme 里的 prefers-color-scheme 监听重新上色。
 function effectiveTheme() {
   const valid = (id) => THEMES.some((t) => t.id === id);
