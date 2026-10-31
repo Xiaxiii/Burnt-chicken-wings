@@ -159,7 +159,7 @@ try {
   await page.locator(".pa-kpick").waitFor();
   const pro = page.locator(".pa-krow", { hasText: "gemini-2.5-pro" });
   assert.equal(await pro.locator(".pa-kchip").count(), 1);
-  assert.equal(await pro.locator(".pa-kmore").innerText(), "+3");
+  assert.equal(await pro.locator(".pa-kmore").textContent(), "+3");
   await pro.locator(".pa-kmore").click();
   assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-pro" }).locator(".pa-kchip").allTextContents(), ["按次", "按量", "特价", "密钥 4"], "没填名称的叫「密钥 N」");
   await page.locator(".pa-sheet-x").last().click();
