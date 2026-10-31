@@ -3856,7 +3856,7 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     }
     offset += line.length;
   }
-  return { issues, rules };
+  return { issues, rules, layout: extra.layout || null };
 }
 
 function buildReplyReminder(report, inputRules) {
@@ -3865,15 +3865,21 @@ function buildReplyReminder(report, inputRules) {
   const tags = [rules.bodyTag, ...rules.requiredTags].filter((tag, index, list) => list.findIndex((item) => item.toLowerCase() === tag.toLowerCase()) === index);
   const kinds = new Set(report.issues.map((issue) => issue.kind));
   const body = `<${rules.bodyTag}>`;
-  // 按上一轮的具体问题加一句针对性要求，只说格式，不要求展示思考
+  // 前几条回复里正文外的块（状态栏、小剧场等）点名照常输出：只提正文的话，模型容易盯着正文把它们丢掉
+  const layout = report.layout;
+  const named = (keys) => (keys || []).filter((k) => !tags.some((t) => t.toLowerCase() === k)).map((k) => k === REPLY_FENCE_KEY ? "代码块" : `<${layout.names?.[k] || k}>`);
+  const before = layout ? named(layout.head) : [];
+  const after = layout ? named(layout.tail.filter((k) => !layout.head.includes(k))) : [];
+  // 按上一轮的具体问题加一句针对性要求，只说格式。不写「无需展示思考」之类的话：预设要求写思考时会互相打架，
+  // 预填了思考开头的模型可能干脆不写思考、直接在思考区里写正文
   const extra = [];
-  if (kinds.has("swallowed") || kinds.has("reasoning")) extra.push(`上一轮正文被写进了思考区：思考标签必须在 ${body} 开始之前闭合。`);
+  if (kinds.has("swallowed") || kinds.has("reasoning") || kinds.has("stranded")) extra.push(`上一轮的输出被写进了思考区：思考标签必须在 ${before[0] && before[0] !== "代码块" ? before[0] : body} 开始之前闭合。`);
   if (report.issues.some((issue) => issue.kind === "outside" && issue.text.startsWith("正文标签前"))) extra.push(`上一轮在 ${body} 之前直接输出了分析文字：正文标签外不要写任何分析、计划或说明。`);
-  else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文写完即结束，不追加说明或总结。`);
-  if (kinds.has("stranded")) extra.push(`上一轮正文外的状态栏等标签块被写进了思考区：思考标签必须在所有输出开始之前闭合。`);
+  else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文结束后不追加说明或总结。`);
   if (kinds.has("leak")) extra.push(`正文内不得出现思考标签。`);
   if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
-  return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}正文不夹入思考步骤或内部分析；无需展示思考过程，也不要复述上一轮内容。`;
+  const keep = [before.length && `正文前的 ${before.join("、")}`, after.length && `正文后的 ${after.join("、")}`].filter(Boolean);
+  return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}${keep.length ? `${keep.join("、")}照常输出，同样放在思考标签之外。` : ""}正文不夹入思考步骤或内部分析。这条提醒只管格式，剧情照常接着写。`;
 }
 
 // ---- 修正标签：只改名、补齐或移动标签，不增删正文文字。修不了的返回 null，交给人工。
@@ -3957,7 +3963,7 @@ function learnReplyLayout(texts, inputRules) {
   const rules = normalizeReplyRules(inputRules);
   const bodyKey = rules.bodyTag.toLowerCase();
   const thinking = new Set(rules.thinkingTags.map((tag) => tag.toLowerCase()));
-  const layout = { head: [], tail: [] };
+  const layout = { head: [], tail: [], names: {} };
   let used = 0;
   for (const text of texts || []) {
     if (used >= 3) break;
@@ -3970,6 +3976,7 @@ function learnReplyLayout(texts, inputRules) {
       if (b.key === bodyKey || thinking.has(b.key)) continue;
       const side = b.end <= main.start ? layout.head : layout.tail;
       if (!side.includes(b.key)) side.push(b.key);
+      layout.names[b.key] ||= b.name;
     }
   }
   return layout;

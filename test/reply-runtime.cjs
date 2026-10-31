@@ -48,7 +48,7 @@ test('bad reply injects a temporary system prompt at depth zero', () => {
   const chat = structuredClone(f.context.chat), settings = structuredClone(f.state);
   f.generate();
   assert.match(f.prompt(), /<content>…<\/content>/);
-  assert.match(f.prompt(), /无需展示思考过程/);
+  assert.match(f.prompt(), /剧情照常接着写/);
   assert.deepEqual(f.calls.at(-1), [KEY, f.prompt(), 1, 0, false, 0]);
   assert.deepEqual(f.context.chat, chat);
   assert.deepEqual(f.state, settings);

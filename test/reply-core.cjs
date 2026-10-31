@@ -127,8 +127,18 @@ test('reminder uses configured complete tags and never asks to reveal thoughts',
   assert(reminder.includes('<正文>…</正文>'));
   assert(reminder.includes('<摘要>…</摘要>'));
   assert(reminder.includes('思考标签之外'));
-  assert(reminder.includes('不要复述上一轮'));
-  assert(reminder.includes('无需展示思考过程'));
+  assert(reminder.includes('剧情照常接着写'));
+  // 不和预设的思维链、转述打架：不说「无需展示思考」「不要复述」，也不叫正文写完就结束
+  assert(!/展示思考|复述|写完即结束/.test(reminder));
+});
+test('reminder names the blocks earlier replies had outside the body so they are not dropped', () => {
+  const layout = learnReplyLayout(['<StatusBlock>夜</StatusBlock>\n<content>上一条</content>\n<theater>小剧场</theater>']);
+  const swallowed = buildReplyReminder(checkReplyFormat('', undefined, { reasoning: '想。\n<content>正文</content>', layout }));
+  assert.match(swallowed, /思考标签必须在 <StatusBlock> 开始之前闭合/);
+  assert.match(swallowed, /正文前的 <StatusBlock>、正文后的 <theater>照常输出/);
+  const tail = buildReplyReminder(checkReplyFormat('<content>正文</content>\n后面还有一大段没有被标签包住的零散说明文字，字数超过二十个。', undefined, { layout }));
+  assert.match(tail, /正文结束后不追加说明或总结/);
+  assert.match(tail, /正文后的 <theater>照常输出/);
 });
 
 test('analysis written before the body tag is reported with an excerpt', () => {
@@ -224,7 +234,7 @@ test('auto fix does not close a possibly truncated body at the end', () => {
 test('status bars and side stories leave the reasoning together with the body', () => {
   const prev = ['<status>\n时间：夜\n</status>\n<content>\n上一条正文\n</content>\n<theater>\n上一条小剧场\n</theater>', '开场白'];
   const layout = learnReplyLayout(prev);
-  assert.deepEqual(layout, { head: ['status'], tail: ['theater'] });
+  assert.deepEqual(layout, { head: ['status'], tail: ['theater'], names: { status: 'status', theater: 'theater' } });
   // 前几条回复的正文前后都有块：思考里的草稿块不搬，正文前的状态栏、注释和后面的小剧场一起搬
   const reasoning = '我先想想剧情。\n<plan>草稿</plan>\n<status>\n时间：晨\n</status>\n<!-- 锚定 -->\n<content>\n这条正文\n</content>\n<theater>\n这条小剧场\n</theater>\n';
   const plan = fixed('', undefined, { reasoning, layout });
@@ -244,7 +254,7 @@ test('blocks left at the end of the reasoning go back to where earlier replies h
   const reasoning = '我先想想剧情。\n<status>\n时间：晨\n</status>\n<theater>\n这条小剧场\n</theater>';
   const report = checkReplyFormat('<content>\n这条正文\n</content>', undefined, { reasoning, layout });
   assert.deepEqual(report.issues.map((i) => i.kind), ['stranded']);
-  assert.match(buildReplyReminder(report), /思考标签必须在所有输出开始之前闭合/);
+  assert.match(buildReplyReminder(report), /思考标签必须在 <status> 开始之前闭合/);
   const plan = fixed('<content>\n这条正文\n</content>', undefined, { reasoning, layout });
   assert.equal(plan.text, '<status>\n时间：晨\n</status>\n<content>\n这条正文\n</content>\n<theater>\n这条小剧场\n</theater>');
   assert.equal(plan.reasoning, '我先想想剧情。');
