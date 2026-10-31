@@ -18,6 +18,41 @@ function latestReplyForCheck(chat) {
   }
   return last;
 }
+// 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改。
+// 修正前的问题记在这里，下一轮照样提醒 AI；undo 供「格式」窗口撤销
+var replyAutoFixed = null;
+var replyAutoFixPending = false;
+// 这一轮被手动停止过（停止和结束两个事件谁先到都不改）
+var replyAutoFixStopped = false;
+function scheduleReplyAutoFix() {
+  if (!replyAutoFixPending) return;
+  replyAutoFixPending = false;
+  if (!replyGuardConfig()?.autoFix) return;
+  // 等酒馆和其他扩展处理完这条消息（渲染、保存）再改
+  setTimeout(async () => {
+    try {
+      const config = replyGuardConfig();
+      const latest = latestReplyForCheck(ctx().chat);
+      if (!config?.autoFix || !latest || replyAutoFixStopped) return;
+      const rules = normalizeReplyRules(config);
+      const reasoning = latest.message.extra?.reasoning;
+      const report = checkReplyFormat(latest.message.mes, rules, { reasoning });
+      if (!report.issues.length) return;
+      const plan = planReplyFix(latest.message.mes, rules, { reasoning, noTailClose: true });
+      if (!plan) return;
+      const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
+      replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
+      const left = plan.after.issues.length;
+      toast(`已自动修正这条回复：${plan.steps.join("；")}${left ? `。还有 ${left} 个问题要手动处理` : ""}。可在「思维链 → 格式」里撤销`, left ? "warning" : "success");
+    } catch (e) {
+      console.warn("[焦香鸡翅] 自动修正失败", e);
+    }
+  }, 300);
+}
+// 这条回复是不是刚被自动修正过、之后没再变
+function replyAutoFixFor(index) {
+  return replyAutoFixed && replyAutoFixed.undo.index === index && replyMessageSnapshot(index) === replyAutoFixed.snapshot ? replyAutoFixed : null;
+}
 function clearReplyGuard() {
   const c = ctx();
   // IN_CHAT=1, depth=0, scan=false, SYSTEM=0（SillyTavern 的提示接口）。
@@ -34,7 +69,9 @@ function prepareReplyGuard(type, _options, dryRun) {
     const latest = latestReplyForCheck(c.chat);
     if (!latest) return;
     const rules = normalizeReplyRules(config);
-    const reminder = buildReplyReminder(checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning }), rules);
+    // 已自动修正过的回复，按修正前的问题提醒
+    const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning });
+    const reminder = buildReplyReminder(report, rules);
     if (reminder) c.setExtensionPrompt(REPLY_GUARD_KEY, reminder, 1, 0, false, 0);
   } catch (e) {
     console.warn("[焦香鸡翅] 正文格式检查失败", e);
@@ -42,6 +79,15 @@ function prepareReplyGuard(type, _options, dryRun) {
 }
 function bindReplyGuard(on, events) {
   on(events.GENERATION_AFTER_COMMANDS, prepareReplyGuard);
+  on(events.GENERATION_AFTER_COMMANDS, (type, _options, dryRun) => {
+    if (dryRun) return;
+    replyAutoFixPending = !["quiet", "impersonate", "first_message", "continue"].includes(type);
+    replyAutoFixStopped = false;
+  });
+  on(events.GENERATION_ENDED, scheduleReplyAutoFix);
+  // 手动停止的回复不完整，不自动改
+  on(events.GENERATION_STOPPED, () => { replyAutoFixPending = false; replyAutoFixStopped = true; });
+  on(events.CHAT_CHANGED, () => { replyAutoFixPending = false; replyAutoFixed = null; });
   for (const ev of [events.CHAT_CHANGED, events.PRESET_CHANGED, events.GENERATION_STARTED, events.GENERATION_ENDED, events.GENERATION_STOPPED]) on(ev, clearReplyGuard);
   cleanups.push(clearReplyGuard);
 }

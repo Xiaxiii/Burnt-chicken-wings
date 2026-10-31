@@ -32,20 +32,23 @@ async function replyFormatDialog(name) {
   const semanticAvailable = semanticReviewAvailable();
   let reviewCancel = null;
   const body = el(`<div class="pa-form">
-    <p class="pa-hint">按预设分别设置，当前为「${esc(name)}」。标签名须与预设的输出格式一致。</p>
-    <label class="pa-field"><span>正文标签名（不填尖括号）</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40"></label>
-    ${fresh && guess ? guess.bodyTag ? `<p class="pa-hint">已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。</p>` : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
-    ${guess?.suggest.length ? `<p class="pa-hint">显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入必需标签。</p>` : ""}
-    <label class="pa-field"><span>额外必需标签（可选，逗号分隔）</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要"></label>
-    <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40"></label>
-    ${!saved.thinkingTag && thinkingDefault ? `<p class="pa-hint">已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。</p>` : ""}
+    <div class="pa-whyrow"><p class="pa-hint">当前预设「${esc(name)}」</p>${whyBtn("preset")}</div>
+    ${whyNote("preset", "每个预设分别设置。标签名须与预设的输出格式一致。")}
+    <label class="pa-field"><span>正文标签名（不填尖括号）${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40"></label>
+    ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
+    <label class="pa-field"><span>额外必需标签（可选，逗号分隔）${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要"></label>
+    ${guess?.suggest.length ? whyNote("required", `显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入这里。`) : ""}
+    <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40"></label>
+    ${!saved.thinkingTag && thinkingDefault ? whyNote("thinking", `已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。`) : ""}
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
+    <div class="pa-whyrow"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>${whyBtn("autofix")}</div>
+    ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，可在这里撤销。不勾：点下面「检查最近回复」，看到问题后手动点「修正这条回复」。")}
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     <details class="pa-card"><summary>检测范围</summary><ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
-      <li>一键修正只改名、补齐或移动标签，不增删文字。提醒不保证模型遵守。</li></ul></details>
+      <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li></ul></details>
     <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
     <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
     <div data-r="result" aria-live="polite"></div>
@@ -57,12 +60,14 @@ async function replyFormatDialog(name) {
       <div data-r="semantic-result" aria-live="polite"></div>
     </details>
   </div>`);
+  bindWhy(body);
   const read = () => {
     const thinkingTag = body.querySelector('[data-r="thinking"]').value.trim();
     const input = { bodyTag: body.querySelector('[data-r="body"]').value.trim(), requiredTags: body.querySelector('[data-r="required"]').value };
     if (thinkingTag) input.thinkingTag = thinkingTag;
     const rules = normalizeReplyRules(input);
     const value = { bodyTag: rules.bodyTag, requiredTags: rules.requiredTags, thinkingTag, enabled: available && body.querySelector('[data-r="enabled"]').checked };
+    if (body.querySelector('[data-r="autofix"]').checked) value.autoFix = true;
     if (semanticAvailable && body.querySelector('[data-r="semantic"]').checked) value.semanticAfterReply = true;
     return value;
   };
@@ -83,15 +88,16 @@ async function replyFormatDialog(name) {
     const plan = report.issues.length ? planReplyFix(text, config, { reasoning }) : null;
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
     const left = plan ? plan.after.issues : [];
-    const fix = plan ? `<div class="pa-card"><b>可修正的标签</b><ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-      <p class="pa-hint">${left.length ? `修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}` : "修正后未发现配置范围内的格式问题。"}只移动或补写标签，不增删文字。</p>
+    const fix = plan ? `<div class="pa-card"><div class="pa-whyrow"><b>可修正的标签</b>${whyBtn("fixhow")}</div>${whyNote("fixhow", "只移动文字、补写标签，不增删文字。")}<ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+      ${left.length ? `<p class="pa-warn">修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}</p>` : ""}
       <details><summary>修正后原文预览</summary><pre class="pa-pre">${esc(plan.text)}</pre></details>
-      ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不会写回聊天，可复制上面的预览。</p>'}</div>` : "";
-    const note = latest ? nativeReasoningNote(latest.message) : "";
-    result.innerHTML = note + `<p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : '<p class="pa-hint">这不代表正文语义、所有变量或其他输出格式已验证。</p>'}`;
+      ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不写回聊天，可复制上面的预览。</p>'}</div>` : "";
+    const auto = latest && replyAutoFixFor(latest.index);
+    const note = (auto ? `<div class="pa-card"><p class="pa-p">这条回复已自动修正：${esc(auto.steps.join("；"))}。<button class="pa-link" data-r="undo-auto">撤销</button></p></div>` : "") + (latest ? nativeReasoningNote(latest.message) : "");
+    result.innerHTML = note + `<div class="pa-whyrow"><p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? "" : whyBtn("clean")}</div>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : whyNote("clean", "这不代表正文语义、所有变量或其他输出格式已验证。")}`;
   };
   body.addEventListener("click", async (e) => {
-    const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"]');
+    const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"], [data-r="undo-auto"]');
     if (!button) return;
     try {
       if (button.dataset.r === "fix") {
@@ -100,6 +106,14 @@ async function replyFormatDialog(name) {
         undo = await applyReplyFix(pending.index, pending.plan, pending.snapshot);
         check("latest");
         result.insertAdjacentHTML("afterbegin", `<p class="pa-p">已修正聊天第 ${undo.index + 1} 条消息的标签。<button class="pa-link" data-r="undo-fix">撤销</button></p>`);
+        return;
+      }
+      if (button.dataset.r === "undo-auto") {
+        if (!replyAutoFixed) return;
+        await undoReplyFix(replyAutoFixed.undo);
+        replyAutoFixed = null;
+        check("latest");
+        result.insertAdjacentHTML("afterbegin", '<p class="pa-p">已撤销自动修正。</p>');
         return;
       }
       if (button.dataset.r === "undo-fix") {
@@ -153,5 +167,6 @@ async function replyFormatDialog(name) {
   settings().replyGuard = { ...settings().replyGuard, [name]: value };
   saveSettings();
   clearReplyGuard();
-  toast(value.enabled ? "已开启：发现正文格式问题时，下一轮提醒 AI" : "已保存正文格式检查设置，自动提醒未开启", "success");
+  const on = [value.autoFix && "自动修正这条回复", value.enabled && "下一轮提醒 AI"].filter(Boolean);
+  toast(on.length ? `已开启：发现正文格式问题时，${on.join("，并")}` : "已保存正文格式检查设置，自动修正和提醒都未开启", "success");
 }
