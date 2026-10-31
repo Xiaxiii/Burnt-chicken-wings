@@ -8940,7 +8940,7 @@ async function replyFormatDialog(name) {
     ${!saved.thinkingTag && thinkingDefault ? `<p class="pa-hint">已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。</p>` : ""}
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
     <label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>
-    <p class="pa-hint">生成结束后自动做「修正这条回复」能做的修改：移动、补写标签，把正文前露出的思考移进思考区，不增删文字。末尾缺结束标签可能是被截断，不自动补，方便继续生成。改了会弹提示，可在这里撤销。</p>
+    <p class="pa-hint">勾上：每次生成完自动修，改了会提示，可在这里撤销。不勾：点下面「检查最近回复」，看到问题后手动点「修正这条回复」。</p>
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     <details class="pa-card"><summary>检测范围</summary><ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
