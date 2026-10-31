@@ -73,7 +73,7 @@ async function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
         const on = m === curModel;
         let tail;
         if (owners.length <= 2) tail = owners.map((k) => chip(m, k)).join("");
-        else if (more.has(m)) tail = `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="true">收起</button><div class="pa-kall">${owners.map((k) => chip(m, k)).join("")}</div>`;
+        else if (more.has(m)) tail = owners.map((k) => chip(m, k)).join("") + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="true" aria-label="收起分组">收起</button>`;
         else {
           const shown = owners.find((k) => on && k.id === curKey) || owners[0];
           tail = chip(m, shown) + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="false" aria-label="还有 ${owners.length - 1} 个分组">+${owners.length - 1}</button>`;
