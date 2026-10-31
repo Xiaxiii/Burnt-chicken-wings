@@ -155,7 +155,9 @@ function debounce(fn, ms) {
 
 // 说明文字默认收起：一行小字「ⓘ 说明」，点开再看。手机屏幕小，长段说明不要一上来就铺满
 // 2.4.1 解释句默认收起：标题或选项旁一个 ⓘ，点开才显示；bindWhy 挂在外层容器上
-const whyBtn = (key) => `<button class="pa-why" type="button" data-why="${key}" aria-label="说明" aria-expanded="false" title="说明">ⓘ</button>`;
+// ⓘ 字符在不少字体里偏上偏小，和文字对不齐；画一个圆圈 i
+const INFO_ICON = '<svg class="pa-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></svg>';
+const whyBtn = (key) => `<button class="pa-why" type="button" data-why="${key}" aria-label="说明" aria-expanded="false" title="说明">${INFO_ICON}</button>`;
 const whyNote = (key, html) => `<div class="pa-whynote" data-whynote="${key}" hidden>${html}</div>`;
 function bindWhy(box) {
   box.addEventListener("click", (e) => {
@@ -171,5 +173,5 @@ function bindWhy(box) {
 }
 function tip(inner, label = "说明") {
   if (!String(inner || "").trim()) return "";
-  return `<details class="pa-tip"><summary>ⓘ ${esc(label)}</summary><div class="pa-tip-body">${inner}</div></details>`;
+  return `<details class="pa-tip"><summary>${INFO_ICON}${esc(label)}</summary><div class="pa-tip-body">${inner}</div></details>`;
 }
