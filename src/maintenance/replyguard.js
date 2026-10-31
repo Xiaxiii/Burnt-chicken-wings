@@ -18,6 +18,20 @@ function latestReplyForCheck(chat) {
   }
   return last;
 }
+// 照第 index 条之前的几条 AI 回复学：状态栏、小剧场等完整块在正文前还是后（开场白也算）
+function replyLayoutBefore(chat, index, rules) {
+  const texts = [];
+  for (let i = Math.min(index, Array.isArray(chat) ? chat.length : 0) - 1; i >= 0 && texts.length < 10; i--) {
+    const m = chat[i];
+    if (m && !m.is_user && !m.is_system && typeof m.mes === "string") texts.push(m.mes);
+  }
+  return learnReplyLayout(texts, rules);
+}
+// 用到时才学，学一次：多数回复没有问题，也不会在思考区末尾留块，发送前不必去读前几条
+function replyLayoutLazy(chat, index, rules) {
+  let value;
+  return () => value ??= replyLayoutBefore(chat, index, rules);
+}
 // 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改。
 // 修正前的问题记在这里，下一轮照样提醒 AI；undo 供「格式」窗口撤销
 var replyAutoFixed = null;
@@ -36,9 +50,10 @@ function scheduleReplyAutoFix() {
       if (!config?.autoFix || !latest || replyAutoFixStopped) return;
       const rules = normalizeReplyRules(config);
       const reasoning = latest.message.extra?.reasoning;
-      const report = checkReplyFormat(latest.message.mes, rules, { reasoning });
+      const layout = replyLayoutLazy(ctx().chat, latest.index, rules);
+      const report = checkReplyFormat(latest.message.mes, rules, { reasoning, layout });
       if (!report.issues.length) return;
-      const plan = planReplyFix(latest.message.mes, rules, { reasoning, noTailClose: true });
+      const plan = planReplyFix(latest.message.mes, rules, { reasoning, layout, noTailClose: true });
       if (!plan) return;
       const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
       replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
@@ -70,7 +85,7 @@ function prepareReplyGuard(type, _options, dryRun) {
     if (!latest) return;
     const rules = normalizeReplyRules(config);
     // 已自动修正过的回复，按修正前的问题提醒
-    const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning });
+    const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules) });
     const reminder = buildReplyReminder(report, rules);
     if (reminder) c.setExtensionPrompt(REPLY_GUARD_KEY, reminder, 1, 0, false, 0);
   } catch (e) {

@@ -45,10 +45,11 @@ async function replyFormatDialog(name) {
     ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，可在这里撤销。不勾：点下面「检查最近回复」，看到问题后手动点「修正这条回复」。")}
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     <details class="pa-card"><summary>检测范围</summary><ul class="pa-notes">
-      <li>检查掉标签、重复或未闭合、正文裹进思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
+      <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
-      <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li></ul></details>
+      <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
+      <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断，免得把思考里的步骤搬出来。上次只搬出正文、块还留在思考区末尾的，也会照前几条回复放回原位。</li></ul></details>
     <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
     <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
     <div data-r="result" aria-live="polite"></div>
@@ -83,9 +84,11 @@ async function replyFormatDialog(name) {
       reasoning = latest.message.extra?.reasoning || "";
       source = `聊天第 ${latest.index + 1} 条消息`;
     }
-    const report = checkReplyFormat(text, config, { reasoning });
+    const chat = ctx().chat;
+    const layout = replyLayoutLazy(chat, latest ? latest.index : Array.isArray(chat) ? chat.length : 0, config);
+    const report = checkReplyFormat(text, config, { reasoning, layout });
     const reminder = buildReplyReminder(report, config);
-    const plan = report.issues.length ? planReplyFix(text, config, { reasoning }) : null;
+    const plan = report.issues.length ? planReplyFix(text, config, { reasoning, layout }) : null;
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
     const left = plan ? plan.after.issues : [];
     const fix = plan ? `<div class="pa-card"><div class="pa-whyrow"><b>可修正的标签</b>${whyBtn("fixhow")}</div>${whyNote("fixhow", "只移动文字、补写标签，不增删文字。")}<ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
