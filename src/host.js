@@ -313,13 +313,44 @@ function siteDiffers(site, live = liveConnection()) {
     || !!site.secretId && !!live.secretId && live.secretId !== site.secretId
     || !live.online;
 }
+// 2.5.0 一个站点可以填多个密钥（同一个站子的不同分组，如按次、按量）。
+// 两个以上时记在 site.keys，每个密钥有自己的名称、密钥库编号和模型；只有一个时照旧记在站点上
+function siteMulti(site) {
+  return Array.isArray(site?.keys) && site.keys.length > 1;
+}
+// 站点的某个密钥（不传就是上次用的）；单密钥站点就是站点自己
+function siteKey(site, keyId = site?.keyId) {
+  if (!siteMulti(site)) return site;
+  return site.keys.find((k) => k.id === keyId) || site.keys[0];
+}
+function keyName(site, k) {
+  if (!siteMulti(site) || !k) return "";
+  return k.name || `密钥 ${site.keys.indexOf(k) + 1}`;
+}
+// 连接、拉取模型时用的样子：密钥和模型换成这个分组的
+function keyView(site, keyId) {
+  if (!siteMulti(site)) return site;
+  const k = siteKey(site, keyId);
+  const v = { ...site, keyId: k.id, secretId: k.secretId || null, keyMask: k.keyMask || "", localKey: !!k.localKey, localId: k.localId, model: k.model || "", models: k.models || [], name: `${site.name}·${keyName(site, k)}` };
+  delete v.keys;
+  return v;
+}
+// 连接时密钥重新存进了密钥库（编号变了），记回这个分组
+function keepKeyId(site, view) {
+  if (view === site || !siteMulti(site)) return;
+  const k = siteKey(site, view.keyId);
+  if (k && view.secretId && k.secretId !== view.secretId) {
+    k.secretId = view.secretId;
+    ctx().saveSettingsDebounced();
+  }
+}
 // 旧版酒馆没有密钥库编号：密钥只存在这个浏览器里，不写进会上传到服务器的设置文件
 function localKeyName(siteId) {
   return `presetAtelier:key:${userHandle()}:${siteId}`;
 }
 function getLocalKey(site) {
   try {
-    return localStorage.getItem(localKeyName(site.id)) || site.legacyKey || null;
+    return localStorage.getItem(localKeyName(site.localId || site.id)) || site.legacyKey || null;
   } catch {
     return site.legacyKey || null;
   }

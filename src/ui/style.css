@@ -728,6 +728,44 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-site-name { cursor: pointer; }
 #pa-root .pa-sitecard > .pa-chip, #pa-root .pa-sitecard > .pa-btn { flex: none; }
 #pa-root .pa-sheet .pa-site-dl { margin-top: 0; }
+/* 2.5.0 多密钥站点：列表里点开每个分组一行；编辑窗口的密钥行；选模型时一并选分组 */
+#pa-root .pa-site-multi { display: block; padding: 0; }
+#pa-root .pa-site-mhead { display: flex; align-items: center; gap: 4px; padding: 5px 10px 5px 2px; }
+#pa-root .pa-site-mhead > .pa-chip { flex: none; }
+#pa-root .pa-site-fold { width: 30px; height: 30px; }
+#pa-root .pa-site-fold .pa-sgcaret { color: var(--pa-dim); }
+#pa-root .pa-klines { border-top: 1px dashed var(--pa-line); }
+#pa-root .pa-kline { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 34px; border-top: 1px solid var(--pa-line); }
+#pa-root .pa-kline:first-child { border-top: 0; }
+#pa-root .pa-kline .pa-srow-main { line-height: 1.3; gap: 0 6px; }
+#pa-root .pa-kline > .pa-chip, #pa-root .pa-kline > .pa-btn { flex: none; }
+#pa-root .pa-model-btn .pa-model-key { flex: none; font-style: normal; max-width: 7em; }
+#pa-root .pa-keyhead { display: flex; align-items: center; gap: 4px; }
+#pa-root .pa-key-add { width: 26px; height: 26px; border: 1px solid var(--pa-line); color: var(--pa-thread); font-size: 1em; line-height: 1; }
+#pa-root .pa-keys { display: grid; gap: 6px; }
+#pa-root .pa-keyrow { display: flex; align-items: center; gap: 6px; }
+#pa-root .pa-keyrow.pa-dragging { opacity: .6; }
+#pa-root .pa-key-grip { flex: none; padding: 8px 2px; color: var(--pa-dim); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; white-space: nowrap; letter-spacing: -3px; line-height: 1; }
+#pa-root .pa-key-name { flex: 0 0 6.5em; min-width: 0; }
+#pa-root .pa-key-val { flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-key-cnt { flex: none; font-size: .78em; color: var(--pa-ok); white-space: nowrap; }
+#pa-root .pa-key-del { width: 28px; height: 28px; }
+#pa-root .pa-kview { align-self: start; }
+#pa-root .pa-kpick { gap: 0; border: 1px solid var(--pa-line); border-radius: 8px; }
+#pa-root .pa-kpick > .pa-mpick-item { border-width: 0 0 1px; border-radius: 0; }
+#pa-root .pa-kpick > .pa-hint { margin: 0; padding: 8px 10px; }
+#pa-root .pa-krow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 4px 10px; border-bottom: 1px solid var(--pa-line); }
+#pa-root .pa-krow:last-child, #pa-root .pa-kpick > :last-child { border-bottom: 0; }
+#pa-root .pa-krow.on { background: var(--pa-sel); }
+#pa-root .pa-kname { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 4px 0; border: 0; background: none; color: var(--pa-text); text-align: left; cursor: pointer; overflow-wrap: anywhere; font: inherit; }
+#pa-root .pa-krow.on .pa-kname { font-weight: 600; }
+#pa-root .pa-kchip, #pa-root .pa-kmore { flex: none; font: inherit; font-size: .76em; line-height: 1.8; padding: 0 8px; border-radius: 999px; border: 1px solid var(--pa-line); background: none; color: var(--pa-em); cursor: pointer; white-space: nowrap; }
+#pa-root .pa-kchip.on { border-color: var(--pa-thread); background: var(--pa-thread); color: var(--pa-on-accent); }
+#pa-root .pa-kmore { border-style: dashed; color: var(--pa-dim); }
+#pa-root .pa-kall { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px; padding: 0 0 4px; }
+#pa-root .pa-ksec { display: flex; align-items: baseline; gap: 6px; width: 100%; min-height: 38px; padding: 8px 10px; border: 0; border-bottom: 1px solid var(--pa-line); background: var(--pa-card); color: var(--pa-thread); text-align: left; cursor: pointer; font: inherit; }
+#pa-root .pa-ksec small { color: var(--pa-dim); font-size: .8em; }
+#pa-root .pa-ksec .pa-ksec-n { margin-left: auto; color: var(--pa-dim); font-size: .85em; }
 /* 2.4.0 触屏：小控件的点按范围放大到约 44px（外观不变），手指不用对得那么准 */
 @media (pointer: coarse) {
     #pa-root .pa-chip-btn, #pa-root .pa-why, #pa-root .pa-golink, #pa-root .pa-sortbtn { position: relative; }

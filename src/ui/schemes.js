@@ -23,19 +23,26 @@ function schemeMatches(d, scheme) {
 function schemeConn(s) {
   if (s.conn && s.conn.source) return s.conn;
   const site = s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null;
-  return site ? { source: site.source, url: site.url || "", model: site.model || "", secretId: site.secretId || null, siteId: site.id } : null;
+  if (!site) return null;
+  const v = keyView(site);
+  return { source: site.source, url: site.url || "", model: v.model || "", secretId: v.secretId || null, siteId: site.id, keyId: siteMulti(site) ? v.keyId : null };
 }
 // 用来连接的「站点」：有对应站点就用站点（带着它的密钥、名称），模型用方案记的
 function connSite(conn) {
   if (!conn) return null;
   const site = conn.siteId ? settings().sites.find((x) => x.id === conn.siteId) : null;
-  if (site) return { ...site, model: conn.model || site.model };
+  if (site) {
+    // 2.5.0 多密钥站点用方案记的那个分组（分组删了就用站点上次用的）
+    const v = keyView(site, conn.keyId);
+    return { ...v, model: conn.model || v.model };
+  }
   return { name: connLabel(conn, { model: false }), source: conn.source, url: conn.url || "", model: conn.model || "", secretId: conn.secretId || null };
 }
 function connLabel(conn, { model = true } = {}) {
   if (!conn) return "";
   const site = conn.siteId ? settings().sites.find((x) => x.id === conn.siteId) : null;
   let where = site?.name || "";
+  if (site && siteMulti(site) && conn.keyId) where += ` · ${keyName(site, siteKey(site, conn.keyId))}`;
   if (!where) {
     try { where = conn.source === "custom" && conn.url ? new URL(conn.url).host : SOURCES[conn.source]?.label || conn.source; } catch { where = conn.url || conn.source; }
   }
@@ -46,8 +53,15 @@ function liveConn() {
   const live = liveConnection();
   if (live.mainApi && live.mainApi !== "openai") return null;
   if (!live.source) return null;
-  const site = settings().sites.find((x) => !siteDiffers({ ...x, model: "" }, { ...live, online: true }));
-  return { source: live.source, url: live.url || "", model: live.model || "", secretId: live.secretId || null, siteId: site?.id || null };
+  // 多密钥站点逐个分组比；密钥编号对得上的优先
+  const hits = [];
+  for (const x of settings().sites) {
+    for (const v of siteMulti(x) ? x.keys.map((k) => keyView(x, k.id)) : [x]) {
+      if (!siteDiffers({ ...v, model: "" }, { ...live, online: true })) hits.push({ site: x, v });
+    }
+  }
+  const hit = hits.find((h) => h.v.secretId && h.v.secretId === live.secretId) || hits[0];
+  return { source: live.source, url: live.url || "", model: live.model || "", secretId: live.secretId || null, siteId: hit?.site.id || null, keyId: hit && siteMulti(hit.site) ? hit.v.keyId : null };
 }
 function connDiffers(conn) {
   const s = connSite(conn);
@@ -85,13 +99,18 @@ function connPicker(init, keep = null) {
   const sel = box.querySelector("[data-f=api]");
   const btn = box.querySelector("[data-f=apimodelbtn]");
   let model = "";
+  // 2.5.0 多密钥站点：选模型时一并选分组
+  let keyId = null;
   const choice = () => sel.value;
   const site = () => sites.find((x) => x.id === choice());
   const models = () => choice() === "__live" ? liveModelOptions() : site()?.models || [];
-  const setModel = (m) => {
+  const setModel = (m, k = null) => {
     model = m || "";
-    btn.title = model;
-    btn.querySelector("span").textContent = model || "选择模型";
+    const x = site();
+    keyId = x && siteMulti(x) ? siteKey(x, k).id : null;
+    const label = keyId ? `${model || "选择模型"} · ${keyName(x, siteKey(x, keyId))}` : model || "选择模型";
+    btn.title = label;
+    btn.querySelector("span").textContent = label;
   };
   // 换了来源就带出它记的模型；原来就是这个站点时用方案记的模型
   const reset = () => {
@@ -99,10 +118,20 @@ function connPicker(init, keep = null) {
     box.querySelector("[data-f=apimodel]").hidden = v === "__none";
     if (v === "__live") setModel(nowConn.model);
     else if (v === "__keep") setModel(keep.model);
-    else if (site()) setModel(keep?.siteId === v && keep.model ? keep.model : site().model);
+    else if (site()) {
+      const same = keep?.siteId === v;
+      const k = siteKey(site(), same ? keep.keyId : undefined);
+      setModel(same && keep.model ? keep.model : k.model, k.id);
+    }
   };
   sel.addEventListener("change", reset);
   btn.addEventListener("click", async () => {
+    const x = site();
+    if (x && siteMulti(x)) {
+      const r = await pickKeyModel(x, { keyId, model });
+      if (r) setModel(r.model, r.keyId);
+      return;
+    }
     const m = await pickModel(models(), model);
     if (m) setModel(m);
   });
@@ -113,7 +142,8 @@ function connPicker(init, keep = null) {
     if (v === "__live") return { ...nowConn, model };
     if (v === "__keep") return { ...keep, model };
     const x = site();
-    return { source: x.source, url: x.url || "", model, secretId: x.secretId || null, siteId: x.id };
+    const kv = keyView(x, keyId);
+    return { source: x.source, url: x.url || "", model, secretId: kv.secretId || null, siteId: x.id, keyId };
   };
   return { el: box, read, choice };
 }
