@@ -474,7 +474,7 @@ function mountOrganize(page) {
     }
     if (a === "delete") {
       if (ids.some((id) => d.isMarker(id))) return toast("选中的条目包含系统位置条目（如聊天记录、角色描述），不能删除", "warning");
-      if (!await confirmBox("删除条目", `删除选中的 ${ids.length} 条？可撤销，也可从备份恢复。`, "删除", true)) return;
+      if (!await confirmBox("删除条目", `删除选中的 ${ids.length} 条？可撤销${backupOn() ? "，也可从备份恢复" : ""}。`, "删除", true)) return;
       mutate(d, "删除", (x) => x.deletePrompts(ids));
       st.selected.clear();
       return render();

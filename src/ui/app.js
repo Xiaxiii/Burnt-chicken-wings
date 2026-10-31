@@ -234,7 +234,7 @@ async function close({ fromBack = false } = {}) {
     if (fromBack) pushBackState();
     const r = await sheet({
       title: "有未保存的修改",
-      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有还没存上的修改。</p><p class="pa-hint">「放弃」只丢掉还没存上的部分；之前已经自动保存的修改不会撤回，需要时可在顶栏的备份里恢复到修改前。</p>`,
+      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有还没存上的修改。</p><p class="pa-hint">「放弃」只丢掉还没存上的部分；之前已经自动保存的修改不会撤回${backupOn() ? "，需要时可在顶栏的备份里恢复到修改前" : ""}。</p>`,
       actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃没存上的部分", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
     });
     if (!r) return;
@@ -767,7 +767,7 @@ async function start() {
   };
   console.log(`[焦香鸡翅] ${VERSION} 已加载`);
 }
-// 备份：每批修改开始前自动备份一次修改前的版本，每个预设保留最近 10 份
+// 备份：每批修改开始前自动备份一次修改前的版本，每个预设保留最近 backupMax() 份（2.4.2 可关闭）
 async function backupsSheet(name) {
   let list = [];
   try {
@@ -775,9 +775,9 @@ async function backupsSheet(name) {
   } catch (e) {
     return toast("读取备份失败：" + e.message, "error");
   }
-  if (!list.length) return toast(`「${name}」暂无备份`);
+  if (!list.length) return toast(backupOn() ? `「${name}」暂无备份` : "自动备份已关闭，可在「更多 → 清理 → 本地备份」开启");
   const items = list.map((b) => ({ label: new Date(b.time).toLocaleString(), sub: b.reason, value: b.id }));
-  const id = await pickBox(`「${name}」的备份（最近 ${BACKUP_MAX} 份）`, items, { hint: "每批修改开始前自动备份一次。备份只存在这个浏览器里，换设备、清除浏览器数据后就没有了；重要的版本请下载保存。点一份备份可恢复或下载。" });
+  const id = await pickBox(`「${name}」的备份（${list.length} 份）`, items, { hint: `${backupOn() ? "每批修改前自动备份一次。" : "自动备份已关闭。"}备份只存在本浏览器，换设备或清除数据后丢失，重要版本请下载。点一份可恢复或下载。` });
   if (!id) return;
   const b = await backupGet(id);
   const how = await pickBox("选择操作", [{ label: "恢复", sub: "恢复后自动保存，可撤销", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);

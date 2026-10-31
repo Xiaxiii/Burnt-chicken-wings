@@ -1021,6 +1021,19 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sum-main { margin: 0; line-height: 1.45; }
 #pa-root .pa-sum .pa-stack { height: 8px; margin-top: 2px; }
 #pa-root .pa-sum .pa-card-act { margin-top: 2px; }
+/* 2.4.2 本地备份：自动备份开关、保留份数 */
+#pa-root .pa-bk-set { display: grid; gap: 6px; margin: 2px 0 8px; padding: 9px 10px; border-radius: var(--pa-r); background: var(--pa-card); border-left: 3px solid var(--pa-thread); }
+#pa-root .pa-bk-set.pa-off { border-left-color: var(--pa-line); }
+#pa-root .pa-bk-set p { margin: 0; }
+#pa-root .pa-bk-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; }
+#pa-root .pa-bk-warn { color: var(--pa-warn); font-size: .88em; }
+#pa-root .pa-bk-num { display: inline-flex; align-items: center; gap: 6px; }
+#pa-root .pa-bk-step { display: inline-flex; align-items: stretch; height: 32px; border: 1px solid var(--pa-control-border, var(--pa-line)); border-radius: 999px; overflow: hidden; background: var(--pa-card-2); }
+#pa-root .pa-bk-step button { width: 36px; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-size: 1.05em; cursor: pointer; }
+#pa-root .pa-bk-step button:disabled { opacity: .35; cursor: default; }
+#pa-root .pa-bk-step input { width: 36px; padding: 0; border: 0; border-inline: 1px solid var(--pa-line); border-radius: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: center; }
+#pa-root .pa-bk-set.pa-off .pa-bk-cnt { opacity: .45; }
+#pa-root .pa-bk-note { font-size: .8em; }
 #pa-root .pa-more { margin-top: 10px; }
 #pa-root .pa-more > summary { cursor: pointer; color: var(--pa-dim); font-size: .9em; padding: 6px 0; }
 #pa-root .pa-mini-act { margin: 4px 0 8px; }

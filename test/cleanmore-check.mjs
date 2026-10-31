@@ -128,9 +128,25 @@ await page.evaluate(async () => { for (let i = 0; i < 5; i++) await new Promise(
 await page.click('[data-kind="local"]'); await page.waitForTimeout(600);
 assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /备份 5 份/);
 await page.screenshot({ path: S + "m-4-local.png" });
-await page.click('[data-x="keep3"]'); await page.waitForTimeout(200);
+// 2.4.2：保留份数、立即精简、自动备份开关
+assert.ok(await page.$eval('[data-x="trim"]', (x) => x.disabled), "没超出默认 10 份时不能精简");
+for (let i = 0; i < 7; i++) await page.click('[data-bk="dec"]');
+assert.equal(await page.$eval('[data-bk="n"]', (x) => x.value), "3");
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.backupMax), 3);
+await page.fill('[data-bk="n"]', "99"); await page.press('[data-bk="n"]', "Tab"); await page.waitForTimeout(100);
+assert.equal(await page.$eval('[data-bk="n"]', (x) => x.value), "30", "上限 30");
+await page.fill('[data-bk="n"]', "3"); await page.press('[data-bk="n"]', "Tab"); await page.waitForTimeout(100);
+await page.click('[data-x="trim"]'); await page.waitForTimeout(200);
+assert.match(await page.$eval(".pa-sheet", (x) => x.innerText), /精简至每个预设 3 份[\s\S]*1 个预设超出，共 2 份/);
 await page.click(".pa-sheet .pa-btn-danger"); await page.waitForTimeout(800);
 assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /备份 3 份/);
+await page.screenshot({ path: S + "m-4b-local-trim.png" });
+await page.click(".pa-bk-set .pa-switch"); await page.waitForTimeout(150);
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.autoBackup), false);
+assert.match(await page.$eval(".pa-bk-set", (x) => x.innerText), /已关闭/);
+assert.ok(await page.$eval('[data-bk="n"]', (x) => x.disabled), "关闭后份数不能改");
+await page.screenshot({ path: S + "m-4c-local-off.png" });
+await page.click(".pa-bk-set .pa-switch"); await page.waitForTimeout(150);
 // 回到预设栏
 await page.click('[data-kind="preset"]'); await page.waitForTimeout(300);
 assert.ok(await page.$(".pa-clean-body .pa-sum"));

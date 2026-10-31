@@ -15,7 +15,9 @@ var DEFAULTS = {
   moreTab: "schemes",
   nameWithSource: false,
   noPullRefresh: true,
-  floatBall: false
+  floatBall: false,
+  autoBackup: true,
+  backupMax: 10
 };
 function settings() {
   const all = ctx().extensionSettings;

@@ -487,27 +487,70 @@ function mountCleanKind(kind, box) {
       const est = await navigator.storage?.estimate?.().catch(() => null);
       info = { groups: [...by.values()].sort((a, b) => b.size - a.size), total: [...by.values()].reduce((n, g) => n + g.size, 0), count: all.length, drafts, draftN, est };
     };
+    // 2.4.2：自动备份开关和保留份数（1–30）
+    const setCard = () => {
+      const on = backupOn(), n = backupMax();
+      return `<div class="pa-bk-set${on ? "" : " pa-off"}">
+          <div class="pa-bk-row"><b>自动备份</b><label class="pa-switch"><input type="checkbox" data-bk="on" aria-label="自动备份" ${on ? "checked" : ""}><i></i></label></div>
+          ${on ? '<p class="pa-hint">修改预设前自动备份，可从右上角 ⟲ 恢复。</p>' : '<p class="pa-bk-warn">已关闭。此后的修改无法从备份恢复。</p>'}
+          <div class="pa-bk-row pa-bk-cnt"><span>每个预设保留</span><span class="pa-bk-num"><span class="pa-bk-step"><button type="button" data-bk="dec" aria-label="减少" ${on && n > 1 ? "" : "disabled"}>−</button><input data-bk="n" inputmode="numeric" aria-label="保留份数" value="${n}" ${on ? "" : "disabled"}><button type="button" data-bk="inc" aria-label="增加" ${on && n < 30 ? "" : "disabled"}>＋</button></span>份</span></div>
+          <p class="pa-hint pa-bk-note">注：世界书缝合、编辑前的备份同样适用。</p></div>`;
+    };
+    const extra = () => {
+      const n = backupMax();
+      const over = (info?.groups || []).filter((g) => g.list.length > n);
+      const list = over.flatMap((g) => g.list.slice(n));
+      return { n, groups: over.length, list, size: list.reduce((t, b) => t + jsonSize(b.data), 0) };
+    };
     const draw = () => {
-      if (!info) { box.innerHTML = '<p class="pa-hint">正在统计…</p>'; return; }
+      if (!info) { box.innerHTML = setCard() + '<p class="pa-hint">正在统计…</p>'; return; }
       const max = info.groups[0]?.size || 1;
-      box.innerHTML = `
+      box.innerHTML = setCard() + `
         <div class="pa-sum"><p class="pa-sum-main">备份 <b>${info.count}</b> 份 · <b>${fmtSize(info.total)}</b>${info.draftN ? ` · 草稿 ${info.draftN} 份` : ""}</p>
           ${tip(`<p>这些备份只存在这个浏览器里，不影响酒馆打开速度；占用过多时，iPad、手机可能清除网站数据或重新加载页面。</p>
             ${info.draftN ? `<p>未保存的草稿约 ${fmtSize(info.drafts)}。</p>` : ""}
             ${info.est?.usage ? `<p>这个网站在本浏览器中共占用约 ${fmtSize(info.est.usage)}（含酒馆和其他扩展）。</p>` : ""}`)}
-          <div class="pa-card-act"><button class="pa-btn pa-btn-s" data-x="keep3" ${info.count ? "" : "disabled"}>每个预设只留最近 3 份</button><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-x="clear" ${info.count ? "" : "disabled"}>删除全部备份</button></div></div>
+          <div class="pa-card-act"><button class="pa-btn pa-btn-s" data-x="trim" ${extra().list.length ? "" : "disabled"}>立即精简</button><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-x="clear" ${info.count ? "" : "disabled"}>删除全部备份</button></div></div>
         <div class="pa-rank">${info.groups.map((g) => `<div><span>${esc(g.name)}（${g.list.length} 份）</span><i class="pa-bar"><b style="width:${Math.max(2, Math.round(g.size / max * 100))}%"></b></i><em>${fmtSize(g.size)}</em></div>`).join("") || '<p class="pa-hint">没有备份。</p>'}</div>`;
     };
+    const setMax = (v) => {
+      const n = Math.min(30, Math.max(1, Math.round(Number(v)) || backupMax()));
+      settings().backupMax = n;
+      saveSettings();
+      draw();
+    };
+    box.addEventListener("change", (e) => {
+      const k = e.target.dataset?.bk;
+      if (k === "on") {
+        settings().autoBackup = e.target.checked;
+        saveSettings();
+        draw();
+      } else if (k === "n") setMax(e.target.value);
+    });
     box.addEventListener("click", async (e) => {
+      const bk = e.target.closest("[data-bk]")?.dataset.bk;
+      if (bk === "dec" || bk === "inc") return setMax(backupMax() + (bk === "inc" ? 1 : -1));
       const x = e.target.closest("[data-x]")?.dataset.x;
-      if (!x || S.busy) return;
-      const all = x === "clear";
-      if (!await confirmBox(all ? "删除全部备份" : "精简备份", all ? "将删除本浏览器中本扩展保存的全部预设备份。预设本身不受影响。" : "每个预设只保留最近 3 份备份，其余删除。预设本身不受影响。", "删除", true)) return;
+      if (!x || S.busy || !info) return;
+      let del;
+      if (x === "clear") {
+        if (!await confirmBox("删除全部备份", `删除本浏览器中的全部 ${info.count} 份备份。`, "删除", true)) return;
+        del = info.groups.flatMap((g) => g.list);
+      } else {
+        const ex = extra();
+        if (!ex.list.length) return;
+        const ok = await sheet({
+          title: `精简至每个预设 ${ex.n} 份`,
+          body: `<p class="pa-p">${ex.groups} 个预设超出，共 ${ex.list.length} 份，${fmtSize(ex.size)}。</p><p class="pa-hint">暂不删除的，将在下次修改时清理。</p>`,
+          actions: [{ label: "暂不删除", value: false }, { label: `删除 ${ex.list.length} 份`, kind: "danger", value: true }]
+        });
+        if (!ok) return;
+        del = ex.list;
+      }
       S.busy = true;
-      let n = 0;
-      for (const g of info.groups) for (const b of all ? g.list : g.list.slice(3)) { await backupDel(b.id).catch(() => {}); n++; }
+      for (const b of del) await backupDel(b.id).catch(() => {});
       S.busy = false;
-      toast(`已删除 ${n} 份备份`, "success");
+      toast(`已删除 ${del.length} 份备份`, "success");
       info = null;
       draw();
       await load();

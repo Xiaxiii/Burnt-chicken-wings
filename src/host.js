@@ -534,6 +534,14 @@ function sleep(ms) {
 }
 var DB = "preset-atelier";
 var BACKUP_MAX = 10;
+// 2.4.2：自动备份可关闭，保留份数可选 1–30。世界书的备份同样适用
+function backupOn() {
+  return settings().autoBackup !== false;
+}
+function backupMax() {
+  const n = Math.round(Number(settings().backupMax));
+  return n >= 1 && n <= 30 ? n : BACKUP_MAX;
+}
 var dbp = null;
 function db() {
   if (dbp) return dbp;
@@ -566,9 +574,10 @@ function backupMine(b) {
   return b.user ? b.user === userHandle() : userHandle() === "default-user";
 }
 async function backupPut(preset, data, reason) {
+  if (!backupOn()) return;
   await tx("backups", "readwrite", (s) => s.add({ preset, user: userHandle(), reason, time: Date.now(), data: structuredClone(data) }));
   const list = await backupList(preset);
-  for (const old of list.slice(BACKUP_MAX)) await tx("backups", "readwrite", (s) => s.delete(old.id));
+  for (const old of list.slice(backupMax())) await tx("backups", "readwrite", (s) => s.delete(old.id));
 }
 async function backupList(preset) {
   const all = await tx("backups", "readonly", (s) => s.index("preset").getAll(preset));

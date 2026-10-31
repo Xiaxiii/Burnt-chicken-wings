@@ -93,6 +93,23 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   await ctx.close();
 }
 
+// ---- 3b) 2.4.2 关闭自动备份：不碰备份库，直接保存
+{
+  const ctx = await browser.newContext({ viewport: { width: 1024, height: 900 } });
+  const breakIdb = () => { const real = indexedDB.open.bind(indexedDB); indexedDB.open = (name, v) => { if (name === "preset-atelier") throw new Error("存储已满"); return real(name, v); }; };
+  const { page, errs } = await boot(ctx, breakIdb);
+  await page.evaluate(() => { const c = window.SillyTavern.getContext(); c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), autoBackup: false }; window.__presetAtelier.open("organize"); });
+  await page.waitForTimeout(400);
+  await page.click("text=全部展开").catch(() => {});
+  const before = await savedCount(page);
+  await page.locator(firstToggle).first().click(); await page.waitForTimeout(900);
+  assert.ok(await savedCount(page) > before, "关闭自动备份后直接保存");
+  assert.equal(await sheetTitle(page), null, "不弹备份失败");
+  assert.deepEqual(errs, []);
+  ok("关闭自动备份后不备份、直接保存");
+  await ctx.close();
+}
+
 // ---- 4) 编辑条目点取消不改动；叠着的弹窗按 Esc 只关最上面一个；分组开关保留条目
 {
   const ctx = await browser.newContext({ viewport: { width: 1024, height: 900 } });
