@@ -41,7 +41,7 @@ async function replyFormatDialog(name) {
     <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40"></label>
     ${!saved.thinkingTag && thinkingDefault ? whyNote("thinking", `已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。`) : ""}
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
-    <div class="pa-whyrow"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>${whyBtn("autofix")}</div>
+    <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>${whyBtn("autofix")}</div>
     ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，可在这里撤销。不勾：点下面「检查最近回复」，看到问题后手动点「修正这条回复」。")}
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     <details class="pa-card"><summary>检测范围</summary><ul class="pa-notes">

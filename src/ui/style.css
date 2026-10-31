@@ -719,7 +719,9 @@ html.pa-open body { overflow: hidden; }
 /* 2.4.0 站点：按网址分组，每个一行，点名称编辑 */
 #pa-root .pa-whyrow { display: flex; align-items: center; gap: 2px; }
 #pa-root .pa-whyrow > p { margin: 0; }
-#pa-root .pa-field > span .pa-why, #pa-root .pa-h .pa-why { margin-left: 2px; font-weight: 400; vertical-align: 1px; }
+#pa-root .pa-field > span .pa-why, #pa-root .pa-h .pa-why { margin-left: 2px; font-weight: 400; vertical-align: -.15em; padding-top: 0; padding-bottom: 0; }
+#pa-root .pa-whyrow-check { margin-top: 6px; }
+#pa-root .pa-whyrow-check > .pa-field-row { margin: 0; }
 #pa-root .pa-plan-sites .pa-row-head + .pa-whynote { margin: -2px 2px 8px; }
 #pa-root .pa-sitecard { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 12px; }
 #pa-root .pa-sitecard .pa-srow-main { gap: 0 6px; line-height: 1.3; }
@@ -821,9 +823,11 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-crow { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(64px, 22%); align-items: center; gap: 4px 10px; padding: 8px 10px; border: 1px solid var(--pa-line); border-radius: 10px; background: var(--pa-card); cursor: pointer; }
 #pa-root .pa-crow.on { border-color: var(--pa-warn); background: var(--pa-card-2); }
 #pa-root .pa-cpair { border: 1px solid var(--pa-line); border-radius: 12px; background: var(--pa-card); padding: 0 10px; }
-#pa-root .pa-cpair > summary { display: grid; gap: 4px; padding: 10px 0; cursor: pointer; list-style: none; }
+#pa-root .pa-cpair > summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 6px; padding: 10px 0; cursor: pointer; list-style: none; }
 #pa-root .pa-cpair > summary::-webkit-details-marker { display: none; }
-#pa-root .pa-cpair > summary::before { content: "▸"; float: left; margin-right: 6px; color: var(--pa-dim); }
+/* 2.4.1 网格里浮动不起作用，箭头会自己占一行；改成左列放箭头，右列放标题和标签 */
+#pa-root .pa-cpair > summary::before { content: "▸"; color: var(--pa-dim); }
+#pa-root .pa-cpair > summary > * { grid-column: 2; }
 #pa-root .pa-cpair[open] > summary::before { content: "▾"; }
 #pa-root .pa-cpair-t { min-width: 0; overflow-wrap: anywhere; }
 #pa-root .pa-cpair-t b { font-weight: 600; }
@@ -1203,7 +1207,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-opthead .pa-sgcaret { flex: none; color: var(--pa-dim); }
 #pa-root .pa-optadd { display: flex; justify-content: center; width: 100%; background: none; border: 0; color: var(--pa-dim); font: inherit; cursor: pointer; }
 @media (hover: hover) { #pa-root .pa-optadd:hover { color: var(--pa-text); } }
-#pa-root .pa-why { flex: none; padding: 4px 2px 4px 6px; margin: 0; background: none; border: 0; color: var(--pa-dim); font-size: .9em; line-height: 1; cursor: pointer; }
+#pa-root .pa-why { flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 4px 2px 4px 6px; margin: 0; background: none; border: 0; color: var(--pa-dim); font-size: .9em; line-height: 1; cursor: pointer; }
+#pa-root svg.pa-info { width: 1.05em; height: 1.05em; stroke-width: 2; flex: none; }
+#pa-root .pa-tip > summary svg.pa-info { margin-right: 4px; vertical-align: -.17em; }
 #pa-root .pa-why[aria-expanded="true"] { color: var(--pa-text); }
 #pa-root .pa-whynote { margin: 2px 0 6px; padding: 4px 8px; border-left: 2px solid var(--pa-line); font-size: .82em; line-height: 1.5; color: var(--pa-dim); }
 #pa-root .pa-rflags { display: flex; flex-wrap: wrap; gap: 6px 16px; }
