@@ -197,7 +197,7 @@ test('fix declines when only text or duplicates are wrong', () => {
   assert.equal(planReplyFix('只有正文没有标签'), null);
   assert.equal(planReplyFix('<content>一</content><content>二</content>'), null);
 });
-test('leaked leading thought moves into the reasoning area (2.4.0)', () => {
+test('leaked leading thought moves into the reasoning area (2.4.1)', () => {
   const same = planReplyFix('我先分析一下用户的要求和人设，然后安排剧情发展。<content>正文</content>');
   assert.equal(same.text, '<content>正文</content>');
   assert.equal(same.reasoning, '我先分析一下用户的要求和人设，然后安排剧情发展。');

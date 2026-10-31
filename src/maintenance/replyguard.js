@@ -18,7 +18,7 @@ function latestReplyForCheck(chat) {
   }
   return last;
 }
-// 2.4.0 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改。
+// 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改。
 // 修正前的问题记在这里，下一轮照样提醒 AI；undo 供「格式」窗口撤销
 var replyAutoFixed = null;
 var replyAutoFixPending = false;

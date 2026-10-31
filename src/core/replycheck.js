@@ -302,7 +302,7 @@ function planReplyFix(text, inputRules, extra = {}) {
   let reasoning = typeof extra.reasoning === "string" ? extra.reasoning : null;
   const steps = [];
   const bodyTokens = () => replyTagTokens(replyCheckMask(mes), new Set([bodyKey])).filter((t) => !t.selfClosing);
-  // 0. 思考外泄（爆思维链，2.4.0）：回复开头一段没被任何标签包住的文字，原样移进思考区。
+  // 0. 思考外泄（爆思维链，2.4.1）：回复开头一段没被任何标签包住的文字，原样移进思考区。
   //    开头若是标签（如没闭合的 <thinking>）交给后面的步骤；只移到下一行开头的标签或注释为止，后面的锚定注释、标题等不动
   {
     const masked = replyCheckMask(mes);
