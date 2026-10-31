@@ -746,27 +746,28 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-keyrow { display: flex; align-items: center; gap: 6px; }
 #pa-root .pa-keyrow.pa-dragging { opacity: .6; }
 #pa-root .pa-key-grip { flex: none; padding: 8px 2px; color: var(--pa-dim); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; white-space: nowrap; letter-spacing: -3px; line-height: 1; }
-#pa-root .pa-key-name { flex: 0 0 6.5em; min-width: 0; }
+#pa-root .pa-key-name { flex: 0 0 5.5em; min-width: 0; }
+#pa-root .pa-keyrow .pa-input { min-height: 34px; padding-top: 5px; padding-bottom: 5px; }
 #pa-root .pa-key-val { flex: 1 1 auto; min-width: 0; }
 #pa-root .pa-key-cnt { flex: none; font-size: .78em; color: var(--pa-ok); white-space: nowrap; }
 #pa-root .pa-key-del { width: 28px; height: 28px; }
 #pa-root .pa-kview { align-self: start; }
 #pa-root .pa-kview button { min-height: 28px; padding: 3px 12px; }
 #pa-root .pa-kpick { gap: 0; border: 1px solid var(--pa-line); border-radius: 8px; }
-#pa-root .pa-kpick > .pa-mpick-item { border-width: 0 0 1px; border-radius: 0; min-height: 34px; padding: 6px 10px; }
+#pa-root .pa-kpick > .pa-mpick-item { border-width: 0 0 1px; border-radius: 0; min-height: 38px; padding: 7px 10px; }
 #pa-root .pa-kpick > .pa-mpick-item.on { border-color: var(--pa-line); }
 #pa-root .pa-kpick > .pa-hint { margin: 0; padding: 6px 10px; }
-#pa-root .pa-krow { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; padding: 3px 8px 3px 10px; border-bottom: 1px solid var(--pa-line); }
+#pa-root .pa-krow { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 5px; padding: 4px 8px 4px 10px; border-bottom: 1px solid var(--pa-line); }
 #pa-root .pa-krow:last-child, #pa-root .pa-kpick > :last-child { border-bottom: 0; }
 #pa-root .pa-krow.on { background: var(--pa-sel); }
 /* 屏幕外的行不排版、不绘制（iOS 18、安卓 Chrome 85 起生效，旧系统照常显示） */
-#pa-root .pa-krow, #pa-root .pa-kpick > .pa-mpick-item { content-visibility: auto; contain-intrinsic-size: auto 35px; }
-#pa-root .pa-kname { flex: 1 1 auto; min-width: 0; min-height: 28px; padding: 3px 0; border: 0; background: none; color: var(--pa-text); font-size: .94em; text-align: left; cursor: pointer; overflow-wrap: anywhere; font-family: inherit; }
+#pa-root .pa-krow, #pa-root .pa-kpick > .pa-mpick-item { content-visibility: auto; contain-intrinsic-size: auto 40px; }
+#pa-root .pa-kname { flex: 1 1 auto; min-width: 0; min-height: 30px; padding: 4px 0; border: 0; background: none; color: var(--pa-text); text-align: left; cursor: pointer; overflow-wrap: anywhere; font-family: inherit; }
 #pa-root .pa-krow.on .pa-kname { font-weight: 600; }
-#pa-root .pa-kchip, #pa-root .pa-kmore { flex: none; font: inherit; font-size: .72em; line-height: 1.65; padding: 0 7px; border-radius: 999px; border: 1px solid var(--pa-line); background: none; color: var(--pa-em); cursor: pointer; white-space: nowrap; }
+#pa-root .pa-kchip, #pa-root .pa-kmore { flex: none; font: inherit; font-size: .76em; line-height: 1.7; padding: 0 8px; border-radius: 999px; border: 1px solid var(--pa-line); background: none; color: var(--pa-em); cursor: pointer; white-space: nowrap; }
 #pa-root .pa-kchip.on { border-color: var(--pa-thread); background: var(--pa-thread); color: var(--pa-on-accent); }
 #pa-root .pa-kmore { border-style: dashed; color: var(--pa-dim); }
-#pa-root .pa-ksec { display: flex; align-items: baseline; gap: 6px; width: 100%; min-height: 32px; padding: 5px 10px; border: 0; border-bottom: 1px solid var(--pa-line); background: var(--pa-card); color: var(--pa-thread); text-align: left; cursor: pointer; font: inherit; }
+#pa-root .pa-ksec { display: flex; align-items: baseline; gap: 6px; width: 100%; min-height: 36px; padding: 6px 10px; border: 0; border-bottom: 1px solid var(--pa-line); background: var(--pa-card); color: var(--pa-thread); text-align: left; cursor: pointer; font: inherit; }
 #pa-root .pa-ksec small { color: var(--pa-dim); font-size: .8em; }
 #pa-root .pa-ksec .pa-ksec-n { margin-left: auto; color: var(--pa-dim); font-size: .85em; }
 /* 2.5.0 站点列表的「切换」：小圆角胶囊，按下轻轻一缩；触屏时点按范围照样约 44px */
