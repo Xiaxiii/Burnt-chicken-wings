@@ -302,6 +302,28 @@ function planReplyFix(text, inputRules, extra = {}) {
   let reasoning = typeof extra.reasoning === "string" ? extra.reasoning : null;
   const steps = [];
   const bodyTokens = () => replyTagTokens(replyCheckMask(mes), new Set([bodyKey])).filter((t) => !t.selfClosing);
+  // 0. 思考外泄（爆思维链，2.4.0）：回复开头一段没被任何标签包住的文字，原样移进思考区。
+  //    开头若是标签（如没闭合的 <thinking>）交给后面的步骤；只移到下一行开头的标签或注释为止，后面的锚定注释、标题等不动
+  {
+    const masked = replyCheckMask(mes);
+    const firstBody = bodyTokens().find((t) => !t.closing);
+    const lead = firstBody && replyLooseText(replyCheckMask(mes, true), masked, replyPairRanges(masked))[0];
+    const from = masked.search(/\S/);
+    if (lead && lead.letters >= 20 && lead.end <= firstBody.start && from >= lead.start && mes[from] !== "<") {
+      const next = /\n[ \t]*</g;
+      next.lastIndex = from;
+      const hit = next.exec(mes);
+      const to = hit && hit.index < lead.end ? hit.index : lead.end;
+      const block = mes.slice(from, to).trim();
+      const letters = (replyCheckMask(block).match(/[\p{L}\p{N}]/gu) || []).length;
+      if (letters >= 20) {
+        reasoning = (reasoning && reasoning.trim() ? reasoning.trimEnd() + "\n\n" : "") + block;
+        const head = mes.slice(0, from).trimEnd();
+        mes = head + (head ? "\n" : "") + mes.slice(to).trimStart();
+        steps.push(`把正文前约 ${letters} 字没被标签包住的思考（爆思维链）移进思考区`);
+      }
+    }
+  }
   // 1. 正文被酒馆解析进思考区：把思考区里的正文块移回可见回复开头
   if (reasoning && !bodyTokens().length && replyReasoningHasBody(reasoning, body)) {
     const masked = replyCheckMask(reasoning);
@@ -354,7 +376,9 @@ function planReplyFix(text, inputRules, extra = {}) {
     const masked = replyCheckMask(mes);
     const tokens = bodyTokens();
     const opens = tokens.filter((t) => !t.closing), closes = tokens.filter((t) => t.closing);
-    if (opens.length === 1 && !closes.length) {
+    // extra.noTailClose（自动修正用）：不在回复末尾补结束标签——可能只是被截断，补上后再「继续」会续到标签外面
+    const tailOnly = opens.length === 1 && !closes.length && extra.noTailClose && !replyTagTokens(masked).some((t) => !t.closing && !t.selfClosing && t.start > opens[0].end && (requiredKeys.has(t.key) || thinking.has(t.key))) && !replyPairRanges(masked).some((r) => r.start > opens[0].end && r.key !== bodyKey);
+    if (opens.length === 1 && !closes.length && !tailOnly) {
       const after = replyTagTokens(masked).find((t) => !t.closing && !t.selfClosing && t.start > opens[0].end && (requiredKeys.has(t.key) || thinking.has(t.key)));
       let end = after ? after.start : mes.length;
       const trim = () => { while (end > opens[0].end && /\s/.test(mes[end - 1])) end--; };

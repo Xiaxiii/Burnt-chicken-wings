@@ -196,6 +196,29 @@ test('fix declines when only text or duplicates are wrong', () => {
   assert.equal(planReplyFix('<content>好</content>'), null);
   assert.equal(planReplyFix('只有正文没有标签'), null);
   assert.equal(planReplyFix('<content>一</content><content>二</content>'), null);
-  assert.equal(planReplyFix('我先分析一下用户的要求和人设，然后安排剧情发展。<content>正文</content>'), null);
+});
+test('leaked leading thought moves into the reasoning area (2.4.0)', () => {
+  const same = planReplyFix('我先分析一下用户的要求和人设，然后安排剧情发展。<content>正文</content>');
+  assert.equal(same.text, '<content>正文</content>');
+  assert.equal(same.reasoning, '我先分析一下用户的要求和人设，然后安排剧情发展。');
+  assert(same.reasoningChanged);
+  // 开头的注释、后面的锚定注释和标题都留在原处，只移走没被包住的那一段
+  const text = '<!-- Start -->\n[按步骤详细思考下面所有要求，不要跳过任何一步]\n第一步：确认身份和任务。\n第二步：梳理前文和人物。\n<!-- 锚定: 视角 -->\n<novel_header>\n[CHAP] 07\n</novel_header>\n<content>\n正文\n</content>';
+  const plan = planReplyFix(text, undefined, { reasoning: '模型自带的思考' });
+  assert.equal(plan.text, '<!-- Start -->\n<!-- 锚定: 视角 -->\n<novel_header>\n[CHAP] 07\n</novel_header>\n<content>\n正文\n</content>');
+  assert.equal(plan.reasoning, '模型自带的思考\n\n[按步骤详细思考下面所有要求，不要跳过任何一步]\n第一步：确认身份和任务。\n第二步：梳理前文和人物。');
+  assert.deepEqual(plan.after.issues, []);
+  // 开头是没闭合的思考标签：仍按原来的方式在正文前补结束标签，不整段搬走
+  const open = planReplyFix('<thinking>\n第一步：确认身份和任务，梳理前文。\n<content>正文</content>');
+  assert.equal(open.text, '<thinking>\n第一步：确认身份和任务，梳理前文。\n</thinking>\n<content>正文</content>');
+  assert.equal(open.reasoningChanged, false);
+  // 字数太少不算
+  assert.equal(planReplyFix('好的。<content>正文</content>'), null);
+});
+test('auto fix does not close a possibly truncated body at the end', () => {
+  assert.equal(planReplyFix('<content>故事写到一半', undefined, { noTailClose: true }), null);
+  assert.equal(planReplyFix('<content>故事写到一半').text, '<content>故事写到一半\n</content>');
+  // 后面还有别的标签时，补在那个标签前面仍然安全
+  assert.equal(planReplyFix('<content>故事\n<状态栏>晴</状态栏>', { requiredTags: ['状态栏'] }, { noTailClose: true }).text, '<content>故事\n</content>\n<状态栏>晴</状态栏>');
 });
 console.log(`${passed} reply-format tests passed`);

@@ -40,12 +40,14 @@ async function replyFormatDialog(name) {
     <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40"></label>
     ${!saved.thinkingTag && thinkingDefault ? `<p class="pa-hint">已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。</p>` : ""}
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
+    <label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>
+    <p class="pa-hint">生成结束后自动做「修正这条回复」能做的修改：移动、补写标签，把正文前露出的思考移进思考区，不增删文字。末尾缺结束标签可能是被截断，不自动补，方便继续生成。改了会弹提示，可在这里撤销。</p>
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     <details class="pa-card"><summary>检测范围</summary><ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
-      <li>一键修正只改名、补齐或移动标签，不增删文字。提醒不保证模型遵守。</li></ul></details>
+      <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li></ul></details>
     <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
     <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
     <div data-r="result" aria-live="polite"></div>
@@ -63,6 +65,7 @@ async function replyFormatDialog(name) {
     if (thinkingTag) input.thinkingTag = thinkingTag;
     const rules = normalizeReplyRules(input);
     const value = { bodyTag: rules.bodyTag, requiredTags: rules.requiredTags, thinkingTag, enabled: available && body.querySelector('[data-r="enabled"]').checked };
+    if (body.querySelector('[data-r="autofix"]').checked) value.autoFix = true;
     if (semanticAvailable && body.querySelector('[data-r="semantic"]').checked) value.semanticAfterReply = true;
     return value;
   };
@@ -84,14 +87,15 @@ async function replyFormatDialog(name) {
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
     const left = plan ? plan.after.issues : [];
     const fix = plan ? `<div class="pa-card"><b>可修正的标签</b><ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-      <p class="pa-hint">${left.length ? `修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}` : "修正后未发现配置范围内的格式问题。"}只移动或补写标签，不增删文字。</p>
+      <p class="pa-hint">${left.length ? `修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}` : "修正后未发现配置范围内的格式问题。"}只移动文字、补写标签，不增删文字。</p>
       <details><summary>修正后原文预览</summary><pre class="pa-pre">${esc(plan.text)}</pre></details>
       ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不会写回聊天，可复制上面的预览。</p>'}</div>` : "";
-    const note = latest ? nativeReasoningNote(latest.message) : "";
+    const auto = latest && replyAutoFixFor(latest.index);
+    const note = (auto ? `<div class="pa-card"><p class="pa-p">这条回复已自动修正：${esc(auto.steps.join("；"))}。<button class="pa-link" data-r="undo-auto">撤销</button></p></div>` : "") + (latest ? nativeReasoningNote(latest.message) : "");
     result.innerHTML = note + `<p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : '<p class="pa-hint">这不代表正文语义、所有变量或其他输出格式已验证。</p>'}`;
   };
   body.addEventListener("click", async (e) => {
-    const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"]');
+    const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"], [data-r="undo-auto"]');
     if (!button) return;
     try {
       if (button.dataset.r === "fix") {
@@ -100,6 +104,14 @@ async function replyFormatDialog(name) {
         undo = await applyReplyFix(pending.index, pending.plan, pending.snapshot);
         check("latest");
         result.insertAdjacentHTML("afterbegin", `<p class="pa-p">已修正聊天第 ${undo.index + 1} 条消息的标签。<button class="pa-link" data-r="undo-fix">撤销</button></p>`);
+        return;
+      }
+      if (button.dataset.r === "undo-auto") {
+        if (!replyAutoFixed) return;
+        await undoReplyFix(replyAutoFixed.undo);
+        replyAutoFixed = null;
+        check("latest");
+        result.insertAdjacentHTML("afterbegin", '<p class="pa-p">已撤销自动修正。</p>');
         return;
       }
       if (button.dataset.r === "undo-fix") {
@@ -153,5 +165,6 @@ async function replyFormatDialog(name) {
   settings().replyGuard = { ...settings().replyGuard, [name]: value };
   saveSettings();
   clearReplyGuard();
-  toast(value.enabled ? "已开启：发现正文格式问题时，下一轮提醒 AI" : "已保存正文格式检查设置，自动提醒未开启", "success");
+  const on = [value.autoFix && "自动修正这条回复", value.enabled && "下一轮提醒 AI"].filter(Boolean);
+  toast(on.length ? `已开启：发现正文格式问题时，${on.join("，并")}` : "已保存正文格式检查设置，自动修正和提醒都未开启", "success");
 }
