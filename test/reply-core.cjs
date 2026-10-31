@@ -1,9 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix } = new Function(
+const { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix, learnReplyLayout } = new Function(
   fs.readFileSync(path.join(__dirname, '../src/core/replycheck.js'), 'utf8') +
-  '\nreturn { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix };'
+  '\nreturn { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix, learnReplyLayout };'
 )();
 let passed = 0;
 function test(name, run) {
@@ -220,5 +220,44 @@ test('auto fix does not close a possibly truncated body at the end', () => {
   assert.equal(planReplyFix('<content>故事写到一半').text, '<content>故事写到一半\n</content>');
   // 后面还有别的标签时，补在那个标签前面仍然安全
   assert.equal(planReplyFix('<content>故事\n<状态栏>晴</状态栏>', { requiredTags: ['状态栏'] }, { noTailClose: true }).text, '<content>故事\n</content>\n<状态栏>晴</状态栏>');
+});
+test('status bars and side stories leave the reasoning together with the body', () => {
+  const prev = ['<status>\n时间：夜\n</status>\n<content>\n上一条正文\n</content>\n<theater>\n上一条小剧场\n</theater>', '开场白'];
+  const layout = learnReplyLayout(prev);
+  assert.deepEqual(layout, { head: ['status'], tail: ['theater'] });
+  // 前几条回复的正文前后都有块：思考里的草稿块不搬，正文前的状态栏、注释和后面的小剧场一起搬
+  const reasoning = '我先想想剧情。\n<plan>草稿</plan>\n<status>\n时间：晨\n</status>\n<!-- 锚定 -->\n<content>\n这条正文\n</content>\n<theater>\n这条小剧场\n</theater>\n';
+  const plan = fixed('', undefined, { reasoning, layout });
+  assert.equal(plan.text, '<status>\n时间：晨\n</status>\n<!-- 锚定 -->\n<content>\n这条正文\n</content>\n<theater>\n这条小剧场\n</theater>');
+  assert.equal(plan.reasoning, '我先想想剧情。\n<plan>草稿</plan>');
+  assert.match(plan.steps[0], /连同前面的 <status>、后面的 <theater> 一起移回/);
+  assert.deepEqual(plan.after.issues, []);
+  // 学不到时，正文后面紧挨着的完整块照搬，正文前的块不动；必需标签也算
+  assert.equal(fixed('', undefined, { reasoning }).reasoning, '我先想想剧情。\n<plan>草稿</plan>\n<status>\n时间：晨\n</status>\n<!-- 锚定 -->');
+  assert.equal(fixed('', { requiredTags: ['status'] }, { reasoning }).reasoning, '我先想想剧情。\n<plan>草稿</plan>');
+  // 代码块写的状态栏也算
+  const fenced = fixed('', undefined, { reasoning: '想。\n```\n时间：晨\n```\n<content>正文</content>', layout: learnReplyLayout(['```\n时间：夜\n```\n<content>上一条</content>']) });
+  assert.equal(fenced.text, '```\n时间：晨\n```\n<content>正文</content>');
+});
+test('blocks left at the end of the reasoning go back to where earlier replies had them', () => {
+  const layout = learnReplyLayout(['<status>夜</status>\n<content>上一条</content>\n<theater>小剧场</theater>']);
+  const reasoning = '我先想想剧情。\n<status>\n时间：晨\n</status>\n<theater>\n这条小剧场\n</theater>';
+  const report = checkReplyFormat('<content>\n这条正文\n</content>', undefined, { reasoning, layout });
+  assert.deepEqual(report.issues.map((i) => i.kind), ['stranded']);
+  assert.match(buildReplyReminder(report), /思考标签必须在所有输出开始之前闭合/);
+  const plan = fixed('<content>\n这条正文\n</content>', undefined, { reasoning, layout });
+  assert.equal(plan.text, '<status>\n时间：晨\n</status>\n<content>\n这条正文\n</content>\n<theater>\n这条小剧场\n</theater>');
+  assert.equal(plan.reasoning, '我先想想剧情。');
+  assert.deepEqual(plan.after.issues, []);
+  // 可见回复里已经有的、思考中间提到的、没学到的都不动
+  assert.deepEqual(checkReplyFormat('<status>晨</status>\n<content>正文</content>', undefined, { reasoning: '想。\n<status>草稿</status>', layout }).issues, []);
+  assert.deepEqual(checkReplyFormat('<content>正文</content>', undefined, { reasoning: '想。\n<status>草稿</status>\n接着想。', layout }).issues, []);
+  assert.deepEqual(checkReplyFormat('<content>正文</content>', undefined, { reasoning: '想。\n<plan>草稿</plan>', layout }).issues, []);
+  assert.deepEqual(checkReplyFormat('<content>正文</content>', undefined, { reasoning: '想。\n<status>草稿</status>' }).issues, []);
+});
+test('blocks next to a body inside a visible thinking tag move out with it', () => {
+  const layout = learnReplyLayout(['<status>夜</status>\n<content>上一条</content>\n<theater>小剧场</theater>']);
+  assert.equal(fixed('<thinking>想\n<status>s</status>\n<content>正文</content>\n<theater>t</theater>\n</thinking>', undefined, { layout }).text, '<thinking>想\n</thinking>\n<status>s</status>\n<content>正文</content>\n<theater>t</theater>');
+  assert.equal(fixed('<thinking>想\n<status>s</status>\n<content>正文</content>', undefined, { layout }).text, '<thinking>想\n</thinking>\n<status>s</status>\n<content>正文</content>');
 });
 console.log(`${passed} reply-format tests passed`);

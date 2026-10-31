@@ -1,4 +1,4 @@
-// 只检查可见回复的标签与明显格式问题，也不索取思考过程。改写只在用户确认「修正标签」后进行，且只移动或补写标签。
+// 只检查可见回复的标签与明显格式问题，也不索取思考过程。改写只在用户确认「修正标签」或开了自动修正后进行，且只移动或补写标签。
 function replyRuleTag(value, field) {
   if (typeof value !== "string" || !/^[A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39}$/u.test(value.trim())) {
     throw new Error(`${field}须为 1–40 个字的标签名，以字母、中文或下划线开头，仅含字母、数字、中文、下划线或短横线`);
@@ -209,6 +209,11 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     if (replyReasoningHasBody(reasoning, rules.bodyTag)) add("reasoning", `酒馆把带 <${rules.bodyTag}> 的部分解析进了思考区，聊天里看到的正文可能缺失或不全`, rules.bodyTag);
     else if (!source.replace(/<[^<>]*>/g, "").trim() && reasoning.trim().length >= 200) add("reasoning", "可见回复为空，但思考区有大段内容；正文可能被整段解析进思考区", rules.bodyTag);
   }
+  // 正文已在可见回复里，思考区末尾却还留着本该在正文外的块（照前几条回复和必需标签判断）
+  if (body.opens && reasoning.trim()) {
+    const stuck = replyStrandedBlocks(source, reasoning, rules, extra.layout);
+    if (stuck.length) add("stranded", `思考区末尾留着 ${replyBlockLabel(stuck)}，本该在正文外（照前几条回复或必需标签判断），可能是和正文一起被吞进了思考区`);
+  }
   if (body.opens) {
     const covered = [...scopeRanges];
     for (const [key] of required) for (const range of stats.get(key).ranges) covered.push(range);
@@ -248,6 +253,7 @@ function buildReplyReminder(report, inputRules) {
   if (kinds.has("swallowed") || kinds.has("reasoning")) extra.push(`上一轮正文被写进了思考区：思考标签必须在 ${body} 开始之前闭合。`);
   if (report.issues.some((issue) => issue.kind === "outside" && issue.text.startsWith("正文标签前"))) extra.push(`上一轮在 ${body} 之前直接输出了分析文字：正文标签外不要写任何分析、计划或说明。`);
   else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文写完即结束，不追加说明或总结。`);
+  if (kinds.has("stranded")) extra.push(`上一轮正文外的状态栏等标签块被写进了思考区：思考标签必须在所有输出开始之前闭合。`);
   if (kinds.has("leak")) extra.push(`正文内不得出现思考标签。`);
   if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
   return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}正文不夹入思考步骤或内部分析；无需展示思考过程，也不要复述上一轮内容。`;
@@ -293,6 +299,86 @@ function replyBodyAlias(source, masked, rules) {
   }
   return null;
 }
+// ---- 正文外的完整块（状态栏、小剧场等）：正文被吞进思考区时一起搬出来，位置照前几条回复学。代码块记作 ```
+var REPLY_FENCE_KEY = "```";
+// 完整的代码块（围栏）；注释里的、没结束的不算
+function replyFenceRanges(text) {
+  const kept = replyCheckMask(text, true);
+  const out = [];
+  let open = null, offset = 0;
+  for (const line of kept.split(/(?<=\n)/)) {
+    const m = /^ {0,3}(`{3,}|~{3,})(.*?)(?:\r?\n)?$/.exec(line);
+    if (open) {
+      if (m && m[1][0] === open.char && m[1].length >= open.length && !m[2].trim()) {
+        out.push({ key: REPLY_FENCE_KEY, name: REPLY_FENCE_KEY, start: open.start, end: offset + line.replace(/\r?\n$/, "").length });
+        open = null;
+      }
+    } else if (m && !(m[1][0] === "`" && m[2].includes("`"))) open = { char: m[1][0], length: m[1].length, start: offset + line.search(/\S/) };
+    offset += line.length;
+  }
+  return out;
+}
+// [from, to) 里最外层的完整块：成对标签和代码块，按位置排序
+function replyTopBlocks(text, from = 0, to = text.length) {
+  const all = [...replyPairRanges(replyCheckMask(text)), ...replyFenceRanges(text)].filter((r) => r.start >= from && r.end <= to);
+  return all.filter((r) => !all.some((o) => o !== r && o.start <= r.start && o.end >= r.end))
+    .map((r) => r.name ? r : { ...r, name: /^<\s*([^\s<>\/]+)/.exec(text.slice(r.start, r.start + 60))?.[1] || r.key })
+    .sort((a, b) => a.start - b.start);
+}
+// 从 [start, end) 往前后走，收下紧挨着的完整块（中间只能是空白或注释），accept(块, "head"|"tail") 决定收不收
+function replyBlockChain(text, start, end, from, to, accept) {
+  const kept = replyCheckMask(text, true);
+  const blocks = replyTopBlocks(text, from, to);
+  const heads = [], tails = [];
+  let head = start, tail = end;
+  for (let b; (b = blocks.filter((x) => x.end <= head).at(-1)) && !kept.slice(b.end, head).trim() && accept(b, "head");) { heads.unshift(b); head = b.start; }
+  for (let b; (b = blocks.find((x) => x.start >= tail)) && !kept.slice(tail, b.start).trim() && accept(b, "tail");) { tails.push(b); tail = b.end; }
+  return { start: head, end: tail, heads, tails };
+}
+// 前几条回复（最近的在前）里正文前、后各有哪些完整块；只看最近 3 条有正文标签的
+function learnReplyLayout(texts, inputRules) {
+  const rules = normalizeReplyRules(inputRules);
+  const bodyKey = rules.bodyTag.toLowerCase();
+  const thinking = new Set(rules.thinkingTags.map((tag) => tag.toLowerCase()));
+  const layout = { head: [], tail: [] };
+  let used = 0;
+  for (const text of texts || []) {
+    if (used >= 3) break;
+    const source = String(text == null ? "" : text);
+    const blocks = replyTopBlocks(source);
+    const main = blocks.find((b) => b.key === bodyKey);
+    if (!main) continue;
+    used++;
+    for (const b of blocks) {
+      if (b.key === bodyKey || thinking.has(b.key)) continue;
+      const side = b.end <= main.start ? layout.head : layout.tail;
+      if (!side.includes(b.key)) side.push(b.key);
+    }
+  }
+  return layout;
+}
+// 本该在正文外的块：前几条回复里出现在正文外的，加上必需标签
+function replyKnownBlocks(rules, layout) {
+  const keys = new Set([...(layout?.head || []), ...(layout?.tail || []), ...rules.requiredTags.map((tag) => tag.toLowerCase())]);
+  keys.delete(rules.bodyTag.toLowerCase());
+  for (const tag of rules.thinkingTags) keys.delete(tag.toLowerCase());
+  return keys;
+}
+// 可见回复已有正文时，思考区末尾还留着、可见回复里却没有的已知块（同名只认最后一个）
+function replyStrandedBlocks(text, reasoning, inputRules, layout) {
+  const rules = normalizeReplyRules(inputRules);
+  const known = replyKnownBlocks(rules, layout);
+  const source = String(reasoning || "");
+  if (!known.size || !source.trim()) return [];
+  const mes = String(text == null ? "" : text);
+  const have = new Set(replyTagTokens(replyCheckMask(mes)).map((t) => t.key));
+  if (/^ {0,3}(`{3,}|~{3,})/m.test(replyCheckMask(mes, true))) have.add(REPLY_FENCE_KEY);
+  const seen = new Set();
+  return replyBlockChain(source, source.length, source.length, 0, source.length, (b) => known.has(b.key) && !have.has(b.key) && !seen.has(b.key) && !!seen.add(b.key)).heads;
+}
+function replyBlockLabel(blocks) {
+  return blocks.map((b) => b.key === REPLY_FENCE_KEY ? "代码块" : `<${b.name}>`).join("、");
+}
 function planReplyFix(text, inputRules, extra = {}) {
   const rules = normalizeReplyRules(inputRules);
   const body = rules.bodyTag, bodyKey = body.toLowerCase();
@@ -301,6 +387,10 @@ function planReplyFix(text, inputRules, extra = {}) {
   let mes = String(text == null ? "" : text);
   let reasoning = typeof extra.reasoning === "string" ? extra.reasoning : null;
   const steps = [];
+  const layout = extra.layout || null;
+  const known = replyKnownBlocks(rules, layout);
+  // 紧挨着正文的块：后面的完整块都算正文外的输出；前面的只认前几条回复里出现在正文外的，免得把思考里的步骤块搬出来
+  const nearBody = (b, side) => b.key !== bodyKey && !thinking.has(b.key) && (side === "tail" || known.has(b.key));
   const bodyTokens = () => replyTagTokens(replyCheckMask(mes), new Set([bodyKey])).filter((t) => !t.selfClosing);
   // 0. 思考外泄（爆思维链，2.4.1）：回复开头一段没被任何标签包住的文字，原样移进思考区。
   //    开头若是标签（如没闭合的 <thinking>）交给后面的步骤；只移到下一行开头的标签或注释为止，后面的锚定注释、标题等不动
@@ -324,18 +414,19 @@ function planReplyFix(text, inputRules, extra = {}) {
       }
     }
   }
-  // 1. 正文被酒馆解析进思考区：把思考区里的正文块移回可见回复开头
+  // 1. 正文被酒馆解析进思考区：把思考区里的正文块移回可见回复开头，紧挨着的状态栏、小剧场等一起搬
   if (reasoning && !bodyTokens().length && replyReasoningHasBody(reasoning, body)) {
     const masked = replyCheckMask(reasoning);
     const tokens = replyTagTokens(masked, new Set([bodyKey])).filter((t) => !t.selfClosing);
     const open = tokens.find((t) => !t.closing);
     const close = open && tokens.find((t) => t.closing && t.start > open.start);
-    const end = close ? close.end : reasoning.length;
-    let block = reasoning.slice(open.start, end).trim();
+    const chain = replyBlockChain(reasoning, open.start, close ? close.end : reasoning.length, 0, reasoning.length, nearBody);
+    let block = reasoning.slice(chain.start, chain.end).trim();
     if (!close) block += `\n</${body}>`;
-    reasoning = (reasoning.slice(0, open.start).trimEnd() + "\n" + reasoning.slice(end).trimStart()).trim();
+    reasoning = (reasoning.slice(0, chain.start).trimEnd() + "\n" + reasoning.slice(chain.end).trimStart()).trim();
     mes = block + (mes.trim() ? "\n" + mes.trimStart() : "");
-    steps.push(`把思考区里的 <${body}>…</${body}> 移回可见回复开头${close ? "" : "，并补上结束标签"}`);
+    const withs = [chain.heads.length && `前面的 ${replyBlockLabel(chain.heads)}`, chain.tails.length && `后面的 ${replyBlockLabel(chain.tails)}`].filter(Boolean);
+    steps.push(`把思考区里的 <${body}>…</${body}>${withs.length ? ` 连同${withs.join("、")} 一起` : ""}移回可见回复开头${close ? "" : "，并补上结束标签"}`);
   }
   // 2. 正文标签写错名或用了方括号：改成配置的正文标签
   if (!bodyTokens().length) {
@@ -355,19 +446,21 @@ function planReplyFix(text, inputRules, extra = {}) {
     if (thinkOpen) {
       const thinkClose = tokens.find((t) => t.key === thinkOpen.key && t.closing && t.start > thinkOpen.start);
       const closedBefore = thinkClose && thinkClose.start < bodyOpen.start;
+      const bodyClose = tokens.find((t) => t.key === bodyKey && t.closing && t.start > bodyOpen.start);
+      // 正文前后紧挨着的状态栏、小剧场等跟正文一起算
+      const chain = replyBlockChain(mes, bodyOpen.start, bodyClose ? bodyClose.end : bodyOpen.end, thinkOpen.end, thinkClose ? thinkClose.start : mes.length, nearBody);
+      const ahead = chain.heads.length ? `${replyBlockLabel(chain.heads.slice(0, 1))}` : `<${body}>`;
       if (!thinkClose) {
-        // 思考标签没有结束：在正文开始前补上
-        mes = mes.slice(0, bodyOpen.start).trimEnd() + `\n</${thinkOpen.name}>\n` + mes.slice(bodyOpen.start);
-        steps.push(`在 <${body}> 前补上 </${thinkOpen.name}>，让思考区在正文开始前结束`);
-      } else if (!closedBefore) {
-        const bodyClose = tokens.find((t) => t.key === bodyKey && t.closing && t.start > bodyOpen.start);
-        if (bodyClose && bodyClose.end <= thinkClose.start) {
-          // 整段正文在思考区内：移到思考区结束之后
-          const block = mes.slice(bodyOpen.start, bodyClose.end);
-          const inner = mes.slice(0, bodyOpen.start).trimEnd() + "\n" + mes.slice(bodyClose.end, thinkClose.start).trimStart();
-          mes = inner.trimEnd() + "\n" + mes.slice(thinkClose.start, thinkClose.end) + "\n" + block + mes.slice(thinkClose.end);
-          steps.push(`把 <${body}>…</${body}> 从 <${thinkOpen.name}> 里移到 </${thinkOpen.name}> 之后`);
-        }
+        // 思考标签没有结束：在正文（及正文前的块）开始前补上
+        mes = mes.slice(0, chain.start).trimEnd() + `\n</${thinkOpen.name}>\n` + mes.slice(chain.start);
+        steps.push(`在 ${ahead} 前补上 </${thinkOpen.name}>，让思考区在正文开始前结束`);
+      } else if (!closedBefore && bodyClose && bodyClose.end <= thinkClose.start) {
+        // 整段正文在思考区内：连同紧挨着的块移到思考区结束之后
+        const block = mes.slice(chain.start, chain.end);
+        const inner = mes.slice(0, chain.start).trimEnd() + "\n" + mes.slice(chain.end, thinkClose.start).trimStart();
+        mes = inner.trimEnd() + "\n" + mes.slice(thinkClose.start, thinkClose.end) + "\n" + block + mes.slice(thinkClose.end);
+        const withs = [...chain.heads, ...chain.tails];
+        steps.push(`把 <${body}>…</${body}>${withs.length ? ` 连同 ${replyBlockLabel(withs)} 一起` : ""}从 <${thinkOpen.name}> 里移到 </${thinkOpen.name}> 之后`);
       }
     }
   }
@@ -400,8 +493,29 @@ function planReplyFix(text, inputRules, extra = {}) {
       steps.push(thinkClose ? `在 </${thinkClose.name}> 之后补上 <${body}>` : `在回复开头补上 <${body}>`);
     }
   }
+  // 5. 可见回复已有完整正文，思考区末尾还留着本该在正文外的块（如上次修正只搬出了正文）：
+  //    前几条回复里在正文前的放回正文前，其余放到正文后；只移动，不改文字
+  {
+    const tokens = bodyTokens();
+    const open = tokens.find((t) => !t.closing);
+    const close = open && tokens.find((t) => t.closing && t.start > open.start);
+    const stuck = close && reasoning ? replyStrandedBlocks(mes, reasoning, rules, layout) : [];
+    if (stuck.length) {
+      const heads = stuck.filter((b) => layout?.head?.includes(b.key) && !layout.tail?.includes(b.key));
+      const tails = stuck.filter((b) => !heads.includes(b));
+      const pick = (list) => list.map((b) => reasoning.slice(b.start, b.end)).join("\n");
+      if (tails.length) mes = mes.slice(0, close.end) + "\n" + pick(tails) + mes.slice(close.end);
+      if (heads.length) {
+        const before = mes.slice(0, open.start);
+        mes = before + (before && !/\n[ \t]*$/.test(before) ? "\n" : "") + pick(heads) + "\n" + mes.slice(open.start);
+      }
+      for (const b of [...stuck].reverse()) reasoning = reasoning.slice(0, b.start).trimEnd() + "\n" + reasoning.slice(b.end).trimStart();
+      reasoning = reasoning.trim();
+      steps.push(`把思考区末尾的 ${[heads.length && `${replyBlockLabel(heads)} 放回 <${body}> 前`, tails.length && `${replyBlockLabel(tails)} 放到 </${body}> 后`].filter(Boolean).join("、")}`);
+    }
+  }
   if (!steps.length) return null;
-  return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "" }) };
+  return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "", layout }) };
 }
 
 // 从预设开着的条目里猜正文标签：数各候选标签被写成 <标签> 的次数，取最多的。

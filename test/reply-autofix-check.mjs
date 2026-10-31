@@ -1,4 +1,5 @@
 // 2.4.1 正文格式自动修正：生成结束后自动修好这条回复，下一轮仍按修正前的问题提醒，可在「格式」窗口撤销。
+// 正文被吞进思考区时，前后的状态栏、小剧场照前几条回复一起搬出来。
 // 先构建并在仓库根目录运行 8765 静态服务。
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -91,6 +92,32 @@ try {
   await generate('<content>\n故事写到一半');
   assert.equal((await chat()).mes, '<content>\n故事写到一半', '末尾不补结束标签');
   ok('手动停止、续写、可能被截断的回复不自动改');
+
+  // 正文连同状态栏、小剧场被吞进思考区：照开场白的结构一起搬出来；上次只搬出正文的，留在思考区末尾的块也放回原位
+  const swallow = (mes, reasoning) => page.evaluate(([mes, reasoning]) => {
+    window.SillyTavern.getContext().chat = [{ is_user: false, mes: '<status>夜</status>\n<content>开场白</content>\n<theater>小剧场</theater>' }, { is_user: true, mes: '继续' }, { is_user: false, mes, extra: { reasoning } }];
+  }, [mes, reasoning]);
+  const endTurn = async () => {
+    await page.evaluate(async () => { const c = window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS, 'normal', {}, false); });
+  };
+  const finish = async () => {
+    await page.evaluate(async () => { const c = window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes.GENERATION_ENDED); });
+    await page.waitForTimeout(700);
+  };
+  await endTurn();
+  await swallow('', '想一想。\n<status>晨</status>\n<content>\n正文\n</content>\n<theater>这条小剧场</theater>');
+  await finish();
+  let m = await chat();
+  assert.equal(m.mes, '<status>晨</status>\n<content>\n正文\n</content>\n<theater>这条小剧场</theater>');
+  assert.equal(m.extra.reasoning, '想一想。');
+  ok('正文连同前后的状态栏、小剧场一起搬出思考区');
+  await endTurn();
+  await swallow('<content>\n正文\n</content>', '想一想。\n<status>晨</status>\n<theater>这条小剧场</theater>');
+  await finish();
+  m = await chat();
+  assert.equal(m.mes, '<status>晨</status>\n<content>\n正文\n</content>\n<theater>这条小剧场</theater>');
+  assert.equal(m.extra.reasoning, '想一想。');
+  ok('留在思考区末尾的块照开场白放回正文前后');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();
