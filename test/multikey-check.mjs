@@ -71,8 +71,8 @@ try {
   assert.deepEqual(await page.locator(".pa-sheet .pa-key-cnt").allInnerTexts(), ["✓ 2", "✓ 4"]);
   assert.equal(await page.locator(".pa-kview button.on").innerText(), "按模型", "默认按模型");
   const row = page.locator(".pa-krow", { hasText: "gemini-2.5-pro" });
-  assert.deepEqual(await row.locator(".pa-kchip").allInnerTexts(), ["按次", "按量"]);
-  assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-flash-lite" }).locator(".pa-kchip").allInnerTexts(), ["按量"]);
+  assert.deepEqual(await row.locator(".pa-kchip").allTextContents(), ["按次", "按量"]);
+  assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-flash-lite" }).locator(".pa-kchip").allTextContents(), ["按量"]);
   await row.locator(".pa-kchip", { hasText: "按量" }).click(); await page.waitForTimeout(300);
   assert.match(await page.locator(".pa-sheet [data-f=modelbtn]").innerText(), /gemini-2\.5-pro[\s\S]*按量/);
   assert.equal(await vault(), "old*,aaa,bbb", "拉模型时用过的密钥切回原来在用的");
@@ -161,7 +161,7 @@ try {
   assert.equal(await pro.locator(".pa-kchip").count(), 1);
   assert.equal(await pro.locator(".pa-kmore").innerText(), "+3");
   await pro.locator(".pa-kmore").click();
-  assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-pro" }).locator(".pa-kchip").allInnerTexts(), ["按次", "按量", "特价", "密钥 4"], "没填名称的叫「密钥 N」");
+  assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-pro" }).locator(".pa-kchip").allTextContents(), ["按次", "按量", "特价", "密钥 4"], "没填名称的叫「密钥 N」");
   await page.locator(".pa-sheet-x").last().click();
   ok("标签超过 2 个收成「+N」，点开全部");
 

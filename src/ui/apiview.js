@@ -44,6 +44,9 @@ async function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
   const secOpen = new Set([keys[0].id]);
   const more = new Set();
   const all = [...new Set(keys.flatMap((k) => k.models || []))];
+  // 每个模型有哪些分组：先算好，搜索时不再逐个分组查（中转站动辄几百个模型）
+  const ownersOf = new Map(all.map((m) => [m, []]));
+  for (const k of keys) for (const m of new Set(k.models || [])) ownersOf.get(m).push(k);
   const body = el(`<div class="pa-mpick">
       <div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式"><button type="button" data-v="model" role="tab">按模型</button><button type="button" data-v="group" role="tab">按分组</button></div>
       <input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off"><div class="pa-mpick-list pa-kpick" role="listbox"></div></div>`);
@@ -66,7 +69,7 @@ async function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
     if (mode === "model") {
       const custom = q && !known ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}" data-k="${esc(keys[0].id)}">使用「${esc(q)}」</button>` : "";
       const rows = all.filter(hit).map((m) => {
-        const owners = keys.filter((k) => (k.models || []).includes(m));
+        const owners = ownersOf.get(m);
         const on = m === curModel;
         let tail;
         if (owners.length <= 2) tail = owners.map((k) => chip(m, k)).join("");
@@ -92,7 +95,12 @@ async function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
       }).join("");
     }
   };
-  input.addEventListener("input", paint);
+  // 模型多时逐字重画会卡：停顿一下再画
+  let typing = null;
+  input.addEventListener("input", () => {
+    clearTimeout(typing);
+    typing = setTimeout(paint, all.length > 150 ? 120 : 0);
+  });
   paint();
   await sheet({ title: `${title}（${all.length}）`, body, noFocus: true, actions: [{ label: "取消", value: null }], onMount: (w) => {
     body.querySelector(".pa-kview").addEventListener("click", (e) => {
@@ -118,7 +126,7 @@ async function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
       if (!b) return;
       let k = b.dataset.k;
       // 按模型：点的是已选中的模型名，保留现在的分组
-      if (b.classList.contains("pa-kname") && b.dataset.m === curModel && keys.some((x) => x.id === curKey && (x.models || []).includes(curModel))) k = curKey;
+      if (b.classList.contains("pa-kname") && b.dataset.m === curModel && (ownersOf.get(curModel) || []).some((x) => x.id === curKey)) k = curKey;
       picked = { model: b.dataset.m, keyId: k };
       w.querySelector(".pa-sheet-x").click();
     });
@@ -255,7 +263,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const info = [x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       return `<div class="pa-sgroup pa-sitecard pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
             <div class="pa-srow-main pa-site-name" data-a="edit" title="查看、编辑"><b>${esc(x.name)}</b><small class="pa-site-model">${esc(info)}</small></div>
-            ${on ? '<span class="pa-chip">使用中</span>' : '<button class="pa-btn pa-btn-s" data-a="use">切换</button>'}</div>`;
+            ${on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
     };
     // 2.5.0 多密钥站点：左边小三角，点开每个分组一行，各有「切换」；折起时小字是当前分组和模型
     const multiRow = (x, on, used) => {
@@ -264,12 +272,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", `${x.keys.length} 个分组`, x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       const lines = open ? `<div class="pa-klines">${x.keys.map((y) => {
         const cur = on && y.id === k.id;
-        return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc(y.model || "未选模型")}</small></div>${cur ? '<span class="pa-chip">使用中</span>' : '<button class="pa-btn pa-btn-s" data-a="use">切换</button>'}</div>`;
+        return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc(y.model || "未选模型")}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
       }).join("")}</div>` : "";
       return `<div class="pa-sgroup pa-sitecard pa-site pa-site-multi${on ? " pa-srow-on" : ""}${open ? " open" : ""}" data-id="${esc(x.id)}">
             <div class="pa-site-mhead"><button class="pa-icon-btn pa-site-fold" data-a="sitefold" type="button" aria-expanded="${open}" aria-label="${open ? "收起分组" : "展开分组"}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span></button>
             <div class="pa-srow-main pa-site-name" data-a="edit" title="查看、编辑"><b>${esc(x.name)}</b><small class="pa-site-model">${esc(info)}</small></div>
-            ${on ? '<span class="pa-chip">使用中</span>' : ""}</div>${lines}</div>`;
+            ${on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : ""}</div>${lines}</div>`;
     };
     const info = (t, d) => `<div class="pa-srow"><div class="pa-srow-main"><b>${t}</b><small>${d}</small></div></div>`;
     const follow = s.reasoningFollowPreset === true;
@@ -385,7 +393,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const many = ks.length > 1;
       keysBox.classList.toggle("pa-keys-many", many);
       keysBox.innerHTML = ks.map((k, i) => {
-        const ph = hasKey(k) ? (k.keyMask ? `${k.keyMask}，不修改请留空` : "不修改请留空") : many ? "粘贴密钥，可多行" : "留空则使用酒馆当前密钥，可多行粘贴";
+        const ph = hasKey(k) ? (k.keyMask ? `${k.keyMask} · 留空不改` : "不修改请留空") : many ? "粘贴密钥，可多行" : "留空则使用酒馆当前密钥，可多行粘贴";
         const cnt = (k.models || []).length ? `<span class="pa-key-cnt" title="拉取到的模型">✓ ${k.models.length}</span>` : "";
         return `<div class="pa-keyrow" data-k="${esc(k.id)}">
             ${many ? `<span class="pa-key-grip" aria-hidden="true" title="拖动调顺序，排在上面的优先">⋮⋮</span><input class="pa-input pa-key-name" data-f="keyname" value="${esc(k.name)}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
