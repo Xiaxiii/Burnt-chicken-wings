@@ -265,6 +265,14 @@ test('blocks left at the end of the reasoning go back to where earlier replies h
   assert.deepEqual(checkReplyFormat('<content>正文</content>', undefined, { reasoning: '想。\n<plan>草稿</plan>', layout }).issues, []);
   assert.deepEqual(checkReplyFormat('<content>正文</content>', undefined, { reasoning: '想。\n<status>草稿</status>' }).issues, []);
 });
+test('earlier replies are only read when the check needs them', () => {
+  let calls = 0;
+  const layout = () => { calls++; return learnReplyLayout(['<status>夜</status>\n<content>上一条</content>']); };
+  assert.deepEqual(checkReplyFormat('<content>正文</content>', undefined, { reasoning: '想了很久。\n<status>草稿</status>\n接着想。', layout }).issues, []);
+  assert.equal(calls, 0, '思考区末尾不是标签时不去学');
+  assert.equal(checkReplyFormat('<content>正文</content>', undefined, { reasoning: '想。\n<status>晨</status>', layout }).issues[0].kind, 'stranded');
+  assert.equal(calls, 1);
+});
 test('blocks next to a body inside a visible thinking tag move out with it', () => {
   const layout = learnReplyLayout(['<status>夜</status>\n<content>上一条</content>\n<theater>小剧场</theater>']);
   assert.equal(fixed('<thinking>想\n<status>s</status>\n<content>正文</content>\n<theater>t</theater>\n</thinking>', undefined, { layout }).text, '<thinking>想\n</thinking>\n<status>s</status>\n<content>正文</content>\n<theater>t</theater>');

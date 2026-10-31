@@ -210,8 +210,10 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     else if (!source.replace(/<[^<>]*>/g, "").trim() && reasoning.trim().length >= 200) add("reasoning", "可见回复为空，但思考区有大段内容；正文可能被整段解析进思考区", rules.bodyTag);
   }
   // 正文已在可见回复里，思考区末尾却还留着本该在正文外的块（照前几条回复和必需标签判断）
-  if (body.opens && reasoning.trim()) {
-    const stuck = replyStrandedBlocks(source, reasoning, rules, extra.layout);
+  let learned;
+  const layoutOf = () => learned === undefined ? (learned = replyLayoutValue(extra.layout)) : learned;
+  if (body.opens && replyEndsWithBlock(reasoning)) {
+    const stuck = replyStrandedBlocks(source, reasoning, rules, layoutOf());
     if (stuck.length) add("stranded", `思考区末尾留着 ${replyBlockLabel(stuck)}，本该在正文外（照前几条回复或必需标签判断），可能是和正文一起被吞进了思考区`);
   }
   if (body.opens) {
@@ -239,7 +241,7 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     }
     offset += line.length;
   }
-  return { issues, rules, layout: extra.layout || null };
+  return { issues, rules, layout: issues.length ? layoutOf() : null };
 }
 
 function buildReplyReminder(report, inputRules) {
@@ -308,8 +310,7 @@ function replyBodyAlias(source, masked, rules) {
 // ---- 正文外的完整块（状态栏、小剧场等）：正文被吞进思考区时一起搬出来，位置照前几条回复学。代码块记作 ```
 var REPLY_FENCE_KEY = "```";
 // 完整的代码块（围栏）；注释里的、没结束的不算
-function replyFenceRanges(text) {
-  const kept = replyCheckMask(text, true);
+function replyFenceRanges(text, kept = replyCheckMask(text, true)) {
   const out = [];
   let open = null, offset = 0;
   for (const line of kept.split(/(?<=\n)/)) {
@@ -325,16 +326,22 @@ function replyFenceRanges(text) {
   return out;
 }
 // [from, to) 里最外层的完整块：成对标签和代码块，按位置排序
-function replyTopBlocks(text, from = 0, to = text.length) {
-  const all = [...replyPairRanges(replyCheckMask(text)), ...replyFenceRanges(text)].filter((r) => r.start >= from && r.end <= to);
-  return all.filter((r) => !all.some((o) => o !== r && o.start <= r.start && o.end >= r.end))
-    .map((r) => r.name ? r : { ...r, name: /^<\s*([^\s<>\/]+)/.exec(text.slice(r.start, r.start + 60))?.[1] || r.key })
-    .sort((a, b) => a.start - b.start);
+// 成对标签只会嵌套或分开，不会交叉：按开头排序扫一遍，被前一个外层块包住的跳过（重 HTML 状态栏也是线性）
+function replyTopBlocks(text, from = 0, to = text.length, kept) {
+  const all = [...replyPairRanges(replyCheckMask(text)), ...replyFenceRanges(text, kept)].filter((r) => r.start >= from && r.end <= to).sort((a, b) => a.start - b.start || b.end - a.end);
+  const top = [];
+  let reach = -1;
+  for (const r of all) {
+    if (r.end <= reach) continue;
+    reach = r.end;
+    top.push(r.name ? r : { ...r, name: /^<\s*([^\s<>\/]+)/.exec(text.slice(r.start, r.start + 60))?.[1] || r.key });
+  }
+  return top;
 }
 // 从 [start, end) 往前后走，收下紧挨着的完整块（中间只能是空白或注释），accept(块, "head"|"tail") 决定收不收
 function replyBlockChain(text, start, end, from, to, accept) {
   const kept = replyCheckMask(text, true);
-  const blocks = replyTopBlocks(text, from, to);
+  const blocks = replyTopBlocks(text, from, to, kept);
   const heads = [], tails = [];
   let head = start, tail = end;
   for (let b; (b = blocks.filter((x) => x.end <= head).at(-1)) && !kept.slice(b.end, head).trim() && accept(b, "head");) { heads.unshift(b); head = b.start; }
@@ -365,6 +372,10 @@ function learnReplyLayout(texts, inputRules) {
   return layout;
 }
 // 本该在正文外的块：前几条回复里出现在正文外的，加上必需标签
+// layout 可以是函数（用到时才去学前几条回复），这里统一取值
+function replyLayoutValue(layout) {
+  return typeof layout === "function" ? layout() : layout || null;
+}
 function replyKnownBlocks(rules, layout) {
   const keys = new Set([...(layout?.head || []), ...(layout?.tail || []), ...rules.requiredTags.map((tag) => tag.toLowerCase())]);
   keys.delete(rules.bodyTag.toLowerCase());
@@ -372,11 +383,16 @@ function replyKnownBlocks(rules, layout) {
   return keys;
 }
 // 可见回复已有正文时，思考区末尾还留着、可见回复里却没有的已知块（同名只认最后一个）
+// 末尾（去掉空白）是标签或代码块围栏才可能留着块；先用这个便宜的判断挡掉绝大多数回复
+function replyEndsWithBlock(text) {
+  const tail = String(text || "").slice(-400).trimEnd();
+  return tail.endsWith(">") || /(?:^|\n) {0,3}(?:`{3,}|~{3,})$/.test(tail);
+}
 function replyStrandedBlocks(text, reasoning, inputRules, layout) {
   const rules = normalizeReplyRules(inputRules);
   const known = replyKnownBlocks(rules, layout);
   const source = String(reasoning || "");
-  if (!known.size || !source.trim()) return [];
+  if (!known.size || !replyEndsWithBlock(source)) return [];
   const mes = String(text == null ? "" : text);
   const have = new Set(replyTagTokens(replyCheckMask(mes)).map((t) => t.key));
   if (/^ {0,3}(`{3,}|~{3,})/m.test(replyCheckMask(mes, true))) have.add(REPLY_FENCE_KEY);
@@ -394,7 +410,7 @@ function planReplyFix(text, inputRules, extra = {}) {
   let mes = String(text == null ? "" : text);
   let reasoning = typeof extra.reasoning === "string" ? extra.reasoning : null;
   const steps = [];
-  const layout = extra.layout || null;
+  const layout = replyLayoutValue(extra.layout);
   const known = replyKnownBlocks(rules, layout);
   // 紧挨着正文的块：后面的完整块都算正文外的输出；前面的只认前几条回复里出现在正文外的，免得把思考里的步骤块搬出来
   const nearBody = (b, side) => b.key !== bodyKey && !thinking.has(b.key) && (side === "tail" || known.has(b.key));

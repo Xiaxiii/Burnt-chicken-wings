@@ -85,7 +85,7 @@ async function replyFormatDialog(name) {
       source = `聊天第 ${latest.index + 1} 条消息`;
     }
     const chat = ctx().chat;
-    const layout = replyLayoutBefore(chat, latest ? latest.index : Array.isArray(chat) ? chat.length : 0, config);
+    const layout = replyLayoutLazy(chat, latest ? latest.index : Array.isArray(chat) ? chat.length : 0, config);
     const report = checkReplyFormat(text, config, { reasoning, layout });
     const reminder = buildReplyReminder(report, config);
     const plan = report.issues.length ? planReplyFix(text, config, { reasoning, layout }) : null;
