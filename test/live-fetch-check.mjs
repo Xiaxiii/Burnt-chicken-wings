@@ -31,6 +31,17 @@ try {
   await page.click('[data-a=livemodel]');
   await page.locator('.pa-mpick-item').first().waitFor();
   assert.equal(await page.locator('.pa-mpick-item').count(), 3, '点 ▾ 列出全部模型');
+  // 2.5.0 按系列：Claude、Gemini 分段，当前模型所在的那段展开；选择记在设置里
+  await page.locator('.pa-kview [data-v=family]').click();
+  assert.deepEqual(await page.locator('.pa-ksec b').allTextContents(), ['Claude', 'Gemini']);
+  assert.deepEqual(await page.locator('.pa-ksec').evaluateAll((x) => x.map((y) => y.getAttribute('aria-expanded'))), ['true', 'false'], '展开当前模型所在的系列');
+  assert.equal(await page.locator('.pa-mpick-item').count(), 2);
+  await page.locator('.pa-ksec', { hasText: 'Gemini' }).click();
+  assert.equal(await page.locator('.pa-mpick-item').count(), 3);
+  await page.fill('.pa-mpick input', 'gem');
+  await page.waitForTimeout(100);
+  assert.deepEqual(await page.locator('.pa-ksec b').allTextContents(), ['Gemini'], '搜索时只留有结果的系列');
+  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.modelView), 'family');
   await page.locator('.pa-sheet-x').last().click();
   ok('拉取后出现 ▾，点开是全部模型');
 

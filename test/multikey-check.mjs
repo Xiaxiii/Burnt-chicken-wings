@@ -176,6 +176,11 @@ try {
   await pro.locator(".pa-kmore").click();
   assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-pro" }).locator(".pa-kchip").allTextContents(), ["按次", "按量", "特价", "密钥 4"], "没填名称的叫「密钥 N」");
   await page.locator(".pa-sheet-x").last().click();
+  // 按系列：只有一个系列（全是 Gemini）时不出现这个选项
+  await page.click("[data-a=livemodel]");
+  await page.locator(".pa-kpick").waitFor();
+  assert.deepEqual(await page.locator(".pa-kview button").allTextContents(), ["按模型", "按分组"], "只有一个系列时没有「按系列」");
+  await page.locator(".pa-sheet-x").last().click();
   ok("标签超过 2 个收成「+N」，点开全部");
 
   // 7) 编辑删到只剩一个密钥：写回站点上，和单密钥站点一样
