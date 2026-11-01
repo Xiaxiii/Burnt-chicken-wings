@@ -119,7 +119,7 @@ function mountCot(page, app) {
     const okN = counts.var + counts.chain;
     const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字提及并用" : "以文字提及为主，不读取变量";
     page.querySelector("[data-repair-all]").disabled = !dead.length;
-    // 2.5.0 结论并进「待核对」：标题就是结论，下面是要核对的条目，四个数字放在这块下面；没有问题时只留一行
+    // 2.5.0 结论就是「待核对」的标题，下面是要核对的条目，四个数字放在条目下面；没有问题时只留一行
     const styleLine = a.cotIds.length ? `思维链${style}` : "未识别到开启的思维链，可在下方手动指定";
     const info = `<button class="pa-why" type="button" data-tipbtn aria-label="说明" aria-expanded="false" title="说明">${INFO_ICON}</button>`;
     const legendNote = `<div class="pa-whynote" data-tipnote hidden><ul class="pa-legend">
@@ -160,12 +160,13 @@ function mountCot(page, app) {
                     ${forCot ? `<button class="pa-btn pa-btn-s" data-cotread="${esc(i.varName)}">加入思维链读取</button>` : `<button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button>`}<button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
       }
     }
+    // 2.5.0 标题和各项分开：标题一行不加框，每一项各自一个框
     let html = dead.length
-      ? `<div class="pa-verdict pa-bad">
+      ? `<div class="pa-verdict-head">
             <div class="pa-verdict-top"><p><b>${dead.length} 项变量读取待核对</b><small class="pa-verdict-sub">${styleLine}</small></p>${info}</div>
             ${legendNote}
-            <div class="pa-cards">${deadHtml}</div>
-        </div>`
+        </div>
+        <div class="pa-cards pa-dead-list">${deadHtml}</div>`
       : `<div class="pa-verdict-line${a.cotIds.length ? " pa-good" : ""}"><div class="pa-verdict-top"><p>${a.cotIds.length ? "没有读取问题 · " : ""}${styleLine}</p>${info}</div>${legendNote}</div>`;
     html += `<div class="pa-cot-sum">
             <div><b>${a.cotIds.length}</b><span>思维链</span></div>

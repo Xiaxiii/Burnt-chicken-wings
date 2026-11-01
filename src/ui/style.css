@@ -509,25 +509,22 @@ html.pa-open body { overflow: hidden; }
 /* ---------- 思维链页 ---------- */
 #pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }
 #pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }
-#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }
-#pa-root .pa-verdict p { margin: 0; }
-/* 2.5.0 结论一行（右边 ⓘ）、数字一条、说明点开 */
+/* 2.5.0 有问题时：标题一行不加框，待核对的每一项各自一个框，排在标题下面 */
+#pa-root .pa-verdict-head { margin: 6px 2px 8px; }
+#pa-root .pa-verdict-head .pa-verdict-top b { font-size: 1.05em; }
+#pa-root .pa-verdict-head > .pa-whynote { margin-top: 6px; }
+#pa-root .pa-dead-list { margin-bottom: 10px; }
+/* 2.5.0 结论一行（右边 ⓘ），说明点开 */
 #pa-root .pa-verdict-top { display: flex; align-items: flex-start; gap: 6px; }
-#pa-root .pa-verdict-top > p { flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-verdict-top > p { flex: 1 1 auto; min-width: 0; margin: 0; }
 #pa-root .pa-verdict-top > .pa-why { flex: none; margin: -4px -6px 0 0; }
 #pa-root .pa-why.on { color: var(--pa-text); background: var(--pa-sel); border-radius: 8px; }
-#pa-root .pa-verdict .pa-cot-sum { margin: 2px 0 0; background: transparent; }
-#pa-root .pa-verdict > .pa-whynote { margin: 0; }
 #pa-root .pa-verdict-sub { display: block; margin-top: 2px; color: var(--pa-dim); font-size: .84em; font-weight: 400; }
-#pa-root .pa-verdict .pa-cards { margin-top: 2px; }
-#pa-root .pa-verdict .pa-dead { background: var(--pa-card-2); }
 /* 没有问题时只是一行，不加框 */
 #pa-root .pa-verdict-line { margin: 4px 2px 8px; color: var(--pa-dim); }
 #pa-root .pa-verdict-line.pa-good .pa-verdict-top > p::before { content: "✓ "; color: var(--pa-ok); }
 #pa-root .pa-verdict-line .pa-verdict-top > p { margin: 0; }
 #pa-root .pa-verdict-line > .pa-whynote { margin-top: 4px; }
-#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }
-#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }
 #pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }
 #pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }
 #pa-root .pa-legend .pa-lv { flex: none; }
@@ -576,7 +573,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; }
 #pa-root .pa-kv dt { color: var(--pa-dim); }
 #pa-root .pa-kv dd { margin: 0; font-variant-numeric: tabular-nums; }
-#pa-root .pa-kv dd small, #pa-root .pa-verdict small.pa-dim { display: block; color: var(--pa-dim); font-size: .84em; }
+#pa-root .pa-kv dd small { display: block; color: var(--pa-dim); font-size: .84em; }
 #pa-root .pa-rtable { display: grid; grid-template-columns: minmax(0, 1.6fr) auto auto auto minmax(0, 1fr); gap: 6px 10px; font-size: .88em; align-items: start; margin-bottom: 4px; }
 #pa-root .pa-rt-head, #pa-root .pa-rt-row { display: contents; }
 #pa-root .pa-rt-head span { color: var(--pa-dim); font-size: .92em; border-bottom: 1px solid var(--pa-line); padding-bottom: 3px; }
@@ -1035,7 +1032,6 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-item-body { padding: 0 8px 10px; gap: 6px; }
     #pa-root .pa-chip { font-size: .72em; padding: 0 6px; }
     #pa-root .pa-crow { padding: 7px 8px; gap: 4px 8px; }
-    #pa-root .pa-verdict { padding: 8px 10px; }
 }
 
 /* 1.6.0 搬到新版、缝进世界书 */

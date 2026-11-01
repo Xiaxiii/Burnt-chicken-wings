@@ -157,16 +157,30 @@ try {
   ok("套用方案连回它记的分组");
   // 拖动 ⋮⋮ 调顺序
   await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
-  // 看已保存的密钥：酒馆不让看时在这一行下面说明；让看时显示在框里的提示文字上（不当成新填的）
+  // 看已保存的密钥：保存时本浏览器留了一份，直接用它；没有这份时问酒馆，不让看就在这一行下面说明
+  const copyOf = (id) => page.evaluate((sid) => Object.entries(localStorage).find(([k]) => k.startsWith("presetAtelier:keycopy:") && k.endsWith(":" + sid))?.[1] || null, id);
+  const firstSid = (await S()).sites[0].keys[0].secretId;
+  const kept = await copyOf(firstSid);
+  assert.ok(kept, "保存密钥时本浏览器留了一份");
   let reveal = { status: 403, json: { error: "forbidden" } };
   await page.route("**/api/secrets/find", (r) => r.fulfill(reveal));
-  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
-  assert.match(await page.locator(".pa-sheet .pa-key-note").textContent(), /allowKeysExposure/);
-  reveal = { status: 200, json: { value: "sk-aaaaaaaaaaaa" } };
-  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
-  const kbox = page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]");
-  assert.equal(await kbox.getAttribute("placeholder"), "sk-aaaaaaaaaaaa");
+  const row1 = () => page.locator(".pa-sheet .pa-keyrow").first();
+  const kbox = row1().locator("[data-f=key]");
+  await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
+  assert.equal(await kbox.getAttribute("placeholder"), kept, "有留底时不问酒馆，直接显示");
   assert.equal(await kbox.inputValue(), "", "看到的密钥不填进框里，保存时不会再存一遍");
+  await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(100);
+  // 没有留底（更新前存的）：关掉重开编辑窗口，酒馆拒绝时说明，允许时显示并留底
+  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("presetAtelier:keycopy:")) localStorage.removeItem(k); });
+  await page.locator(".pa-sheet .pa-sheet-x").last().click(); await page.waitForTimeout(300);
+  await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
+  await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
+  assert.match(await page.locator(".pa-sheet .pa-key-note").textContent(), /重新粘贴一次[\s\S]*allowKeysExposure/);
+  reveal = { status: 200, json: { value: "sk-aaaaaaaaaaaa" } };
+  await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
+  assert.equal(await kbox.getAttribute("placeholder"), "sk-aaaaaaaaaaaa");
+  assert.equal(await copyOf(firstSid), "sk-aaaaaaaaaaaa", "酒馆给了全文后也留一份");
+  assert.equal(await kbox.inputValue(), "");
   await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click();
   const grips = page.locator(".pa-sheet .pa-key-grip");
   const g2 = await grips.nth(1).boundingBox();

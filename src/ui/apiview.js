@@ -739,7 +739,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           setModel(w, readModel(w));
           keysBox.querySelector(".pa-keyrow:last-of-type [data-f=key]")?.focus();
         });
-        // 眼睛：显示、隐藏密钥。刚填的直接看；已保存的，酒馆允许时取出来放在提示文字里看
+        // 眼睛：显示、隐藏密钥。刚填的直接看；已保存的，用本浏览器留的那份，没有再问酒馆
         keysBox.addEventListener("click", async (e) => {
           const eye = e.target.closest("[data-f=keyeye]");
           if (!eye) return;
@@ -756,7 +756,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
               if (got.value) revealed.set(id, got.value);
               else {
                 shown.delete(id);
-                keyNote.set(id, got.blocked ? "酒馆不让看已保存的密钥。要看：在酒馆的 config.yaml 里把 allowKeysExposure 改成 true，重启酒馆。" : k.secretId ? "没取到这个密钥（可能已从酒馆密钥库删除），重新粘贴一次就行。" : "这个密钥只存在这个浏览器里，看不了全文；要确认就重新粘贴一次。");
+                keyNote.set(id, got.blocked ? "这把密钥是更新前或在别的浏览器里存的，这里没留底。重新粘贴一次保存，以后就能看；或在酒馆的 config.yaml 里把 allowKeysExposure 改成 true，重启酒馆。" : k.secretId ? "没取到这个密钥，可能已从酒馆密钥库删除。重新粘贴一次就行。" : "这个密钥只存在这个浏览器里，看不了全文；要确认就重新粘贴一次。");
               }
             }
           }
