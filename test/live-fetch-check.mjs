@@ -48,7 +48,7 @@ try {
   await page.locator('.pa-live .pa-live-res.ok').waitFor({ timeout: 10000 });
   assert.equal(sent[0].model, 'claude-y', '用酒馆里选中的模型');
   assert.deepEqual(sent[0].messages, [{ role: 'user', content: 'Hi' }]);
-  assert.equal(await res(), '✓可以用');
+  assert.equal(await res(), '✓Successful');
   // 503：中转站把上游的报错塞在 message 里
   reply = { status: 503, json: { error: { message: JSON.stringify({ error: { message: 'Service Unavailable', type: 'upstream_error' } }) } } };
   await page.click('.pa-live [data-a=testmodel]');
