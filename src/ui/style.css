@@ -730,12 +730,15 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sheet .pa-site-dl { margin-top: 0; }
 /* 2.5.0 多密钥站点：列表里点开每个分组一行；编辑窗口的密钥行；选模型时一并选分组 */
 #pa-root .pa-site-multi { display: block; padding: 0; }
-#pa-root .pa-site-mhead { display: flex; align-items: center; gap: 4px; padding: 5px 10px 5px 2px; }
+#pa-root .pa-site-mhead { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 12px; min-height: 48px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#pa-root .pa-site-mhead:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; border-radius: var(--pa-r); }
 #pa-root .pa-site-mhead > .pa-chip { flex: none; }
-#pa-root .pa-site-fold { width: 30px; height: 30px; }
-#pa-root .pa-site-fold .pa-sgcaret { color: var(--pa-dim); }
+#pa-root .pa-site-mhead .pa-srow-main { gap: 0 6px; line-height: 1.3; }
+#pa-root .pa-fold-pill { pointer-events: none; background: transparent; }
+#pa-root .pa-site-multi.open .pa-fold-pill { background: var(--pa-sel); }
+#pa-root .pa-kline-edit { justify-content: flex-end; padding-top: 2px; padding-bottom: 2px; }
 #pa-root .pa-klines { border-top: 1px dashed var(--pa-line); }
-#pa-root .pa-kline { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 34px; border-top: 1px solid var(--pa-line); }
+#pa-root .pa-kline { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 24px; border-top: 1px solid var(--pa-line); }
 #pa-root .pa-kline:first-child { border-top: 0; }
 #pa-root .pa-kline .pa-srow-main { line-height: 1.3; gap: 0 6px; }
 #pa-root .pa-kline > .pa-chip, #pa-root .pa-kline > .pa-btn { flex: none; }
