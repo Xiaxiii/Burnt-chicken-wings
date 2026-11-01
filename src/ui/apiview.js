@@ -203,6 +203,65 @@ async function editReasoning(name, init, live) {
     } }]
   });
 }
+// 2.5.0 测试消息失败时的原因：站点给的报错原文，加一句最简单的解释
+function apiErrorText(data) {
+  const e = data?.error;
+  let m = (typeof e === "object" && e ? e.message || e.msg : typeof e === "string" ? e : "") || data?.message || "";
+  // 中转站常把上游的报错整个塞进 message 里，再拆一层
+  for (let i = 0; i < 2 && typeof m === "string" && /^\s*\{/.test(m); i++) {
+    try {
+      const inner = JSON.parse(m);
+      m = inner?.error?.message || inner?.message || (typeof inner?.error === "string" ? inner.error : "") || m;
+    } catch { break; }
+  }
+  return typeof m === "string" ? m.trim() : "";
+}
+// 酒馆后台自己出错时只回 500，站点真正的状态码常写在报错文字里
+function errStatus(status, text) {
+  const inText = String(text || "").match(/\b(40[0-9]|41[0-9]|42[0-9]|5[0-2][0-9])\b/);
+  if (inText && (!status || status === 500 || status === 200)) return Number(inText[1]);
+  return status || 0;
+}
+var API_ERROR_WORDS = [
+  [/quota|insufficient|balance|credit|余额|额度|欠费/i, "额度或余额用完了，充值或换个分组再试"],
+  [/invalid.{0,12}(api.?key|token|令牌)|incorrect api key|api key not valid|unauthori[sz]ed|无效的令牌|令牌.{0,6}(无效|过期|不存在)/i, "密钥不对或已经失效，检查一下密钥"],
+  [/model.?not.?found|does not exist|no available channel|无可用渠道|not support(ed)?.{0,10}model|模型不存在|不支持.{0,4}模型/i, "这个分组里没有这个模型，换个模型或分组"],
+  [/rate.?limit|too many requests|请求过于频繁|频率限制/i, "请求太频繁了，等一会儿再试"],
+  [/context.?length|maximum context|too long|tokens? .{0,20}exceed|超出.{0,6}长度/i, "发的内容太长，超过了模型能接收的长度"],
+  [/safety|blocked|content.?filter|审核|违规/i, "被站点或模型的安全审核拦下了"]
+];
+// 笼统的说法：有状态码时用状态码的解释
+var API_ERROR_VAGUE = [
+  [/timed? ?out|超时|60 秒内没有回复/i, "等太久没有回复，站点可能很忙，过会儿再试"],
+  [/failed to fetch|networkerror|load failed/i, "连不上酒馆后台，检查网络，或看看酒馆是不是还开着"]
+];
+var API_STATUS_WORDS = {
+  400: "站点看不懂这次请求，常见是模型名不对或参数不支持",
+  401: "密钥不对或已经失效",
+  402: "要付费：额度或余额用完了",
+  403: "没有权限用这个模型，可能分组不对或被限制了",
+  404: "找不到：网址或模型名不对",
+  408: "等太久，站点断开了",
+  413: "发的内容太大了",
+  429: "请求太频繁或额度用完了，等一会儿再试",
+  500: "站点自己出错了，过会儿再试",
+  502: "中转站连不上上游（官方）的服务",
+  503: "站点暂时忙不过来，或这个模型现在没有能用的渠道",
+  504: "中转站等上游回复等太久，超时了",
+  520: "站点服务器出了说不清的错",
+  521: "站点服务器没开",
+  522: "连站点服务器超时了",
+  523: "站点服务器连不上",
+  524: "站点处理太久，超时了",
+  529: "上游太忙（过载），过会儿再试"
+};
+function explainApiError(status, text) {
+  const word = API_ERROR_WORDS.find(([re]) => re.test(text || ""))?.[1];
+  const byCode = API_STATUS_WORDS[status];
+  const vague = API_ERROR_VAGUE.find(([re]) => re.test(text || ""))?.[1];
+  const why = word || byCode || vague || (status >= 500 ? "站点那边出了问题，过会儿再试" : status >= 400 ? "站点拒绝了这次请求" : "");
+  return why ? `${status ? `${status}：` : ""}${why}` : "";
+}
 // liveBox：当前连接；sitesBox：站点列表；optsBox：两个选项（「方案」页把方案放在当前连接和选项之间）
 function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   const sites = () => settings().sites;
@@ -711,7 +770,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   async function testModel(btn = null) {
     const c = ctx();
     const svc = c.ChatCompletionService;
-    if (typeof svc?.presetToGeneratePayload !== "function" || typeof svc?.sendRequest !== "function") {
+    if (typeof svc?.presetToGeneratePayload !== "function") {
       // 旧版酒馆没有独立请求接口：交给酒馆自己的测试按钮，结果看酒馆的提示
       const stBtn = globalThis.jQuery?.("#test_api_button");
       if (stBtn?.length) {
@@ -733,13 +792,30 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const timer = setTimeout(() => controller.abort(), 60e3);
     try {
       const payload = await svc.presetToGeneratePayload({}, {}, { model, messages: [{ role: "user", content: "Hi" }], stream: false, max_tokens: 300, n: 1 });
-      const res = await svc.sendRequest(payload, true, controller.signal);
-      const reply = String(res?.content ?? "").replace(/\s+/g, " ").trim();
+      // 自己发请求（和酒馆发聊天用同一个接口），才拿得到站点返回的状态码
+      const res = await fetch(stUrl("api/backends/chat-completions/generate"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...c.getRequestHeaders?.() || {} },
+        body: JSON.stringify(payload),
+        cache: "no-cache",
+        signal: controller.signal
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch {}
+      if (!res.ok || data?.error) throw { status: res.status, message: apiErrorText(data) || text.trim() || res.statusText };
+      const reply = String(data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? data?.content?.[0]?.text ?? "").replace(/\s+/g, " ").trim();
       toast(`「${model}」可以用${reply ? `，回复：${reply.length > 40 ? reply.slice(0, 40) + "…" : reply}` : ""}`, "success");
     } catch (err) {
-      const raw = controller.signal.aborted ? "60 秒内没有回复" : err?.message || err?.error?.message || (typeof err?.error === "string" ? err.error : "") || (typeof err === "string" ? err : "") || "站点没有返回可用的回复";
-      const msg = String(raw).length > 120 ? String(raw).slice(0, 120) + "…" : String(raw);
-      toast(k ? `${failMsg(active, k)}：${msg}` : `「${model}」测试失败：${msg}`, "error");
+      const raw = String(controller.signal.aborted ? "60 秒内没有回复" : err?.message || "站点没有返回可用的回复");
+      const status = errStatus(err?.status, raw);
+      const msg = raw.length > 100 ? raw.slice(0, 100) + "…" : raw;
+      const head = k ? `${failMsg(active, k)}：${msg}` : `「${model}」测试失败：${msg}`;
+      const why = explainApiError(status, raw);
+      const t = globalThis.toastr;
+      // 第二行：小感叹号 + 小字解释
+      if (t?.error) t.error(`${esc(head)}${why ? `<div class="pa-tx-why"><span class="pa-tx-ico" aria-hidden="true">!</span><span>${esc(why)}</span></div>` : ""}`, "", { timeOut: 12e3, extendedTimeOut: 5e3, escapeHtml: false, preventDuplicates: true, toastClass: "toast pa-test-toast" });
+      else toast(`${head}${why ? `\n${why}` : ""}`, "error");
     } finally {
       clearTimeout(timer);
     }

@@ -34,25 +34,34 @@ try {
   await page.locator('.pa-sheet-x').last().click();
   ok('拉取后出现 ▾，点开是全部模型');
 
-  // 2.5.0 测试：用选中的模型发一句「Hi」，回了就算能用；报错时显示站点给的原因
+  // 2.5.0 测试：用选中的模型发一句「Hi」，回了就算能用；失败时第二行用最简单的话解释状态码
+  let reply = { status: 200, json: { choices: [{ message: { content: 'Hello!  How can I help?' } }] } };
+  const sent = [];
+  await page.route('**/api/backends/chat-completions/generate', (r) => { sent.push(JSON.parse(r.request().postData())); r.fulfill({ status: reply.status, json: reply.json }); });
   await page.evaluate(() => {
     const c = window.SillyTavern.getContext();
-    window.__sent = [];
     c.getChatCompletionModel = () => 'claude-y';
-    c.ChatCompletionService = {
-      presetToGeneratePayload: async (a, b, o) => ({ ...o }),
-      sendRequest: async (p) => { window.__sent.push(p); if (window.__failNext) throw { error: { message: 'quota exceeded' } }; return { content: 'Hello!  How can I help?' }; }
-    };
+    c.ChatCompletionService = { presetToGeneratePayload: async (a, b, o) => ({ ...o }) };
   });
   await page.click('.pa-live [data-a=testmodel]');
   await page.waitForFunction(() => window.__toasts.some((t) => /可以用/.test(t)), null, { timeout: 10000 });
-  const sent = await page.evaluate(() => window.__sent[0]);
-  assert.equal(sent.model, 'claude-y', '用酒馆里选中的模型');
-  assert.deepEqual(sent.messages, [{ role: 'user', content: 'Hi' }]);
-  assert.ok(await page.evaluate(() => window.__toasts.some((t) => t === 'success:「claude-y」可以用，回复：Hello! How can I help?')));
-  await page.evaluate(() => { window.__failNext = true; });
+  assert.equal(sent[0].model, 'claude-y', '用酒馆里选中的模型');
+  assert.deepEqual(sent[0].messages, [{ role: 'user', content: 'Hi' }]);
+  assert.ok(await page.evaluate(() => window.__toasts.includes('success:「claude-y」可以用，回复：Hello! How can I help?')));
+  // 503：中转站把上游的报错塞在 message 里
+  reply = { status: 503, json: { error: { message: JSON.stringify({ error: { message: 'Service Unavailable', type: 'upstream_error' } }) } } };
   await page.click('.pa-live [data-a=testmodel]');
-  await page.waitForFunction(() => window.__toasts.some((t) => /error:「claude-y」测试失败：quota exceeded/.test(t)), null, { timeout: 10000 });
+  await page.waitForFunction(() => window.__toasts.some((t) => /测试失败/.test(t)), null, { timeout: 10000 });
+  let last = await page.evaluate(() => window.__toasts.filter((t) => /测试失败/.test(t)).pop());
+  assert.match(last, /^error:「claude-y」测试失败：Service Unavailable<div class="pa-tx-why"><span class="pa-tx-ico" aria-hidden="true">!<\/span><span>503：站点暂时忙不过来/);
+  // 酒馆回 500，但报错文字里写着 504
+  reply = { status: 500, json: { error: { message: 'Got response status 504 Gateway Timeout' } } };
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => window.__toasts.some((t) => /504：中转站等上游/.test(t)), null, { timeout: 10000 });
+  // 报错里说额度不足：用关键词的解释
+  reply = { status: 429, json: { error: { message: 'insufficient_quota: You exceeded your current quota' } } };
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => window.__toasts.some((t) => /429：额度或余额用完了/.test(t)), null, { timeout: 10000 });
   ok('点测试发送测试消息，能回就提示可以用，失败显示原因');
 
   await page.click('[data-a=livemore]');
