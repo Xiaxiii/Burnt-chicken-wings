@@ -794,7 +794,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       let data = null;
       try { data = JSON.parse(text); } catch {}
       if (!res.ok || data?.error) throw { status: res.status, message: apiErrorText(data) || text.trim() || res.statusText };
-      liveTest = { model, source: live.source, url: live.url || "", ok: true, text: k ? `${keyName(active, k)} · 可以用` : "可以用" };
+      liveTest = { model, source: live.source, url: live.url || "", ok: true, text: k ? `${keyName(active, k)} · Successful` : "Successful" };
     } catch (err) {
       const raw = String(controller.signal.aborted ? "没有回复" : err?.message || "");
       const why = explainApiError(errStatus(err?.status, raw), raw);

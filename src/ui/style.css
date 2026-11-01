@@ -708,7 +708,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-live-model { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 #pa-root .pa-live-model > .pa-model-btn { flex: 1 1 auto; min-width: 0; min-height: 30px; }
 /* 2.5.0 测试结果：模型那一行下面一行小字 */
-#pa-root .pa-live-res { display: flex; align-items: center; gap: 5px; margin: 5px 0 0 2px; font-size: .8em; line-height: 1.35; color: var(--pa-warn); overflow-wrap: anywhere; }
+#pa-root .pa-live-res { display: flex; align-items: center; gap: 5px; margin: 5px 0 0; font-size: .8em; line-height: 1.35; color: var(--pa-warn); overflow-wrap: anywhere; }
 #pa-root .pa-live-res.ok { color: var(--pa-ok); }
 #pa-root .pa-live-res i { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.3em; height: 1.3em; border: 1px solid currentColor; border-radius: 50%; font-style: normal; font-size: .85em; font-weight: 700; line-height: 1; }
 #pa-root .pa-live-fetch { flex: none; width: 32px; height: 30px; min-height: 0; color: var(--pa-dim); }
