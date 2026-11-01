@@ -821,7 +821,8 @@ html.pa-open body { overflow: hidden; }
 /* 选择模型：列表长时窗口固定高度，只滚列表 */
 #pa-root .pa-sheet-picker .pa-sheet-body { display: flex; flex-direction: column; overflow: hidden; }
 #pa-root .pa-sheet-picker .pa-mpick { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-#pa-root .pa-sheet-picker .pa-mpick-list { flex: 1 1 auto; min-height: 0; max-height: none; }
+#pa-root .pa-sheet-picker .pa-mpick-list { flex: 1 1 auto; min-height: 0; max-height: none; align-content: start; }
+#pa-root .pa-sheet-picker .pa-mpick-list.pa-kpick { flex: 0 1 auto; }
 #pa-root .pa-sheet-tall { height: calc(var(--pa-vh, 100dvh) * .86); }
 #pa-root .pa-sheet-picker .pa-npick { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 #pa-root .pa-sheet-picker .pa-npick-list { flex: 1 1 auto; min-height: 0; max-height: none; align-content: start; }
