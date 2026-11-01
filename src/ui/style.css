@@ -151,8 +151,8 @@ html.pa-open body { overflow: hidden; }
 @supports (-webkit-touch-callout: none) {
     #pa-root .pa-input, #pa-root .pa-select { font-size: max(16px, 1em); }
 }
-/* 2.5.1 iPhone 的 Safari 按系统样式画搜索框、密码框和下拉框：不认圆角，搜索框按系统高度画，下面漏出一截底色。
-   统一去掉系统样式，下拉框的箭头自己画（颜色跟着配色走） */
+/* 2.5.1 去掉系统样式，下拉框的箭头自己画（颜色跟着配色走）。
+   2.5.3 搜索框、密钥框改成普通文本框：有的扩展或主题按「搜索框」「密码框」类型改样式，会盖过这里 */
 #pa-root .pa-input, #pa-root .pa-select { -webkit-appearance: none; appearance: none; }
 #pa-root .pa-input::-webkit-search-decoration { -webkit-appearance: none; }
 #pa-root .pa-select {
@@ -823,6 +823,8 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-key-name { flex: 0 0 5.5em; min-width: 0; }
 #pa-root .pa-keyrow .pa-input { min-height: 34px; padding-top: 5px; padding-bottom: 5px; }
 #pa-root .pa-key-val { flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-key-mask { -webkit-text-security: disc; }
+#pa-root .pa-key-mask::placeholder { -webkit-text-security: none; }
 #pa-root .pa-key-cnt { flex: none; font-size: .78em; color: var(--pa-ok); white-space: nowrap; }
 #pa-root .pa-key-del { width: 28px; height: 28px; }
 #pa-root .pa-key-eye { width: 30px; height: 30px; }

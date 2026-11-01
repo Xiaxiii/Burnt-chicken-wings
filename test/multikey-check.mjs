@@ -68,7 +68,8 @@ try {
   assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").getAttribute("type"), "text");
   assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").inputValue(), "sk-aaaaaaaaaaaa", "显示时文字不丢");
   await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click();
-  assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").getAttribute("type"), "password");
+  // 隐藏时显示成圆点：普通文本框加样式；浏览器不支持时退回密码框
+  assert.ok(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").evaluate((x) => x.type === "password" || getComputedStyle(x).webkitTextSecurity === "disc"), "隐藏时显示成圆点");
   ok("粘贴多行拆开；＋ 加一行；一个密钥时没有名称框；眼睛显示、隐藏密钥");
 
   // 2) 获取模型列表：每个密钥各拉一次，行尾显示数量；选择框按模型列，标出分组

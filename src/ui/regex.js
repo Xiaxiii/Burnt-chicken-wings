@@ -59,7 +59,7 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
       <p class="pa-hint" data-rx-activation>${esc(activationText())}</p>
       ${tip("<p>状态栏仍需配套提示词或世界书输出相应的标签和格式，正则才能匹配并显示美化。搬运正则后，请同时核对这些配套内容。</p>", "状态栏美化的使用条件")}
       <p class="pa-warn" data-rx-stale hidden>来源或目标已变化，请关闭后重新预览。</p></div>
-    <input class="pa-input" data-rx-search type="search" placeholder="搜索正则名称、ID 或查找表达式" aria-label="搜索来源正则">
+    <input class="pa-input" data-rx-search type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索正则名称、ID 或查找表达式" aria-label="搜索来源正则">
     <div class="pa-card-act" role="group" aria-label="选择来源正则">
       <button class="pa-btn pa-btn-s" data-rx-pick="display">仅选显示美化</button>
       <button class="pa-btn pa-btn-s" data-rx-pick="all">全选</button>

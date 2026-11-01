@@ -37,6 +37,9 @@ function familyGroups(models) {
   }
   return [...map].sort((a, b) => FAMILY_ORDER.indexOf(a[0]) - FAMILY_ORDER.indexOf(b[0])).map(([name, list]) => ({ name, list }));
 }
+// 2.5.3 密钥框不用密码框：有的扩展或主题会按「密码框」改样式（方角、白底），盖过焦香鸡翅的。
+// 用普通文本框、靠样式把字显示成圆点；浏览器不支持这种样式时退回密码框
+const keyMaskCss = () => typeof CSS !== "undefined" && !!CSS.supports?.("-webkit-text-security", "disc");
 // 分段标题（按分类、按分组共用）
 const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
@@ -68,7 +71,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   let editing = null;
   const sel = new Set();
   const body = el(`<div class="pa-mpick">${viewSeg(views)}
-      <div class="pa-msearch"><input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
+      <div class="pa-msearch"><input class="pa-input" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
       <div class="pa-mseltools" hidden><span class="pa-selcnt"></span><button type="button" class="pa-link pa-selall"></button><button type="button" class="pa-link pa-selnone">清空</button><span class="pa-selacts"></span>
         <div class="pa-newcat" hidden><input class="pa-input" placeholder="分类名，如 Gemini 逆向、0.07/次" maxlength="60" aria-label="新分类名"><button type="button" class="pa-swpill pa-edit-pill" data-act="newcancel">取消</button><button type="button" class="pa-swpill" data-act="newok">确定</button></div></div>
       <div class="pa-mpick-list" role="listbox"></div></div>`);
@@ -656,7 +659,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         const cnt = (k.models || []).length ? `<span class="pa-key-cnt" title="拉取到的模型">✓ ${k.models.length}</span>` : "";
         return `<div class="pa-keyrow" data-k="${esc(k.id)}">
             ${many ? `<span class="pa-key-grip" aria-hidden="true" title="拖动调顺序，排在上面的优先">⋮⋮</span><input class="pa-input pa-key-name" data-f="keyname" value="${esc(k.name)}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
-            <input class="pa-input pa-key-val" data-f="key" type="${shown.has(k.id) ? "text" : "password"}" autocomplete="off" placeholder="${esc(shown.has(k.id) && revealed.get(k.id) || ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || "")}">
+            <input class="pa-input pa-key-val${!shown.has(k.id) && keyMaskCss() ? " pa-key-mask" : ""}" data-f="key" type="${shown.has(k.id) || keyMaskCss() ? "text" : "password"}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(shown.has(k.id) && revealed.get(k.id) || ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || "")}">
             <button class="pa-icon-btn pa-key-eye${shown.has(k.id) ? " on" : ""}" data-f="keyeye" type="button" aria-pressed="${shown.has(k.id)}" aria-label="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}" title="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}">${ICON.eye}</button>
             ${cnt}${many ? `<button class="pa-icon-btn pa-key-del" data-f="keydel" type="button" aria-label="删除这个密钥" title="删除这个密钥">✕</button>` : ""}
           </div>${keyNote.has(k.id) ? `<p class="pa-hint pa-key-note">${esc(keyNote.get(k.id))}</p>` : ""}`;
