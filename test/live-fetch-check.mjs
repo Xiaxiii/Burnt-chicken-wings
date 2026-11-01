@@ -56,6 +56,12 @@ try {
   assert.equal(await page.locator('.pa-selall').textContent(), '全选搜索结果（2）');
   await page.locator('.pa-selall').click();
   assert.equal(await page.locator('.pa-selcnt').textContent(), '已选 2');
+  // 新建分类的名字框可以取消
+  await page.locator('.pa-mseltools [data-act=newcat]').click();
+  await page.locator('.pa-newcat [data-act=newcancel]').click();
+  assert.ok(await page.locator('.pa-newcat').isHidden(), '取消后收起名字框');
+  assert.equal(await page.locator('.pa-selcnt').textContent(), '已选 2', '取消不丢勾选');
+  assert.equal(await page.locator('.pa-selbtn').textContent(), '取消');
   await page.locator('.pa-mseltools [data-act=newcat]').click();
   await page.locator('.pa-newcat input').fill('我的 Claude');
   await page.locator('.pa-newcat [data-act=newok]').click();

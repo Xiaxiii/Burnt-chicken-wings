@@ -16,9 +16,22 @@ const noteTap = (e) => {
 function recentAnchor() {
   return lastTap && Date.now() - lastTap.t < 1500 && lastTap.el.isConnected && lastTap.el.offsetParent ? lastTap.el : null;
 }
+// 2.5.0 ⓘ 按钮（data-tipbtn）展开同一块里的说明（data-tipnote），整个面板共用，不用每处单独绑定
+const onTipBtn = (e) => {
+  const b = e.target?.closest?.("[data-tipbtn]");
+  if (!b) return;
+  e.preventDefault();
+  let note = null;
+  for (let p = b.parentElement; p && !note; p = p.parentElement) note = [...p.children].find((c) => c.hasAttribute("data-tipnote")) || null;
+  if (!note) return;
+  note.hidden = !note.hidden;
+  b.setAttribute("aria-expanded", String(!note.hidden));
+  b.classList.toggle("on", !note.hidden);
+};
 function setRoot(el2) {
   rootEl = el2;
   el2?.addEventListener("click", noteTap, true);
+  el2?.addEventListener("click", onTipBtn);
 }
 function el(html) {
   const t = document.createElement("template");

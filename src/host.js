@@ -410,6 +410,17 @@ async function dropKey(source, id) {
     console.warn("[焦香鸡翅] 删除密钥失败", e);
   }
 }
+// 2.5.0 取出已保存密钥的全文（酒馆要在 config.yaml 打开 allowKeysExposure 才给），给不了返回 null
+async function revealSecret(source, id) {
+  const secretKey = SOURCES[source]?.secret;
+  if (!secretKey || !id || typeof mods.secrets?.findSecret !== "function") return null;
+  try {
+    const v = await mods.secrets.findSecret(secretKey, id);
+    return typeof v === "string" && v ? v : null;
+  } catch {
+    return null;
+  }
+}
 async function readSecretState() {
   await mods.secrets?.readSecretState?.();
   return mods.secrets?.secret_state || {};

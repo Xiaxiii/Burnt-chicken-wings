@@ -504,6 +504,13 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }
 #pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }
 #pa-root .pa-verdict p { margin: 0; }
+/* 2.5.0 结论一行（右边 ⓘ）、数字一条、说明点开 */
+#pa-root .pa-verdict-top { display: flex; align-items: flex-start; gap: 6px; }
+#pa-root .pa-verdict-top > p { flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-verdict-top > .pa-why { flex: none; margin: -4px -6px 0 0; }
+#pa-root .pa-why.on { color: var(--pa-text); background: var(--pa-sel); border-radius: 8px; }
+#pa-root .pa-verdict .pa-cot-sum { margin: 2px 0 0; background: transparent; }
+#pa-root .pa-verdict > .pa-whynote { margin: 0; }
 #pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }
 #pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }
 #pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }
@@ -792,6 +799,11 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-key-val { flex: 1 1 auto; min-width: 0; }
 #pa-root .pa-key-cnt { flex: none; font-size: .78em; color: var(--pa-ok); white-space: nowrap; }
 #pa-root .pa-key-del { width: 28px; height: 28px; }
+#pa-root .pa-key-eye { width: 30px; height: 30px; }
+#pa-root .pa-key-eye.on { color: var(--pa-text); background: var(--pa-sel); }
+#pa-root .pa-key-eye svg { width: 17px; height: 17px; }
+/* 选择模型窗口固定高度时，顶上的切换、搜索框、多选工具条不被压扁 */
+#pa-root .pa-sheet-picker .pa-mpick > :not(.pa-mpick-list), #pa-root .pa-sheet-picker .pa-npick > :not(.pa-npick-list) { flex: none; }
 #pa-root .pa-kview { align-self: start; }
 #pa-root .pa-kview button { min-height: 28px; padding: 3px 12px; }
 #pa-root .pa-kpick { gap: 0; border: 1px solid var(--pa-line); border-radius: 8px; }
@@ -1148,6 +1160,12 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sum-main { margin: 0; line-height: 1.45; }
 #pa-root .pa-sum .pa-stack { height: 8px; margin-top: 2px; }
 #pa-root .pa-sum .pa-card-act { margin-top: 2px; }
+/* 2.5.0 统计卡片的 ⓘ 放到第一行最右边，和「备份 26 份 · 26.3 MB」同一行；点开的说明照旧在下面 */
+#pa-root .pa-sum { position: relative; }
+#pa-root .pa-sum > .pa-sum-main { padding-right: 30px; }
+#pa-root .pa-sum > .pa-tip > summary, #pa-root .pa-sum .pa-tiprow > .pa-tip > summary { position: absolute; top: 4px; right: 4px; width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 0; border-radius: 8px; }
+#pa-root .pa-sum > .pa-tip > summary svg.pa-info, #pa-root .pa-sum .pa-tiprow > .pa-tip > summary svg.pa-info { margin: 0; width: 16px; height: 16px; }
+#pa-root .pa-sum > .pa-tip[open] > summary, #pa-root .pa-sum .pa-tiprow > .pa-tip[open] > summary { color: var(--pa-text); background: var(--pa-sel); }
 /* 2.4.2 本地备份：自动备份开关、保留份数 */
 #pa-root .pa-bk-set { display: grid; gap: 6px; margin: 2px 0 8px; padding: 9px 10px; border-radius: var(--pa-r); background: var(--pa-card); border-left: 3px solid var(--pa-thread); }
 #pa-root .pa-bk-set.pa-off { border-left-color: var(--pa-line); }
