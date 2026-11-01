@@ -128,7 +128,7 @@ try {
   });
   await page.route("**/api/backends/chat-completions/generate", (r) => r.fulfill({ status: 429, json: { error: { message: "insufficient quota" } } }));
   await page.click(".pa-live [data-a=testmodel]");
-  await page.waitForFunction(() => window.__toasts.some((t) => t.startsWith("error:「按量」密钥请求失败（额度用完或已失效）：insufficient quota") && /429：额度或余额用完了/.test(t)), null, { timeout: 10000 });
+  await page.waitForFunction(() => document.querySelector(".pa-live .pa-live-res")?.textContent === "!按量 · 429 额度不足", null, { timeout: 10000 });
   ok("测试消息失败时点名分组");
 
   // 5) 方案记下分组
