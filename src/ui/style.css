@@ -357,6 +357,7 @@ html.pa-open body { overflow: hidden; }
 
 /* ---------- 卡片（思维链/方案/API） ---------- */
 #pa-root .pa-cards { display: grid; gap: 8px; }
+#pa-root .pa-cards > .pa-card { margin-bottom: 0; }
 #pa-root .pa-card { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); margin-bottom: 8px; }
 #pa-root .pa-card header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
 #pa-root .pa-card small { display: block; color: var(--pa-dim); }
@@ -430,6 +431,22 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-sheet-wide { max-width: 920px; }
 }
 @keyframes pa-fade { from { opacity: 0; } }
+/* 2.5.0 屏幕中间偏上的小卡片：确认、输入、选项多的列表（偏上一点，键盘弹出也挡不住） */
+#pa-root .pa-sheet-mask.pa-mask-center { align-items: flex-start; padding: calc(var(--pa-vh, 100dvh) * .12) 12px 12px; }
+#pa-root .pa-sheet-center { max-width: 420px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: calc(var(--pa-vh, 100dvh) * .76); box-shadow: 0 14px 44px rgba(0, 0, 0, .3); animation: pa-pop .16s ease-out; }
+#pa-root .pa-sheet-center .pa-sheet-actions { padding-bottom: 10px; }
+/* 2.5.0 贴着按钮弹出的菜单：点外面关掉 */
+#pa-root .pa-sheet-mask.pa-mask-pop { display: block; background: rgba(0, 0, 0, .14); }
+#pa-root .pa-sheet-pop { position: absolute; max-width: none; border-radius: 12px; border-bottom: 1px solid var(--pa-line); box-shadow: 0 10px 32px rgba(0, 0, 0, .26); animation: pa-pop .14s ease-out; }
+#pa-root .pa-sheet-pop .pa-sheet-head { padding: 7px 6px 5px 12px; font-size: .86em; color: var(--pa-dim); }
+#pa-root .pa-sheet-pop .pa-sheet-head .pa-sheet-x { width: 28px; height: 28px; }
+#pa-root .pa-sheet-pop .pa-sheet-body { padding: 4px; }
+#pa-root .pa-sheet-pop .pa-pick { gap: 0; }
+#pa-root .pa-sheet-pop .pa-pick-item { border: 0; border-radius: 8px; background: none; min-height: 40px; padding: 8px 10px; }
+#pa-root .pa-sheet-pop .pa-pick-item + .pa-pick-item { border-top: 1px solid var(--pa-line); border-radius: 0; }
+@media (hover: hover) { #pa-root .pa-sheet-pop .pa-pick-item:hover { background: var(--pa-card); } }
+@keyframes pa-pop { from { opacity: 0; transform: scale(.96); } }
+@media (prefers-reduced-motion: reduce) { #pa-root .pa-sheet-center, #pa-root .pa-sheet-pop { animation: none; } }
 @keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }
 #pa-root .pa-pick { display: grid; gap: 6px; }
 #pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }
@@ -713,6 +730,12 @@ html.pa-open body { overflow: hidden; }
 /* 成功绿、失败红；和正文色混一点，浅色、深色主题都看得清 */
 #pa-root .pa-live-res.ok { color: #1f8f4a; color: color-mix(in srgb, #16a34a 75%, var(--pa-text)); }
 #pa-root .pa-live-res[data-a=testraw] { cursor: pointer; }
+/* 2.5.0 ⋯ 原地展开的详情 */
+#pa-root .pa-live-more.on { background: var(--pa-sel); color: var(--pa-text); }
+#pa-root .pa-live-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--pa-line); }
+#pa-root .pa-live-detail .pa-site-dl { margin: 0 0 8px; font-size: .9em; }
+#pa-root .pa-live-acts { display: flex; justify-content: flex-end; gap: 8px; }
+#pa-root .pa-swpill.pa-danger-pill { border-color: var(--pa-warn); background: transparent; color: var(--pa-warn); }
 #pa-root .pa-live-res.bad { color: #cf3434; color: color-mix(in srgb, #dc2626 78%, var(--pa-text)); }
 #pa-root .pa-live-res .pa-res-ico { display: inline-block; vertical-align: -0.29em; margin-right: .32em; width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 #pa-root .pa-live-res .pa-res-ico .pa-res-dot { fill: currentColor; stroke: none; }
@@ -786,13 +809,26 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-msearch { display: flex; align-items: center; gap: 8px; }
 #pa-root .pa-msearch > .pa-input { flex: 1 1 auto; min-width: 0; }
 #pa-root .pa-msearch > .pa-swpill { height: 30px; }
-#pa-root .pa-selhead { display: flex; align-items: center; gap: 8px; font-size: .85em; color: var(--pa-dim); }
-#pa-root .pa-selhead .pa-selall { margin-left: auto; padding: 2px 0; }
-#pa-root .pa-mselbar { display: flex; align-items: center; gap: 8px; padding-top: 2px; }
-#pa-root .pa-mselbar .pa-selcnt { margin-right: auto; font-size: .88em; color: var(--pa-dim); }
-#pa-root .pa-mselbar .pa-selacts { display: flex; gap: 8px; }
 /* 淡色描边的胶囊（多选、加入…、取消） */
 #pa-root .pa-swpill.pa-edit-pill { border-color: var(--pa-line); background: transparent; color: var(--pa-em); font-weight: 500; }
+#pa-root .pa-mseltools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 8px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); }
+#pa-root .pa-mseltools .pa-selcnt { font-size: .88em; font-weight: 600; }
+#pa-root .pa-mseltools .pa-selall { padding: 2px 0; font-size: .86em; }
+#pa-root .pa-mseltools .pa-selacts { display: flex; gap: 6px; margin-left: auto; }
+#pa-root .pa-newcat { flex: 1 1 100%; display: flex; gap: 6px; align-items: center; }
+#pa-root .pa-newcat > .pa-input { flex: 1 1 auto; min-width: 0; min-height: 34px; padding-top: 4px; padding-bottom: 4px; }
+#pa-root .pa-newcat > .pa-swpill { height: 30px; }
+/* 选择模型：列表长时窗口固定高度，只滚列表 */
+#pa-root .pa-sheet-picker .pa-sheet-body { display: flex; flex-direction: column; overflow: hidden; }
+#pa-root .pa-sheet-picker .pa-mpick { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+#pa-root .pa-sheet-picker .pa-mpick-list { flex: 1 1 auto; min-height: 0; max-height: none; }
+#pa-root .pa-sheet-tall { height: calc(var(--pa-vh, 100dvh) * .86); }
+#pa-root .pa-sheet-picker .pa-npick { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+#pa-root .pa-sheet-picker .pa-npick-list { flex: 1 1 auto; min-height: 0; max-height: none; align-content: start; }
+#pa-root .pa-sheet-pop .pa-npick-list { max-height: none; }
+/* 原地改名 */
+#pa-root .pa-inline-editing { flex: 1 1 100%; overflow: visible !important; max-width: none !important; }
+#pa-root .pa-inline-input { min-height: 32px; padding: 3px 8px; font-weight: 600; }
 #pa-root .pa-selrow { display: flex; align-items: center; gap: 8px; }
 #pa-root .pa-selrow.picked { background: var(--pa-sel); }
 #pa-root .pa-selbox { flex: none; position: relative; width: 18px; height: 18px; border: 1.5px solid var(--pa-dim); border-radius: 5px; }

@@ -214,6 +214,7 @@ function onPopState() {
 function onRootKey(e) {
   if (e.key !== "Escape" || !rootEl2 || rootEl2.hidden) return;
   if (rootEl2.querySelector(".pa-sheet-mask")) return; // 弹窗自己处理
+  if (e.target?.classList?.contains("pa-inline-input")) return; // 原地改名自己处理
   e.preventDefault();
   close();
 }
@@ -233,6 +234,7 @@ async function close({ fromBack = false } = {}) {
   if (dirty.length) {
     if (fromBack) pushBackState();
     const r = await sheet({
+      place: "center",
       title: "有未保存的修改",
       body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有还没存上的修改。</p><p class="pa-hint">「放弃」只丢掉还没存上的部分；之前已经自动保存的修改不会撤回${backupOn() ? "，需要时可在顶栏的备份里恢复到修改前" : ""}。</p>`,
       actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃没存上的部分", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]

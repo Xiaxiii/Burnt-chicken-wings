@@ -51,7 +51,7 @@ async function hookExistingDialog(d, id) {
   const gid = d.groupOf(id);
   const plan0 = planHook(d, { after: id }, gid, { content: p.content, name: p.name, selfId: id });
   if (plan0.status !== "hook") {
-    await sheet({ title: p.name, body: `<p class="pa-p">${esc(plan0.text)}</p>`, actions: [{ label: "确定", value: true }] });
+    await sheet({ place: "center", title: p.name, body: `<p class="pa-p">${esc(plan0.text)}</p>`, actions: [{ label: "确定", value: true }] });
     return;
   }
   const initId = findInitEntry(d);
@@ -309,7 +309,7 @@ async function cotReadDialog(d, key, manual = {}) {
 async function renameWritesDialog(d, from, to) {
   const plan = renameWritesPlan(d, from, to);
   const a = from.replace(/^全局:/, ""), b = to.replace(/^全局:/, "");
-  const ok = await sheet({ title: "统一变量名", body: `<p class="pa-p">将写入宏中的「${esc(a)}」改为读取用的「${esc(b)}」：</p><ul class="pa-notes">${plan.edits.map((x) => `<li>「${esc(d.prompt(x.id)?.name || x.id)}」${x.count} 处</li>`).join("")}</ul><p class="pa-hint">只改 setvar、addvar、incvar、decvar 中的变量名，可撤销。</p>`, actions: [{ label: "取消", value: false }, { label: "改名", kind: "primary", value: true }] });
+  const ok = await sheet({ place: "center", title: "统一变量名", body: `<p class="pa-p">将写入宏中的「${esc(a)}」改为读取用的「${esc(b)}」：</p><ul class="pa-notes">${plan.edits.map((x) => `<li>「${esc(d.prompt(x.id)?.name || x.id)}」${x.count} 处</li>`).join("")}</ul><p class="pa-hint">只改 setvar、addvar、incvar、decvar 中的变量名，可撤销。</p>`, actions: [{ label: "取消", value: false }, { label: "改名", kind: "primary", value: true }] });
   if (!ok) return;
   const now = renameWritesPlan(d, from, to);
   mutate(d, `统一变量名：${b}`, (x) => { for (const e of now.edits) x.prompt(e.id).content = e.content; });
@@ -322,7 +322,7 @@ async function repairVariableDialog(d, key, manual = {}) {
   try {
     plan = variableRepairPlan(d, key, manual);
   } catch (e) {
-    await sheet({ title: "需人工核对", body: `<p class="pa-p">${esc(e.message)}</p>`, actions: [{ label: "确定", value: true }] });
+    await sheet({ place: "center", title: "需人工核对", body: `<p class="pa-p">${esc(e.message)}</p>`, actions: [{ label: "确定", value: true }] });
     return;
   }
   const version = JSON.stringify(d.toPreset());

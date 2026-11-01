@@ -425,8 +425,15 @@ function mountSchemes(page, { after } = {}) {
       { label: "自动套用", sub: bind?.id === s.id ? `现在：${bind.scope === "chat" ? "进入这个聊天时" : "进入这个角色的聊天时"}` : "现在：不自动套用", value: "bind" },
       { label: "改归属角色", sub: `现在：${charNameOf(schemeCharKey(s))}`, value: "char" },
       { label: "删除方案", sub: "预设不受影响", value: "del" }
-    ]);
+    ], { anchor: box.querySelector(`.pa-srow[data-id="${CSS.escape(s.id)}"] [data-a=edit]`) || recentAnchor() });
       if (!v) break;
+      // 2.5.0 重命名就在这一行里改，不再弹输入框
+      if (v === "rename") {
+        const b = box.querySelector(`.pa-srow[data-id="${CSS.escape(s.id)}"] .pa-srow-main > b`);
+        const n = b ? await inlineEdit(b, s.name) : await promptBox("方案名称", s.name);
+        if (n) { s.name = n; saveSettings(); }
+        break;
+      }
       await editAction(s, v);
       render();
     }
@@ -449,7 +456,7 @@ function mountSchemes(page, { after } = {}) {
           ${persona ? `<label class="pa-inline-check"><input type="checkbox" data-f="persona"${s.persona ? " checked" : ""}> 人设也换成当前人设（${esc(personaName)}）</label>` : ""}
           ${nowConn ? `<label class="pa-inline-check"><input type="checkbox" data-f="api"> API 也换成当前连接（${esc(connLabel(nowConn))}）</label>` : ""}
           <p class="pa-hint">方案现在记的人设：${s.persona ? esc(s.personaName || s.persona) : "未记录"}；API：${cur ? esc(connLabel(cur)) : "未记录"}。</p></div>`);
-      const r = await sheet({ title: "用现在的状态覆盖", body, actions: [{ label: "取消", value: null }, { label: "覆盖", kind: "primary", value: (w) => ({ persona: !!w.querySelector("[data-f=persona]")?.checked, api: !!w.querySelector("[data-f=api]")?.checked }) }] });
+      const r = await sheet({ place: "center", title: "用现在的状态覆盖", body, actions: [{ label: "取消", value: null }, { label: "覆盖", kind: "primary", value: (w) => ({ persona: !!w.querySelector("[data-f=persona]")?.checked, api: !!w.querySelector("[data-f=api]")?.checked }) }] });
       if (!r) return;
       Object.assign(s, schemeStates(d, s));
       if (r.persona && persona) { s.persona = persona; s.personaName = personaName; }
@@ -462,7 +469,7 @@ function mountSchemes(page, { after } = {}) {
       const pp = personaPicker(s.persona || "__none", s.personaName);
       const body = el(`<div class="pa-form"><p class="pa-hint">切换到这个方案时换成的人设。</p></div>`);
       body.append(pp.el);
-      const r = await sheet({ title: "人设", body, noFocus: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: () => pp.read() }] });
+      const r = await sheet({ place: "center", title: "人设", body, noFocus: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: () => pp.read() }] });
       if (!r) return;
       Object.assign(s, r);
       saveSettings();
@@ -473,7 +480,7 @@ function mountSchemes(page, { after } = {}) {
       const picker = connPicker(init, cur);
       const body = el(`<div class="pa-form"><p class="pa-hint">切换到这个方案时连接的 API 和模型。</p></div>`);
       body.append(picker.el);
-      const r = await sheet({ title: "API 和模型", body, noFocus: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: () => ({ conn: picker.read() }) }] });
+      const r = await sheet({ place: "center", title: "API 和模型", body, noFocus: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: () => ({ conn: picker.read() }) }] });
       if (!r) return;
       s.conn = r.conn;
       s.siteId = r.conn?.siteId || null;

@@ -1057,7 +1057,7 @@ function mountSuture(page, app) {
     toast(`已缝合 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条接入思维链` : ""}${inits.length ? `，初始化条目已添加变量 ${inits.join("、")}` : ""}`, "success");
     for (const [sd, set] of regexDeps) {
       const names = [...set].map((i) => presetRegexList(sd)[i]?.scriptName || "未命名正则");
-      const go = await sheet({ title: "一起缝显示正则？", body: `<p class="pa-p">刚缝入的条目要求特定输出格式，来源「${esc(sd.name)}」用正则「${esc(names.join("」「"))}」将其显示为美化。目标预设缺少对应正则，不缝入则聊天中只显示原文。</p><p class="pa-hint">下一步打开正则缝合，已预选这几条。</p>`, actions: [{ label: "以后再说", value: false }, { label: "去缝正则", kind: "primary", value: true }] });
+      const go = await sheet({ place: "center", title: "一起缝显示正则？", body: `<p class="pa-p">刚缝入的条目要求特定输出格式，来源「${esc(sd.name)}」用正则「${esc(names.join("」「"))}」将其显示为美化。目标预设缺少对应正则，不缝入则聊天中只显示原文。</p><p class="pa-hint">下一步打开正则缝合，已预选这几条。</p>`, actions: [{ label: "以后再说", value: false }, { label: "去缝正则", kind: "primary", value: true }] });
       if (go) {
         try { await presetRegexDialog(sd, d, { preselect: [...set] }); } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
       }

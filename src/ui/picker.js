@@ -22,7 +22,10 @@ async function pickName({ title, items, current = null, search, extra = null } =
   };
   q?.addEventListener("input", paint);
   paint();
-  await sheet({ title, body, noFocus: true, actions: [], onMount: (w) => {
+  // 2.5.0 几个固定选项（不带搜索）贴着按钮弹出；带搜索的长列表固定高度，只滚列表
+  const anchor = recentAnchor();
+  const pop = !useSearch && items.length <= 9 && !!anchor;
+  await sheet({ title, body, noFocus: true, actions: [], place: pop ? "pop" : "", anchor, cls: !pop ? `pa-sheet-picker${items.length > 10 ? " pa-sheet-tall" : ""}` : "", onMount: (w) => {
     body.querySelector(".pa-npick-extra")?.addEventListener("click", (e) => {
       picked = e.currentTarget.dataset.v;
       w.querySelector(".pa-sheet-x").click();

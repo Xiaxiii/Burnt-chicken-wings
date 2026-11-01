@@ -56,9 +56,9 @@ try {
   assert.equal(await page.locator('.pa-selall').textContent(), '全选搜索结果（2）');
   await page.locator('.pa-selall').click();
   assert.equal(await page.locator('.pa-selcnt').textContent(), '已选 2');
-  await page.locator('.pa-mselbar [data-act=newcat]').click();
-  await topSheet().locator('input').fill('我的 Claude');
-  await topSheet().locator('.pa-btn-primary').click();
+  await page.locator('.pa-mseltools [data-act=newcat]').click();
+  await page.locator('.pa-newcat input').fill('我的 Claude');
+  await page.locator('.pa-newcat [data-act=newok]').click();
   await page.waitForTimeout(200);
   assert.deepEqual((await cats()).map((c) => [c.name, c.models]), [['我的 Claude', ['claude-x', 'claude-y']]]);
   assert.deepEqual(await heads(), ['我的 Claude', 'Gemini'], '自建分类在前，没分进去的按系列');
@@ -67,14 +67,14 @@ try {
   await page.locator('.pa-selbtn').click();
   await page.locator('.pa-mpick-list .pa-ksec', { hasText: 'Gemini' }).click(); // 展开自动段 Gemini
   await page.locator('.pa-mpick-list [data-sel="gemini-z"]').click();
-  await page.locator('.pa-mselbar [data-act=newcat]').click();
-  await topSheet().locator('input').fill('出图');
-  await topSheet().locator('.pa-btn-primary').click();
+  await page.locator('.pa-mseltools [data-act=newcat]').click();
+  await page.locator('.pa-newcat input').fill('出图');
+  await page.locator('.pa-newcat input').press('Enter');
   await page.waitForTimeout(200);
   await page.locator('.pa-selbtn').click();
   await page.locator('.pa-mpick-list [data-fold="f:Gemini"]').count().then((n) => assert.equal(n, 0, 'gemini-z 进了分类，自动段里没有它'));
   await page.locator('.pa-mpick-list [data-sel="gemini-z"]').click();
-  await page.locator('.pa-mselbar [data-act=addto]').click();
+  await page.locator('.pa-mseltools [data-act=addto]').click();
   await topSheet().locator('.pa-pick-item', { hasText: '我的 Claude' }).click();
   await page.waitForTimeout(200);
   let cs = await cats();
@@ -84,16 +84,16 @@ try {
   await page.locator('.pa-cat-more').first().click();
   await topSheet().locator('.pa-pick-item', { hasText: '编辑模型' }).click();
   await page.waitForTimeout(100);
-  assert.equal(await page.locator('.pa-selcnt').textContent(), '已选 3');
+  assert.equal(await page.locator('.pa-selcnt').textContent(), '「我的 Claude」已选 3');
   await page.locator('.pa-mpick-list [data-sel="gemini-z"]').first().click();
-  await page.locator('.pa-mselbar [data-act=save]').click();
+  await page.locator('.pa-mseltools [data-act=save]').click();
   await page.waitForTimeout(100);
   assert.deepEqual((await cats())[0].models, ['claude-x', 'claude-y']);
   // 改名、删除
   await page.locator('.pa-cat-more').nth(1).click();
   await topSheet().locator('.pa-pick-item', { hasText: '改名' }).click();
-  await topSheet().locator('input').fill('出图模型');
-  await topSheet().locator('.pa-btn-primary').click();
+  await page.locator('.pa-ksec-wrap .pa-inline-input').fill('出图模型');
+  await page.locator('.pa-ksec-wrap .pa-inline-input').press('Enter');
   await page.waitForTimeout(100);
   assert.equal((await cats())[1].name, '出图模型');
   await page.locator('.pa-cat-more').nth(1).click();
@@ -151,7 +151,8 @@ try {
   ok('点测试发送测试消息，结果写在模型下面一行');
 
   await page.click('[data-a=livemore]');
-  const acts = await page.locator('.pa-sheet-actions .pa-btn').allInnerTexts();
+  assert.equal(await page.locator('.pa-sheet').count(), 0, '⋯ 在卡片里展开，不弹窗');
+  const acts = await page.locator('.pa-live-acts button').allInnerTexts();
   assert.deepEqual(acts, ['删除', '编辑'], '⋯ 里不再放重新连接和获取模型列表');
   ok('⋯ 里只留编辑、删除');
   assert.deepEqual(errors, []);

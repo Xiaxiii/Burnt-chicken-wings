@@ -540,6 +540,7 @@ function mountCleanKind(kind, box) {
         const ex = extra();
         if (!ex.list.length) return;
         const ok = await sheet({
+          place: "center",
           title: `精简至每个预设 ${ex.n} 份`,
           body: `<p class="pa-p">${ex.groups} 个预设超出，共 ${ex.list.length} 份，${fmtSize(ex.size)}。</p><p class="pa-hint">暂不删除的，将在下次修改时清理。</p>`,
           actions: [{ label: "暂不删除", value: false }, { label: `删除 ${ex.list.length} 份`, kind: "danger", value: true }]

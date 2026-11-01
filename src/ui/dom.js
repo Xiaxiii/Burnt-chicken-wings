@@ -7,8 +7,18 @@ function toast(msg, type = "info") {
 var rootEl = null;
 // 等这一帧画出来再继续：先显示「正在…」，重活放到下一帧
 const nextPaint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+// 2.5.0 最近点的按钮：菜单贴着它弹出，不再从屏幕底部升上来
+var lastTap = null;
+const noteTap = (e) => {
+  const b = e.target?.closest?.("button, [role=button], [data-a], [data-act], [data-tool], [data-s]");
+  if (b) lastTap = { el: b, t: Date.now() };
+};
+function recentAnchor() {
+  return lastTap && Date.now() - lastTap.t < 1500 && lastTap.el.isConnected && lastTap.el.offsetParent ? lastTap.el : null;
+}
 function setRoot(el2) {
   rootEl = el2;
+  el2?.addEventListener("click", noteTap, true);
 }
 function el(html) {
   const t = document.createElement("template");
@@ -17,7 +27,9 @@ function el(html) {
 }
 function sheet(opt) {
   return new Promise((resolve) => {
-    const wrap = el(`<div class="pa-sheet-mask"><div class="pa-sheet ${opt.wide ? "pa-sheet-wide" : ""}" role="dialog" aria-modal="true" tabindex="-1" aria-label="${esc(opt.title)}">
+    // place：省略时手机上从底部升起、电脑上居中（大窗口）；"center" 屏幕中间偏上的小卡片；"pop" 贴着 anchor 弹出的菜单
+    const place = opt.place === "pop" && opt.anchor ? "pop" : opt.place === "center" ? "center" : "";
+    const wrap = el(`<div class="pa-sheet-mask${place ? ` pa-mask-${place}` : ""}"><div class="pa-sheet ${opt.wide ? "pa-sheet-wide" : ""}${place ? ` pa-sheet-${place}` : ""}${opt.cls ? ` ${opt.cls}` : ""}" role="dialog" aria-modal="true" tabindex="-1" aria-label="${esc(opt.title)}">
             <div class="pa-sheet-head"><b>${esc(opt.title)}</b><button class="pa-icon-btn pa-sheet-x" aria-label="关闭">✕</button></div>
             <div class="pa-sheet-body"></div>
             <div class="pa-sheet-actions"></div></div></div>`);
@@ -81,6 +93,7 @@ function sheet(opt) {
     const restoreFocus = () => { try { if (back?.isConnected) back.focus({ preventScroll: true }); } catch {} };
     wrap.addEventListener("pa-closed", restoreFocus);
     (rootEl || document.body).append(wrap);
+    if (place === "pop") placePop(wrap, opt.anchor);
     opt.onMount?.(wrap);
     const first = wrap.querySelector("input:not([type=checkbox]):not([type=radio]), textarea");
     // focusInput：触屏上也直接把光标放进输入框（弹出键盘），用于点了就要打字的搜索窗
@@ -88,8 +101,57 @@ function sheet(opt) {
     else wrap.querySelector(".pa-sheet")?.focus({ preventScroll: true });
   });
 }
+// 2.5.0 原地改名：把这段文字换成输入框，回车或点别处保存，Esc 取消。返回新名字，没改返回 null
+function inlineEdit(target, value, { placeholder = "" } = {}) {
+  return new Promise((resolve) => {
+    const old = target.innerHTML;
+    const input = el(`<input class="pa-input pa-inline-input" value="${esc(value)}" placeholder="${esc(placeholder)}" maxlength="120" aria-label="新名称">`);
+    target.innerHTML = "";
+    target.append(input);
+    target.classList.add("pa-inline-editing");
+    let finished = false;
+    const finish = (v) => {
+      if (finished) return;
+      finished = true;
+      target.classList.remove("pa-inline-editing");
+      target.innerHTML = old;
+      resolve(v && v !== value ? v : null);
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(input.value.trim()); }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(null); }
+    });
+    input.addEventListener("blur", () => finish(input.value.trim()));
+    for (const t of ["click", "pointerdown"]) input.addEventListener(t, (e) => e.stopPropagation());
+    setTimeout(() => {
+      input.focus();
+      input.select();
+    }, 40);
+  });
+}
+// 贴着按钮放菜单：下面放得下就放下面，否则放上面；右边对齐按钮，不出边
+function placePop(wrap, anchor) {
+  const box = wrap.querySelector(".pa-sheet");
+  const host = (rootEl || document.body).getBoundingClientRect();
+  const a = anchor.getBoundingClientRect();
+  const gap = 6, edge = 8;
+  const w = Math.min(320, host.width - edge * 2);
+  box.style.width = w + "px";
+  const left = Math.min(Math.max(a.right - host.left - w, edge), host.width - w - edge);
+  box.style.left = left + "px";
+  const below = host.bottom - a.bottom - gap - edge;
+  const above = a.top - host.top - gap - edge;
+  const h = box.offsetHeight;
+  if (h <= below || below >= above) {
+    box.style.top = a.bottom - host.top + gap + "px";
+    box.style.maxHeight = below + "px";
+  } else {
+    box.style.bottom = host.bottom - a.top + gap + "px";
+    box.style.maxHeight = above + "px";
+  }
+}
 async function confirmBox(title, text, okLabel = "确定", danger = false) {
-  const r = await sheet({ title, body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: "取消", value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
+  const r = await sheet({ title, place: "center", body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: "取消", value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
   return !!r;
 }
 // 删除前的备份是交给浏览器下载的：浏览器可能弹窗询问、被拦截或下载失败，这里没法知道文件是否真的存到了本地。
@@ -111,6 +173,7 @@ async function confirmDownloaded(fileName, redownload) {
 async function promptBox(title, value = "", placeholder = "") {
   return sheet({
     title,
+    place: "center",
     body: `<input class="pa-input" value="${esc(value)}" placeholder="${esc(placeholder)}" maxlength="120">`,
     actions: [{ label: "取消", value: null }, { label: "确定", kind: "primary", value: (w) => w.querySelector("input").value.trim() || null }],
     onMount: (w) => {
@@ -125,11 +188,15 @@ async function promptBox(title, value = "", placeholder = "") {
     }
   });
 }
-async function pickBox(title, items, { hint = "" } = {}) {
+// 2.5.0 选项不多的菜单贴着刚点的按钮弹出（点外面关掉）；选项多或带说明时放在屏幕中间
+async function pickBox(title, items, { hint = "", anchor = recentAnchor() } = {}) {
   const body = el(`<div>${hint ? `<p class="pa-hint">${esc(hint)}</p>` : ""}<div class="pa-pick"></div></div>`);
   const list = body.querySelector(".pa-pick");
   let resolveFn;
-  const p = sheet({ title, body, actions: [{ label: "取消", value: null }], onMount: (w) => {
+  const pop = !!anchor && !hint && items.length <= 9;
+  // 先填好选项再弹出，贴按钮时才量得准高度
+  list.innerHTML = items.map((it, i) => `<button class="pa-pick-item" data-v="${i}">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
+  const p = sheet({ title, body, place: pop ? "pop" : "center", anchor, actions: pop ? [] : [{ label: "取消", value: null }], onMount: (w) => {
     list.addEventListener("click", (e) => {
       const b = e.target.closest("[data-v]");
       if (!b) return;
@@ -141,7 +208,6 @@ async function pickBox(title, items, { hint = "" } = {}) {
   resolveFn = (v) => {
     picked = v;
   };
-  list.innerHTML = items.map((it, i) => `<button class="pa-pick-item" data-v="${i}">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
   await p;
   return picked;
 }

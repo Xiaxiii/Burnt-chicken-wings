@@ -270,6 +270,7 @@ function mountCleanup(sec) {
     const users = usersOf(names);
     const size = st.rows.filter((r) => names.includes(r.name)).reduce((n, r) => n + r.size, 0);
     const ok = await sheet({
+      place: "center",
       title: `归档 ${names.length} 个预设`,
       body: `<p class="pa-p">共 ${fmtSize(size)}。归档后这些预设不再出现在酒馆的预设列表中，打开酒馆时也不再下载；在「清理 → 已归档」中可随时恢复。</p>
         ${users.length ? `<p class="pa-p pa-dim">${esc(users.slice(0, 4).join("、"))}${users.length > 4 ? ` 等 ${users.length} 处` : ""}使用了这些预设。${users.some((w) => w.startsWith("方案")) ? "套用相应方案时会自动从归档恢复。" : ""}${users.some((w) => w.startsWith("连接配置")) ? "酒馆的连接配置不会自动恢复，使用前需先在这里恢复。" : ""}</p>` : ""}
@@ -325,6 +326,7 @@ function mountCleanup(sec) {
   async function doDelete(names) {
     const users = usersOf(names);
     const ok = await sheet({
+      place: "center",
       title: `删除 ${names.length} 个预设`,
       body: `<p class="pa-p">将从服务器上删除这些预设，<b>删除后无法在酒馆中恢复</b>。如果以后可能还会用到，建议改用「归档」。</p>
         ${users.length ? `<p class="pa-p pa-warn">${esc(users.slice(0, 4).join("、"))}${users.length > 4 ? ` 等 ${users.length} 处` : ""}正在使用这些预设，删除后它们将无法套用。</p>` : ""}

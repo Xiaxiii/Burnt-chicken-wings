@@ -69,9 +69,9 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   const sel = new Set();
   const body = el(`<div class="pa-mpick">${viewSeg(views)}
       <div class="pa-msearch"><input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
-      <div class="pa-selhead" hidden><span class="pa-seltip"></span><button type="button" class="pa-link pa-selall"></button></div>
-      <div class="pa-mpick-list" role="listbox"></div>
-      <div class="pa-mselbar" hidden><span class="pa-selcnt"></span><span class="pa-selacts"></span></div></div>`);
+      <div class="pa-mseltools" hidden><span class="pa-selcnt"></span><button type="button" class="pa-link pa-selall"></button><span class="pa-selacts"></span>
+        <div class="pa-newcat" hidden><input class="pa-input" placeholder="分类名，如 Gemini 逆向、0.07/次" maxlength="60" aria-label="新分类名"><button type="button" class="pa-swpill" data-act="newok">确定</button></div></div>
+      <div class="pa-mpick-list" role="listbox"></div></div>`);
   const input = body.querySelector("input");
   const box = body.querySelector(".pa-mpick-list");
   let picked = null;
@@ -145,10 +145,10 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
         return secHead(k.id, kname(k), (k.models || []).length, open, k.keyMask || "") + (open ? kc + items + empty : "");
       }).join("");
     }
-    // 多选的提示行和底部按钮
-    const head = body.querySelector(".pa-selhead");
-    const bar = body.querySelector(".pa-mselbar");
-    head.hidden = bar.hidden = !selecting;
+    // 多选工具条：在搜索框下面，不用滑到底
+    const bar = body.querySelector(".pa-mseltools");
+    bar.hidden = !selecting;
+    if (!selecting) bar.querySelector(".pa-newcat").hidden = true;
     const btn = body.querySelector(".pa-selbtn");
     if (btn) {
       btn.textContent = selecting ? "完成" : "多选";
@@ -156,9 +156,8 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     }
     if (selecting) {
       const n = all.filter(hit).length;
-      head.querySelector(".pa-seltip").textContent = editing ? `「${editing.name}」：勾选要留下的模型` : "勾选要放进分类的模型";
-      head.querySelector(".pa-selall").textContent = q ? `全选搜索结果（${n}）` : `全选（${n}）`;
-      bar.querySelector(".pa-selcnt").textContent = `已选 ${sel.size}`;
+      bar.querySelector(".pa-selall").textContent = q ? `全选搜索结果（${n}）` : `全选（${n}）`;
+      bar.querySelector(".pa-selcnt").textContent = editing ? `「${editing.name}」已选 ${sel.size}` : `已选 ${sel.size}`;
       bar.querySelector(".pa-selacts").innerHTML = editing
         ? '<button type="button" class="pa-swpill pa-edit-pill" data-act="cancel">取消</button><button type="button" class="pa-swpill" data-act="save">保存</button>'
         : `${cats().length ? '<button type="button" class="pa-swpill pa-edit-pill" data-act="addto">加入…</button>' : ""}<button type="button" class="pa-swpill" data-act="newcat">新建分类</button>`;
@@ -179,7 +178,8 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     typing = setTimeout(paint, all.length > 150 ? 120 : 0);
   });
   paint();
-  await sheet({ title: `${title}（${all.length}）`, body, noFocus: true, actions: [{ label: "取消", value: null }], onMount: (w) => {
+  // 列表长时窗口固定高度，只滚列表，搜索框和工具条一直在上面
+  await sheet({ title: `${title}（${all.length}）`, body, noFocus: true, cls: `pa-sheet-picker${all.length > 10 ? " pa-sheet-tall" : ""}`, actions: [], onMount: (w) => {
     body.querySelector(".pa-kview")?.addEventListener("click", (e) => {
       const b = e.target.closest("[data-v]");
       if (!b || b.dataset.v === mode) return;
@@ -198,9 +198,32 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       all.filter(hit).forEach((m) => sel.add(m));
       paint();
     });
-    body.querySelector(".pa-mselbar").addEventListener("click", async (e) => {
+    const newBox = body.querySelector(".pa-newcat");
+    const newInput = newBox.querySelector("input");
+    // 新建分类：名字就在工具条里填
+    const makeCat = () => {
+      const name = newInput.value.trim();
+      if (!name) return newInput.focus();
+      if (!site.modelCats) site.modelCats = [];
+      const c = { id: uid(), name, models: all.filter((m) => sel.has(m)) };
+      site.modelCats.push(c);
+      saveCats();
+      secOpen.add(`c:${c.id}`);
+      toast(`已新建「${name}」，${c.models.length} 个模型`, "success");
+      newInput.value = "";
+      stopSelect();
+      mode = "cat";
+      input.value = "";
+      paint();
+    };
+    newInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); makeCat(); }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); newBox.hidden = true; }
+    });
+    body.querySelector(".pa-mseltools").addEventListener("click", async (e) => {
       const act = e.target.closest("[data-act]")?.dataset.act;
       if (!act) return;
+      if (act === "newok") return makeCat();
       if (act === "cancel") {
         stopSelect();
         return paint();
@@ -214,15 +237,11 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       }
       if (!sel.size) return toast("先勾选模型", "info");
       if (act === "newcat") {
-        const name = await promptBox("新建分类", "", "例如：Gemini 逆向、0.07/次");
-        if (!name) return;
-        if (!site.modelCats) site.modelCats = [];
-        const c = { id: uid(), name, models: all.filter((m) => sel.has(m)) };
-        site.modelCats.push(c);
-        saveCats();
-        secOpen.add(`c:${c.id}`);
-        toast(`已新建「${name}」，${c.models.length} 个模型`, "success");
-      } else if (act === "addto") {
+        newBox.hidden = false;
+        newInput.focus();
+        return;
+      }
+      if (act === "addto") {
         const id = await pickBox("加入哪个分类", cats().map((c) => ({ label: c.name, sub: `${c.models.filter((m) => allSet.has(m)).length} 个模型`, value: c.id })));
         const c = cats().find((x) => x.id === id);
         if (!c) return;
@@ -254,7 +273,9 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
           sel.clear();
           c.models.forEach((m) => allSet.has(m) && sel.add(m));
         } else if (a === "rename") {
-          const name = await promptBox("分类改名", c.name);
+          // 就在分类标题上改名
+          const wrapEl = cm.closest(".pa-ksec-wrap");
+          const name = wrapEl ? await inlineEdit(wrapEl, c.name) : await promptBox("分类改名", c.name);
           if (name) {
             c.name = name;
             saveCats();
@@ -430,6 +451,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   let liveFetched = null;
   // 2.5.0 测试结果：写在模型那一行下面；换了模型就不显示
   let liveTest = null;
+  // 2.5.0 ⋯ 在卡片里原地展开详情，不再弹窗
+  let liveOpen = false;
   // 酒馆实际在用的模型（测试用的就是它）
   const usingModel = (live = liveConnection()) => {
     const c = ctx();
@@ -472,11 +495,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const sub = live.url || src?.label || "";
     liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">当前连接</h3></div>
         <article class="pa-card pa-site pa-site-on pa-live"${active ? ` data-id="${esc(active.id)}"` : ""}>
-            <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more" data-a="livemore" aria-label="连接详情" title="连接详情">⋯</button></header>
+            <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more${liveOpen ? " on" : ""}" data-a="livemore" aria-expanded="${liveOpen}" aria-label="连接详情" title="连接详情">⋯</button></header>
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
+        ${liveOpen ? liveDetails(live, active) : ""}
         </article>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
     const siteRow = (x) => {
@@ -542,26 +566,20 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         </div>`;
   }
   // ⋯：当前连接的完整信息和操作
-  async function liveSheet() {
-    const live = liveConnection();
-    const active = sites().find((x) => x.id === settings().activeSiteId);
+  // ⋯ 展开的详情：类型、密钥、备注和操作（网址上面已经有了）
+  function liveDetails(live, active) {
     const source = active ? active.source : live.source;
-    const url = active ? active.url : live.url;
     const mask = (x) => x.keyMask || (x.secretId ? "已保存" : "使用当前密钥");
     const ak = active ? siteKey(active) : null;
     const key = active ? siteMulti(active) ? `${keyName(active, ak)}：${mask(ak)}（共 ${active.keys.length} 个分组）` : mask(active) : live.secretMask;
-    const body = el(`<dl class="pa-site-dl">
+    const acts = active
+      ? '<button class="pa-swpill pa-danger-pill" data-a="del" type="button">删除</button><button class="pa-swpill" data-a="edit" type="button">编辑</button>'
+      : '<button class="pa-swpill" data-a="capture" type="button">保存为站点</button>';
+    return `<div class="pa-live-detail"><dl class="pa-site-dl">
           <dt>类型</dt><dd>${esc(SOURCES[source]?.label || source || "—")}</dd>
-          ${url ? `<dt>网址</dt><dd>${esc(url)}</dd>` : ""}
           ${key ? `<dt>密钥</dt><dd>${esc(key)}</dd>` : ""}
           ${active?.note ? `<dt>备注</dt><dd>${esc(active.note)}</dd>` : ""}
-        </dl>`);
-    // 拉取、测试在模型那一行，这里只留编辑、删除（没存成站点时是保存）
-    const actions = active
-      ? [{ label: "删除", kind: "danger-soft", value: "del" }, { label: "编辑", kind: "primary", value: "edit" }]
-      : [{ label: "保存为站点", kind: "primary", value: "capture" }];
-    const a = await sheet({ title: active ? active.name : "当前连接", body, noFocus: true, actions });
-    if (a) await act(a, active);
+        </dl><div class="pa-live-acts">${acts}</div></div>`;
   }
   async function getModels(site) {
     return withSiteKey(site, () => fetchModelList(site));
@@ -989,7 +1007,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       if (btn.querySelector("svg")) btn.classList.add("pa-busy");
       else btn.textContent = t;
     };
-    if (a === "livemore") return liveSheet();
+    if (a === "livemore") {
+      liveOpen = !liveOpen;
+      return render();
+    }
     if (a === "reasoningclear") {
       if (!await confirmBox("清除推理格式记录", "清除所有预设记住的推理格式？当前酒馆设置不变。", "清除")) return;
       settings().reasoningByPreset = {};
