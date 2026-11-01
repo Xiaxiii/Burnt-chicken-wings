@@ -710,7 +710,8 @@ html.pa-open body { overflow: hidden; }
 /* 2.5.0 测试结果：模型那一行下面一行小字 */
 #pa-root .pa-live-res { display: flex; align-items: center; gap: 5px; margin: 5px 0 0; font-size: .8em; line-height: 1.35; color: var(--pa-warn); overflow-wrap: anywhere; }
 #pa-root .pa-live-res.ok { color: var(--pa-ok); }
-#pa-root .pa-live-res i { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 1.3em; height: 1.3em; border: 1px solid currentColor; border-radius: 50%; font-style: normal; font-size: .85em; font-weight: 700; line-height: 1; }
+#pa-root .pa-live-res .pa-res-ico { flex: none; width: 1.3em; height: 1.3em; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+#pa-root .pa-live-res .pa-res-ico .pa-res-dot { fill: currentColor; stroke: none; }
 #pa-root .pa-live-fetch { flex: none; width: 32px; height: 30px; min-height: 0; color: var(--pa-dim); }
 #pa-root .pa-live-fetch svg { width: 17px; height: 17px; }
 #pa-root .pa-live-test { flex: none; width: 32px; height: 30px; min-height: 0; color: var(--pa-dim); }

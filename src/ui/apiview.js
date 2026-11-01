@@ -203,6 +203,9 @@ async function editReasoning(name, init, live) {
     } }]
   });
 }
+// 测试结果前的小圆圈图标：画出来的，勾和感叹号在圆里居中（字符在不同字体里会偏）
+var RES_OK = '<svg class="pa-res-ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M4.9 8.2l2.1 2.1 4.1-4.4"/></svg>';
+var RES_BAD = '<svg class="pa-res-ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M8 4.4v4.5"/><circle class="pa-res-dot" cx="8" cy="11.4" r=".9"/></svg>';
 // 2.5.0 测试消息失败时的原因：站点给的报错原文，加一句最简单的解释
 function apiErrorText(data) {
   const e = data?.error;
@@ -301,7 +304,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more" data-a="livemore" aria-label="连接详情" title="连接详情">⋯</button></header>
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
-            ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}"` : ""}><i aria-hidden="true">${liveTest.ok ? "✓" : "!"}</i>${esc(liveTest.text)}</p>` : ""}
+            ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
