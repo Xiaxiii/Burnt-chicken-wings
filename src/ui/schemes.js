@@ -292,12 +292,12 @@ function mountSchemes(page, { after } = {}) {
     ].filter(Boolean).join(" · ");
     const apiLine = conn ? `<small class="pa-srow-api">API：${esc(connLabel(conn))}</small>` : '<small class="pa-srow-api pa-srow-noapi">API：不切换</small>';
     if (picking) return `<label class="pa-srow pa-srow-pick" data-id="${esc(s.id)}"><input type="checkbox" data-a="pick" ${picked.has(s.id) ? "checked" : ""}>
-        <div class="pa-srow-main"><b>${esc(s.name)}</b>${bound ? `<span class="pa-chip pa-chip-cot">🔗${BIND_LABEL[bound]}</span>` : ""}<small>${meta}</small>${apiLine}</div></label>`;
+        <div class="pa-srow-main"><b>${esc(s.name)}</b>${bound ? `<span class="pa-chip pa-chip-cot pa-chip-ico">${ICON.link}${BIND_LABEL[bound]}</span>` : ""}<small>${meta}</small>${apiLine}</div></label>`;
     return `<div class="pa-srow${on ? " pa-srow-on" : ""}" data-id="${esc(s.id)}">
-        <div class="pa-srow-main"><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? `<span class="pa-chip pa-chip-cot" title="进入${bound === "chat" ? "这个聊天" : "这个角色的聊天"}时自动切换到它">🔗${BIND_LABEL[bound]}</span>` : ""}
+        <div class="pa-srow-main"><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? `<span class="pa-chip pa-chip-cot pa-chip-ico" title="进入${bound === "chat" ? "这个聊天" : "这个角色的聊天"}时自动切换到它">${ICON.link}${BIND_LABEL[bound]}</span>` : ""}
         <small>${meta}</small>${apiLine}</div>
-        <button class="pa-btn pa-btn-s${on ? "" : " pa-btn-primary"}" data-a="apply" title="把预设、开关、人设、API 一次换成方案记的样子">切换</button>
-        <button class="pa-icon-btn" data-a="edit" aria-label="编辑方案" title="编辑">✏️</button></div>`;
+        <button class="pa-swpill${on ? " pa-edit-pill" : ""}" type="button" data-a="apply" title="把预设、开关、人设、API 一次换成方案记的样子">切换</button>
+        <button class="pa-icon-btn" data-a="edit" aria-label="编辑方案" title="编辑">${ICON.pencil}</button></div>`;
   }
   function render() {
     let d = null;
@@ -310,7 +310,7 @@ function mountSchemes(page, { after } = {}) {
     if (picking && !all().length) picking = false;
     page.querySelector(".pa-scheme-pick").innerHTML = picking
       ? `<span class="pa-dim">已选 ${picked.size} 个</span><button class="pa-btn pa-btn-s pa-btn-danger" data-s="delpicked" ${picked.size ? "" : "disabled"}>删除</button><button class="pa-btn pa-btn-s" data-s="pickoff">取消</button>`
-      : all().length ? '<button class="pa-icon-btn" data-s="pickon" aria-label="勾选删除方案" title="勾选删除方案">🗑️</button>' : "";
+      : all().length ? `<button class="pa-icon-btn" data-s="pickon" aria-label="勾选删除方案" title="勾选删除方案">${ICON.trash}</button>` : "";
     page.classList.toggle("pa-schemes-picking", picking);
     // 当前角色在用的预设还没有方案：提示一句
     const ck = hasChat() ? currentCharKey() : null;
@@ -416,7 +416,7 @@ function mountSchemes(page, { after } = {}) {
     while (all().includes(s)) {
       const conn = schemeConn(s);
       const bind = bindingNow();
-      const v = await pickBox(`✏️ ${s.name}`, [
+      const v = await pickBox(s.name, [
       { label: "重命名", value: "rename" },
       { label: "用现在的状态覆盖", sub: "更新条目开关，人设和 API 可选", value: "update" },
       { label: "人设", sub: s.persona ? `现在：${s.personaName || s.persona}` : "现在：未记录，切换时人设不变", value: "persona" },

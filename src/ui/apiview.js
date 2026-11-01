@@ -535,7 +535,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       ? rows.map(reasoningRow).join("") + '<button class="pa-srow pa-optadd" data-a="reasoningadd" type="button">＋ 给其他预设设置</button>'
       : info("开启后", "离开预设时记下推理格式，切回时恢复") + (kept ? `<div class="pa-srow"><div class="pa-srow-main"><b>已记住 ${kept} 个预设</b></div><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningclear">清除</button></div>` : "");
     sitesBox.innerHTML = `
-        <div class="pa-row-head"><h3 class="pa-h">站点${sites().length ? whyBtn("sites") : ""}</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
+        <div class="pa-row-head"><h3 class="pa-h">站点${sites().length ? whyBtn("sites") : ""}</h3><button class="pa-btn pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
         ${sites().length ? `${whyNote("sites", "点站点名查看、编辑完整信息，删除也在里面。")}${sites().map(siteRow).join("")}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,

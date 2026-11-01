@@ -88,10 +88,10 @@ function mountOrganize(page) {
   page.innerHTML = `
         <div class="pa-toolbar">
             <div class="pa-picker-slot"></div>
-            <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索条目">🔍</button>
-            <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">＋</button>
+            <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索条目">${ICON.search}</button>
+            <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">${ICON.plus}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">⋯</button>
-            <div class="pa-searchrow" hidden><input class="pa-input pa-search" type="search" placeholder="🔍 搜索条目名、标签、分组名" aria-label="搜索条目"></div>
+            <div class="pa-searchrow" hidden><input class="pa-input pa-search" type="search" placeholder="搜索条目名、标签、分组名" aria-label="搜索条目"></div>
             <div class="pa-tools">
                 <button class="pa-btn pa-btn-soft" data-tool="newgroup">＋ 新建分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="newentry">＋ 新建条目</button>

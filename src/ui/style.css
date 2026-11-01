@@ -121,6 +121,8 @@ html.pa-open body { overflow: hidden; }
     -webkit-tap-highlight-color: transparent;
 }
 #pa-root .pa-btn:disabled { opacity: .45; cursor: default; }
+/* 2.5.0 不能点的主按钮：描边、正文灰，字看得清，也不像能点的实心按钮 */
+#pa-root .pa-btn-primary:disabled { opacity: 1; background: transparent; border-color: var(--pa-line); color: var(--pa-dim); }
 #pa-root .pa-btn-primary { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }
 #pa-root .pa-btn-soft { background: transparent; border-style: dashed; }
 #pa-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }
@@ -373,11 +375,12 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sup { padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); }
 #pa-root .pa-sup.pa-dim { background: none; color: var(--pa-dim); }
 #pa-root .pa-cot { padding-top: 4px; }
-#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin: 6px 0 4px; }
-#pa-root .pa-cot-sum > div { border: 1px solid var(--pa-line); border-radius: var(--pa-r); padding: 8px; display: grid; }
+/* 2.5.0 五个数字放在一条里，用细线隔开（不再是五个小方块） */
+#pa-root .pa-cot-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 0; margin: 6px 0 4px; border: 1px solid var(--pa-line); border-radius: var(--pa-r); background: var(--pa-card); overflow: hidden; }
+#pa-root .pa-cot-sum > div { border-left: 1px solid var(--pa-line); padding: 8px; display: grid; }
+#pa-root .pa-cot-sum > div:first-child { border-left: 0; }
 #pa-root .pa-cot-sum b { font-size: 1.4em; font-variant-numeric: tabular-nums; }
 #pa-root .pa-cot-sum span { font-size: .8em; color: var(--pa-dim); }
-#pa-root .pa-cot-sum .pa-bad { border-color: var(--pa-warn); border-style: dashed; }
 #pa-root .pa-cot-sum .pa-bad b { color: var(--pa-warn); }
 #pa-root .pa-cov-group h4 { margin: 14px 2px 4px; font-size: .9em; color: var(--pa-em); }
 #pa-root .pa-cov { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--pa-line); }
@@ -730,6 +733,9 @@ html.pa-open body { overflow: hidden; }
 /* 成功绿、失败红；和正文色混一点，浅色、深色主题都看得清 */
 #pa-root .pa-live-res.ok { color: #1f8f4a; color: color-mix(in srgb, #16a34a 75%, var(--pa-text)); }
 #pa-root .pa-live-res[data-a=testraw] { cursor: pointer; }
+/* 2.5.0 线条图标放在小标签、文件按钮里 */
+#pa-root .pa-chip-ico svg { width: 1.05em; height: 1.05em; vertical-align: -0.18em; margin-right: 2px; }
+#pa-root .pa-file i svg { width: 16px; height: 16px; vertical-align: -3px; }
 /* 2.5.0 ⋯ 原地展开的详情 */
 #pa-root .pa-live-more.on { background: var(--pa-sel); color: var(--pa-text); }
 #pa-root .pa-live-detail { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--pa-line); }
@@ -1171,10 +1177,10 @@ html.pa-open body { overflow: hidden; }
 /* 思维链统计：手机上一行五格 */
 #pa-root .pa-cot-sum > div { text-align: center; }
 @media (max-width: 599px) {
-    #pa-root .pa-cot-sum { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+    #pa-root .pa-cot-sum { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     #pa-root .pa-cot-sum > div { padding: 5px 2px; }
     #pa-root .pa-cot-sum b { font-size: 1.15em; }
-    #pa-root .pa-cot-sum span { font-size: .68em; white-space: nowrap; }
+    #pa-root .pa-cot-sum span { font-size: .74em; white-space: nowrap; }
     /* 手机上「预设」二字省掉，按钮自己就是预设名 */
     #pa-root .pa-picker > span { display: none; }
     #pa-root .pa-h { font-size: .95em; margin: 12px 2px 6px; }

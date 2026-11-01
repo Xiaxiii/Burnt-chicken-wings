@@ -71,7 +71,7 @@ function mountSuture(page, app) {
             <div class="pa-pane-head pa-fromto"><b class="pa-ft">从</b>
                 <button class="pa-typebtn" data-st="srctype" type="button" aria-label="来源类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-src-pick"></div>
-                <button class="pa-icon-btn pa-qbtn" data-st="srcsearch" aria-label="搜索来源条目" title="搜索条目">🔍</button>
+                <button class="pa-icon-btn pa-qbtn" data-st="srcsearch" aria-label="搜索来源条目" title="搜索条目">${ICON.search}</button>
                 <button class="pa-btn pa-btn-s" data-st="regex" type="button" title="缝制来源预设中的正则">正则</button>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
@@ -83,7 +83,7 @@ function mountSuture(page, app) {
                 <button class="pa-typebtn" data-st="dsttype" type="button" aria-label="目标类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-dst-picker"></div>
                 <div class="pa-dst-wbslot" hidden></div>
-                <button class="pa-icon-btn pa-qbtn" data-st="dstsearch" aria-label="搜索目标条目" title="搜索条目">🔍</button>
+                <button class="pa-icon-btn pa-qbtn" data-st="dstsearch" aria-label="搜索目标条目" title="搜索条目">${ICON.search}</button>
             </div>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
@@ -172,7 +172,7 @@ function mountSuture(page, app) {
       if (!st.srcWorld || !names.includes(st.srcWorld)) st.srcWorld = names[0] || null;
       srcPick.innerHTML = names.length ? nameBtnHtml(st.srcWorld, "pa-src-name") : '<span class="pa-hint">没有世界书</span>';
     } else if (st.srcType === "file") {
-      srcPick.innerHTML = `<label class="pa-namebtn pa-file" title="${esc(st.fileDraft?.name || "")}"><span>${esc(st.fileDraft ? st.fileDraft.name : "选择预设文件…")}</span><i aria-hidden="true">📂</i><input type="file" accept=".json,application/json" hidden></label>`;
+      srcPick.innerHTML = `<label class="pa-namebtn pa-file" title="${esc(st.fileDraft?.name || "")}"><span>${esc(st.fileDraft ? st.fileDraft.name : "选择预设文件…")}</span><i aria-hidden="true">${ICON.folder}</i><input type="file" accept=".json,application/json" hidden></label>`;
     } else {
       srcPick.innerHTML = '<span class="pa-hint pa-src-paste">粘贴一段文字</span>';
     }
@@ -520,7 +520,7 @@ function mountSuture(page, app) {
   const qOf = (side) => String(qStore()[qKey(side)] || "").trim();
   function qBar(side) {
     const q = qOf(side);
-    return q ? `<div class="pa-qbar"><span>🔍 搜索「<b>${esc(q)}</b>」</span><button class="pa-link" data-act="qedit" type="button">改</button><button class="pa-link" data-act="qclear" type="button">✕ 清除</button></div>` : "";
+    return q ? `<div class="pa-qbar"><span>搜索「<b>${esc(q)}</b>」</span><button class="pa-link" data-act="qedit" type="button">改</button><button class="pa-link" data-act="qclear" type="button">✕ 清除</button></div>` : "";
   }
   function paintQBtns() {
     page.querySelector('[data-st="srcsearch"]').classList.toggle("on", !!qOf("src"));
@@ -532,7 +532,7 @@ function mountSuture(page, app) {
     side === "src" ? renderSrc() : renderDst();
   }
   function searchBox(side) {
-    const body = el(`<div class="pa-ssearch"><input class="pa-input pa-ss-q" type="search" placeholder="🔍 搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off" enterkeyhint="search">
+    const body = el(`<div class="pa-ssearch"><input class="pa-input pa-ss-q" type="search" placeholder="搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off" enterkeyhint="search">
         <p class="pa-hint">边打边在${side === "src" ? "「从」" : "「到」"}的列表里筛出来。搜的词会一直留着，列表上方点「✕ 清除」恢复全部。</p></div>`);
     const q = body.querySelector(".pa-ss-q");
     q.value = qOf(side);
@@ -837,7 +837,7 @@ function mountSuture(page, app) {
             ${notes.length && mode === value ? `<ul class="pa-notes">${notes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
       const modes = same && !planSlot ? card("raw", "原样缝合", "两边写法相同，无需调整", rawContent) : [
         card("raw", "原样缝合", "不调整写法", rawContent),
-        card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["正文不变，位置和角色与目标一致"]), ...planFix.warnings.map((w) => "⚠ " + w)]),
+        card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["正文不变，位置和角色与目标一致"]), ...planFix.warnings.map((w) => "注意：" + w)]),
         planSlot ? card("slot", `按目标写法缝合，并加入多选一「${t.slot.varName}」`, "开启后，同类中已开启的一条会被替换", planSlot.content, planSlot.changes) : ""
       ].join("");
       const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);

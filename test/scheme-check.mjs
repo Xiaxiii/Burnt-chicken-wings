@@ -39,7 +39,7 @@ ok("保存时记到当前角色，并绑定本聊天");
 // 2) 按角色卡分组：当前角色一组展开，「未分角色」收起，点箭头展开
 const heads = await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent));
 assert.deepEqual(heads, ["沈砚", "未分角色"]);
-assert.match(await page.locator(".pa-sgroup.open", { hasText: "沈砚" }).innerText(), /沈砚·正剧[\s\S]*🔗本聊天/);
+assert.match(await page.locator(".pa-sgroup.open", { hasText: "沈砚" }).innerText(), /沈砚·正剧[\s\S]*本聊天/);
 const other = page.locator(".pa-sgroup", { hasText: "未分角色" });
 if (await other.evaluate((x) => x.classList.contains("open"))) { await other.locator(".pa-sghead").click(); await page.waitForTimeout(150); }
 assert.equal(await other.locator(".pa-srow").count(), 0, "收起时不显示方案");
