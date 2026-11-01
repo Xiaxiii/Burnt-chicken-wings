@@ -742,9 +742,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-site-mhead:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; border-radius: var(--pa-r); }
 #pa-root .pa-site-mhead > .pa-chip { flex: none; }
 #pa-root .pa-site-mhead .pa-srow-main { gap: 0 6px; line-height: 1.3; }
-#pa-root .pa-swpill.pa-fold-pill { pointer-events: none; background: transparent; }
+#pa-root .pa-swpill.pa-fold-pill { background: transparent; }
 #pa-root .pa-site-multi.open .pa-swpill.pa-fold-pill { background: var(--pa-sel); }
-#pa-root .pa-kline-edit { justify-content: flex-end; padding-top: 2px; padding-bottom: 2px; }
+#pa-root .pa-kline[data-a=edit] { cursor: pointer; }
 #pa-root .pa-klines { border-top: 1px dashed var(--pa-line); }
 #pa-root .pa-kline { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 24px; border-top: 1px solid var(--pa-line); }
 #pa-root .pa-kline:first-child { border-top: 0; }

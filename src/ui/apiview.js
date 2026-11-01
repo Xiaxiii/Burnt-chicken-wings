@@ -406,13 +406,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       const lines = open ? `<div class="pa-klines">${x.keys.map((y) => {
         const cur = on && y.id === k.id;
-        return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc(y.model || "未选模型")}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
-      }).join("")}<div class="pa-kline pa-kline-edit"><button class="pa-link" data-a="edit" type="button">编辑</button></div></div>` : "";
-      // 点整行展开、收起；右边的胶囊写着几个分组。编辑在展开后的最后一行
+        return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}" data-a="edit"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc(y.model || "未选模型")}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
+      }).join("")}</div>` : "";
+      // 和单密钥站点一样：点「切换」切换，点右边「N 组」展开、收起，点其他地方打开编辑窗口
       return `<div class="pa-sgroup pa-sitecard pa-site pa-site-multi${on ? " pa-srow-on" : ""}${open ? " open" : ""}" data-id="${esc(x.id)}">
-            <div class="pa-site-mhead" data-a="sitefold" role="button" tabindex="0" aria-expanded="${open}" aria-label="${esc(x.name)}，${x.keys.length} 个分组，${open ? "点按收起" : "点按展开"}">
+            <div class="pa-site-mhead" data-a="edit" role="button" tabindex="0" aria-label="编辑「${esc(x.name)}」">
             <div class="pa-srow-main"><b>${esc(x.name)}</b>${info ? `<small class="pa-site-model">${esc(info)}</small>` : ""}</div>
-            ${on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : ""}<span class="pa-swpill pa-fold-pill" aria-hidden="true">${x.keys.length} 组 ${open ? "▾" : "▸"}</span></div>${lines}</div>`;
+            ${on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : ""}<button class="pa-swpill pa-fold-pill" data-a="sitefold" type="button" aria-expanded="${open}" aria-label="${x.keys.length} 个分组，${open ? "收起" : "展开"}">${x.keys.length} 组 ${open ? "▾" : "▸"}</button></div>${lines}</div>`;
     };
     const info = (t, d) => `<div class="pa-srow"><div class="pa-srow-main"><b>${t}</b><small>${d}</small></div></div>`;
     const follow = s.reasoningFollowPreset === true;
