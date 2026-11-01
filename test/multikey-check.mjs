@@ -88,10 +88,13 @@ try {
 
   // 3) 站点列表：小三角点开，每个分组一行，各有「切换」
   const card = page.locator(".pa-plan-sites .pa-site-multi");
-  assert.equal(await card.locator(".pa-kline").count(), 0, "默认折起");
-  assert.match(await card.locator(".pa-site-model").innerText(), /2 个分组/);
-  await card.locator("[data-a=sitefold]").click();
-  assert.equal(await card.locator(".pa-kline").count(), 2);
+  assert.equal(await card.locator(".pa-kline[data-k]").count(), 0, "默认折起");
+  assert.equal((await card.locator(".pa-fold-pill").textContent()).trim(), "2 组 ▸");
+  // 点整行（名字上）就展开，不会打开编辑窗口
+  await card.locator(".pa-site-mhead b").click();
+  assert.equal(await page.locator(".pa-sheet").count(), 0, "点名字展开，不弹编辑窗口");
+  assert.equal((await card.locator(".pa-fold-pill").textContent()).trim(), "2 组 ▾");
+  assert.equal(await card.locator(".pa-kline[data-k]").count(), 2);
   await card.locator(".pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
   await page.waitForFunction(() => window.__toasts.some((t) => /已连接/.test(t)), null, { timeout: 20000 });
   site = (await S()).sites[0];
