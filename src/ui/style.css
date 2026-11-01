@@ -552,7 +552,8 @@ html.pa-open body { overflow: hidden; }
 #pa-root[data-theme="dusk"]     { --pa-tint:#fbf1e6; --pa-text:#1f4a55; --pa-thread:#026d81; --pa-em:#3f6670; --pa-line:#ead9cc; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#c4503f; --pa-ok:#3f7d5c; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(2,109,129,.14); }
 #pa-root[data-theme="bud"]      { --pa-tint:#f5f2ee; --pa-text:#2f423d; --pa-thread:#4f6c66; --pa-em:#4f625d; --pa-line:#dcd8d0; --pa-input-bg:rgba(255,255,255,.52); --pa-warn:#b8533f; --pa-ok:#3f7a5c; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.30); --pa-card-2:rgba(255,255,255,.48); --pa-sel:rgba(101,127,120,.15); --pa-shadow:rgba(101,127,120,.40); }
 #pa-root[data-theme="colony"]   { --pa-tint:#eff3f4; --pa-text:#303f47; --pa-thread:#536b78; --pa-em:#4f5f67; --pa-line:#d4dde0; --pa-input-bg:rgba(255,255,255,.52); --pa-warn:#ad5d48; --pa-ok:#46765d; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.30); --pa-card-2:rgba(255,255,255,.48); --pa-sel:rgba(102,125,135,.15); --pa-shadow:rgba(102,125,135,.40); }
-#pa-root[data-theme="night"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }
+#pa-root[data-theme="night"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; --pa-card:rgba(255,255,255,.03); --pa-card-2:rgba(255,255,255,.05); --pa-sel:rgba(169,191,174,.10); }
+/* 2.5.0 夜雾的卡片、选中底色固定成很淡的一层：原来按正文色混出来，几层叠起来太亮，字色为了对比度全被推成白色，分不出层次 */
 #pa-root[data-theme]:not([data-theme="follow"]):not([data-theme="night"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }
 
 @media (prefers-reduced-motion: reduce) {
