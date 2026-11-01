@@ -220,10 +220,16 @@ function apiErrorText(data) {
   return typeof m === "string" ? m.trim() : "";
 }
 // 酒馆后台自己出错时只回 500，站点真正的状态码常写在报错文字里
+// 站点常只写英文说法（如「Service Unavailable」），不写数字；酒馆有时还回 200
+var HTTP_PHRASES = [[/bad request/i, 400], [/unauthori[sz]ed/i, 401], [/payment required/i, 402], [/forbidden/i, 403], [/not found/i, 404], [/request time-?out/i, 408], [/payload too large|entity too large/i, 413], [/too many requests/i, 429], [/internal server error/i, 500], [/bad gateway/i, 502], [/service unavailable/i, 503], [/gateway time-?out/i, 504]];
 function errStatus(status, text) {
-  const inText = String(text || "").match(/\b(40[0-9]|41[0-9]|42[0-9]|5[0-2][0-9])\b/);
-  if (inText && (!status || status === 500 || status === 200)) return Number(inText[1]);
-  return status || 0;
+  const t = String(text || "");
+  const inText = t.match(/\b(40[0-9]|41[0-9]|42[0-9]|5[0-2][0-9])\b/);
+  const vague = !status || status < 400 || status === 500;
+  if (inText && vague) return Number(inText[1]);
+  const phrase = HTTP_PHRASES.find(([re]) => re.test(t))?.[1];
+  if (phrase && vague) return phrase;
+  return status >= 400 ? status : 0;
 }
 var API_ERROR_WORDS = [
   [/quota|insufficient|balance|credit|余额|额度|欠费/i, "额度不足"],
@@ -231,7 +237,8 @@ var API_ERROR_WORDS = [
   [/model.?not.?found|does not exist|no available channel|无可用渠道|not support(ed)?.{0,10}model|模型不存在|不支持.{0,4}模型/i, "该分组无此模型"],
   [/rate.?limit|too many requests|请求过于频繁|频率限制/i, "请求太频繁"],
   [/context.?length|maximum context|too long|tokens? .{0,20}exceed|超出.{0,6}长度/i, "内容超长"],
-  [/safety|blocked|content.?filter|审核|违规/i, "被审核拦截"]
+  [/safety|blocked|content.?filter|审核|违规/i, "被审核拦截"],
+  [/overloaded|过载/i, "上游过载"]
 ];
 // 笼统的说法：有状态码时用状态码的解释
 var API_ERROR_VAGUE = [
@@ -243,9 +250,9 @@ var API_STATUS_WORDS = { 400: "请求参数不对", 401: "密钥无效", 402: "�
 function explainApiError(status, text) {
   const word = API_ERROR_WORDS.find(([re]) => re.test(text || ""))?.[1];
   const vague = API_ERROR_VAGUE.find(([re]) => re.test(text || ""))?.[1];
-  const why = word || API_STATUS_WORDS[status] || vague || "";
-  const raw = String(text || "").trim();
-  return [status || "", why || (raw.length > 30 ? raw.slice(0, 30) + "…" : raw)].filter(Boolean).join(" ") || "没有回复";
+  // 都对不上时也只写中文，英文原文点这一行看
+  const why = word || API_STATUS_WORDS[status] || vague || (status >= 500 ? "站点出错" : status >= 400 ? "请求被拒绝" : String(text || "").trim() ? "未知错误" : "没有回复");
+  return [status || "", why].filter(Boolean).join(" ");
 }
 // liveBox：当前连接；sitesBox：站点列表；optsBox：两个选项（「方案」页把方案放在当前连接和选项之间）
 function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
@@ -304,7 +311,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more" data-a="livemore" aria-label="连接详情" title="连接详情">⋯</button></header>
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
-            ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
+            ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
@@ -953,6 +960,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return render();
     }
     if (a === "testmodel") return testModel(btn);
+    if (a === "testraw") return liveTest?.raw && toast(`原文：${liveTest.raw.length > 300 ? liveTest.raw.slice(0, 300) + "…" : liveTest.raw}`, "info");
     if (a === "use" || a === "reconnect") {
       const target = a === "use" ? site : sites().find((x) => x.id === settings().activeSiteId);
       if (siteMulti(target)) return connectKey(target, a === "use" ? from?.closest("[data-k]")?.dataset.k : siteKey(target).id, btn);
