@@ -119,7 +119,7 @@ test('non-openai API and missing host APIs degrade without touching chats', () =
 });
 test('invalid saved rules fail closed and clear a previous prompt', () => {
   const f = fixture(); f.enable(); f.generate(); assert.ok(f.prompt());
-  f.state.replyGuard.A.bodyTag = '<broken>';
+  f.state.replyGuard.A.bodyTag = '1broken';
   assert.doesNotThrow(() => f.generate()); assert.equal(f.prompt(), ''); assert.equal(f.warnings.length, 1);
 });
 console.log(`${passed} reply-format runtime tests passed`);

@@ -112,9 +112,17 @@ test('narration and headings inside body or thought are not suspected', () => {
 });
 test('empty optional thought tag is omitted', () => assert.deepEqual(normalizeReplyRules({ thinkingTag: '' }).thinkingTags, ['think', 'thinking']));
 test('illegal explicit rules throw', () => {
-  for (const rule of [{ bodyTag: '' }, { bodyTag: '<content>' }, { bodyTag: '1body' }, { bodyTag: 'x'.repeat(41) }, { bodyTag: 'think' }, { bodyTag: '正文', thinkingTag: '正文' }, { requiredTags: ['thinking'] }, { requiredTags: ['a/b'] }, { requiredTags: [null] }, { requiredTags: 3 }, { thinkingTags: 'think' }]) {
+  for (const rule of [{ bodyTag: '' }, { bodyTag: '<1body>' }, { bodyTag: '1body' }, { bodyTag: 'x'.repeat(41) }, { bodyTag: 'think' }, { bodyTag: '正文', thinkingTag: '正文' }, { requiredTags: ['thinking'] }, { requiredTags: ['a/b'] }, { requiredTags: [null] }, { requiredTags: 3 }, { thinkingTags: 'think' }]) {
     assert.throws(() => normalizeReplyRules(rule), JSON.stringify(rule));
   }
+});
+test('tag names are cleaned before checking', () => {
+  const r = normalizeReplyRules({ bodyTag: '<content>', requiredTags: 'lxs\u200b_status、ｍｅｍｏ；mood——bar、</状态>', thinkingTag: '＜分析＞' });
+  assert.equal(r.bodyTag, 'content');
+  assert.deepEqual(r.requiredTags, ['lxs_status', 'memo', 'mood_bar', '状态']);
+  assert.ok(r.thinkingTags.includes('分析'));
+  assert.throws(() => normalizeReplyRules({ requiredTags: '状态、1摘要' }), (e) => e.field === 'required' && /「1摘要」/.test(e.message));
+  assert.throws(() => normalizeReplyRules({ bodyTag: 'think' }), (e) => e.field === 'body');
 });
 test('required tags deduplicate case insensitively', () => {
   assert.deepEqual(normalizeReplyRules({ requiredTags: ['summary', 'SUMMARY', '状态'] }).requiredTags, ['summary', '状态']);

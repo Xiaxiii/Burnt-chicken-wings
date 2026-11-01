@@ -1,18 +1,27 @@
 // 只检查可见回复的标签与明显格式问题，也不索取思考过程。改写只在用户确认「修正标签」或开了自动修正后进行，且只移动或补写标签。
-function replyRuleTag(value, field) {
-  if (typeof value !== "string" || !/^[A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39}$/u.test(value.trim())) {
-    throw new Error(`${field}须为 1–40 个字的标签名，以字母、中文或下划线开头，仅含字母、数字、中文、下划线或短横线`);
+// 2.5.1 先清理再校验：全角转半角，去掉看不见的零宽字符和误填的尖括号；中文输入法打出的「——」当作下划线。
+// 出错时 error.field 指明是哪个输入框（body / thinking / required），界面把报错写在那个框下面
+function replyRuleError(message, field) {
+  const e = new Error(message);
+  e.field = field;
+  return e;
+}
+function replyRuleTag(value, label, field) {
+  const raw = typeof value === "string" ? value : "";
+  const tag = raw.normalize("NFKC").replace(/[\u200B-\u200D\u2060\uFEFF]/gu, "").replace(/——/gu, "_").trim().replace(/^<\/?\s*|\s*\/?>$/gu, "");
+  if (!/^[A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39}$/u.test(tag)) {
+    throw replyRuleError(`${label}「${raw.trim()}」不是有效的标签名：以字母、中文或下划线开头，只用字母、数字、中文、下划线、短横线，最多 40 个字`, field);
   }
-  return value.trim();
+  return tag;
 }
 
 function normalizeReplyRules(input) {
   if (input == null) input = {};
   if (typeof input !== "object" || Array.isArray(input)) throw new Error("回复格式规则须为对象");
-  const bodyTag = replyRuleTag(input.bodyTag === undefined ? "content" : input.bodyTag, "正文标签");
+  const bodyTag = replyRuleTag(input.bodyTag === undefined ? "content" : input.bodyTag, "正文标签", "body");
   const thinkingTags = ["think", "thinking"];
   const addThinking = (tag) => {
-    const name = replyRuleTag(tag, "思考标签");
+    const name = replyRuleTag(tag, "思考标签", "thinking");
     if (!thinkingTags.some((x) => x.toLowerCase() === name.toLowerCase())) thinkingTags.push(name);
   };
   // 同时接受本函数已经规范化的结果，便于检查器与提醒器共用规则。
@@ -22,14 +31,14 @@ function normalizeReplyRules(input) {
   }
   if (input.thinkingTag !== undefined && input.thinkingTag !== "") addThinking(input.thinkingTag);
   const thinkingKeys = new Set(thinkingTags.map((tag) => tag.toLowerCase()));
-  if (thinkingKeys.has(bodyTag.toLowerCase())) throw new Error("正文标签不可与思考标签重复");
+  if (thinkingKeys.has(bodyTag.toLowerCase())) throw replyRuleError("正文标签不可与思考标签重复", "body");
   let required = input.requiredTags === undefined ? [] : input.requiredTags;
-  if (typeof required === "string") required = required.split(/[,，、\s]+/u).filter(Boolean);
+  if (typeof required === "string") required = required.split(/[,，、;；\s]+/u).filter(Boolean);
   if (!Array.isArray(required)) throw new Error("必需标签须为数组或用逗号、空白分隔的字符串");
   const requiredTags = [];
   for (const value of required) {
-    const tag = replyRuleTag(value, "必需标签");
-    if (thinkingKeys.has(tag.toLowerCase())) throw new Error(`必需标签「${tag}」不可是思考标签`);
+    const tag = replyRuleTag(value, "必需标签", "required");
+    if (thinkingKeys.has(tag.toLowerCase())) throw replyRuleError(`必需标签「${tag}」不可是思考标签`, "required");
     if (!requiredTags.some((x) => x.toLowerCase() === tag.toLowerCase())) requiredTags.push(tag);
   }
   return { bodyTag, thinkingTags, requiredTags };

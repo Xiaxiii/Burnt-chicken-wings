@@ -175,6 +175,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }
 #pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }
 #pa-root .pa-field > span { color: var(--pa-dim); }
+/* 2.5.1 输入框下面的报错，框边同时标红 */
+#pa-root .pa-field-err { display: block; color: var(--pa-warn); font-size: .92em; line-height: 1.45; }
+#pa-root .pa-input[aria-invalid="true"] { border-color: var(--pa-warn) !important; }
 #pa-root .pa-form { display: grid; gap: 12px; }
 #pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }
 #pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }
