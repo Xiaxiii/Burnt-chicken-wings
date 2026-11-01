@@ -157,6 +157,17 @@ try {
   ok("套用方案连回它记的分组");
   // 拖动 ⋮⋮ 调顺序
   await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
+  // 看已保存的密钥：酒馆不让看时在这一行下面说明；让看时显示在框里的提示文字上（不当成新填的）
+  let reveal = { status: 403, json: { error: "forbidden" } };
+  await page.route("**/api/secrets/find", (r) => r.fulfill(reveal));
+  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
+  assert.match(await page.locator(".pa-sheet .pa-key-note").textContent(), /allowKeysExposure/);
+  reveal = { status: 200, json: { value: "sk-aaaaaaaaaaaa" } };
+  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
+  const kbox = page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]");
+  assert.equal(await kbox.getAttribute("placeholder"), "sk-aaaaaaaaaaaa");
+  assert.equal(await kbox.inputValue(), "", "看到的密钥不填进框里，保存时不会再存一遍");
+  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click();
   const grips = page.locator(".pa-sheet .pa-key-grip");
   const g2 = await grips.nth(1).boundingBox();
   const g1 = await grips.nth(0).boundingBox();

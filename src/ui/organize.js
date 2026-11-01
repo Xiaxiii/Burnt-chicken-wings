@@ -110,8 +110,7 @@ function mountOrganize(page) {
             <div class="pa-selbar-btns">
                 <button class="pa-btn pa-btn-primary" data-sel="moveto">移动</button>
                 <button class="pa-btn" data-sel="newgroup">建成分组</button>
-                <button class="pa-btn" data-sel="on">开启</button>
-                <button class="pa-btn" data-sel="off">关闭</button>
+                <button class="pa-btn pa-btn-danger-soft" data-sel="delete">删除</button>
                 <button class="pa-btn" data-sel="more">更多</button>
             </div>
         </div>`;
@@ -406,9 +405,10 @@ function mountOrganize(page) {
       const v = await pickBox(`已选 ${ids.length} 条`, [
         { label: "移入分组…", value: "intogroup" },
         { label: "移出分组", value: "ungroup" },
+        { label: "全部开启", value: "on" },
+        { label: "全部关闭", value: "off" },
         { label: "复制", sub: "每条的副本放在原条目后面", value: "copy" },
-        { label: "按变量名排序…", sub: "按条目登记的变量名（如 文风1、文风2）分类，类别内按编号排", value: "sorttags" },
-        { label: "删除", value: "delete" }
+        { label: "按变量名排序…", sub: "按条目登记的变量名（如 文风1、文风2）分类，类别内按编号排", value: "sorttags" }
       ]);
       if (!v) return;
       return selAction(v);

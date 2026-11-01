@@ -800,6 +800,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-key-cnt { flex: none; font-size: .78em; color: var(--pa-ok); white-space: nowrap; }
 #pa-root .pa-key-del { width: 28px; height: 28px; }
 #pa-root .pa-key-eye { width: 30px; height: 30px; }
+#pa-root .pa-key-note { margin: -2px 0 2px; color: var(--pa-warn); font-size: .82em; }
 #pa-root .pa-key-eye.on { color: var(--pa-text); background: var(--pa-sel); }
 #pa-root .pa-key-eye svg { width: 17px; height: 17px; }
 /* 选择模型窗口固定高度时，顶上的切换、搜索框、多选工具条不被压扁 */
@@ -1171,6 +1172,10 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-bk-set.pa-off { border-left-color: var(--pa-line); }
 #pa-root .pa-bk-set p { margin: 0; }
 #pa-root .pa-bk-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; }
+#pa-root .pa-bk-head { justify-content: flex-start; gap: 6px; cursor: pointer; }
+#pa-root .pa-bk-head .pa-sgcaret { color: var(--pa-dim); }
+#pa-root .pa-bk-head .pa-bk-sum { flex: 1 1 auto; min-width: 0; color: var(--pa-dim); font-size: .84em; }
+#pa-root .pa-bk-head .pa-switch { margin-left: auto; }
 #pa-root .pa-bk-warn { color: var(--pa-warn); font-size: .88em; }
 #pa-root .pa-bk-num { display: inline-flex; align-items: center; gap: 6px; }
 #pa-root .pa-bk-step { display: inline-flex; align-items: stretch; height: 32px; border: 1px solid var(--pa-control-border, var(--pa-line)); border-radius: 999px; overflow: hidden; background: var(--pa-card-2); }

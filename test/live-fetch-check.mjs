@@ -62,6 +62,11 @@ try {
   assert.ok(await page.locator('.pa-newcat').isHidden(), '取消后收起名字框');
   assert.equal(await page.locator('.pa-selcnt').textContent(), '已选 2', '取消不丢勾选');
   assert.equal(await page.locator('.pa-selbtn').textContent(), '取消');
+  // 清空：去掉搜索结果里的勾选，再全选回来
+  await page.locator('.pa-selnone').click();
+  assert.equal(await page.locator('.pa-selcnt').textContent(), '已选 0');
+  assert.ok(await page.locator('.pa-selnone').isHidden(), '没勾选时不显示清空');
+  await page.locator('.pa-selall').click();
   await page.locator('.pa-mseltools [data-act=newcat]').click();
   await page.locator('.pa-newcat input').fill('我的 Claude');
   await page.locator('.pa-newcat [data-act=newok]').click();

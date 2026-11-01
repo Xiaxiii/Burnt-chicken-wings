@@ -69,7 +69,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   const sel = new Set();
   const body = el(`<div class="pa-mpick">${viewSeg(views)}
       <div class="pa-msearch"><input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
-      <div class="pa-mseltools" hidden><span class="pa-selcnt"></span><button type="button" class="pa-link pa-selall"></button><span class="pa-selacts"></span>
+      <div class="pa-mseltools" hidden><span class="pa-selcnt"></span><button type="button" class="pa-link pa-selall"></button><button type="button" class="pa-link pa-selnone">清空</button><span class="pa-selacts"></span>
         <div class="pa-newcat" hidden><input class="pa-input" placeholder="分类名，如 Gemini 逆向、0.07/次" maxlength="60" aria-label="新分类名"><button type="button" class="pa-swpill pa-edit-pill" data-act="newcancel">取消</button><button type="button" class="pa-swpill" data-act="newok">确定</button></div></div>
       <div class="pa-mpick-list" role="listbox"></div></div>`);
   const input = body.querySelector("input");
@@ -157,6 +157,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     if (selecting) {
       const n = all.filter(hit).length;
       bar.querySelector(".pa-selall").textContent = q ? `全选搜索结果（${n}）` : `全选（${n}）`;
+      bar.querySelector(".pa-selnone").hidden = !sel.size;
       bar.querySelector(".pa-selcnt").textContent = editing ? `「${editing.name}」已选 ${sel.size}` : `已选 ${sel.size}`;
       bar.querySelector(".pa-selacts").innerHTML = editing
         ? '<button type="button" class="pa-swpill pa-edit-pill" data-act="cancel">取消</button><button type="button" class="pa-swpill" data-act="save">保存</button>'
@@ -196,6 +197,12 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     });
     body.querySelector(".pa-selall").addEventListener("click", () => {
       all.filter(hit).forEach((m) => sel.add(m));
+      paint();
+    });
+    // 清空：去掉全部勾选（只在搜索时，就只去掉搜索结果里的）
+    body.querySelector(".pa-selnone").addEventListener("click", () => {
+      if (query()) all.filter(hit).forEach((m) => sel.delete(m));
+      else sel.clear();
       paint();
     });
     const newBox = body.querySelector(".pa-newcat");
@@ -630,6 +637,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     // 点了眼睛、正显示明文的密钥；已保存的密钥能看到时记在 revealed（只放在提示文字里，不当成新填的）
     const shown = new Set();
     const revealed = new Map();
+    // 看不了时，在这一行下面说一句为什么
+    const keyNote = new Map();
     const syncTyped = () => {
       keysBox.querySelectorAll(".pa-keyrow").forEach((row) => {
         const k = ks.find((x) => x.id === row.dataset.k);
@@ -650,7 +659,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <input class="pa-input pa-key-val" data-f="key" type="${shown.has(k.id) ? "text" : "password"}" autocomplete="off" placeholder="${esc(shown.has(k.id) && revealed.get(k.id) || ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || "")}">
             <button class="pa-icon-btn pa-key-eye${shown.has(k.id) ? " on" : ""}" data-f="keyeye" type="button" aria-pressed="${shown.has(k.id)}" aria-label="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}" title="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}">${ICON.eye}</button>
             ${cnt}${many ? `<button class="pa-icon-btn pa-key-del" data-f="keydel" type="button" aria-label="删除这个密钥" title="删除这个密钥">✕</button>` : ""}
-          </div>`;
+          </div>${keyNote.has(k.id) ? `<p class="pa-hint pa-key-note">${esc(keyNote.get(k.id))}</p>` : ""}`;
       }).join("");
     };
     paintKeys();
@@ -728,7 +737,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           ks.push(blankKey());
           paintKeys();
           setModel(w, readModel(w));
-          keysBox.querySelector(".pa-keyrow:last-child [data-f=key]")?.focus();
+          keysBox.querySelector(".pa-keyrow:last-of-type [data-f=key]")?.focus();
         });
         // 眼睛：显示、隐藏密钥。刚填的直接看；已保存的，酒馆允许时取出来放在提示文字里看
         keysBox.addEventListener("click", async (e) => {
@@ -741,9 +750,14 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           else {
             shown.add(id);
             if (!typed.get(id) && hasKey(k) && !revealed.has(id)) {
-              const v = k.secretId ? await revealSecret(w.querySelector("[data-f=source]").value, k.secretId) : null;
-              if (v) revealed.set(id, v);
-              else toast(`酒馆没有开放查看已保存的密钥，只能看到 ${k.keyMask || "已保存"}。要能看全，在酒馆 config.yaml 里打开 allowKeysExposure`, "info");
+              // 只存在这个浏览器里的（旧版酒馆）直接读；存在酒馆密钥库的去问酒馆
+              const local = !k.secretId ? getLocalKey({ id: s.id, localId: k.localId, legacyKey: k.legacyKey }) : null;
+              const got = local ? { value: local } : k.secretId ? await revealSecret(w.querySelector("[data-f=source]").value, k.secretId) : {};
+              if (got.value) revealed.set(id, got.value);
+              else {
+                shown.delete(id);
+                keyNote.set(id, got.blocked ? "酒馆不让看已保存的密钥。要看：在酒馆的 config.yaml 里把 allowKeysExposure 改成 true，重启酒馆。" : k.secretId ? "没取到这个密钥（可能已从酒馆密钥库删除），重新粘贴一次就行。" : "这个密钥只存在这个浏览器里，看不了全文；要确认就重新粘贴一次。");
+              }
             }
           }
           paintKeys();
@@ -789,6 +803,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           const grip = e.target.closest(".pa-key-grip");
           if (!grip) return;
           e.preventDefault();
+          keyNote.clear();
+          keysBox.querySelectorAll(".pa-key-note").forEach((n) => n.remove());
           syncTyped();
           const row = grip.closest(".pa-keyrow");
           row.classList.add("pa-dragging");

@@ -130,6 +130,8 @@ assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /备份 5 
 await page.screenshot({ path: S + "m-4-local.png" });
 // 2.4.2：保留份数、立即精简、自动备份开关
 assert.ok(await page.$eval('[data-x="trim"]', (x) => x.disabled), "没超出默认 10 份时不能精简");
+assert.equal(await page.locator('[data-bk="dec"]').count(), 0, "自动备份设置默认折起");
+await page.click('.pa-bk-head b'); await page.waitForTimeout(100);
 for (let i = 0; i < 7; i++) await page.click('[data-bk="dec"]');
 assert.equal(await page.$eval('[data-bk="n"]', (x) => x.value), "3");
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.backupMax), 3);

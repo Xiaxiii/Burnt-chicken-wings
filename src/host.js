@@ -410,15 +410,33 @@ async function dropKey(source, id) {
     console.warn("[焦香鸡翅] 删除密钥失败", e);
   }
 }
-// 2.5.0 取出已保存密钥的全文（酒馆要在 config.yaml 打开 allowKeysExposure 才给），给不了返回 null
+// 2.5.0 取出已保存密钥的全文。酒馆要在 config.yaml 打开 allowKeysExposure 才给。
+// 返回 { value } 拿到了；{ blocked: true } 酒馆不让看；{} 其他原因没拿到
 async function revealSecret(source, id) {
   const secretKey = SOURCES[source]?.secret;
-  if (!secretKey || !id || typeof mods.secrets?.findSecret !== "function") return null;
+  if (!secretKey || !id) return {};
+  if (typeof mods.secrets?.findSecret === "function") {
+    try {
+      const v = await mods.secrets.findSecret(secretKey, id);
+      if (typeof v === "string" && v) return { value: v };
+    } catch {}
+  }
+  // 旧版没有 findSecret，或者它吞掉了原因：直接问酒馆后台，看是不是被拒绝
   try {
-    const v = await mods.secrets.findSecret(secretKey, id);
-    return typeof v === "string" && v ? v : null;
+    const r = await fetch(stUrl("api/secrets/find"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
+      body: JSON.stringify({ key: secretKey, id }),
+      cache: "no-cache"
+    });
+    if (r.ok) {
+      const d = await r.json().catch(() => ({}));
+      if (typeof d?.value === "string" && d.value) return { value: d.value };
+      return {};
+    }
+    return { blocked: r.status === 403 || r.status === 401 };
   } catch {
-    return null;
+    return {};
   }
 }
 async function readSecretState() {
