@@ -10,3 +10,4 @@ test/site/zsx.json
 test/fixtures/*.json
 dist/
 test/site/st/
+.taste-skill/
