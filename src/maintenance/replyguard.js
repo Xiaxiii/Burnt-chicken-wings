@@ -27,6 +27,39 @@ function replyLayoutBefore(chat, index, rules) {
   }
   return learnReplyLayout(texts, rules);
 }
+// 2.5.6 预设开着的条目、预设正则、角色卡文字和正则、全局正则里出现过的标签名（小写）。
+// 判断回复里多出来的块是不是写错了名字的必需标签（如把 <lxs_status> 写成 <状态栏>）；读不到预设时返回 null，不判断
+function replyKnownTags(name = currentPresetName()) {
+  const tags = new Set();
+  const tagRe = /<\s*\/?\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39})/gu;
+  const scan = (text) => { for (const m of String(text || "").matchAll(tagRe)) tags.add(m[1].toLowerCase()); };
+  const rules = (list) => {
+    for (const rule of Array.isArray(list) ? list : []) {
+      if (!rule || rule.disabled) continue;
+      try { for (const t of presetRegexAnchors(rule).tags) tags.add(t); } catch {}
+      scan(rule.replaceString);
+    }
+  };
+  try {
+    const d = getDraft(name);
+    for (const o of d.order) if (d.isActive(o.identifier)) scan(d.prompt(o.identifier)?.content);
+    try { rules(presetRegexList(d)); } catch {}
+  } catch { return null; }
+  try {
+    const c = ctx();
+    const ch = c.characters?.[Number(c.characterId)];
+    if (ch) {
+      for (const f of [ch.description, ch.personality, ch.scenario, ch.first_mes, ch.mes_example, ch.data?.system_prompt, ch.data?.post_history_instructions, ...(ch.data?.alternate_greetings || [])]) scan(f);
+      rules(ch.data?.extensions?.regex_scripts);
+    }
+    rules(c.extensionSettings?.regex);
+  } catch {}
+  return tags;
+}
+function replyKnownTagsLazy(name) {
+  let value;
+  return () => value === undefined ? (value = replyKnownTags(name)) : value;
+}
 // 用到时才学，学一次：多数回复没有问题，也不会在思考区末尾留块，发送前不必去读前几条
 function replyLayoutLazy(chat, index, rules) {
   let value;
@@ -51,9 +84,10 @@ function scheduleReplyAutoFix() {
       const rules = normalizeReplyRules(config);
       const reasoning = latest.message.extra?.reasoning;
       const layout = replyLayoutLazy(ctx().chat, latest.index, rules);
-      const report = checkReplyFormat(latest.message.mes, rules, { reasoning, layout });
+      const knownTags = replyKnownTagsLazy(currentPresetName());
+      const report = checkReplyFormat(latest.message.mes, rules, { reasoning, layout, knownTags });
       if (!report.issues.length) return;
-      const plan = planReplyFix(latest.message.mes, rules, { reasoning, layout, noTailClose: true });
+      const plan = planReplyFix(latest.message.mes, rules, { reasoning, layout, knownTags, noTailClose: true });
       if (!plan) return;
       const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
       replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
@@ -85,7 +119,7 @@ function prepareReplyGuard(type, _options, dryRun) {
     if (!latest) return;
     const rules = normalizeReplyRules(config);
     // 已自动修正过的回复，按修正前的问题提醒
-    const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules) });
+    const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules), knownTags: replyKnownTagsLazy(currentPresetName()) });
     const reminder = buildReplyReminder(report, rules);
     if (reminder) c.setExtensionPrompt(REPLY_GUARD_KEY, reminder, 1, 0, false, 0);
   } catch (e) {

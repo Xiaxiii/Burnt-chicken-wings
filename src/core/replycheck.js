@@ -1,4 +1,4 @@
-// 只检查可见回复的标签与明显格式问题，也不索取思考过程。改写只在用户确认「修正标签」或开了自动修正后进行，且只移动或补写标签。
+// 只检查可见回复的标签与明显格式问题，也不索取思考过程。改写只在用户确认「修正标签」或开了自动修正后进行，且只改名、移动或补写标签。
 // 2.5.1 先清理再校验：全角转半角，去掉看不见的零宽字符和误填的尖括号；中文输入法打出的「——」当作下划线。
 // 出错时 error.field 指明是哪个输入框（body / thinking / required），界面把报错写在那个框下面
 function replyRuleError(message, field) {
@@ -145,6 +145,23 @@ function replyReasoningHasBody(reasoning, bodyTag) {
   return new RegExp(`<\\s*${name}(?:\\s+[^<>]*?)?\\s*>`, "iu").test(text);
 }
 
+// 2.5.6 必需标签整个没出现、回复里却多了预设没用到的块：多半是模型把标签名写错了（如把 <lxs_status> 写成 <状态栏>）。
+// knownTags 是预设开着的条目和正则里出现过的标签名（小写）；没有就不判断。
+// 只缺一个必需标签、只多一个陌生块时认定是它（pairs），修正时改名；多个时只在提醒里点名（suspects）
+// knownTags 也可以是函数（用到时才去扫预设），只在确实缺了必需标签时才调用
+function replyMisnamed(source, rules, knownTags) {
+  if (!knownTags || !rules.requiredTags.length) return null;
+  const masked = replyCheckMask(source);
+  const present = new Set(replyTagTokens(masked).map((t) => t.key));
+  const missing = rules.requiredTags.filter((tag) => !present.has(tag.toLowerCase()));
+  if (!missing.length) return null;
+  if (typeof knownTags === "function") knownTags = knownTags();
+  if (!(knownTags instanceof Set)) return null;
+  const skip = new Set([rules.bodyTag, ...rules.thinkingTags, ...rules.requiredTags].map((tag) => tag.toLowerCase()));
+  const strangers = replyTopBlocks(source).filter((b) => b.key !== REPLY_FENCE_KEY && !skip.has(b.key) && !knownTags.has(b.key));
+  return { missing, suspects: strangers, pairs: missing.length === 1 && strangers.length === 1 ? [{ tag: missing[0], block: strangers[0] }] : [], knownTags };
+}
+
 function checkReplyFormat(text, inputRules, extra = {}) {
   const rules = normalizeReplyRules(inputRules);
   const source = String(text == null ? "" : text);
@@ -205,9 +222,11 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     add("order", `「${open.tag}」开始标签没有闭合`, open.tag);
     if (open.key === bodyKey || thinking.has(open.key)) scopeRanges.push({ start: open.start, end: source.length, key: open.key });
   }
+  const misnamed = replyMisnamed(source, rules, extra.knownTags);
   for (const [key, tag] of required) {
     const stat = stats.get(key);
-    if (!stat.opens && !stat.closes) add("missing", `缺少完整的 <${tag}>…</${tag}> 标签`, tag);
+    const as = misnamed?.pairs.find((p) => p.tag === tag)?.block;
+    if (!stat.opens && !stat.closes) add("missing", `缺少完整的 <${tag}>…</${tag}> 标签${as ? `；回复里的 <${as.name}> 预设没有用到，多半是写错了名字的 <${tag}>` : ""}`, tag);
     else if (!stat.opens) add("missing", `缺少 <${tag}> 开始标签`, tag);
     else if (!stat.closes) add("missing", `缺少 </${tag}> 结束标签`, tag);
     if (stat.opens + stat.selfClosing > 1 || stat.closes > 1) add("duplicate", `「${tag}」应完整成对出现一次，当前重复出现`, tag);
@@ -250,7 +269,7 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     }
     offset += line.length;
   }
-  return { issues, rules, layout: issues.length ? layoutOf() : null };
+  return { issues, rules, layout: issues.length ? layoutOf() : null, misnamed: issues.length ? misnamed : null };
 }
 
 function buildReplyReminder(report, inputRules) {
@@ -261,7 +280,10 @@ function buildReplyReminder(report, inputRules) {
   const body = `<${rules.bodyTag}>`;
   // 前几条回复里正文外的块（状态栏、小剧场等）点名照常输出：只提正文的话，模型容易盯着正文把它们丢掉
   const layout = report.layout;
-  const named = (keys) => (keys || []).filter((k) => !tags.some((t) => t.toLowerCase() === k)).map((k) => k === REPLY_FENCE_KEY ? "代码块" : `<${layout.names?.[k] || k}>`);
+  // 2.5.6 缺了必需标签时，只点名预设里用到的块：前几条回复里写错名的块（如 <状态栏>）照常输出的话，会越提醒越错
+  const mis = report.misnamed;
+  const trusted = (k) => !mis || k === REPLY_FENCE_KEY || mis.knownTags.has(k);
+  const named = (keys) => (keys || []).filter((k) => !tags.some((t) => t.toLowerCase() === k) && trusted(k)).map((k) => k === REPLY_FENCE_KEY ? "代码块" : `<${layout.names?.[k] || k}>`);
   const before = layout ? named(layout.head) : [];
   const after = layout ? named(layout.tail.filter((k) => !layout.head.includes(k))) : [];
   // 按上一轮的具体问题加一句针对性要求，只说格式。不写「无需展示思考」之类的话：预设要求写思考时会互相打架，
@@ -271,6 +293,8 @@ function buildReplyReminder(report, inputRules) {
   if (report.issues.some((issue) => issue.kind === "outside" && issue.text.startsWith("正文标签前"))) extra.push(`上一轮在 ${body} 之前直接输出了分析文字：正文标签外不要写任何分析、计划或说明。`);
   else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文结束后不追加说明或总结。`);
   if (kinds.has("leak")) extra.push(`正文内不得出现思考标签。`);
+  if (mis?.pairs.length) for (const { tag, block } of mis.pairs) extra.push(`上一轮把 <${tag}> 写成了 <${block.name}>：请用 <${tag}>…</${tag}>，标签名一字不改，不要输出 <${block.name}>。`);
+  else if (mis?.suspects.length) extra.push(`上一轮没有 ${mis.missing.map((t) => `<${t}>`).join("、")}，却多了 ${mis.suspects.map((b) => `<${b.name}>`).join("、")}：必需标签的名字一字不改，不要换成别的标签名。`);
   if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
   const keep = [before.length && `正文前的 ${before.join("、")}`, after.length && `正文后的 ${after.join("、")}`].filter(Boolean);
   return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}${keep.length ? `${keep.join("、")}照常输出，同样放在思考标签之外。` : ""}正文不夹入思考步骤或内部分析。这条提醒只管格式，剧情照常接着写。`;
@@ -469,6 +493,18 @@ function planReplyFix(text, inputRules, extra = {}) {
       steps.push(close ? `把 ${open.raw}…${close.raw} 改成 <${body}>…</${body}>` : `把 ${open.raw} 改成 <${body}>`);
     }
   }
+  // 2b.（2.5.6）必需标签写错了名字：只缺一个必需标签、回复里只多一个预设没用到的块时，把那个块改名，内容不动
+  {
+    const mis = replyMisnamed(mes, rules, extra.knownTags);
+    for (const { tag, block } of mis?.pairs || []) {
+      const masked = replyCheckMask(mes);
+      const openEnd = masked.indexOf(">", block.start) + 1;
+      const closeStart = masked.lastIndexOf("<", block.end - 1);
+      if (openEnd <= 0 || closeStart < openEnd) continue;
+      mes = mes.slice(0, block.start) + `<${tag}>` + mes.slice(openEnd, closeStart) + `</${tag}>` + mes.slice(block.end);
+      steps.push(`把 <${block.name}>…</${block.name}> 改名为 <${tag}>…</${tag}>`);
+    }
+  }
   // 3. 正文落在思考标签里
   {
     const masked = replyCheckMask(mes);
@@ -547,7 +583,7 @@ function planReplyFix(text, inputRules, extra = {}) {
     }
   }
   if (!steps.length) return null;
-  return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "", layout }) };
+  return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "", layout, knownTags: extra.knownTags }) };
 }
 
 // 从预设开着的条目里猜正文标签：数各候选标签被写成 <标签> 的次数，取最多的。

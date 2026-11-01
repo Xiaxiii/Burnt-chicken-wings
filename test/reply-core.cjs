@@ -124,6 +124,39 @@ test('tag names are cleaned before checking', () => {
   assert.throws(() => normalizeReplyRules({ requiredTags: '状态、1摘要' }), (e) => e.field === 'required' && /「1摘要」/.test(e.message));
   assert.throws(() => normalizeReplyRules({ bodyTag: 'think' }), (e) => e.field === 'body');
 });
+test('a required tag written under another name is named in the check, reminder and fix', () => {
+  const rules = { requiredTags: ['lxs_status'] };
+  const knownTags = new Set(['content', 'author_note', 'lxs_status', 'quote']);
+  const reply = '<content>正文。</content>\n<author_note>\n<quote>一句</quote>\n</author_note>\n\n<状态栏>\n  <时>未时</时>\n</状态栏>';
+  // 前几条回复已经写成了 <状态栏>：照常点名的话会越提醒越错
+  const layout = learnReplyLayout([reply, reply], rules);
+  assert.ok(layout.tail.includes('状态栏'));
+  const report = checkReplyFormat(reply, rules, { layout, knownTags });
+  assert.match(report.issues.find((i) => i.kind === 'missing').text, /<状态栏> 预设没有用到，多半是写错了名字的 <lxs_status>/);
+  const reminder = buildReplyReminder(report, rules);
+  assert.match(reminder, /上一轮把 <lxs_status> 写成了 <状态栏>/);
+  assert.doesNotMatch(reminder, /正文后的[^。]*<状态栏>[^。]*照常输出/, '不再点名让 <状态栏> 照常输出');
+  assert.match(reminder, /正文后的 <author_note>/, '预设里有的块照常点名');
+  // 用到时才扫预设：没缺必需标签时不调用
+  let calls = 0;
+  checkReplyFormat('<content>正文</content><lxs_status>x</lxs_status>', rules, { knownTags: () => { calls++; return knownTags; } });
+  assert.equal(calls, 0);
+  // 修正：把 <状态栏> 改名为 <lxs_status>，内容不动
+  const plan = planReplyFix(reply, rules, { layout, knownTags });
+  assert.ok(plan.steps.includes('把 <状态栏>…</状态栏> 改名为 <lxs_status>…</lxs_status>'));
+  assert.equal(plan.text, reply.replace('<状态栏>', '<lxs_status>').replace('</状态栏>', '</lxs_status>'));
+  assert.deepEqual(plan.after.issues, []);
+});
+test('misnamed tags are not guessed without preset tags or with several strangers', () => {
+  const rules = { requiredTags: ['lxs_status'] };
+  const reply = '<content>正文。</content>\n<状态栏>x</状态栏>\n<小剧场>y</小剧场>';
+  assert.equal(checkReplyFormat(reply, rules).misnamed, null, '读不到预设时不判断');
+  assert.equal(planReplyFix(reply, rules), null);
+  const report = checkReplyFormat(reply, rules, { knownTags: new Set(['content', 'lxs_status']) });
+  assert.equal(report.misnamed.pairs.length, 0, '多出两个陌生块时不认定是哪个');
+  assert.match(buildReplyReminder(report, rules), /却多了 <状态栏>、<小剧场>：必需标签的名字一字不改/);
+  assert.equal(planReplyFix(reply, rules, { knownTags: new Set(['content', 'lxs_status']) }), null, '不确定时不改名');
+});
 test('required tags deduplicate case insensitively', () => {
   assert.deepEqual(normalizeReplyRules({ requiredTags: ['summary', 'SUMMARY', '状态'] }).requiredTags, ['summary', '状态']);
   clean('<content>正文</content>', { requiredTags: ['content'] });
