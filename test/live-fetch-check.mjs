@@ -43,26 +43,28 @@ try {
     c.getChatCompletionModel = () => 'claude-y';
     c.ChatCompletionService = { presetToGeneratePayload: async (a, b, o) => ({ ...o }) };
   });
+  const res = () => page.locator('.pa-live .pa-live-res').textContent();
   await page.click('.pa-live [data-a=testmodel]');
-  await page.waitForFunction(() => window.__toasts.some((t) => /可以用/.test(t)), null, { timeout: 10000 });
+  await page.locator('.pa-live .pa-live-res.ok').waitFor({ timeout: 10000 });
   assert.equal(sent[0].model, 'claude-y', '用酒馆里选中的模型');
   assert.deepEqual(sent[0].messages, [{ role: 'user', content: 'Hi' }]);
-  assert.ok(await page.evaluate(() => window.__toasts.includes('success:「claude-y」可以用，回复：Hello! How can I help?')));
+  assert.equal(await res(), '✓可以用');
   // 503：中转站把上游的报错塞在 message 里
   reply = { status: 503, json: { error: { message: JSON.stringify({ error: { message: 'Service Unavailable', type: 'upstream_error' } }) } } };
   await page.click('.pa-live [data-a=testmodel]');
-  await page.waitForFunction(() => window.__toasts.some((t) => /测试失败/.test(t)), null, { timeout: 10000 });
-  let last = await page.evaluate(() => window.__toasts.filter((t) => /测试失败/.test(t)).pop());
-  assert.match(last, /^error:「claude-y」测试失败：Service Unavailable<div class="pa-tx-why"><span class="pa-tx-ico" aria-hidden="true">!<\/span><span>503：站点暂时忙不过来/);
-  // 酒馆回 500，但报错文字里写着 504
+  await page.locator('.pa-live .pa-live-res.bad').waitFor({ timeout: 10000 });
+  assert.equal(await res(), '!503 暂无可用渠道');
+  assert.equal(await page.locator('.pa-live .pa-live-res').getAttribute('title'), 'Service Unavailable', '原文放在悬停提示里');
+  // 酒馆回 500，报错文字里写着 504
   reply = { status: 500, json: { error: { message: 'Got response status 504 Gateway Timeout' } } };
   await page.click('.pa-live [data-a=testmodel]');
-  await page.waitForFunction(() => window.__toasts.some((t) => /504：中转站等上游/.test(t)), null, { timeout: 10000 });
-  // 报错里说额度不足：用关键词的解释
+  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === '!504 上游超时', null, { timeout: 10000 });
+  // 报错里写着额度不足
   reply = { status: 429, json: { error: { message: 'insufficient_quota: You exceeded your current quota' } } };
   await page.click('.pa-live [data-a=testmodel]');
-  await page.waitForFunction(() => window.__toasts.some((t) => /429：额度或余额用完了/.test(t)), null, { timeout: 10000 });
-  ok('点测试发送测试消息，能回就提示可以用，失败显示原因');
+  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === '!429 额度不足', null, { timeout: 10000 });
+  assert.ok(!(await page.evaluate(() => window.__toasts.some((t) => /测试失败|可以用/.test(t)))), '不另弹提示');
+  ok('点测试发送测试消息，结果写在模型下面一行');
 
   await page.click('[data-a=livemore]');
   const acts = await page.locator('.pa-sheet-actions .pa-btn').allInnerTexts();

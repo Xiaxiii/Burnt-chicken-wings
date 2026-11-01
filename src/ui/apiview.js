@@ -223,44 +223,26 @@ function errStatus(status, text) {
   return status || 0;
 }
 var API_ERROR_WORDS = [
-  [/quota|insufficient|balance|credit|余额|额度|欠费/i, "额度或余额用完了，充值或换个分组再试"],
-  [/invalid.{0,12}(api.?key|token|令牌)|incorrect api key|api key not valid|unauthori[sz]ed|无效的令牌|令牌.{0,6}(无效|过期|不存在)/i, "密钥不对或已经失效，检查一下密钥"],
-  [/model.?not.?found|does not exist|no available channel|无可用渠道|not support(ed)?.{0,10}model|模型不存在|不支持.{0,4}模型/i, "这个分组里没有这个模型，换个模型或分组"],
-  [/rate.?limit|too many requests|请求过于频繁|频率限制/i, "请求太频繁了，等一会儿再试"],
-  [/context.?length|maximum context|too long|tokens? .{0,20}exceed|超出.{0,6}长度/i, "发的内容太长，超过了模型能接收的长度"],
-  [/safety|blocked|content.?filter|审核|违规/i, "被站点或模型的安全审核拦下了"]
+  [/quota|insufficient|balance|credit|余额|额度|欠费/i, "额度不足"],
+  [/invalid.{0,12}(api.?key|token|令牌)|incorrect api key|api key not valid|unauthori[sz]ed|无效的令牌|令牌.{0,6}(无效|过期|不存在)/i, "密钥无效"],
+  [/model.?not.?found|does not exist|no available channel|无可用渠道|not support(ed)?.{0,10}model|模型不存在|不支持.{0,4}模型/i, "该分组无此模型"],
+  [/rate.?limit|too many requests|请求过于频繁|频率限制/i, "请求太频繁"],
+  [/context.?length|maximum context|too long|tokens? .{0,20}exceed|超出.{0,6}长度/i, "内容超长"],
+  [/safety|blocked|content.?filter|审核|违规/i, "被审核拦截"]
 ];
 // 笼统的说法：有状态码时用状态码的解释
 var API_ERROR_VAGUE = [
-  [/timed? ?out|超时|60 秒内没有回复/i, "等太久没有回复，站点可能很忙，过会儿再试"],
-  [/failed to fetch|networkerror|load failed/i, "连不上酒馆后台，检查网络，或看看酒馆是不是还开着"]
+  [/timed? ?out|超时|没有回复/i, "超时"],
+  [/failed to fetch|networkerror|load failed/i, "连不上酒馆"]
 ];
-var API_STATUS_WORDS = {
-  400: "站点看不懂这次请求，常见是模型名不对或参数不支持",
-  401: "密钥不对或已经失效",
-  402: "要付费：额度或余额用完了",
-  403: "没有权限用这个模型，可能分组不对或被限制了",
-  404: "找不到：网址或模型名不对",
-  408: "等太久，站点断开了",
-  413: "发的内容太大了",
-  429: "请求太频繁或额度用完了，等一会儿再试",
-  500: "站点自己出错了，过会儿再试",
-  502: "中转站连不上上游（官方）的服务",
-  503: "站点暂时忙不过来，或这个模型现在没有能用的渠道",
-  504: "中转站等上游回复等太久，超时了",
-  520: "站点服务器出了说不清的错",
-  521: "站点服务器没开",
-  522: "连站点服务器超时了",
-  523: "站点服务器连不上",
-  524: "站点处理太久，超时了",
-  529: "上游太忙（过载），过会儿再试"
-};
+var API_STATUS_WORDS = { 400: "请求参数不对", 401: "密钥无效", 402: "余额不足", 403: "无权限", 404: "模型或网址不存在", 408: "超时", 413: "内容超长", 429: "太频繁或额度用完", 500: "站点出错", 502: "上游连不上", 503: "暂无可用渠道", 504: "上游超时", 520: "站点异常", 521: "服务器未开", 522: "连接超时", 523: "连不上服务器", 524: "处理超时", 529: "上游过载" };
+// 一句话的问题：「503 暂无可用渠道」；都对不上时用报错原文
 function explainApiError(status, text) {
   const word = API_ERROR_WORDS.find(([re]) => re.test(text || ""))?.[1];
-  const byCode = API_STATUS_WORDS[status];
   const vague = API_ERROR_VAGUE.find(([re]) => re.test(text || ""))?.[1];
-  const why = word || byCode || vague || (status >= 500 ? "站点那边出了问题，过会儿再试" : status >= 400 ? "站点拒绝了这次请求" : "");
-  return why ? `${status ? `${status}：` : ""}${why}` : "";
+  const why = word || API_STATUS_WORDS[status] || vague || "";
+  const raw = String(text || "").trim();
+  return [status || "", why || (raw.length > 30 ? raw.slice(0, 30) + "…" : raw)].filter(Boolean).join(" ") || "没有回复";
 }
 // liveBox：当前连接；sitesBox：站点列表；optsBox：两个选项（「方案」页把方案放在当前连接和选项之间）
 function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
@@ -272,6 +254,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   const shortLabel = (source) => (SOURCES[source]?.label || source || "—").split("（")[0];
   // 2.4.1：当前连接还没存成站点时，拉取到的模型列表先记在这里（面板打开期间）
   let liveFetched = null;
+  // 2.5.0 测试结果：写在模型那一行下面；换了模型就不显示
+  let liveTest = null;
+  // 酒馆实际在用的模型（测试用的就是它）
+  const usingModel = (live = liveConnection()) => {
+    const c = ctx();
+    return (typeof c.getChatCompletionModel === "function" ? c.getChatCompletionModel() : "") || live.model || "";
+  };
   const isSame = (site, live) => !!site && site.source === live.source && (site.source !== "custom" || (site.url || "") === (live.url || ""));
   // 当前连接可选的模型：酒馆下拉框里的、站点记的、刚拉取到的
   function liveModelList(live = liveConnection()) {
@@ -312,6 +301,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more" data-a="livemore" aria-label="连接详情" title="连接详情">⋯</button></header>
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
+            ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}"` : ""}><i aria-hidden="true">${liveTest.ok ? "✓" : "!"}</i>${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
@@ -780,7 +770,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return toast("这个酒馆版本不能单独发送测试消息，请到酒馆的 API 设置里点「测试消息」", "warning");
     }
     const live = liveConnection();
-    const model = (typeof c.getChatCompletionModel === "function" ? c.getChatCompletionModel() : "") || live.model;
+    const model = usingModel(live);
     if (!model) return toast("还没有选模型", "warning");
     const active = sites().find((x) => x.id === settings().activeSiteId);
     const k = siteMulti(active) && isSame(active, live) ? siteKey(active) : null;
@@ -804,18 +794,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       let data = null;
       try { data = JSON.parse(text); } catch {}
       if (!res.ok || data?.error) throw { status: res.status, message: apiErrorText(data) || text.trim() || res.statusText };
-      const reply = String(data?.choices?.[0]?.message?.content ?? data?.choices?.[0]?.text ?? data?.content?.[0]?.text ?? "").replace(/\s+/g, " ").trim();
-      toast(`「${model}」可以用${reply ? `，回复：${reply.length > 40 ? reply.slice(0, 40) + "…" : reply}` : ""}`, "success");
+      liveTest = { model, source: live.source, url: live.url || "", ok: true, text: k ? `${keyName(active, k)} · 可以用` : "可以用" };
     } catch (err) {
-      const raw = String(controller.signal.aborted ? "60 秒内没有回复" : err?.message || "站点没有返回可用的回复");
-      const status = errStatus(err?.status, raw);
-      const msg = raw.length > 100 ? raw.slice(0, 100) + "…" : raw;
-      const head = k ? `${failMsg(active, k)}：${msg}` : `「${model}」测试失败：${msg}`;
-      const why = explainApiError(status, raw);
-      const t = globalThis.toastr;
-      // 第二行：小感叹号 + 小字解释
-      if (t?.error) t.error(`${esc(head)}${why ? `<div class="pa-tx-why"><span class="pa-tx-ico" aria-hidden="true">!</span><span>${esc(why)}</span></div>` : ""}`, "", { timeOut: 12e3, extendedTimeOut: 5e3, escapeHtml: false, preventDuplicates: true, toastClass: "toast pa-test-toast" });
-      else toast(`${head}${why ? `\n${why}` : ""}`, "error");
+      const raw = String(controller.signal.aborted ? "没有回复" : err?.message || "");
+      const why = explainApiError(errStatus(err?.status, raw), raw);
+      liveTest = { model, source: live.source, url: live.url || "", ok: false, text: k ? `${keyName(active, k)} · ${why}` : why, raw };
     } finally {
       clearTimeout(timer);
     }
