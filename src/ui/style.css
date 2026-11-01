@@ -734,9 +734,10 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-site-mhead:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; border-radius: var(--pa-r); }
 #pa-root .pa-site-mhead > .pa-chip { flex: none; }
 #pa-root .pa-site-mhead .pa-srow-main { gap: 0 6px; line-height: 1.3; }
-#pa-root .pa-fold-pill { pointer-events: none; background: transparent; }
-#pa-root .pa-site-multi.open .pa-fold-pill { background: var(--pa-sel); }
+#pa-root .pa-swpill.pa-fold-pill { pointer-events: none; background: transparent; }
+#pa-root .pa-site-multi.open .pa-swpill.pa-fold-pill { background: var(--pa-sel); }
 #pa-root .pa-kline-edit { justify-content: flex-end; padding-top: 2px; padding-bottom: 2px; }
+#pa-root .pa-swpill.pa-edit-pill { border-color: var(--pa-line); background: transparent; color: var(--pa-em); font-weight: 500; }
 #pa-root .pa-klines { border-top: 1px dashed var(--pa-line); }
 #pa-root .pa-kline { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 24px; border-top: 1px solid var(--pa-line); }
 #pa-root .pa-kline:first-child { border-top: 0; }
@@ -1005,6 +1006,8 @@ html.pa-open body { overflow: hidden; }
 /* iOS：输入框字号小于 16px 时，点进去会放大整个页面。放在最后，盖过上面各处的字号 */
 @supports (-webkit-touch-callout: none) {
     #pa-root .pa-input, #pa-root .pa-select, #pa-root .pa-text, #pa-root textarea, #pa-root input:not([type=checkbox]):not([type=radio]):not([type=range]) { font-size: max(16px, 1em); }
+    /* 2.5.0 模型框、模型选择列表和输入框（网址、密钥）同一个字号 */
+    #pa-root .pa-model-btn, #pa-root .pa-mpick-item, #pa-root .pa-kname { font-size: max(16px, 1em); }
 }
 
 /* 1.8.0 缝合页：已选清单、目标列表里的新建分组、来源的更多操作 */
