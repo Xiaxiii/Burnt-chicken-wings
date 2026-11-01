@@ -133,6 +133,16 @@ try {
   reply = { status: 500, json: { error: { message: 'Got response status 504 Gateway Timeout' } } };
   await page.click('.pa-live [data-a=testmodel]');
   await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === '504 上游超时', null, { timeout: 10000 });
+  // 酒馆回 200，报错里只有英文说法：认成 503，显示中文
+  reply = { status: 200, json: { error: { message: 'Service Unavailable' } } };
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === '503 暂无可用渠道', null, { timeout: 10000 });
+  // 认不出的：只写「未知错误」，点这一行看原文
+  reply = { status: 200, json: { error: { message: 'something weird happened' } } };
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === '未知错误', null, { timeout: 10000 });
+  await page.click('.pa-live .pa-live-res');
+  await page.waitForFunction(() => window.__toasts.includes('info:原文：something weird happened'));
   // 报错里写着额度不足
   reply = { status: 429, json: { error: { message: 'insufficient_quota: You exceeded your current quota' } } };
   await page.click('.pa-live [data-a=testmodel]');
