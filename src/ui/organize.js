@@ -494,9 +494,9 @@ function mountOrganize(page) {
     const parts = d.blocks().filter((b) => b.groupId === gid).length;
     const items = [
       { label: "重命名", value: "rename" },
+      { pair: [{ label: "组内全部开启", value: "allon" }, { label: "组内全部关闭", value: "alloff" }] },
       { label: "移动整组…", sub: "再点目标位置", value: "move" },
-      { label: "上移一位", value: "up" },
-      { label: "下移一位", value: "down" }
+      { pair: [{ label: "↑ 上移一位", value: "up" }, { label: "↓ 下移一位", value: "down" }] }
     ];
     if (parts > 1) items.push({ label: `合并分散的 ${parts} 段`, value: "gather" });
     items.push({ label: "解散分组", sub: "条目保留在原位置", value: "dissolve" });
@@ -513,6 +513,12 @@ function mountOrganize(page) {
       render();
     }
     if (v === "gather") return repairGroups(d, gid);
+    // 组内每条的开关一起开或关（分组标题上的开关只管分组本身）
+    if (v === "allon" || v === "alloff") {
+      const ids = d.order.filter((o) => d.groupOf(o.identifier) === gid).map((o) => o.identifier);
+      mutate(d, v === "allon" ? "组内全部开启" : "组内全部关闭", (x) => x.setEnabled(ids, v === "allon"));
+      toast(`「${g.name}」组内 ${ids.length} 条已全部${v === "allon" ? "开启" : "关闭"}`, "success");
+    }
     if (v === "up" || v === "down") mutate(d, "移动分组", (x) => x.moveGroupBlock(gid, v === "up" ? -1 : 1));
     if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留在原位置。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
   }

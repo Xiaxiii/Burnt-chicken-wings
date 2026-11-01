@@ -75,6 +75,20 @@ try {
     assert.deepEqual((await saved(page)).prompts, original.prompts);
     assert.equal(await theater.evaluate(e => e.scrollWidth > e.clientWidth + 2), false);
 
+    // 2.5.0 分组菜单「组内全部开启 / 关闭」：改组内每一条，再撤销回去
+    await extras.locator('[data-act=gmenu]').click();
+    await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '组内全部开启' }).click();
+    for (let i = 0; i < 25 && (await extras.locator('.pa-count').innerText()) !== '2/2'; i++) await page.waitForTimeout(200);
+    assert.equal(await extras.locator('.pa-count').innerText(), '2/2', '组内全部开启');
+    await extras.locator('[data-act=gmenu]').click();
+    await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '组内全部关闭' }).click();
+    for (let i = 0; i < 25 && (await extras.locator('.pa-count').innerText()) !== '0/2'; i++) await page.waitForTimeout(200);
+    assert.equal(await extras.locator('.pa-count').innerText(), '0/2', '组内全部关闭');
+    // 等自动保存写回，后面套用方案时才不会问「有未保存的修改」
+    for (let i = 0; i < 30 && JSON.stringify(states(await saved(page))) !== JSON.stringify(chosen); i++) await page.waitForTimeout(200);
+    assert.deepEqual(states(await saved(page)), chosen, '全部关闭后回到原来的开关');
+    for (let i = 0; i < 30 && await page.locator('.pa-top [data-g="confirm"]').isVisible(); i++) await page.waitForTimeout(200);
+
     // 旧方案仅记录分组状态时，也不能暗中全开未记录的条目。
     await page.evaluate(title => {
       const c = window.SillyTavern.getContext();

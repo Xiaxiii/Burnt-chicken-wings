@@ -454,6 +454,13 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-pick { display: grid; gap: 6px; }
 #pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }
 #pa-root .pa-pick-item small { color: var(--pa-dim); }
+/* 2.5.0 菜单里一行两个短按钮 */
+#pa-root .pa-pick-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#pa-root .pa-sheet-pop .pa-pick-pair { gap: 0; border-top: 1px solid var(--pa-line); }
+#pa-root .pa-sheet-pop .pa-pick-pair:first-child { border-top: 0; }
+#pa-root .pa-sheet-pop .pa-pick-pair > .pa-pick-item + .pa-pick-item { border-top: 0; border-left: 1px solid var(--pa-line); }
+#pa-root .pa-sheet-pop .pa-pick-pair + .pa-pick-item, #pa-root .pa-sheet-pop .pa-pick-item + .pa-pick-pair { border-top: 1px solid var(--pa-line); }
+#pa-root .pa-sheet-pop .pa-pick-pair + .pa-pick-item, #pa-root .pa-sheet-pop .pa-pick-pair > .pa-pick-item { border-radius: 0; }
 #pa-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }
 #pa-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }
 #pa-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); border-radius: 8px; }
@@ -511,6 +518,14 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-why.on { color: var(--pa-text); background: var(--pa-sel); border-radius: 8px; }
 #pa-root .pa-verdict .pa-cot-sum { margin: 2px 0 0; background: transparent; }
 #pa-root .pa-verdict > .pa-whynote { margin: 0; }
+#pa-root .pa-verdict-sub { display: block; margin-top: 2px; color: var(--pa-dim); font-size: .84em; font-weight: 400; }
+#pa-root .pa-verdict .pa-cards { margin-top: 2px; }
+#pa-root .pa-verdict .pa-dead { background: var(--pa-card-2); }
+/* 没有问题时只是一行，不加框 */
+#pa-root .pa-verdict-line { margin: 4px 2px 8px; color: var(--pa-dim); }
+#pa-root .pa-verdict-line.pa-good .pa-verdict-top > p::before { content: "✓ "; color: var(--pa-ok); }
+#pa-root .pa-verdict-line .pa-verdict-top > p { margin: 0; }
+#pa-root .pa-verdict-line > .pa-whynote { margin-top: 4px; }
 #pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }
 #pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }
 #pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }
@@ -1200,7 +1215,7 @@ html.pa-open body { overflow: hidden; }
 /* 思维链统计：手机上一行五格 */
 #pa-root .pa-cot-sum > div { text-align: center; }
 @media (max-width: 599px) {
-    #pa-root .pa-cot-sum { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    #pa-root .pa-cot-sum { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     #pa-root .pa-cot-sum > div { padding: 5px 2px; }
     #pa-root .pa-cot-sum b { font-size: 1.15em; }
     #pa-root .pa-cot-sum span { font-size: .74em; white-space: nowrap; }

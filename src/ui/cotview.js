@@ -119,17 +119,10 @@ function mountCot(page, app) {
     const okN = counts.var + counts.chain;
     const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字提及并用" : "以文字提及为主，不读取变量";
     page.querySelector("[data-repair-all]").disabled = !dead.length;
-    // 2.5.0 结论、五个数字和说明合成一块：说明点 ⓘ 展开
-    let html = `<div class="pa-verdict ${dead.length ? "pa-bad" : a.cotIds.length ? "pa-good" : ""}">
-            <div class="pa-verdict-top"><p>${a.cotIds.length ? `思维链${style}。` : "未识别到开启的思维链，可在下方手动指定。"}${dead.length ? `有 <b>${dead.length}</b> 项变量读取待核对，见下方。` : "当前未发现缺少读取的问题；执行顺序和脚本仍需核对。"}</p><button class="pa-why" type="button" data-tipbtn aria-label="说明" aria-expanded="false" title="说明">${INFO_ICON}</button></div>
-            <div class="pa-cot-sum">
-            <div><b>${a.cotIds.length}</b><span>思维链</span></div>
-            <div><b>${okN}</b><span>变量读到</span></div>
-            <div><b>${counts.mention}</b><span>文字提及</span></div>
-            <div><b>${counts.none}</b><span>未提及</span></div>
-            <div class="${dead.length ? "pa-bad" : ""}"><b>${dead.length}</b><span>待核对</span></div>
-        </div>
-            <div class="pa-whynote" data-tipnote hidden><ul class="pa-legend">
+    // 2.5.0 结论并进「待核对」：标题就是结论，下面是要核对的条目，四个数字放在这块下面；没有问题时只留一行
+    const styleLine = a.cotIds.length ? `思维链${style}` : "未识别到开启的思维链，可在下方手动指定";
+    const info = `<button class="pa-why" type="button" data-tipbtn aria-label="说明" aria-expanded="false" title="说明">${INFO_ICON}</button>`;
+    const legendNote = `<div class="pa-whynote" data-tipnote hidden><ul class="pa-legend">
                 <li><span class="pa-lv pa-lv-ok">变量读到</span><span>思维链用 {{getvar}} 读取该条目写入的变量。</span></li>
                 <li><span class="pa-lv pa-lv-maybe">文字提及</span><span>思维链写到该条目的名称或标签。</span></li>
                 <li><span class="pa-lv pa-lv-none">未提及</span><span>思维链没有写到该条目。规则、破限、格式类条目无需接入。</span></li>
@@ -138,14 +131,10 @@ function mountCot(page, app) {
                 <li><span class="pa-lv pa-lv-term">加入思维链读取</span><span>用于思维链片段（变量名多以 cot 结尾）。在对应卡片上操作，可选思维链和插入行。</span></li>
                 <li><span class="pa-lv pa-lv-term">接入思维链</span><span>位于页面底部「未提及」列表各条右侧。按本预设原有写法加入读取或提及，可撤销。</span></li>
                 <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链未被识别时手动指定；误判的，在该条下点「不是思维链」。</span></li>
-            </ul></div>
-        </div>
-        ${a.openers.length > 1 ? `<div class="pa-card pa-card-warn"><b>同时开着 ${a.openers.length} 套思维链开头</b>
-            <p class="pa-hint">${a.openers.map((id) => `「${nm(id)}」`).join("")}均以思考标签开头，模型会连写多套思考，篇幅变长、易爆思维链。通常只开一套，以条目名称或作者说明为准。</p>
-            <div class="pa-card-act"><button class="pa-link" data-goto="${esc(a.openers.join("|"))}">在整理页查看</button></div></div>` : ""}`;
+            </ul></div>`;
+    let deadHtml = "";
     if (dead.length) {
       // 一行写清是哪条、哪个变量、为什么；原因和操作收起，点开看
-      html += `<h3 class="pa-h">可能未被读取的内容（${dead.length}）</h3><div class="pa-cards">`;
       for (const i of dead) {
         const vn = esc(i.varName.replace(/^全局:/, ""));
         const similar = (i.similar || []).map((k) => k.replace(/^全局:/, ""));
@@ -165,13 +154,28 @@ function mountCot(page, app) {
               : `内容存入变量「${vn}」，没有开启的条目读取，未进入提示词。由脚本、世界书或其他扩展读取的，以实际发送的提示词为准。`;
         // 同一条目可能写多个变量：下方「变量读到/间接读到」说的是另一个变量，这里只说这一个
         const other = i.ids.filter((id) => ["var", "chain"].includes(a.coverage.get(id)?.level)).map((id) => `「${nm(id)}」经变量「${esc(String(a.coverage.get(id).via).split(" → ")[0].replace(/^全局:/, ""))}」已被思维链读到`);
-        html += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main">${i.ids.map((id) => `「${nm(id)}」`).join("")} → 变量「${vn}」</span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
+        deadHtml += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main">${i.ids.map((id) => `「${nm(id)}」`).join("")} → 变量「${vn}」</span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
                     <p class="pa-hint">${why}</p>${other.length ? `<p class="pa-hint">${other.join("；")}，与本条不矛盾：本条指变量「${vn}」。</p>` : ""}
                     <div class="pa-card-act">${similar.length ? similar.map((k) => `<button class="pa-btn pa-btn-soft pa-btn-s" data-rename="${esc(i.varName)}" data-to="${esc((i.varName.startsWith("全局:") ? "全局:" : "") + k)}">改成「${esc(k)}」</button>`).join("") : ""}${offIds.length ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(offIds.join("|"))}">开启读取它的条目</button>` : ""}
                     ${forCot ? `<button class="pa-btn pa-btn-s" data-cotread="${esc(i.varName)}">加入思维链读取</button>` : `<button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button>`}<button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
       }
-      html += "</div>";
     }
+    let html = dead.length
+      ? `<div class="pa-verdict pa-bad">
+            <div class="pa-verdict-top"><p><b>${dead.length} 项变量读取待核对</b><small class="pa-verdict-sub">${styleLine}</small></p>${info}</div>
+            ${legendNote}
+            <div class="pa-cards">${deadHtml}</div>
+        </div>`
+      : `<div class="pa-verdict-line${a.cotIds.length ? " pa-good" : ""}"><div class="pa-verdict-top"><p>${a.cotIds.length ? "没有读取问题 · " : ""}${styleLine}</p>${info}</div>${legendNote}</div>`;
+    html += `<div class="pa-cot-sum">
+            <div><b>${a.cotIds.length}</b><span>思维链</span></div>
+            <div><b>${okN}</b><span>变量读到</span></div>
+            <div><b>${counts.mention}</b><span>文字提及</span></div>
+            <div><b>${counts.none}</b><span>未提及</span></div>
+        </div>
+        ${a.openers.length > 1 ? `<div class="pa-card pa-card-warn"><b>同时开着 ${a.openers.length} 套思维链开头</b>
+            <p class="pa-hint">${a.openers.map((id) => `「${nm(id)}」`).join("")}均以思考标签开头，模型会连写多套思考，篇幅变长、易爆思维链。通常只开一套，以条目名称或作者说明为准。</p>
+            <div class="pa-card-act"><button class="pa-link" data-goto="${esc(a.openers.join("|"))}">在整理页查看</button></div></div>` : ""}`;
     html += `<div class="pa-row-head"><h3 class="pa-h">思维链读取的变量</h3><button class="pa-link" data-markpick="1">手动指定思维链</button></div>`;
     html += '<div class="pa-cards">';
     for (const c2 of a.cot) {

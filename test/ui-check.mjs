@@ -34,7 +34,7 @@ console.log("✓ 选中两条并移到指定位置");
 
 // 2) 思维链页能打开，有手动指定入口
 await page.click('[data-tab="cot"]'); await page.waitForTimeout(400);
-assert.ok(await page.$(".pa-cot .pa-verdict"));
+assert.ok(await page.$(".pa-cot .pa-verdict-top"));
 assert.equal(await page.locator("[data-markpick]").count(), 1);
 console.log("✓ 思维链页");
 
