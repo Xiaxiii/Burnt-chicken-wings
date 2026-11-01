@@ -151,7 +151,17 @@ html.pa-open body { overflow: hidden; }
 @supports (-webkit-touch-callout: none) {
     #pa-root .pa-input, #pa-root .pa-select { font-size: max(16px, 1em); }
 }
-#pa-root .pa-select { appearance: auto; }
+/* 2.5.1 iPhone 的 Safari 按系统样式画搜索框、密码框和下拉框：不认圆角，搜索框按系统高度画，下面漏出一截底色。
+   统一去掉系统样式，下拉框的箭头自己画（颜色跟着配色走） */
+#pa-root .pa-input, #pa-root .pa-select { -webkit-appearance: none; appearance: none; }
+#pa-root .pa-input::-webkit-search-decoration { -webkit-appearance: none; }
+#pa-root .pa-select {
+    padding-right: 28px !important;
+    background-image: linear-gradient(45deg, transparent 50%, var(--pa-dim) 50%), linear-gradient(135deg, var(--pa-dim) 50%, transparent 50%) !important;
+    background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52% !important;
+    background-size: 5px 5px, 5px 5px !important;
+    background-repeat: no-repeat !important;
+}
 #pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }
 #pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }
 #pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
@@ -1291,8 +1301,11 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-item-head .pa-badges { max-width: none; flex-wrap: wrap; }
 
 /* 思维链页：没发出去的内容，一行摘要，点开看原因和操作 */
-#pa-root .pa-dead > summary { align-items: center; }
-#pa-root .pa-dead-main { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-dead > summary { align-items: center; flex-wrap: nowrap; }
+#pa-root .pa-dead-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+#pa-root .pa-dead-name, #pa-root .pa-dead-var { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-dead-name { font-weight: 600; }
+#pa-root .pa-card .pa-dead-var { color: var(--pa-dim); font-size: .84em; }
 #pa-root .pa-dead .pa-chip { flex: none; max-width: none; }
 /* 2.5.0 一行只留一个状态标记：框用普通实线，警告只靠胶囊（主题警告色相的浅底、警告色字） */
 #pa-root .pa-card-warn.pa-dead { border-color: var(--pa-line); border-style: solid; }

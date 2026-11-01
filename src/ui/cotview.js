@@ -154,7 +154,8 @@ function mountCot(page, app) {
               : `内容存入变量「${vn}」，没有开启的条目读取，未进入提示词。由脚本、世界书或其他扩展读取的，以实际发送的提示词为准。`;
         // 同一条目可能写多个变量：下方「变量读到/间接读到」说的是另一个变量，这里只说这一个
         const other = i.ids.filter((id) => ["var", "chain"].includes(a.coverage.get(id)?.level)).map((id) => `「${nm(id)}」经变量「${esc(String(a.coverage.get(id).via).split(" → ")[0].replace(/^全局:/, ""))}」已被思维链读到`);
-        deadHtml += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main">${i.ids.map((id) => `「${nm(id)}」`).join("")} → 变量「${vn}」</span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
+        // 2.5.1 两行：条目名在上、原因胶囊固定在右边，变量名小字在下
+        deadHtml += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main"><b class="pa-dead-name">${i.ids.map((id) => nm(id)).join("、")}</b><small class="pa-dead-var">变量「${vn}」</small></span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
                     <p class="pa-hint">${why}</p>${other.length ? `<p class="pa-hint">${other.join("；")}，与本条不矛盾：本条指变量「${vn}」。</p>` : ""}
                     <div class="pa-card-act">${similar.length ? similar.map((k) => `<button class="pa-btn pa-btn-soft pa-btn-s" data-rename="${esc(i.varName)}" data-to="${esc((i.varName.startsWith("全局:") ? "全局:" : "") + k)}">改成「${esc(k)}」</button>`).join("") : ""}${offIds.length ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(offIds.join("|"))}">开启读取它的条目</button>` : ""}
                     ${forCot ? `<button class="pa-btn pa-btn-s" data-cotread="${esc(i.varName)}">加入思维链读取</button>` : `<button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button>`}<button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
