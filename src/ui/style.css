@@ -708,11 +708,12 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-live-model { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
 #pa-root .pa-live-model > .pa-model-btn { flex: 1 1 auto; min-width: 0; min-height: 30px; }
 /* 2.5.0 测试结果：模型那一行下面一行小字 */
-#pa-root .pa-live-res { display: flex; align-items: center; gap: 5px; margin: 5px 0 0; font-size: .8em; line-height: 1.35; overflow-wrap: anywhere; }
+/* 图标按文字基线摆（不用弹性盒居中）：手写体等字体上下留白不一样，按基线才不会歪 */
+#pa-root .pa-live-res { margin: 5px 0 0; font-size: .8em; line-height: 1.4; overflow-wrap: anywhere; }
 /* 成功绿、失败红；和正文色混一点，浅色、深色主题都看得清 */
 #pa-root .pa-live-res.ok { color: #1f8f4a; color: color-mix(in srgb, #16a34a 75%, var(--pa-text)); }
 #pa-root .pa-live-res.bad { color: #cf3434; color: color-mix(in srgb, #dc2626 78%, var(--pa-text)); }
-#pa-root .pa-live-res .pa-res-ico { flex: none; width: 1.3em; height: 1.3em; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+#pa-root .pa-live-res .pa-res-ico { display: inline-block; vertical-align: -0.29em; margin-right: .32em; width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 #pa-root .pa-live-res .pa-res-ico .pa-res-dot { fill: currentColor; stroke: none; }
 #pa-root .pa-live-fetch { flex: none; width: 32px; height: 30px; min-height: 0; color: var(--pa-dim); }
 #pa-root .pa-live-fetch svg { width: 17px; height: 17px; }
