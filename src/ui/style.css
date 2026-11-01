@@ -1293,6 +1293,12 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-dead > summary { align-items: center; }
 #pa-root .pa-dead-main { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #pa-root .pa-dead .pa-chip { flex: none; max-width: none; }
+/* 2.5.0 一行只留一个状态标记：框用普通实线，警告只靠胶囊（主题警告色相的浅底、警告色字） */
+#pa-root .pa-card-warn.pa-dead { border-color: var(--pa-line); border-style: solid; }
+@supports (background: color-mix(in srgb, red 10%, transparent)) {
+    #pa-root .pa-dead .pa-chip-warn { background: color-mix(in srgb, var(--pa-warn-hue, var(--pa-warn)) 16%, transparent); border-color: transparent; }
+    #pa-root.pa-dark .pa-dead .pa-chip-warn { background: color-mix(in srgb, var(--pa-warn-hue, var(--pa-warn)) 32%, transparent); }
+}
 #pa-root .pa-dead > p { margin: 8px 0 0; }
 
 /* 方案卡片：自动套用的绑定写成一行 */

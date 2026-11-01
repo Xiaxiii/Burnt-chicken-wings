@@ -165,7 +165,7 @@ function applyTheme(root) {
   const signature = JSON.stringify([id, ...(id === "follow" ? hostColors : [])]);
   if (root._paThemeSignature === signature) return applyBackground(root);
   root._paThemeSignature = signature;
-  for (const key of ["text", "dim", "em", "thread", "on-accent", "control-border", "checkmark", "warn", "ok"]) root.style.removeProperty(`--pa-${key}`);
+  for (const key of ["text", "dim", "em", "thread", "on-accent", "control-border", "checkmark", "warn", "warn-hue", "ok"]) root.style.removeProperty(`--pa-${key}`);
   if (id !== "follow") {
     root.style.removeProperty("--pa-tint");
     root.style.removeProperty("--pa-input-bg");
@@ -179,6 +179,7 @@ function applyTheme(root) {
   const color = (key, fallback) => readColor(cs.getPropertyValue(`--pa-${key}`).trim()) || fallback;
   const base = color("tint", { r: 28, g: 26, b: 30 });
   const requestedText = color("text", { r: 230, g: 225, b: 216 }), requestedAccent = color("thread", { r: 224, g: 162, b: 74 });
+  const requestedWarn = color("warn", { r: 224, g: 120, b: 74 });
   const surfaceColors = () => {
     const layer = Object.fromEntries(["card", "card-2", "input-bg", "sel"].map(key => [key, color(key, { ...base, a: 0 })]));
     const panels = [base, themeMix(layer.card, base), themeMix(layer["card-2"], base), themeMix(layer["card-2"], themeMix(layer.card, base))];
@@ -206,12 +207,15 @@ function applyTheme(root) {
     dim: readableThemeColor(themeMix(text, base, .68), surfaces, 4.5),
     em: readableThemeColor(color("em", text), surfaces, 4.5),
     "control-border": readableThemeColor(themeMix(text, base, .6), surfaces, 3),
-    warn: readableThemeColor(color("warn", { r: 224, g: 120, b: 74 }), surfaces, 4.5),
+    warn: readableThemeColor(requestedWarn, surfaces, 4.5),
     ok: readableThemeColor(color("ok", { r: 111, g: 179, b: 138 }), surfaces, 4.5)
   })) root.style.setProperty(`--pa-${key}`, themeRgb(value));
+  // 2.5.0 警告色为了字够清楚会被调亮、调暗（深色主题里接近白色），浅色底用主题原本的色相
+  root.style.setProperty("--pa-warn-hue", themeRgb(requestedWarn));
   root.style.setProperty("--pa-on-accent", ink);
   root.style.setProperty("--pa-checkmark", `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='${ink.replace("#", "%23")}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`);
   root.style.colorScheme = themeLuminance(base) > .179 ? "light" : "dark";
+  root.classList.toggle("pa-dark", themeLuminance(base) <= .179);
   applyBackground(root);
 }
 // 自定义背景图：图片上盖一层主题底色，浓度可调，保证文字清楚
