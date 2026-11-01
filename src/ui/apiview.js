@@ -252,7 +252,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         <article class="pa-card pa-site pa-site-on pa-live"${active ? ` data-id="${esc(active.id)}"` : ""}>
             <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more" data-a="livemore" aria-label="连接详情" title="连接详情">⋯</button></header>
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
-            <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="reconnect" type="button" aria-label="测试连接" title="测试连接">${ICON.bolt}</button></div>
+            <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
@@ -706,6 +706,45 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     }
     return render();
   }
+  // 2.5.0 测试：和酒馆的「发送测试消息」一样，用现在的连接和选中的模型发一句「Hi」，看模型能不能回。
+  // 不先重新套用站点，免得把在酒馆里临时换的模型换回去
+  async function testModel(btn = null) {
+    const c = ctx();
+    const svc = c.ChatCompletionService;
+    if (typeof svc?.presetToGeneratePayload !== "function" || typeof svc?.sendRequest !== "function") {
+      // 旧版酒馆没有独立请求接口：交给酒馆自己的测试按钮，结果看酒馆的提示
+      const stBtn = globalThis.jQuery?.("#test_api_button");
+      if (stBtn?.length) {
+        stBtn.trigger("click");
+        return toast("已让酒馆发送测试消息，结果看酒馆弹出的提示", "info");
+      }
+      return toast("这个酒馆版本不能单独发送测试消息，请到酒馆的 API 设置里点「测试消息」", "warning");
+    }
+    const live = liveConnection();
+    const model = (typeof c.getChatCompletionModel === "function" ? c.getChatCompletionModel() : "") || live.model;
+    if (!model) return toast("还没有选模型", "warning");
+    const active = sites().find((x) => x.id === settings().activeSiteId);
+    const k = siteMulti(active) && isSame(active, live) ? siteKey(active) : null;
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("pa-busy");
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60e3);
+    try {
+      const payload = await svc.presetToGeneratePayload({}, {}, { model, messages: [{ role: "user", content: "Hi" }], stream: false, max_tokens: 300, n: 1 });
+      const res = await svc.sendRequest(payload, true, controller.signal);
+      const reply = String(res?.content ?? "").replace(/\s+/g, " ").trim();
+      toast(`「${model}」可以用${reply ? `，回复：${reply.length > 40 ? reply.slice(0, 40) + "…" : reply}` : ""}`, "success");
+    } catch (err) {
+      const raw = controller.signal.aborted ? "60 秒内没有回复" : err?.message || err?.error?.message || (typeof err?.error === "string" ? err.error : "") || (typeof err === "string" ? err : "") || "站点没有返回可用的回复";
+      const msg = String(raw).length > 120 ? String(raw).slice(0, 120) + "…" : String(raw);
+      toast(k ? `${failMsg(active, k)}：${msg}` : `「${model}」测试失败：${msg}`, "error");
+    } finally {
+      clearTimeout(timer);
+    }
+    return render();
+  }
   // btn：点的按钮（连接、获取时显示进度）；from：点的位置（找推理格式那一行）
   async function act(a, site, btn = null, from = null) {
     // 图标按钮（测试的闪电）忙时闪动，文字按钮换成提示文字
@@ -851,6 +890,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       saveSettings();
       return render();
     }
+    if (a === "testmodel") return testModel(btn);
     if (a === "use" || a === "reconnect") {
       const target = a === "use" ? site : sites().find((x) => x.id === settings().activeSiteId);
       if (siteMulti(target)) return connectKey(target, a === "use" ? from?.closest("[data-k]")?.dataset.k : siteKey(target).id, btn);

@@ -20,7 +20,7 @@ try {
   const arrow = () => page.locator('.pa-live .pa-model-btn i').count();
   await page.locator('[data-a=livefetch]').waitFor();
   assert.equal(await arrow(), 0, '没有模型列表时不显示 ▾');
-  assert.equal(await page.locator('.pa-live [data-a=reconnect]').getAttribute('aria-label'), '测试连接');
+  assert.equal(await page.locator('.pa-live [data-a=testmodel]').getAttribute('aria-label'), '发送测试消息');
   assert.equal(await page.locator('.pa-plan-sites .pa-optgroup').count(), 0, '站点那块只放站点');
   assert.equal(await page.locator('.pa-plan-opts .pa-optgroup').count(), 2, '两个选项在方案下面');
   ok('模型旁有拉取和测试，没拉取时模型框没有 ▾');
@@ -34,9 +34,26 @@ try {
   await page.locator('.pa-sheet-x').last().click();
   ok('拉取后出现 ▾，点开是全部模型');
 
-  await page.click('.pa-live [data-a=reconnect]');
-  await page.waitForFunction(() => window.__toasts.some((t) => /连接/.test(t)), null, { timeout: 20000 });
-  ok('点测试重新连接并提示结果');
+  // 2.5.0 测试：用选中的模型发一句「Hi」，回了就算能用；报错时显示站点给的原因
+  await page.evaluate(() => {
+    const c = window.SillyTavern.getContext();
+    window.__sent = [];
+    c.getChatCompletionModel = () => 'claude-y';
+    c.ChatCompletionService = {
+      presetToGeneratePayload: async (a, b, o) => ({ ...o }),
+      sendRequest: async (p) => { window.__sent.push(p); if (window.__failNext) throw { error: { message: 'quota exceeded' } }; return { content: 'Hello!  How can I help?' }; }
+    };
+  });
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => window.__toasts.some((t) => /可以用/.test(t)), null, { timeout: 10000 });
+  const sent = await page.evaluate(() => window.__sent[0]);
+  assert.equal(sent.model, 'claude-y', '用酒馆里选中的模型');
+  assert.deepEqual(sent.messages, [{ role: 'user', content: 'Hi' }]);
+  assert.ok(await page.evaluate(() => window.__toasts.some((t) => t === 'success:「claude-y」可以用，回复：Hello! How can I help?')));
+  await page.evaluate(() => { window.__failNext = true; });
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => window.__toasts.some((t) => /error:「claude-y」测试失败：quota exceeded/.test(t)), null, { timeout: 10000 });
+  ok('点测试发送测试消息，能回就提示可以用，失败显示原因');
 
   await page.click('[data-a=livemore]');
   const acts = await page.locator('.pa-sheet-actions .pa-btn').allInnerTexts();

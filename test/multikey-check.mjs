@@ -120,6 +120,15 @@ try {
   assert.equal(site.modelView, "group", "按分组记在站点上");
   assert.equal(await vault(), "old,aaa,bbb*");
   ok("选模型时换分组：换密钥重新连接；按分组只展开第一段");
+  // 测试消息失败时点名是哪个分组的密钥
+  await page.evaluate(() => {
+    const c = window.SillyTavern.getContext();
+    c.getChatCompletionModel = () => "gemini-2.5-flash-lite";
+    c.ChatCompletionService = { presetToGeneratePayload: async (a, b, o) => o, sendRequest: async () => { throw new Error("insufficient quota"); } };
+  });
+  await page.click(".pa-live [data-a=testmodel]");
+  await page.waitForFunction(() => window.__toasts.some((t) => t === "error:「按量」密钥请求失败（额度用完或已失效）：insufficient quota"), null, { timeout: 10000 });
+  ok("测试消息失败时点名分组");
 
   // 5) 方案记下分组
   await page.click("[data-s=new]"); await page.waitForTimeout(300);
