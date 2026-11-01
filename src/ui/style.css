@@ -530,7 +530,10 @@ html.pa-open body { overflow: hidden; }
 /* 2.5.0 结论一行（右边 ⓘ），说明点开 */
 #pa-root .pa-verdict-top { display: flex; align-items: flex-start; gap: 6px; }
 #pa-root .pa-verdict-top > p { flex: 1 1 auto; min-width: 0; margin: 0; }
-#pa-root .pa-verdict-top > .pa-why { flex: none; margin: -4px -6px 0 0; }
+/* 2.5.5 ⓘ：20px，和标题那一行居中；右边缘对齐下面卡片里的原因胶囊（卡片内边距减去标题区的 2px，再减图标自带的 1px 留白） */
+#pa-root .pa-verdict-top > .pa-why { flex: none; align-self: flex-start; height: calc(1.05em * 1.45); padding: 0; margin: 0 9px 0 0; font-size: inherit; }
+#pa-root .pa-verdict-top > .pa-why svg.pa-info { width: 20px; height: 20px; }
+@media (max-width: 599px) { #pa-root .pa-verdict-top > .pa-why { margin-right: 7px; } }
 #pa-root .pa-why.on { color: var(--pa-text); background: var(--pa-sel); border-radius: 8px; }
 #pa-root .pa-verdict-sub { display: block; margin-top: 2px; color: var(--pa-dim); font-size: .84em; font-weight: 400; }
 /* 没有问题时只是一行，不加框 */
