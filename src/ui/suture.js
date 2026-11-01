@@ -537,9 +537,8 @@ function mountSuture(page, app) {
     const q = body.querySelector(".pa-ss-q");
     q.value = qOf(side);
     return sheet({ title: side === "src" ? "搜索来源条目" : "搜索目标条目", body, focusInput: true, actions: [{ label: "清空", value: "clear" }, { label: "完成", kind: "primary", value: "ok" }], onMount: (w) => {
-      let t = null;
-      q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => setQuery(side, q.value.trim()), 120); });
-      q.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); w.querySelector(".pa-sheet-actions .pa-btn-primary")?.click(); } });
+      onSearchInput(q, () => setQuery(side, q.value.trim()));
+      q.addEventListener("keydown", (e) => { if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); w.querySelector(".pa-sheet-actions .pa-btn-primary")?.click(); } });
       w.addEventListener("pa-closed", () => saveSettings());
     } }).then((r) => {
       if (r === "clear") setQuery(side, "");

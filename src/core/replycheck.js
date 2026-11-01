@@ -44,6 +44,11 @@ function normalizeReplyRules(input) {
   return { bodyTag, thinkingTags, requiredTags };
 }
 
+// 2.5.7 按行切开、每行保留结尾的换行。不用后行断言 /(?<=\n)/：iOS 16.4 以前的 Safari 不认，整个扩展会加载失败
+function replyLines(text) {
+  return text.match(/[^\n]*\n|[^\n]+$/g) || [""];
+}
+
 // 按出现顺序进入代码或注释，代码里的注释符、注释里的围栏不改变外层状态。
 // 同时屏蔽常见的单行 Markdown 反引号代码示例。
 // 保留字符位置与换行；preserveCode 用于检查可见正文，保留代码内容。
@@ -51,7 +56,7 @@ function replyCheckMask(text, preserveCode = false) {
   const blank = (part) => part.replace(/[^\r\n]/g, " ");
   let fence = null;
   let inComment = false;
-  return text.split(/(?<=\n)/).map((line) => {
+  return replyLines(text).map((line) => {
     const marker = /^ {0,3}(`{3,}|~{3,})(.*?)(?:\r?\n)?$/.exec(line);
     if (fence) {
       if (marker && marker[1][0] === fence.char && marker[1].length >= fence.length && !marker[2].trim()) fence = null;
@@ -145,13 +150,12 @@ function replyReasoningHasBody(reasoning, bodyTag) {
   return new RegExp(`<\\s*${name}(?:\\s+[^<>]*?)?\\s*>`, "iu").test(text);
 }
 
-// 2.5.6 必需标签整个没出现、回复里却多了预设没用到的块：多半是模型把标签名写错了（如把 <lxs_status> 写成 <状态栏>）。
-// knownTags 是预设开着的条目和正则里出现过的标签名（小写）；没有就不判断。
-// 只缺一个必需标签、只多一个陌生块时认定是它（pairs），修正时改名；多个时只在提醒里点名（suspects）
-// knownTags 也可以是函数（用到时才去扫预设），只在确实缺了必需标签时才调用
-function replyMisnamed(source, rules, knownTags) {
+// 2.5.6 必需标签整个没出现、回复里却多了预设没用到的块：可能是模型把标签名写错了（如把 <lxs_status> 写成 <状态栏>）。
+// knownTags 是预设开着的条目和正则里出现过的标签名（小写）；没有就不判断。也可以是函数（用到时才去扫预设），只在确实缺了必需标签时才调用。
+// 2.5.7 看结构：knownTags.children 记着预设里这个必需标签内部的子标签，陌生块里也有其中的子标签才算确定（sure）。
+// 确定时提醒点名、自动修正改名；只有一个陌生块但结构看不出来时配成一对但不确定，只做一般提醒，手动修正可看预览后改
+function replyMisnamed(source, rules, knownTags, masked = replyCheckMask(source)) {
   if (!knownTags || !rules.requiredTags.length) return null;
-  const masked = replyCheckMask(source);
   const present = new Set(replyTagTokens(masked).map((t) => t.key));
   const missing = rules.requiredTags.filter((tag) => !present.has(tag.toLowerCase()));
   if (!missing.length) return null;
@@ -159,7 +163,16 @@ function replyMisnamed(source, rules, knownTags) {
   if (!(knownTags instanceof Set)) return null;
   const skip = new Set([rules.bodyTag, ...rules.thinkingTags, ...rules.requiredTags].map((tag) => tag.toLowerCase()));
   const strangers = replyTopBlocks(source).filter((b) => b.key !== REPLY_FENCE_KEY && !skip.has(b.key) && !knownTags.has(b.key));
-  return { missing, suspects: strangers, pairs: missing.length === 1 && strangers.length === 1 ? [{ tag: missing[0], block: strangers[0] }] : [], knownTags };
+  // 只缺一个必需标签时：陌生块里只有一个结构对得上的，认定是它；只有一个陌生块时也配对，但不算确定
+  let pairs = [];
+  if (missing.length === 1) {
+    const expected = knownTags.children?.get(missing[0].toLowerCase());
+    const fits = (b) => !!expected && replyTagTokens(masked.slice(b.start, b.end)).some((t) => t.key !== b.key && expected.has(t.key));
+    const sure = strangers.filter(fits);
+    if (sure.length === 1) pairs = [{ tag: missing[0], block: sure[0], sure: true }];
+    else if (strangers.length === 1) pairs = [{ tag: missing[0], block: strangers[0], sure: false }];
+  }
+  return { missing, suspects: strangers, pairs, knownTags };
 }
 
 function checkReplyFormat(text, inputRules, extra = {}) {
@@ -222,11 +235,12 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     add("order", `「${open.tag}」开始标签没有闭合`, open.tag);
     if (open.key === bodyKey || thinking.has(open.key)) scopeRanges.push({ start: open.start, end: source.length, key: open.key });
   }
-  const misnamed = replyMisnamed(source, rules, extra.knownTags);
+  const misnamed = replyMisnamed(source, rules, extra.knownTags, masked);
   for (const [key, tag] of required) {
     const stat = stats.get(key);
-    const as = misnamed?.pairs.find((p) => p.tag === tag)?.block;
-    if (!stat.opens && !stat.closes) add("missing", `缺少完整的 <${tag}>…</${tag}> 标签${as ? `；回复里的 <${as.name}> 预设没有用到，多半是写错了名字的 <${tag}>` : ""}`, tag);
+    const pair = misnamed?.pairs.find((p) => p.tag === tag);
+    const as = pair && `；回复里的 <${pair.block.name}> 预设没有用到，${pair.sure ? "多半" : "可能"}是写错了名字的 <${tag}>`;
+    if (!stat.opens && !stat.closes) add("missing", `缺少完整的 <${tag}>…</${tag}> 标签${as || ""}`, tag);
     else if (!stat.opens) add("missing", `缺少 <${tag}> 开始标签`, tag);
     else if (!stat.closes) add("missing", `缺少 </${tag}> 结束标签`, tag);
     if (stat.opens + stat.selfClosing > 1 || stat.closes > 1) add("duplicate", `「${tag}」应完整成对出现一次，当前重复出现`, tag);
@@ -262,7 +276,7 @@ function checkReplyFormat(text, inputRules, extra = {}) {
   // 这里只标记正文与已知思考区之外的明确步骤标题；语义泄露仍须人工判断。
   const heading = /^ {0,3}(?:#{1,6}\s*)?(?:(?:思考|分析|推理)(?:过程|步骤|阶段)?|Analysis|Reasoning|Thinking)(?:\s*[：:]\s*.*|\s*)$|^ {0,3}(?:#{1,6}\s*)?(?:Step|Phase)\s+\d+(?:\s*[.:：)\-–—]\s*.*|\s+.*|\s*)$/i;
   let offset = 0;
-  for (const line of masked.split(/(?<=\n)/)) {
+  for (const line of replyLines(masked)) {
     const first = offset + line.search(/\S|$/);
     if (heading.test(line.trimEnd()) && !scopeRanges.some((range) => first >= range.start && first < range.end)) {
       add("suspected", "正文标签外出现疑似思考或推理步骤标题，请人工确认是否泄露了内部分析");
@@ -293,8 +307,9 @@ function buildReplyReminder(report, inputRules) {
   if (report.issues.some((issue) => issue.kind === "outside" && issue.text.startsWith("正文标签前"))) extra.push(`上一轮在 ${body} 之前直接输出了分析文字：正文标签外不要写任何分析、计划或说明。`);
   else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文结束后不追加说明或总结。`);
   if (kinds.has("leak")) extra.push(`正文内不得出现思考标签。`);
-  if (mis?.pairs.length) for (const { tag, block } of mis.pairs) extra.push(`上一轮把 <${tag}> 写成了 <${block.name}>：请用 <${tag}>…</${tag}>，标签名一字不改，不要输出 <${block.name}>。`);
-  else if (mis?.suspects.length) extra.push(`上一轮没有 ${mis.missing.map((t) => `<${t}>`).join("、")}，却多了 ${mis.suspects.map((b) => `<${b.name}>`).join("、")}：必需标签的名字一字不改，不要换成别的标签名。`);
+  const sure = mis?.pairs.filter((p) => p.sure) || [];
+  if (sure.length) for (const { tag, block } of sure) extra.push(`上一轮把 <${tag}> 写成了 <${block.name}>：请用 <${tag}>…</${tag}>，标签名一字不改，不要输出 <${block.name}>。`);
+  else if (mis?.suspects.length) extra.push(`上一轮没有 ${mis.missing.map((t) => `<${t}>`).join("、")}：必需标签的名字一字不改，不要换成别的标签名。`);
   if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
   const keep = [before.length && `正文前的 ${before.join("、")}`, after.length && `正文后的 ${after.join("、")}`].filter(Boolean);
   return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}${keep.length ? `${keep.join("、")}照常输出，同样放在思考标签之外。` : ""}正文不夹入思考步骤或内部分析。这条提醒只管格式，剧情照常接着写。`;
@@ -346,7 +361,7 @@ var REPLY_FENCE_KEY = "```";
 function replyFenceRanges(text, kept = replyCheckMask(text, true)) {
   const out = [];
   let open = null, offset = 0;
-  for (const line of kept.split(/(?<=\n)/)) {
+  for (const line of replyLines(kept)) {
     const m = /^ {0,3}(`{3,}|~{3,})(.*?)(?:\r?\n)?$/.exec(line);
     if (open) {
       if (m && m[1][0] === open.char && m[1].length >= open.length && !m[2].trim()) {
@@ -495,8 +510,10 @@ function planReplyFix(text, inputRules, extra = {}) {
   }
   // 2b.（2.5.6）必需标签写错了名字：只缺一个必需标签、回复里只多一个预设没用到的块时，把那个块改名，内容不动
   {
+    // extra.strict（自动修正用）：只改结构对得上的；手动修正有预览，配成一对就改
     const mis = replyMisnamed(mes, rules, extra.knownTags);
-    for (const { tag, block } of mis?.pairs || []) {
+    for (const { tag, block, sure } of mis?.pairs || []) {
+      if (extra.strict && !sure) continue;
       const masked = replyCheckMask(mes);
       const openEnd = masked.indexOf(">", block.start) + 1;
       const closeStart = masked.lastIndexOf("<", block.end - 1);

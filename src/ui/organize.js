@@ -318,7 +318,7 @@ function mountOrganize(page) {
       paintSel();
     }
   });
-  search.addEventListener("input", () => {
+  onSearchInput(search, () => {
     if (!search.value.trim()) st.searchBody = false;
     st.query = search.value;
     render();

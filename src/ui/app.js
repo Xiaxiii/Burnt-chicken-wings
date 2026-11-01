@@ -395,7 +395,7 @@ function addSettingsEntry() {
         <div class="menu_button menu_button_icon pa-set-mini" data-a="rename-cancel" tabindex="0" role="button"><i class="fa-solid fa-xmark"></i><span>取消</span></div>`;
       const input = row.querySelector("input");
       input.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter") { ev.preventDefault(); act("rename-ok", null); }
+        if (ev.key === "Enter" && !imeEnter(ev)) { ev.preventDefault(); act("rename-ok", null); }
         if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); act("rename-cancel", null); }
       });
       input.focus();

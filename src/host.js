@@ -469,8 +469,26 @@ async function revealSecret(source, id) {
   }
 }
 async function readSecretState() {
-  await mods.secrets?.readSecretState?.();
-  return mods.secrets?.secret_state || {};
+  const fresh = typeof mods.secrets?.readSecretState === "function";
+  if (fresh) await mods.secrets.readSecretState();
+  const state = mods.secrets?.secret_state || {};
+  // 没有重新读取的接口时 secret_state 可能是旧缓存，刚存的密钥不在里面，不能拿它来清留底
+  if (fresh) pruneKeyCopies(state);
+  return state;
+}
+// 2.5.7 酒馆密钥库里已经删掉的密钥，本浏览器的留底也删掉，明文不一直留着。
+// 只在读到了密钥库（至少一类有密钥）时才清，读取失败、还没加载时不动
+function pruneKeyCopies(state) {
+  try {
+    const lists = Object.values(state || {}).filter(Array.isArray);
+    if (!lists.some((l) => l.length)) return;
+    const alive = new Set(lists.flat().map((x) => x?.id).filter(Boolean));
+    const prefix = `presetAtelier:keycopy:${userHandle()}:`;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(prefix) && !alive.has(k.slice(prefix.length))) localStorage.removeItem(k);
+    }
+  } catch {}
 }
 function setSelect(sel, value) {
   const el2 = $(sel);

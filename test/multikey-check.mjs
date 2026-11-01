@@ -68,8 +68,7 @@ try {
   assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").getAttribute("type"), "text");
   assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").inputValue(), "sk-aaaaaaaaaaaa", "显示时文字不丢");
   await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click();
-  // 隐藏时显示成圆点：普通文本框加样式；浏览器不支持时退回密码框
-  assert.ok(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").evaluate((x) => x.type === "password" || getComputedStyle(x).webkitTextSecurity === "disc"), "隐藏时显示成圆点");
+  assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").getAttribute("type"), "password");
   ok("粘贴多行拆开；＋ 加一行；一个密钥时没有名称框；眼睛显示、隐藏密钥");
 
   // 2) 获取模型列表：每个密钥各拉一次，行尾显示数量；选择框按模型列，标出分组
@@ -195,6 +194,13 @@ try {
   // 换回原顺序，后面的检查照旧
   await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].keys.reverse());
   ok("拖动调顺序");
+  // 酒馆密钥库里删掉的密钥，下次读取密钥库时本浏览器的留底跟着删；还在的不动
+  await page.evaluate(() => { const any = Object.keys(localStorage).find((k) => k.startsWith("presetAtelier:keycopy:")); localStorage.setItem(any.replace(/[^:]+$/, "gone-id"), "sk-gone"); });
+  await page.locator(".pa-plan-sites .pa-site-multi .pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
+  await page.waitForTimeout(2500);
+  assert.equal(await page.evaluate(() => Object.keys(localStorage).some((k) => k.endsWith(":gone-id"))), false, "密钥库里没有的密钥不留底");
+  assert.equal(await copyOf(firstSid), "sk-aaaaaaaaaaaa", "还在的密钥留底不动");
+  ok("酒馆密钥库里删掉的密钥，本浏览器的留底跟着删");
 
   // 6) 三个以上分组：按模型时只显示一个标签和「+N」，点开全部
   await page.evaluate(() => {

@@ -131,7 +131,7 @@ function inlineEdit(target, value, { placeholder = "" } = {}) {
       resolve(v && v !== value ? v : null);
     };
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); finish(input.value.trim()); }
+      if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); finish(input.value.trim()); }
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(null); }
     });
     input.addEventListener("blur", () => finish(input.value.trim()));
@@ -192,7 +192,7 @@ async function promptBox(title, value = "", placeholder = "") {
     onMount: (w) => {
       const i = w.querySelector("input");
       i.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") w.querySelector(".pa-btn-primary").click();
+        if (e.key === "Enter" && !imeEnter(e)) w.querySelector(".pa-btn-primary").click();
       });
       setTimeout(() => {
         i.focus();
@@ -239,6 +239,22 @@ function debounce(fn, ms) {
 // 说明文字默认收起：一行小字「ⓘ 说明」，点开再看。手机屏幕小，长段说明不要一上来就铺满
 // 2.4.1 解释句默认收起：标题或选项旁一个 ⓘ，点开才显示；bindWhy 挂在外层容器上
 // ⓘ 字符在不少字体里偏上偏小，和文字对不齐；画一个圆圈 i
+// 2.5.7 输入法正在选字时按的回车（确认拼音候选）不算提交。Safari 在这个回车上报 keyCode 229
+const imeEnter = (e) => e.isComposing || e.keyCode === 229;
+// 2.5.7 搜索框：停一下再筛，连打几个字只筛一次（大预设在手机上筛一次要一两百毫秒）；
+// 拼音还没选字时不筛（输入法每打一个字母都会触发 input）；清空时立刻恢复
+function onSearchInput(input, run, delay = 120) {
+  if (!input) return;
+  let timer = 0;
+  const go = () => { clearTimeout(timer); timer = 0; run(input.value); };
+  input.addEventListener("input", (e) => {
+    if (e.isComposing) return;
+    clearTimeout(timer);
+    if (!input.value.trim() || delay <= 0) return go();
+    timer = setTimeout(go, delay);
+  });
+  input.addEventListener("compositionend", () => { clearTimeout(timer); timer = setTimeout(go, 0); });
+}
 const INFO_ICON = '<svg class="pa-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></svg>';
 const whyBtn = (key) => `<button class="pa-why" type="button" data-why="${key}" aria-label="说明" aria-expanded="false" title="说明">${INFO_ICON}</button>`;
 const whyNote = (key, html) => `<div class="pa-whynote" data-whynote="${key}" hidden>${html}</div>`;

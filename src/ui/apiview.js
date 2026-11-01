@@ -37,9 +37,9 @@ function familyGroups(models) {
   }
   return [...map].sort((a, b) => FAMILY_ORDER.indexOf(a[0]) - FAMILY_ORDER.indexOf(b[0])).map(([name, list]) => ({ name, list }));
 }
-// 2.5.3 密钥框不用密码框：有的扩展或主题会按「密码框」改样式（方角、白底），盖过焦香鸡翅的。
-// 用普通文本框、靠样式把字显示成圆点；浏览器不支持这种样式时退回密码框
-const keyMaskCss = () => typeof CSS !== "undefined" && !!CSS.supports?.("-webkit-text-security", "disc");
+// 2.5.7 密钥框仍用密码框（键盘不记、读屏不念）。有的扩展或主题按「密码框」改样式（方角、白底），盖过焦香鸡翅的：
+// 外观写在元素自己的 style 上并加 !important，任何样式表都盖不过；颜色取配色变量，毛玻璃配色另给边框和内阴影
+const KEY_INPUT_STYLE = "-webkit-appearance:none!important;appearance:none!important;border-radius:8px!important;background-color:var(--pa-input-bg)!important;background-image:none!important;border:1px solid var(--pa-key-bc,var(--pa-line))!important;box-shadow:var(--pa-key-sh,none)!important;margin:0!important";
 // 分段标题（按分类、按分组共用）
 const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
@@ -176,11 +176,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     if (!site.modelCats) site.modelCats = [];
     saveSettings();
   };
-  let typing = null;
-  input.addEventListener("input", () => {
-    clearTimeout(typing);
-    typing = setTimeout(paint, all.length > 150 ? 120 : 0);
-  });
+  onSearchInput(input, () => paint(), all.length > 150 ? 120 : 0);
   paint();
   // 列表长时窗口固定高度，只滚列表，搜索框和工具条一直在上面
   await sheet({ title: `${title}（${all.length}）`, body, noFocus: true, cls: `pa-sheet-picker${all.length > 10 ? " pa-sheet-tall" : ""}`, actions: [], onMount: (w) => {
@@ -227,7 +223,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       paint();
     };
     newInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); makeCat(); }
+      if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); makeCat(); }
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); newBox.hidden = true; }
     });
     body.querySelector(".pa-mseltools").addEventListener("click", async (e) => {
@@ -659,7 +655,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         const cnt = (k.models || []).length ? `<span class="pa-key-cnt" title="拉取到的模型">✓ ${k.models.length}</span>` : "";
         return `<div class="pa-keyrow" data-k="${esc(k.id)}">
             ${many ? `<span class="pa-key-grip" aria-hidden="true" title="拖动调顺序，排在上面的优先">⋮⋮</span><input class="pa-input pa-key-name" data-f="keyname" value="${esc(k.name)}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
-            <input class="pa-input pa-key-val${!shown.has(k.id) && keyMaskCss() ? " pa-key-mask" : ""}" data-f="key" type="${shown.has(k.id) || keyMaskCss() ? "text" : "password"}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(shown.has(k.id) && revealed.get(k.id) || ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || "")}">
+            <input class="pa-input pa-key-val" data-f="key" type="${shown.has(k.id) ? "text" : "password"}" style="${KEY_INPUT_STYLE}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(shown.has(k.id) && revealed.get(k.id) || ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || "")}">
             <button class="pa-icon-btn pa-key-eye${shown.has(k.id) ? " on" : ""}" data-f="keyeye" type="button" aria-pressed="${shown.has(k.id)}" aria-label="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}" title="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}">${ICON.eye}</button>
             ${cnt}${many ? `<button class="pa-icon-btn pa-key-del" data-f="keydel" type="button" aria-label="删除这个密钥" title="删除这个密钥">✕</button>` : ""}
           </div>${keyNote.has(k.id) ? `<p class="pa-hint pa-key-note">${esc(keyNote.get(k.id))}</p>` : ""}`;

@@ -144,10 +144,10 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
       row.hidden = !searchText[Number(row.dataset.rxIndex)].includes(query);
     });
   };
-  body.querySelector("[data-rx-search]").addEventListener("input", (event) => {
-    query = event.target.value.trim().toLowerCase();
+  onSearchInput(body.querySelector("[data-rx-search]"), (value) => {
+    query = value.trim().toLowerCase();
     filterRows();
-  });
+  }, 80);
   body.querySelector("[data-rx-group-name]").addEventListener("input", (event) => {
     groupName = event.target.value.trim();
     refreshPlan();

@@ -152,7 +152,7 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-input, #pa-root .pa-select { font-size: max(16px, 1em); }
 }
 /* 2.5.1 去掉系统样式，下拉框的箭头自己画（颜色跟着配色走）。
-   2.5.3 搜索框、密钥框改成普通文本框：有的扩展或主题按「搜索框」「密码框」类型改样式，会盖过这里 */
+   2.5.3 搜索框改成普通文本框：有的扩展或主题按「搜索框」类型改样式，会盖过这里。密钥框见 apiview.js 的 KEY_INPUT_STYLE */
 #pa-root .pa-input, #pa-root .pa-select { -webkit-appearance: none; appearance: none; }
 #pa-root .pa-input::-webkit-search-decoration { -webkit-appearance: none; }
 #pa-root .pa-select {
@@ -570,6 +570,11 @@ html.pa-open body { overflow: hidden; }
 #pa-root[data-theme="colony"]   { --pa-tint:#eff3f4; --pa-text:#303f47; --pa-thread:#536b78; --pa-em:#4f5f67; --pa-line:#d4dde0; --pa-input-bg:rgba(255,255,255,.52); --pa-warn:#ad5d48; --pa-ok:#46765d; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.30); --pa-card-2:rgba(255,255,255,.48); --pa-sel:rgba(102,125,135,.15); --pa-shadow:rgba(102,125,135,.40); }
 #pa-root[data-theme="night"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; --pa-card:rgba(255,255,255,.03); --pa-card-2:rgba(255,255,255,.05); --pa-sel:rgba(169,191,174,.10); }
 /* 2.5.0 夜雾的卡片、选中底色固定成很淡的一层：原来按正文色混出来，几层叠起来太亮，字色为了对比度全被推成白色，分不出层次 */
+/* 2.5.7 「跟随酒馆主题」遇到深色的酒馆主题也一样：卡片按正文色混出来，叠起来太亮，次要文字、强调色都被推成接近白色 */
+#pa-root[data-theme="follow"].pa-dark:not(.pa-has-bg) { --pa-card: rgba(255, 255, 255, .03); --pa-card-2: rgba(255, 255, 255, .05); --pa-sel: rgba(255, 255, 255, .07); }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+    #pa-root[data-theme="follow"].pa-dark:not(.pa-has-bg) { --pa-sel: color-mix(in srgb, var(--pa-thread) 10%, transparent); }
+}
 #pa-root[data-theme]:not([data-theme="follow"]):not([data-theme="night"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -703,9 +708,13 @@ html.pa-open body { overflow: hidden; }
 /* 1.3.9 自定义背景图：图片上盖一层主题底色 */
 #pa-root.pa-has-bg .pa-shell { background: linear-gradient(var(--pa-bg-veil), var(--pa-bg-veil)), var(--pa-bg-img) center / cover no-repeat; }
 #pa-root.pa-has-bg .pa-shell::before { background: none; }
-#pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }
-#pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }
-#pa-root.pa-has-bg { --pa-card: color-mix(in srgb, var(--pa-tint) 58%, transparent); --pa-card-2: color-mix(in srgb, var(--pa-tint) 78%, transparent); }
+/* 2.5.7 color-mix 要 iOS 16.2：更早的系统先用不透明底色，顶栏、卡片不会变透明 */
+#pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: var(--pa-tint); background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }
+#pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: var(--pa-tint); background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }
+#pa-root.pa-has-bg { --pa-card: var(--pa-tint); --pa-card-2: var(--pa-tint); }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+    #pa-root.pa-has-bg { --pa-card: color-mix(in srgb, var(--pa-tint) 58%, transparent); --pa-card-2: color-mix(in srgb, var(--pa-tint) 78%, transparent); }
+}
 #pa-root .pa-bgpanel input[type=range] { flex: 1 1 auto; accent-color: var(--pa-thread); }
 #pa-root .pa-bgpanel em { font-style: normal; color: var(--pa-dim); min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -826,8 +835,6 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-key-name { flex: 0 0 5.5em; min-width: 0; }
 #pa-root .pa-keyrow .pa-input { min-height: 34px; padding-top: 5px; padding-bottom: 5px; }
 #pa-root .pa-key-val { flex: 1 1 auto; min-width: 0; }
-#pa-root .pa-key-mask { -webkit-text-security: disc; }
-#pa-root .pa-key-mask::placeholder { -webkit-text-security: none; }
 #pa-root .pa-key-cnt { flex: none; font-size: .78em; color: var(--pa-ok); white-space: nowrap; }
 #pa-root .pa-key-del { width: 28px; height: 28px; }
 #pa-root .pa-key-eye { width: 30px; height: 30px; }
@@ -1014,7 +1021,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-crow-arch { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
 #pa-root .pa-crow-btns { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; }
 #pa-root .pa-ctag-same { border-color: var(--pa-warn); color: var(--pa-warn); }
-#pa-root .pa-ctag-old, #pa-root .pa-ctag-series { border-color: color-mix(in srgb, var(--pa-warn) 60%, var(--pa-line)); color: color-mix(in srgb, var(--pa-warn) 75%, var(--pa-text)); }
+#pa-root .pa-ctag-old, #pa-root .pa-ctag-series { border-color: var(--pa-warn); color: var(--pa-warn); border-color: color-mix(in srgb, var(--pa-warn) 60%, var(--pa-line)); color: color-mix(in srgb, var(--pa-warn) 75%, var(--pa-text)); }
 #pa-root .pa-ctag-near { border-style: dashed; }
 #pa-root .pa-ctag-use { border-color: var(--pa-thread); color: var(--pa-thread); }
 #pa-root .pa-clean-help { margin: 14px 2px 4px; font-size: .92em; }
@@ -1293,7 +1300,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sheet-body pre, #pa-root .pa-sheet-body code { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* 搜索：匹配的文字标出来；只在正文里出现的，名称下面显示出处 */
-#pa-root mark { background: color-mix(in srgb, var(--pa-thread) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+#pa-root mark { background: rgba(240, 190, 60, .35); background: color-mix(in srgb, var(--pa-thread) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 #pa-root .pa-qsum { font-size: .82em; color: var(--pa-dim); padding: 2px 6px 6px; }
 #pa-root .pa-qsum b { color: var(--pa-text); }
 #pa-root .pa-qsum .pa-link { padding: 0 2px; font-size: 1em; }
@@ -1506,3 +1513,4 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 :where(#pa-root.pa-glass) :is(.pa-group, .pa-card) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), inset 0 1px 0 rgba(255, 255, 255, .85); }
 #pa-root.pa-glass .pa-card { border-color: transparent; }
 #pa-root.pa-glass :is(.pa-input, .pa-select, .pa-model-btn) { border-color: rgba(255, 255, 255, .7); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8); }
+#pa-root.pa-glass { --pa-key-bc: rgba(255, 255, 255, .7); --pa-key-sh: inset 0 1px 0 rgba(255, 255, 255, .8); }

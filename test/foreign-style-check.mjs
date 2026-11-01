@@ -1,4 +1,4 @@
-// 别的扩展或酒馆主题按输入框类型改样式（方角、白底）时，焦香鸡翅的搜索框、密钥框不受影响。
+// 别的扩展或酒馆主题按输入框类型改样式（方角、白底）时，焦香鸡翅的搜索框、密钥框不受影响；密钥框仍是密码框。
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/foreign-style-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -29,11 +29,11 @@ try {
   const key = page.locator('.pa-sheet [data-f=key]').first();
   await key.waitFor();
   const k = await look(key);
-  if (k.type !== 'password') {
-    assert.notEqual(k.radius, '0px', '密钥框保持圆角');
-    assert.equal(await key.evaluate((x) => getComputedStyle(x).webkitTextSecurity), 'disc', '密钥显示成圆点');
-    ok('密钥框不受别处按类型改的样式影响，字显示成圆点');
-  } else ok('浏览器不支持圆点样式，密钥框退回密码框');
+  assert.equal(k.type, 'password', '密钥框仍是密码框（键盘不记、读屏不念）');
+  assert.notEqual(k.radius, '0px', '密钥框保持圆角');
+  assert.equal(k.margin, '0px');
+  assert.notEqual(await key.evaluate((x) => getComputedStyle(x).backgroundColor), 'rgb(255, 255, 255)', '底色是配色里的，不是外来的纯白');
+  ok('密钥框不受别处按类型改的样式影响，仍是密码框');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();

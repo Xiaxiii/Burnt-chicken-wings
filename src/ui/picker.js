@@ -20,7 +20,7 @@ async function pickName({ title, items, current = null, search, extra = null } =
     const hits = items.filter((it) => !k || String(it.label ?? it.value).toLowerCase().includes(k) || String(it.sub || "").toLowerCase().includes(k));
     box.innerHTML = hits.map((it) => `<button class="pa-npick-item${it.value === current ? " on" : ""}" data-v="${esc(it.value)}" role="option" aria-selected="${it.value === current}"><span>${esc(it.label ?? it.value)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">没有匹配的</p>';
   };
-  q?.addEventListener("input", paint);
+  onSearchInput(q, () => paint(), items.length > 150 ? 120 : 0);
   paint();
   // 2.5.0 几个固定选项（不带搜索）贴着按钮弹出；带搜索的长列表固定高度，只滚列表
   const anchor = recentAnchor();

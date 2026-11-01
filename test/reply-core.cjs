@@ -126,7 +126,8 @@ test('tag names are cleaned before checking', () => {
 });
 test('a required tag written under another name is named in the check, reminder and fix', () => {
   const rules = { requiredTags: ['lxs_status'] };
-  const knownTags = new Set(['content', 'author_note', 'lxs_status', 'quote']);
+  const knownTags = new Set(['content', 'author_note', 'lxs_status', 'quote', '时']);
+  knownTags.children = new Map([['lxs_status', new Set(['时', '地'])]]);
   const reply = '<content>正文。</content>\n<author_note>\n<quote>一句</quote>\n</author_note>\n\n<状态栏>\n  <时>未时</时>\n</状态栏>';
   // 前几条回复已经写成了 <状态栏>：照常点名的话会越提醒越错
   const layout = learnReplyLayout([reply, reply], rules);
@@ -147,6 +148,32 @@ test('a required tag written under another name is named in the check, reminder 
   assert.equal(plan.text, reply.replace('<状态栏>', '<lxs_status>').replace('</状态栏>', '</lxs_status>'));
   assert.deepEqual(plan.after.issues, []);
 });
+test('a stranger whose inner tags do not match is not renamed automatically', () => {
+  const rules = { requiredTags: ['lxs_status'] };
+  const knownTags = new Set(['content', 'lxs_status', '时']);
+  knownTags.children = new Map([['lxs_status', new Set(['时'])]]);
+  // 世界书里定义的小剧场，预设查不到；这一轮恰好漏了 <lxs_status>
+  const reply = '<content>正文。</content>\n<小剧场>\n<角色>甲</角色>\n</小剧场>';
+  const report = checkReplyFormat(reply, rules, { knownTags });
+  assert.match(report.issues[0].text, /可能是写错了名字/);
+  const reminder = buildReplyReminder(report, rules);
+  assert.doesNotMatch(reminder, /写成了/, '不确定时不点名说写错了');
+  assert.match(reminder, /上一轮没有 <lxs_status>：必需标签的名字一字不改/);
+  assert.equal(planReplyFix(reply, rules, { knownTags, strict: true }), null, '自动修正不改名');
+  assert.ok(planReplyFix(reply, rules, { knownTags }).steps[0].includes('改名为 <lxs_status>'), '手动修正有预览，仍可改');
+});
+test('among several strangers the one whose inner tags match is picked', () => {
+  const rules = { requiredTags: ['lxs_status'] };
+  const knownTags = new Set(['content', 'lxs_status', '时']);
+  knownTags.children = new Map([['lxs_status', new Set(['时'])]]);
+  // <author_note> 写在世界书里，预设查不到；<状态栏> 里有 <时>，和预设里 <lxs_status> 的结构对得上
+  const reply = '<content>正文。</content>\n<author_note>注</author_note>\n<状态栏>\n<时>未时</时>\n</状态栏>';
+  const report = checkReplyFormat(reply, rules, { knownTags });
+  assert.deepEqual(report.misnamed.pairs.map((p) => [p.block.name, p.sure]), [['状态栏', true]]);
+  assert.match(buildReplyReminder(report, rules), /上一轮把 <lxs_status> 写成了 <状态栏>/);
+  const plan = planReplyFix(reply, rules, { knownTags, strict: true });
+  assert.ok(plan.text.includes('<lxs_status>\n<时>未时</时>\n</lxs_status>') && plan.text.includes('<author_note>注</author_note>'), '只改结构对得上的那块');
+});
 test('misnamed tags are not guessed without preset tags or with several strangers', () => {
   const rules = { requiredTags: ['lxs_status'] };
   const reply = '<content>正文。</content>\n<状态栏>x</状态栏>\n<小剧场>y</小剧场>';
@@ -154,7 +181,7 @@ test('misnamed tags are not guessed without preset tags or with several stranger
   assert.equal(planReplyFix(reply, rules), null);
   const report = checkReplyFormat(reply, rules, { knownTags: new Set(['content', 'lxs_status']) });
   assert.equal(report.misnamed.pairs.length, 0, '多出两个陌生块时不认定是哪个');
-  assert.match(buildReplyReminder(report, rules), /却多了 <状态栏>、<小剧场>：必需标签的名字一字不改/);
+  assert.match(buildReplyReminder(report, rules), /上一轮没有 <lxs_status>：必需标签的名字一字不改/);
   assert.equal(planReplyFix(reply, rules, { knownTags: new Set(['content', 'lxs_status']) }), null, '不确定时不改名');
 });
 test('required tags deduplicate case insensitively', () => {

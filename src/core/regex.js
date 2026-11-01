@@ -219,8 +219,9 @@ var REGEX_ANCHOR_SKIP = new Set(["br", "div", "span", "p", "b", "i", "a", "img",
 function presetRegexAnchors(rule) {
   const find = String(rule?.findRegex || "").replace(/\\(?=[/<>:：])/g, "");
   const tags = new Set(), fields = new Set();
-  for (const m of find.matchAll(/(?<![?\\])<(?:\\s\*)?\/?(?:\\s\*)?([A-Za-z_\u3400-\u9fff][\w\u3400-\u9fff-]{0,30})/g)) {
-    const t = m[1].toLowerCase();
+  // 2.5.7 前一个字符不是 ? 或 \\ 时才算标签；不用后行断言（iOS 16.4 以前的 Safari 不认）
+  for (const m of find.matchAll(/(^|[^?\\])<(?:\\s\*)?\/?(?:\\s\*)?([A-Za-z_\u3400-\u9fff][\w\u3400-\u9fff-]{0,30})/g)) {
+    const t = m[2].toLowerCase();
     if (!REGEX_ANCHOR_SKIP.has(t)) tags.add(t);
   }
   // \n、\s 这类转义先换成空格，字段名才分得开
