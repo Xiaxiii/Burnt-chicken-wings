@@ -31,8 +31,8 @@ try {
   await page.click('[data-a=livemodel]');
   await page.locator('.pa-mpick-item').first().waitFor();
   assert.equal(await page.locator('.pa-mpick-item').count(), 3, '点 ▾ 列出全部模型');
-  // 2.5.0 按系列：Claude、Gemini 分段，当前模型所在的那段展开；选择记在设置里
-  await page.locator('.pa-kview [data-v=family]').click();
+  // 2.5.0 按分类：还没有自建分类时按系列自动分段，当前模型所在的那段展开；选择记在设置里
+  await page.locator('.pa-kview [data-v=cat]').click();
   assert.deepEqual(await page.locator('.pa-ksec b').allTextContents(), ['Claude', 'Gemini']);
   assert.deepEqual(await page.locator('.pa-ksec').evaluateAll((x) => x.map((y) => y.getAttribute('aria-expanded'))), ['true', 'false'], '展开当前模型所在的系列');
   assert.equal(await page.locator('.pa-mpick-item').count(), 2);
@@ -41,9 +41,72 @@ try {
   await page.fill('.pa-mpick input', 'gem');
   await page.waitForTimeout(100);
   assert.deepEqual(await page.locator('.pa-ksec b').allTextContents(), ['Gemini'], '搜索时只留有结果的系列');
-  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.modelView), 'family');
+  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.modelView), 'cat');
   await page.locator('.pa-sheet-x').last().click();
   ok('拉取后出现 ▾，点开是全部模型');
+
+  // 2.5.0 自建分类：多选 → 搜索 → 全选搜索结果 → 新建分类；加入已有分类；编辑模型；改名；删除
+  const cats = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].modelCats || []);
+  const heads = () => page.locator('.pa-mpick-list .pa-ksec b').allTextContents();
+  const topSheet = () => page.locator('.pa-sheet').last();
+  await page.click('[data-a=livemodel]');
+  await page.locator('.pa-selbtn').click();
+  await page.fill('.pa-mpick input', 'claude');
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator('.pa-selall').textContent(), '全选搜索结果（2）');
+  await page.locator('.pa-selall').click();
+  assert.equal(await page.locator('.pa-selcnt').textContent(), '已选 2');
+  await page.locator('.pa-mselbar [data-act=newcat]').click();
+  await topSheet().locator('input').fill('我的 Claude');
+  await topSheet().locator('.pa-btn-primary').click();
+  await page.waitForTimeout(200);
+  assert.deepEqual((await cats()).map((c) => [c.name, c.models]), [['我的 Claude', ['claude-x', 'claude-y']]]);
+  assert.deepEqual(await heads(), ['我的 Claude', 'Gemini'], '自建分类在前，没分进去的按系列');
+  assert.equal(await page.locator('.pa-ksec', { hasText: 'Gemini' }).locator('small').textContent(), '自动');
+  // 加入已有分类：一个模型可以同时在几个分类里，所以先再建一个
+  await page.locator('.pa-selbtn').click();
+  await page.locator('.pa-mpick-list .pa-ksec', { hasText: 'Gemini' }).click(); // 展开自动段 Gemini
+  await page.locator('.pa-mpick-list [data-sel="gemini-z"]').click();
+  await page.locator('.pa-mselbar [data-act=newcat]').click();
+  await topSheet().locator('input').fill('出图');
+  await topSheet().locator('.pa-btn-primary').click();
+  await page.waitForTimeout(200);
+  await page.locator('.pa-selbtn').click();
+  await page.locator('.pa-mpick-list [data-fold="f:Gemini"]').count().then((n) => assert.equal(n, 0, 'gemini-z 进了分类，自动段里没有它'));
+  await page.locator('.pa-mpick-list [data-sel="gemini-z"]').click();
+  await page.locator('.pa-mselbar [data-act=addto]').click();
+  await topSheet().locator('.pa-pick-item', { hasText: '我的 Claude' }).click();
+  await page.waitForTimeout(200);
+  let cs = await cats();
+  assert.deepEqual(cs[0].models, ['claude-x', 'claude-y', 'gemini-z'], '加入「我的 Claude」');
+  assert.deepEqual(cs[1].models, ['gemini-z'], '仍在「出图」里');
+  // 编辑模型：去掉 gemini-z
+  await page.locator('.pa-cat-more').first().click();
+  await topSheet().locator('.pa-pick-item', { hasText: '编辑模型' }).click();
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator('.pa-selcnt').textContent(), '已选 3');
+  await page.locator('.pa-mpick-list [data-sel="gemini-z"]').first().click();
+  await page.locator('.pa-mselbar [data-act=save]').click();
+  await page.waitForTimeout(100);
+  assert.deepEqual((await cats())[0].models, ['claude-x', 'claude-y']);
+  // 改名、删除
+  await page.locator('.pa-cat-more').nth(1).click();
+  await topSheet().locator('.pa-pick-item', { hasText: '改名' }).click();
+  await topSheet().locator('input').fill('出图模型');
+  await topSheet().locator('.pa-btn-primary').click();
+  await page.waitForTimeout(100);
+  assert.equal((await cats())[1].name, '出图模型');
+  await page.locator('.pa-cat-more').nth(1).click();
+  await topSheet().locator('.pa-pick-item', { hasText: '删除分类' }).click();
+  await topSheet().locator('.pa-btn-danger').click();
+  await page.waitForTimeout(100);
+  assert.deepEqual((await cats()).map((c) => c.name), ['我的 Claude']);
+  assert.deepEqual(await heads(), ['我的 Claude', 'Gemini'], '删掉的分类里的模型回到自动段');
+  // 在分类里选模型
+  if (!(await page.locator('.pa-mpick-list .pa-mpick-item[data-m="claude-y"]').count())) await page.locator('.pa-mpick-list .pa-ksec', { hasText: '我的 Claude' }).click();
+  await page.locator('.pa-mpick-list .pa-mpick-item[data-m="claude-y"]').click();
+  await page.waitForFunction(() => window.__toasts.some((t) => /模型已切换为 claude-y/.test(t)));
+  ok('自建分类：多选新建、加入、编辑、改名、删除；没分进去的按系列自动分段');
 
   // 2.5.0 测试：用选中的模型发一句「Hi」，回了就算能用；失败时第二行用最简单的话解释状态码
   let reply = { status: 200, json: { choices: [{ message: { content: 'Hello!  How can I help?' } }] } };

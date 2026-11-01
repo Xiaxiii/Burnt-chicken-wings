@@ -37,42 +37,141 @@ function familyGroups(models) {
   }
   return [...map].sort((a, b) => FAMILY_ORDER.indexOf(a[0]) - FAMILY_ORDER.indexOf(b[0])).map(([name, list]) => ({ name, list }));
 }
-// 分段标题（按系列、按分组共用）
+// 分段标题（按分类、按分组共用）
 const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
 // 1.4.0：模型选择框。系统下拉框在平板上又宽又长，改为带搜索的列表，高度限制在屏幕内
-// 2.5.0：模型来自两个以上系列时可「按系列」分段，展开当前模型所在的那段；选哪种记在设置里
-async function pickModel(list, cur, { title = "选择模型" } = {}) {
-  const all = [...new Set([cur, ...list].filter(Boolean))];
-  const fams = familyGroups(all);
-  const canFam = fams.length > 1;
-  let mode = canFam && settings().modelView === "family" ? "family" : "model";
-  const secOpen = new Set([cur ? modelFamily(cur) : fams[0]?.name]);
-  const body = el(`<div class="pa-mpick">${canFam ? viewSeg([["model", "按模型"], ["family", "按系列"]]) : ""}<input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off"><div class="pa-mpick-list" role="listbox"></div></div>`);
+// 2.5.0：一个选择框管单密钥和多密钥站点。
+// 「按模型」平铺；「按分类」自建分类在前，没分进去的按系列（Claude、Gemini…）自动分段；「按分组」（多密钥）一个分组一段。
+// 自建分类记在站点上（site.modelCats），一个模型可以同时在几个分类里。点「多选」勾选模型，新建分类或加入已有分类。
+// 多密钥站点每个模型后面标出哪些分组有它，点模型名用排在上面的分组，点标签换；超过 2 个收成「+N」。
+async function modelPicker({ site = null, keys = null, list = [], cur = "", curKey = null, title = "选择模型" }) {
+  const multi = Array.isArray(keys) && keys.length > 1;
+  const kname = (k) => keyName(site, k);
+  const all = multi ? [...new Set(keys.flatMap((k) => k.models || []))] : [...new Set([cur, ...list].filter(Boolean))];
+  const allSet = new Set(all);
+  const ownersOf = new Map(all.map((m) => [m, []]));
+  if (multi) for (const k of keys) for (const m of new Set(k.models || [])) ownersOf.get(m).push(k);
+  const fams = () => familyGroups(all.filter((m) => !cats().some((c) => c.models.includes(m))));
+  const cats = () => site?.modelCats || [];
+  const canCat = !!site || familyGroups(all).length > 1;
+  const views = [["model", "按模型"], ...canCat ? [["cat", "按分类"]] : [], ...multi ? [["group", "按分组"]] : []];
+  const saved = (site && (multi || site.modelView) ? site.modelView : settings().modelView) || "";
+  let mode = { family: "cat", cat: "cat", group: "group" }[saved] || "model";
+  if (!views.some(([v]) => v === mode)) mode = "model";
+  // 默认展开：多密钥的第一个分组；当前模型所在的第一个分类，没有就是它的系列
+  const firstCat = cats().find((c) => c.models.includes(cur));
+  const secOpen = new Set([multi ? keys[0].id : "", firstCat ? `c:${firstCat.id}` : `f:${modelFamily(cur || all[0])}`]);
+  const more = new Set();
+  // 多选：sel 是勾选的模型；editing 是正在编辑模型的分类
+  let selecting = false;
+  let editing = null;
+  const sel = new Set();
+  const body = el(`<div class="pa-mpick">${viewSeg(views)}
+      <div class="pa-msearch"><input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
+      <div class="pa-selhead" hidden><span class="pa-seltip"></span><button type="button" class="pa-link pa-selall"></button></div>
+      <div class="pa-mpick-list" role="listbox"></div>
+      <div class="pa-mselbar" hidden><span class="pa-selcnt"></span><span class="pa-selacts"></span></div></div>`);
   const input = body.querySelector("input");
   const box = body.querySelector(".pa-mpick-list");
   let picked = null;
-  const item = (m) => `<button class="pa-mpick-item${m === cur ? " on" : ""}" data-m="${esc(m)}">${esc(m)}${m === cur ? " ✓" : ""}</button>`;
+  const query = () => input.value.trim();
+  const hit = (m) => {
+    const ql = query().toLowerCase();
+    return !ql || m.toLowerCase().includes(ql);
+  };
+  const chip = (m, k) => {
+    const on = m === cur && k.id === curKey;
+    return `<button type="button" class="pa-kchip${on ? " on" : ""}" data-m="${esc(m)}" data-k="${esc(k.id)}" aria-pressed="${on}">${esc(kname(k))}</button>`;
+  };
+  const selRow = (m) => `<button type="button" class="pa-mpick-item pa-selrow${sel.has(m) ? " picked" : ""}" data-sel="${esc(m)}" aria-pressed="${sel.has(m)}"><span class="pa-selbox" aria-hidden="true"></span><span>${esc(m)}</span></button>`;
+  const plainRow = (m, k = null) => {
+    const on = m === cur && (!multi || k?.id === curKey);
+    return `<button class="pa-mpick-item${on ? " on" : ""}" data-m="${esc(m)}"${k ? ` data-k="${esc(k.id)}"` : ""}>${esc(m)}${on ? " ✓" : ""}</button>`;
+  };
+  const keyRow = (m) => {
+    const owners = ownersOf.get(m);
+    const on = m === cur;
+    let tail;
+    if (owners.length <= 2) tail = owners.map((k) => chip(m, k)).join("");
+    else if (more.has(m)) tail = owners.map((k) => chip(m, k)).join("") + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="true" aria-label="收起分组">收起</button>`;
+    else {
+      const shown = owners.find((k) => on && k.id === curKey) || owners[0];
+      tail = chip(m, shown) + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="false" aria-label="还有 ${owners.length - 1} 个分组">+${owners.length - 1}</button>`;
+    }
+    return `<div class="pa-krow${on ? " on" : ""}"><button type="button" class="pa-kname" data-m="${esc(m)}" data-k="${esc(owners[0].id)}">${esc(m)}${on ? " ✓" : ""}</button>${tail}</div>`;
+  };
+  const row = (m) => selecting ? selRow(m) : multi ? keyRow(m) : plainRow(m);
+  const custom = () => {
+    const q = query();
+    return !selecting && q && !allSet.has(q) ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}"${multi ? ` data-k="${esc(keys[0].id)}"` : ""}>使用「${esc(q)}」</button>` : "";
+  };
+  const none = '<p class="pa-hint">没有匹配的模型，可直接输入名称</p>';
   const paint = () => {
     body.querySelectorAll(".pa-kview button").forEach((b) => {
       b.classList.toggle("on", b.dataset.v === mode);
       b.setAttribute("aria-selected", b.dataset.v === mode);
     });
-    box.classList.toggle("pa-kpick", mode === "family");
-    const q = input.value.trim();
-    const ql = q.toLowerCase();
-    const hit = (m) => !ql || m.toLowerCase().includes(ql);
-    const custom = q && !all.includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}">使用「${esc(q)}」</button>` : "";
-    if (mode === "family") {
-      box.innerHTML = custom + fams.map((f) => {
+    box.classList.toggle("pa-kpick", multi || mode !== "model");
+    const q = query();
+    if (mode === "model") {
+      box.innerHTML = custom() + all.filter(hit).map(row).join("") || none;
+    } else if (mode === "cat") {
+      const tagAuto = cats().length > 0;
+      let html = "";
+      for (const c of cats()) {
+        const present = c.models.filter((m) => allSet.has(m));
+        const ms = present.filter(hit);
+        if (q && !ms.length) continue;
+        const id = `c:${c.id}`;
+        const open = !!q || secOpen.has(id);
+        html += `<div class="pa-ksec-wrap">${secHead(id, c.name, present.length, open)}<button type="button" class="pa-icon-btn pa-cat-more" data-catmenu="${esc(c.id)}" aria-label="分类「${esc(c.name)}」的操作">⋯</button></div>${open ? ms.map(row).join("") : ""}`;
+      }
+      for (const f of fams()) {
         const ms = f.list.filter(hit);
-        if (q && !ms.length) return "";
-        const open = !!q || secOpen.has(f.name);
-        return secHead(f.name, f.name, f.list.length, open) + (open ? ms.map(item).join("") : "");
-      }).join("") || '<p class="pa-hint">没有匹配的模型，可直接输入名称</p>';
-      return;
+        if (q && !ms.length) continue;
+        const id = `f:${f.name}`;
+        const open = !!q || secOpen.has(id);
+        html += secHead(id, f.name, f.list.length, open, tagAuto ? "自动" : "") + (open ? ms.map(row).join("") : "");
+      }
+      box.innerHTML = custom() + html || none;
+    } else {
+      box.innerHTML = keys.map((k) => {
+        const ms = (k.models || []).filter(hit);
+        const open = !!q || secOpen.has(k.id);
+        const kc = !selecting && q && !(k.models || []).includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}" data-k="${esc(k.id)}">使用「${esc(q)}」</button>` : "";
+        const items = ms.map((m) => selecting ? selRow(m) : plainRow(m, k)).join("");
+        const empty = !ms.length && !kc ? `<p class="pa-hint">${(k.models || []).length ? "没有匹配的模型" : "还没有模型列表，可在搜索框输入模型名称"}</p>` : "";
+        return secHead(k.id, kname(k), (k.models || []).length, open, k.keyMask || "") + (open ? kc + items + empty : "");
+      }).join("");
     }
-    box.innerHTML = custom + all.filter(hit).map(item).join("") || '<p class="pa-hint">没有匹配的模型，可直接输入名称</p>';
+    // 多选的提示行和底部按钮
+    const head = body.querySelector(".pa-selhead");
+    const bar = body.querySelector(".pa-mselbar");
+    head.hidden = bar.hidden = !selecting;
+    const btn = body.querySelector(".pa-selbtn");
+    if (btn) {
+      btn.textContent = selecting ? "完成" : "多选";
+      btn.classList.toggle("pa-edit-pill", !selecting);
+    }
+    if (selecting) {
+      const n = all.filter(hit).length;
+      head.querySelector(".pa-seltip").textContent = editing ? `「${editing.name}」：勾选要留下的模型` : "勾选要放进分类的模型";
+      head.querySelector(".pa-selall").textContent = q ? `全选搜索结果（${n}）` : `全选（${n}）`;
+      bar.querySelector(".pa-selcnt").textContent = `已选 ${sel.size}`;
+      bar.querySelector(".pa-selacts").innerHTML = editing
+        ? '<button type="button" class="pa-swpill pa-edit-pill" data-act="cancel">取消</button><button type="button" class="pa-swpill" data-act="save">保存</button>'
+        : `${cats().length ? '<button type="button" class="pa-swpill pa-edit-pill" data-act="addto">加入…</button>' : ""}<button type="button" class="pa-swpill" data-act="newcat">新建分类</button>`;
+    }
+  };
+  const stopSelect = () => {
+    selecting = false;
+    editing = null;
+    sel.clear();
+  };
+  const saveCats = () => {
+    if (!site.modelCats) site.modelCats = [];
+    saveSettings();
   };
   let typing = null;
   input.addEventListener("input", () => {
@@ -85,136 +184,119 @@ async function pickModel(list, cur, { title = "选择模型" } = {}) {
       const b = e.target.closest("[data-v]");
       if (!b || b.dataset.v === mode) return;
       mode = b.dataset.v;
-      settings().modelView = mode;
+      if (site && (multi || site.modelView || site.modelCats?.length)) site.modelView = mode;
+      else settings().modelView = mode;
       saveSettings();
       paint();
     });
-    box.addEventListener("click", (e) => {
-      const f = e.target.closest("[data-fold]");
-      if (f) {
-        secOpen.has(f.dataset.fold) ? secOpen.delete(f.dataset.fold) : secOpen.add(f.dataset.fold);
+    body.querySelector(".pa-selbtn")?.addEventListener("click", () => {
+      if (selecting) stopSelect();
+      else selecting = true;
+      paint();
+    });
+    body.querySelector(".pa-selall").addEventListener("click", () => {
+      all.filter(hit).forEach((m) => sel.add(m));
+      paint();
+    });
+    body.querySelector(".pa-mselbar").addEventListener("click", async (e) => {
+      const act = e.target.closest("[data-act]")?.dataset.act;
+      if (!act) return;
+      if (act === "cancel") {
+        stopSelect();
         return paint();
       }
-      const b = e.target.closest("[data-m]");
-      if (!b) return;
-      picked = b.dataset.m;
-      w.querySelector(".pa-sheet-x").click();
-    });
-    w.querySelector(".pa-mpick-item.on")?.scrollIntoView({ block: "center" });
-  } });
-  return picked;
-}
-// 2.5.0 多密钥站点的模型选择：选模型时一并选分组（密钥）。
-// 「按模型」每个模型列一次，后面标出哪些分组有它，点模型名用排在上面的分组，点标签换；标签超过 2 个时收成「+N」。
-// 「按系列」同上，按 Claude、Gemini 等分段。「按分组」一个分组一段，只展开第一段。搜索时全部展开。选哪种记在站点上。cur：{ keyId, model }
-async function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
-  const keys = site.keys;
-  const kname = (k) => keyName(site, k);
-  const curKey = cur?.keyId || null;
-  const curModel = cur?.model || "";
-  const more = new Set();
-  const all = [...new Set(keys.flatMap((k) => k.models || []))];
-  const fams = familyGroups(all);
-  const canFam = fams.length > 1;
-  let mode = site.modelView === "group" ? "group" : site.modelView === "family" && canFam ? "family" : "model";
-  const secOpen = new Set([keys[0].id, `f:${curModel ? modelFamily(curModel) : fams[0]?.name}`]);
-  // 每个模型有哪些分组：先算好，搜索时不再逐个分组查（中转站动辄几百个模型）
-  const ownersOf = new Map(all.map((m) => [m, []]));
-  for (const k of keys) for (const m of new Set(k.models || [])) ownersOf.get(m).push(k);
-  const views = [["model", "按模型"], ...canFam ? [["family", "按系列"]] : [], ["group", "按分组"]];
-  const body = el(`<div class="pa-mpick">${viewSeg(views)}
-      <input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off"><div class="pa-mpick-list pa-kpick" role="listbox"></div></div>`);
-  const input = body.querySelector("input");
-  const box = body.querySelector(".pa-mpick-list");
-  let picked = null;
-  const chip = (m, k) => {
-    const on = m === curModel && k.id === curKey;
-    return `<button type="button" class="pa-kchip${on ? " on" : ""}" data-m="${esc(m)}" data-k="${esc(k.id)}" aria-pressed="${on}">${esc(kname(k))}</button>`;
-  };
-  // 一个模型一行，后面是有它的分组
-  const row = (m) => {
-    const owners = ownersOf.get(m);
-    const on = m === curModel;
-    let tail;
-    if (owners.length <= 2) tail = owners.map((k) => chip(m, k)).join("");
-    else if (more.has(m)) tail = owners.map((k) => chip(m, k)).join("") + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="true" aria-label="收起分组">收起</button>`;
-    else {
-      const shown = owners.find((k) => on && k.id === curKey) || owners[0];
-      tail = chip(m, shown) + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="false" aria-label="还有 ${owners.length - 1} 个分组">+${owners.length - 1}</button>`;
-    }
-    return `<div class="pa-krow${on ? " on" : ""}"><button type="button" class="pa-kname" data-m="${esc(m)}" data-k="${esc(owners[0].id)}">${esc(m)}${on ? " ✓" : ""}</button>${tail}</div>`;
-  };
-  const paint = () => {
-    body.querySelectorAll(".pa-kview button").forEach((b) => {
-      b.classList.toggle("on", b.dataset.v === mode);
-      b.setAttribute("aria-selected", b.dataset.v === mode);
-    });
-    const q = input.value.trim();
-    const ql = q.toLowerCase();
-    const hit = (m) => !ql || m.toLowerCase().includes(ql);
-    const custom = q && !all.includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}" data-k="${esc(keys[0].id)}">使用「${esc(q)}」</button>` : "";
-    const none = '<p class="pa-hint">没有匹配的模型，可直接输入名称</p>';
-    if (mode === "model") {
-      box.innerHTML = custom + all.filter(hit).map(row).join("") || none;
-    } else if (mode === "family") {
-      box.innerHTML = custom + fams.map((f) => {
-        const ms = f.list.filter(hit);
-        if (q && !ms.length) return "";
-        const open = !!q || secOpen.has(`f:${f.name}`);
-        return secHead(`f:${f.name}`, f.name, f.list.length, open) + (open ? ms.map(row).join("") : "");
-      }).join("") || none;
-    } else {
-      box.innerHTML = keys.map((k) => {
-        const ms = (k.models || []).filter(hit);
-        const open = !!q || secOpen.has(k.id);
-        const kc = q && !(k.models || []).includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}" data-k="${esc(k.id)}">使用「${esc(q)}」</button>` : "";
-        const items = ms.map((m) => {
-          const on = m === curModel && k.id === curKey;
-          return `<button class="pa-mpick-item${on ? " on" : ""}" data-m="${esc(m)}" data-k="${esc(k.id)}">${esc(m)}${on ? " ✓" : ""}</button>`;
-        }).join("");
-        const empty = !ms.length && !kc ? `<p class="pa-hint">${(k.models || []).length ? "没有匹配的模型" : "还没有模型列表，可在搜索框输入模型名称"}</p>` : "";
-        return secHead(k.id, kname(k), (k.models || []).length, open, k.keyMask || "") + (open ? kc + items + empty : "");
-      }).join("");
-    }
-  };
-  // 模型多时逐字重画会卡：停顿一下再画
-  let typing = null;
-  input.addEventListener("input", () => {
-    clearTimeout(typing);
-    typing = setTimeout(paint, all.length > 150 ? 120 : 0);
-  });
-  paint();
-  await sheet({ title: `${title}（${all.length}）`, body, noFocus: true, actions: [{ label: "取消", value: null }], onMount: (w) => {
-    body.querySelector(".pa-kview").addEventListener("click", (e) => {
-      const b = e.target.closest("[data-v]");
-      if (!b || b.dataset.v === mode) return;
-      mode = b.dataset.v;
-      site.modelView = mode;
-      saveSettings();
+      if (act === "save") {
+        editing.models = [...editing.models.filter((m) => !allSet.has(m)), ...all.filter((m) => sel.has(m))];
+        saveCats();
+        toast(`「${editing.name}」已保存，${sel.size} 个模型`, "success");
+        stopSelect();
+        return paint();
+      }
+      if (!sel.size) return toast("先勾选模型", "info");
+      if (act === "newcat") {
+        const name = await promptBox("新建分类", "", "例如：Gemini 逆向、0.07/次");
+        if (!name) return;
+        if (!site.modelCats) site.modelCats = [];
+        const c = { id: uid(), name, models: all.filter((m) => sel.has(m)) };
+        site.modelCats.push(c);
+        saveCats();
+        secOpen.add(`c:${c.id}`);
+        toast(`已新建「${name}」，${c.models.length} 个模型`, "success");
+      } else if (act === "addto") {
+        const id = await pickBox("加入哪个分类", cats().map((c) => ({ label: c.name, sub: `${c.models.filter((m) => allSet.has(m)).length} 个模型`, value: c.id })));
+        const c = cats().find((x) => x.id === id);
+        if (!c) return;
+        const before = c.models.length;
+        c.models = [...new Set([...c.models, ...all.filter((m) => sel.has(m))])];
+        saveCats();
+        secOpen.add(`c:${c.id}`);
+        toast(`已加入「${c.name}」，新增 ${c.models.length - before} 个`, "success");
+      }
+      stopSelect();
+      mode = "cat";
+      input.value = "";
       paint();
     });
-    box.addEventListener("click", (e) => {
+    box.addEventListener("click", async (e) => {
       const mo = e.target.closest("[data-more]");
       if (mo) {
         more.has(mo.dataset.more) ? more.delete(mo.dataset.more) : more.add(mo.dataset.more);
         return paint();
       }
+      const cm = e.target.closest("[data-catmenu]");
+      if (cm) {
+        const c = cats().find((x) => x.id === cm.dataset.catmenu);
+        if (!c) return;
+        const a = await pickBox(`分类「${c.name}」`, [{ label: "编辑模型", sub: "勾选要留下的模型", value: "edit" }, { label: "改名", value: "rename" }, { label: "删除分类", sub: "模型不受影响", value: "del" }]);
+        if (a === "edit") {
+          selecting = true;
+          editing = c;
+          sel.clear();
+          c.models.forEach((m) => allSet.has(m) && sel.add(m));
+        } else if (a === "rename") {
+          const name = await promptBox("分类改名", c.name);
+          if (name) {
+            c.name = name;
+            saveCats();
+          }
+        } else if (a === "del") {
+          if (!await confirmBox("删除分类", `删除「${c.name}」？里面的模型不受影响。`, "删除", true)) return;
+          site.modelCats = cats().filter((x) => x !== c);
+          saveCats();
+        }
+        return paint();
+      }
       const f = e.target.closest("[data-fold]");
       if (f) {
         secOpen.has(f.dataset.fold) ? secOpen.delete(f.dataset.fold) : secOpen.add(f.dataset.fold);
         return paint();
       }
+      const sr = e.target.closest("[data-sel]");
+      if (sr) {
+        sel.has(sr.dataset.sel) ? sel.delete(sr.dataset.sel) : sel.add(sr.dataset.sel);
+        return paint();
+      }
       const b = e.target.closest("[data-m]");
       if (!b) return;
-      let k = b.dataset.k;
-      // 点的是已选中的模型名，保留现在的分组
-      if (b.classList.contains("pa-kname") && b.dataset.m === curModel && (ownersOf.get(curModel) || []).some((x) => x.id === curKey)) k = curKey;
-      picked = { model: b.dataset.m, keyId: k };
+      if (multi) {
+        let k = b.dataset.k;
+        // 点的是已选中的模型名，保留现在的分组
+        if (b.classList.contains("pa-kname") && b.dataset.m === cur && (ownersOf.get(cur) || []).some((x) => x.id === curKey)) k = curKey;
+        picked = { model: b.dataset.m, keyId: k };
+      } else picked = b.dataset.m;
       w.querySelector(".pa-sheet-x").click();
     });
     box.querySelector(".pa-krow.on, .pa-mpick-item.on")?.scrollIntoView({ block: "center" });
   } });
   return picked;
+}
+// site：传了就能建分类（分类记在站点上）
+function pickModel(list, cur, { title = "选择模型", site = null } = {}) {
+  return modelPicker({ site, list, cur, title });
+}
+// 多密钥站点：选模型时一并选分组。cur：{ keyId, model }，返回 { model, keyId }
+function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
+  return modelPicker({ site, keys: site.keys, cur: cur?.model || "", curKey: cur?.keyId || null, title });
 }
 // arrow：有模型列表可选时才显示 ▾（2.4.1 当前连接拉取到列表后才出现）
 // key：多密钥站点当前分组的名称，跟在模型名后面
@@ -685,10 +767,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           if (ks.length > 1) {
             const m = await pickKeyModel(view, { keyId: curKey, model: readModel(w) });
             s.modelView = view.modelView;
+            if (view.modelCats) s.modelCats = view.modelCats;
             if (m) setModel(w, m.model, m.keyId);
             return;
           }
-          const m = await pickModel(ks[0].models || [], readModel(w));
+          const m = await pickModel(ks[0].models || [], readModel(w), { site: s });
           if (m) setModel(w, m);
         });
         w.querySelector("[data-f=fetch]").addEventListener("click", async (ev) => {
@@ -711,6 +794,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
                 toast(`已获取 ${n} 个模型`, "success");
                 const m = await pickKeyModel(view, { keyId: curKey, model: v.model });
                 s.modelView = view.modelView;
+                if (view.modelCats) s.modelCats = view.modelCats;
                 if (m) setModel(w, m.model, m.keyId);
               } else if (ok) toast("站点未返回模型，可手动输入模型名称", "warning");
             } else {
@@ -720,7 +804,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
               paintKeys();
               if (models.length) {
                 toast(`已获取 ${models.length} 个模型`, "success");
-                const m = await pickModel(models, v.model);
+                const m = await pickModel(models, v.model, { site: s });
                 if (m) setModel(w, m);
               }
               else toast("站点未返回模型，可手动输入模型名称", "warning");
@@ -960,7 +1044,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const live = liveConnection();
       const target = a === "sitemodel" ? site : sites().find((x) => x.id === settings().activeSiteId);
       const list = a === "livemodel" ? liveModelList(live) : target?.models || [];
-      const m = await pickModel(list, a === "livemodel" ? live.model : target?.model);
+      const m = await pickModel(list, a === "livemodel" ? live.model : target?.model, { site: target || null });
       if (!m) return;
       if (target) siteKey(target).model = m;
       if (a === "livemodel" || target?.id === settings().activeSiteId) setLiveModel(m);

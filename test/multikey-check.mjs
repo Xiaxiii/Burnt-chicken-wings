@@ -178,10 +178,10 @@ try {
   await pro.locator(".pa-kmore").click();
   assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-pro" }).locator(".pa-kchip").allTextContents(), ["按次", "按量", "特价", "密钥 4"], "没填名称的叫「密钥 N」");
   await page.locator(".pa-sheet-x").last().click();
-  // 按系列：只有一个系列（全是 Gemini）时不出现这个选项
+  // 多密钥站点：按模型、按分类、按分组
   await page.click("[data-a=livemodel]");
   await page.locator(".pa-kpick").waitFor();
-  assert.deepEqual(await page.locator(".pa-kview button").allTextContents(), ["按模型", "按分组"], "只有一个系列时没有「按系列」");
+  assert.deepEqual(await page.locator(".pa-kview button").allTextContents(), ["按模型", "按分类", "按分组"]);
   await page.locator(".pa-sheet-x").last().click();
   ok("标签超过 2 个收成「+N」，点开全部");
 

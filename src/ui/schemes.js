@@ -132,7 +132,7 @@ function connPicker(init, keep = null) {
       if (r) setModel(r.model, r.keyId);
       return;
     }
-    const m = await pickModel(models(), model);
+    const m = await pickModel(models(), model, { site: x || null });
     if (m) setModel(m);
   });
   reset();
