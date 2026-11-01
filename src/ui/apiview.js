@@ -273,7 +273,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const lines = open ? `<div class="pa-klines">${x.keys.map((y) => {
         const cur = on && y.id === k.id;
         return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc(y.model || "未选模型")}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
-      }).join("")}<div class="pa-kline pa-kline-edit"><button class="pa-swpill pa-edit-pill" data-a="edit" type="button">编辑</button></div></div>` : "";
+      }).join("")}<div class="pa-kline pa-kline-edit"><button class="pa-link" data-a="edit" type="button">编辑</button></div></div>` : "";
       // 点整行展开、收起；右边的胶囊写着几个分组。编辑在展开后的最后一行
       return `<div class="pa-sgroup pa-sitecard pa-site pa-site-multi${on ? " pa-srow-on" : ""}${open ? " open" : ""}" data-id="${esc(x.id)}">
             <div class="pa-site-mhead" data-a="sitefold" role="button" tabindex="0" aria-expanded="${open}" aria-label="${esc(x.name)}，${x.keys.length} 个分组，${open ? "点按收起" : "点按展开"}">

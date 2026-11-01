@@ -737,7 +737,6 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-swpill.pa-fold-pill { pointer-events: none; background: transparent; }
 #pa-root .pa-site-multi.open .pa-swpill.pa-fold-pill { background: var(--pa-sel); }
 #pa-root .pa-kline-edit { justify-content: flex-end; padding-top: 2px; padding-bottom: 2px; }
-#pa-root .pa-swpill.pa-edit-pill { border-color: var(--pa-line); background: transparent; color: var(--pa-em); font-weight: 500; }
 #pa-root .pa-klines { border-top: 1px dashed var(--pa-line); }
 #pa-root .pa-kline { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 24px; border-top: 1px solid var(--pa-line); }
 #pa-root .pa-kline:first-child { border-top: 0; }
