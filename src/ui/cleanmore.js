@@ -462,7 +462,7 @@ function mountCleanKind(kind, box) {
         const list = [...S.sel];
         const use = usage();
         const bound = list.filter((n) => use[n]?.length);
-        // 2.6.2 备份不强制：弹窗提醒，可先下载备份，也可直接删
+        // 2.6.1 备份不强制：弹窗提醒，可先下载备份，也可直接删
         const names = `${list.slice(0, 4).join("、")}${list.length > 4 ? " 等" : ""}`;
         const usedNote = bound.length ? `其中 ${bound.join("、")} 正被使用，删除后对应的角色或聊天将失去它。` : "";
         const go = await confirmDeleteOfferBackup("删除世界书", `<p class="pa-p">将删除 ${list.length} 本世界书：${esc(names)}。删除后不能恢复，需要的话先下载备份。${esc(usedNote)}</p>`, async () => {

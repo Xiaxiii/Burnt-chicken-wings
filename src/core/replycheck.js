@@ -292,7 +292,7 @@ function buildReplyReminder(report, inputRules) {
   const tags = [rules.bodyTag, ...rules.requiredTags].filter((tag, index, list) => list.findIndex((item) => item.toLowerCase() === tag.toLowerCase()) === index);
   const kinds = new Set(report.issues.map((issue) => issue.kind));
   const body = `<${rules.bodyTag}>`;
-  // 2.6.3 只点名正文标签和用户填的必需标签。以前会照前几条回复点名正文外的块（状态栏、小剧场等）让它们照常输出，
+  // 2.6.1 只点名正文标签和用户填的必需标签。以前会照前几条回复点名正文外的块（状态栏、小剧场等）让它们照常输出，
   // 结果预设本来不要求的 <状态栏> 被越提醒越多；写错名的必需标签另有一句改回来
   const mis = report.misnamed;
   // 按上一轮的具体问题加一句针对性要求，只说格式。不写「无需展示思考」之类的话：预设要求写思考时会互相打架，

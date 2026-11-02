@@ -197,7 +197,7 @@ async function confirmBox(title, text, okLabel = "确定", danger = false) {
   const r = await sheet({ title, place: "center", body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: "取消", value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
   return !!r;
 }
-// 2.6.3 删除前提醒备份，不强制：「下载备份」交给浏览器下载，弹窗不关、写明下载了什么；「删除」不管下没下载都删。
+// 2.6.1 删除前提醒备份，不强制：「下载备份」交给浏览器下载，弹窗不关、写明下载了什么；「删除」不管下没下载都删。
 // download() 负责下载并返回写在弹窗里的说明（HTML，已转义）。返回 true 才删
 async function confirmDeleteOfferBackup(title, html, download) {
   let note = "";
