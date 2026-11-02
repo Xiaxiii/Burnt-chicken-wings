@@ -681,7 +681,7 @@ html.pa-open body { overflow: hidden; }
 
 /* 1.3.9 花田、晴野：油画感渐变背景。几层柔和色团叠在浅色底上，再加一层很淡的画布纹理 */
 #pa-root { --pa-canvas: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
-#pa-root[data-theme="bean"] .pa-shell, #pa-root .pa-paint-bean {
+#pa-root[data-theme="bean"] .pa-shell, #pa-root[data-theme="bean"]:not(.pa-has-bg) .pa-sheet, #pa-root .pa-paint-bean {
     background:
         var(--pa-canvas),
         radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),
@@ -693,7 +693,7 @@ html.pa-open body { overflow: hidden; }
         radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),
         linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%);
 }
-#pa-root[data-theme="mist"] .pa-shell, #pa-root .pa-paint-mist {
+#pa-root[data-theme="mist"] .pa-shell, #pa-root[data-theme="mist"]:not(.pa-has-bg) .pa-sheet, #pa-root .pa-paint-mist {
     background:
         var(--pa-canvas),
         radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),
@@ -713,6 +713,10 @@ html.pa-open body { overflow: hidden; }
 /* 1.3.9 自定义背景图：图片上盖一层主题底色 */
 #pa-root.pa-has-bg .pa-shell { background: linear-gradient(var(--pa-bg-veil), var(--pa-bg-veil)), var(--pa-bg-img) center / cover no-repeat; }
 #pa-root.pa-has-bg .pa-shell::before { background: none; }
+/* 2.5.14 弹窗（选择预设、选择模型、菜单等）和面板一样有画：油画配色用同一幅画，设了背景图就用背景图加遮罩。
+   ::before 的纯色底在弹出动画时会盖在画上，这里去掉 */
+#pa-root.pa-painted .pa-sheet::before, #pa-root.pa-has-bg .pa-sheet::before { background: none; }
+#pa-root.pa-has-bg .pa-sheet { background: linear-gradient(var(--pa-bg-veil), var(--pa-bg-veil)), var(--pa-bg-img) center / cover no-repeat var(--pa-tint); }
 /* 2.5.7 color-mix 要 iOS 16.2：更早的系统先用不透明底色，顶栏、卡片不会变透明 */
 #pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: var(--pa-tint); background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }
 #pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: var(--pa-tint); background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }
@@ -926,7 +930,7 @@ html.pa-open body { overflow: hidden; }
 @container (max-width: 440px) { #pa-root .pa-fromto [data-st=regex] { display: none; } }
 
 /* 1.4.2 秋樱：粉色花海油画 */
-#pa-root[data-theme="oat"] .pa-shell, #pa-root .pa-paint-oat {
+#pa-root[data-theme="oat"] .pa-shell, #pa-root[data-theme="oat"]:not(.pa-has-bg) .pa-sheet, #pa-root .pa-paint-oat {
     background:
         var(--pa-canvas),
         radial-gradient(ellipse 50% 22% at 30% 56%, rgba(236, 140, 165, .48), transparent 70%),
@@ -939,7 +943,7 @@ html.pa-open body { overflow: hidden; }
         linear-gradient(180deg, #f6e4e1 0%, #f4dad9 34%, #f0d4d5 60%, #e2dfca 86%, #d3d8b8 100%);
 }
 /* 海雾：雾蓝紫晕到粉橙的水彩。色卡 1E3E6E 5A6E9E 9E8EAA D49E8A F0B878 */
-#pa-root[data-theme="sage"] .pa-shell, #pa-root .pa-paint-sage {
+#pa-root[data-theme="sage"] .pa-shell, #pa-root[data-theme="sage"]:not(.pa-has-bg) .pa-sheet, #pa-root .pa-paint-sage {
     background:
         var(--pa-canvas),
         radial-gradient(ellipse 46% 26% at 6% 6%, rgba(118, 132, 190, .52), transparent 70%),
@@ -953,7 +957,7 @@ html.pa-open body { overflow: hidden; }
         linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%);
 }
 /* 春和：粉绿水彩 F0DEC6 BDCDB0 FBDED0 D1E5D9 F9F1E4 */
-#pa-root[data-theme="goose"] .pa-shell, #pa-root .pa-paint-goose {
+#pa-root[data-theme="goose"] .pa-shell, #pa-root[data-theme="goose"]:not(.pa-has-bg) .pa-sheet, #pa-root .pa-paint-goose {
     background:
         var(--pa-canvas),
         radial-gradient(ellipse 45% 30% at 6% 8%, rgba(251, 222, 208, .95), transparent 70%),
@@ -964,7 +968,7 @@ html.pa-open body { overflow: hidden; }
         linear-gradient(120deg, #f9f1e4 0%, #f9f1e4 40%, #e8efe4 100%);
 }
 /* 1.5.0 玫瑰芋泥：粉紫朦胧水彩 F5E8F3 D9D3EA CDBDDB 9C91B8 */
-#pa-root[data-theme="taro"] .pa-shell, #pa-root .pa-paint-taro {
+#pa-root[data-theme="taro"] .pa-shell, #pa-root[data-theme="taro"]:not(.pa-has-bg) .pa-sheet, #pa-root .pa-paint-taro {
     background:
         var(--pa-canvas),
         radial-gradient(ellipse 52% 30% at 4% 4%, rgba(156, 145, 184, .50), transparent 70%),
@@ -1084,7 +1088,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-h .pa-chip { margin-left: 8px; font-weight: 400; }
 
 /* 1.7.0 日落海岸：026D81 F87078 FC9804 F9BA32 F3E8AB，上方海蓝薄雾，中段珊瑚粉，下方橘黄余晖，底色奶油 */
-#pa-root[data-theme="dusk"] .pa-shell, #pa-root .pa-paint-dusk {
+#pa-root[data-theme="dusk"] .pa-shell, #pa-root[data-theme="dusk"]:not(.pa-has-bg) .pa-sheet, #pa-root .pa-paint-dusk {
     background:
         var(--pa-canvas),
         radial-gradient(ellipse 70% 26% at 20% 0%, rgba(2, 109, 129, .34), transparent 72%),
@@ -1520,9 +1524,11 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
         radial-gradient(circle at 68% 86%, rgba(184,212,231,.70), rgba(184,212,231,.30) 6px, rgba(184,212,231,0) 16px);
 }
 #pa-root[data-theme="bud"]:not(.pa-has-bg) .pa-shell { background: var(--pa-canvas), var(--pa-cells-bud), var(--pa-paint-bud); }
-#pa-root .pa-paint-bud { background: var(--pa-canvas), var(--pa-paint-bud); }
+#pa-root .pa-paint-bud, #pa-root[data-theme="bud"]:not(.pa-has-bg) .pa-sheet { background: var(--pa-canvas), var(--pa-paint-bud); }
 #pa-root[data-theme="colony"]:not(.pa-has-bg) .pa-shell { background: var(--pa-canvas), var(--pa-cells-colony), var(--pa-paint-colony); }
-#pa-root .pa-paint-colony { background: var(--pa-canvas), var(--pa-paint-colony); }
+#pa-root .pa-paint-colony, #pa-root[data-theme="colony"]:not(.pa-has-bg) .pa-sheet { background: var(--pa-canvas), var(--pa-paint-colony); }
+/* 2.5.14 弹窗的画下面垫一层配色底色（画不出来时、量对比度时都是它） */
+#pa-root.pa-painted:not(.pa-has-bg) .pa-sheet { background-color: var(--pa-tint); }
 /* 顶栏、标签栏：真正的毛玻璃（不随列表滚动，模糊只算一次） */
 #pa-root.pa-glass .pa-top, #pa-root.pa-glass .pa-tabs { background: rgba(255, 255, 255, .24); border-bottom-color: rgba(255, 255, 255, .58); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }
 /* 浮在列表上的操作条随滚动重算模糊会卡，改成更实的半透明 */
