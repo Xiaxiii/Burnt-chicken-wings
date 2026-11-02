@@ -55,8 +55,9 @@ function mountSuture(page, app) {
     fileWorld: null,
     picked: /* @__PURE__ */ new Map(),
     // key -> {name, content, prompt, from}
-    srcCollapsedMap: /* @__PURE__ */ new Map(),
-    dstCollapsed: null,
+    // 2.6.4 分组折叠：记展开了哪些组（按分组名，见 foldKeys），其余收起
+    srcOpenMap: /* @__PURE__ */ new Map(),
+    dstOpen: null,
     dstFor: null,
     marker: null,
     newName: null,
@@ -259,6 +260,27 @@ function mountSuture(page, app) {
       <p class="pa-hint">${n ? to ? `缝入目标预设「${esc(to)}」，可逐条选择。` : "正则只能缝入预设，请将目标切换为「预设」。" : "文件中没有正则。"}</p>
       ${n && to ? '<div class="pa-card-act"><button class="pa-btn" data-st="regex" type="button">选择正则…</button></div>' : ""}</div>`;
   }
+  // 2.6.4 分组折叠按「分组名 + 同名第几个」记，不按分组编号：预设重新读取时，没有编号的分组（entryGrouping）每次分到新编号，
+  // 按编号记就对不上，所有组都显示成展开，收起后再进来又展开。记的是展开的组，对不上的一律收起
+  function foldKeys(d) {
+    const seen = new Map(), out = new Map();
+    for (const g of d.groups.groups) {
+      const n = seen.get(g.name) || 0;
+      seen.set(g.name, n + 1);
+      out.set(g.id, `${g.name}\u0001${n}`);
+    }
+    return out;
+  }
+  const collapsedFrom = (d, open) => {
+    const keys = foldKeys(d);
+    return new Set(d.groups.groups.filter((g) => !open.has(keys.get(g.id))).map((g) => g.id));
+  };
+  function toggleOpen(d, open, gid, on) {
+    const k = foldKeys(d).get(gid);
+    if (!k) return;
+    if (on ?? !open.has(k)) open.add(k);
+    else open.delete(k);
+  }
   // 世界书条目列表（酒馆里的世界书和世界书文件共用）
   function renderWorldRows(items, from) {
     srcList.dataset.kind = "world";
@@ -284,8 +306,9 @@ function mountSuture(page, app) {
         return;
       }
       const ck = `${st.srcType}:${d.name}`;
-      if (!st.srcCollapsedMap.has(ck)) st.srcCollapsedMap.set(ck, new Set(d.groups.groups.map((g) => g.id)));
-      st.srcCollapsed = st.srcCollapsedMap.get(ck);
+      if (!st.srcOpenMap.has(ck)) st.srcOpenMap.set(ck, new Set());
+      st.srcOpen = st.srcOpenMap.get(ck);
+      st.srcCollapsed = collapsedFrom(d, st.srcOpen);
       const sel = new Set(d.order.map((o) => o.identifier).filter((id) => st.picked.has(keyOf(id))));
       srcList.innerHTML = qBar("src") + renderList(d, { mode: "source", selected: sel, collapsed: st.srcCollapsed, query: qOf("src"), searchBody: st.srcBody });
       srcList.dataset.kind = "draft";
@@ -366,7 +389,7 @@ function mountSuture(page, app) {
           }
         }
       } else {
-        st.srcCollapsed.has(gid) ? st.srcCollapsed.delete(gid) : st.srcCollapsed.add(gid);
+        toggleOpen(d, st.srcOpen, gid);
       }
       return renderSrc();
     }
@@ -519,11 +542,12 @@ function mountSuture(page, app) {
     dstPicker.set(d.name);
     if (st.dstFor !== d.name) {
       st.dstFor = d.name;
-      st.dstCollapsed = new Set(d.groups.groups.map((g) => g.id));
+      st.dstOpen = new Set();
       st.marker = null;
     }
     // 位置指向的条目/分组已经不在了（换了预设、被撤销、被别的插件改过）就清掉
     st.marker = fixPlace(d, st.marker);
+    st.dstCollapsed = collapsedFrom(d, st.dstOpen);
     const top = dstList.scrollTop;
     dstList.classList.add("pa-placing");
     dstList.innerHTML = qBar("dst") + (st.newName || qOf("dst") ? "" : '<button class="pa-slot pa-slot-new" data-st="newgroup">＋ 新建分组…</button>') + renderList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0, query: qOf("dst"), searchBody: st.dstBody });
@@ -559,7 +583,7 @@ function mountSuture(page, app) {
     const head = e.target.closest(".pa-ghead");
     if (head && act === "collapse") {
       const gid = head.dataset.gid;
-      st.dstCollapsed.has(gid) ? st.dstCollapsed.delete(gid) : st.dstCollapsed.add(gid);
+      toggleOpen(d, st.dstOpen, gid);
       return renderDst();
     }
     const m = placeFromClick(d, e, !st.newName);
@@ -571,7 +595,7 @@ function mountSuture(page, app) {
       mutate(d, `新建分组「${st.newName}」`, (x) => { gid = x.createEmptyGroup(st.newName, p.where.index === 0 ? "" : p.where.after); });
       toast(`已新建分组「${st.newName}」`, "success");
       st.newName = null;
-      st.dstCollapsed.delete(gid);
+      toggleOpen(d, st.dstOpen, gid, true);
       st.marker = { at: "gstart", gid };
       renderDst();
       dstList.querySelector(`.pa-group[data-gid="${CSS.escape(gid)}"]`)?.scrollIntoView({ block: "center" });
@@ -1136,7 +1160,7 @@ function mountSuture(page, app) {
         try { await presetRegexDialog(sd, d, { preselect: [...set] }); } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
       }
     }
-    if (gid) st.dstCollapsed.delete(gid);
+    if (gid) toggleOpen(d, st.dstOpen, gid, true);
     st.highlight = new Set(newIds);
     renderSrc();
     renderDst();
