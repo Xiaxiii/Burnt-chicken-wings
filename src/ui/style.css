@@ -747,7 +747,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-mpick { display: grid; gap: 8px; }
 #pa-root .pa-mpick-list { max-height: min(52vh, 460px); overflow-y: auto; display: grid; gap: 4px; overscroll-behavior: contain; }
 #pa-root .pa-mpick-item { text-align: left; padding: 8px 10px; min-height: 40px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); color: var(--pa-text); cursor: pointer; overflow-wrap: anywhere; }
-#pa-root .pa-mpick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); font-weight: 600; }
+#pa-root .pa-mpick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); --pa-row-bg: var(--pa-sel); font-weight: 600; }
 #pa-root .pa-mpick-custom { border-style: dashed; color: var(--pa-thread); }
 
 /* 1.4.1 缝合预览：每条默认收起 */
@@ -900,7 +900,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-inline-editing { flex: 1 1 100%; overflow: visible !important; max-width: none !important; }
 #pa-root .pa-inline-input { min-height: 32px; padding: 3px 8px; font-weight: 600; }
 #pa-root .pa-selrow { display: flex; align-items: center; gap: 8px; }
-#pa-root .pa-selrow.picked { background: var(--pa-sel); }
+#pa-root .pa-selrow.picked { background: var(--pa-sel); --pa-row-bg: var(--pa-sel); }
 #pa-root .pa-selbox { flex: none; position: relative; width: 18px; height: 18px; border: 1.5px solid var(--pa-dim); border-radius: 5px; }
 #pa-root .pa-selrow.picked .pa-selbox { background: var(--pa-thread); border-color: var(--pa-thread); }
 #pa-root .pa-selrow.picked .pa-selbox::after { content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid var(--pa-on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg); }
@@ -1172,7 +1172,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-npick-item { display: flex; align-items: baseline; gap: 8px; text-align: left; padding: 8px 10px; min-height: 38px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); color: var(--pa-text); cursor: pointer; }
 #pa-root .pa-npick-item span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 #pa-root .pa-npick-item small { flex: none; color: var(--pa-dim); font-size: .8em; }
-#pa-root .pa-npick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); font-weight: 600; }
+#pa-root .pa-npick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); --pa-row-bg: var(--pa-sel); font-weight: 600; }
 
 /* 缝合：从 / 到 各一行 */
 #pa-root .pa-fromto { flex-wrap: nowrap; gap: 6px; padding: 6px 10px 4px; }
@@ -1530,6 +1530,8 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-paint-colony, #pa-root[data-theme="colony"]:not(.pa-has-bg) .pa-sheet { background: var(--pa-canvas), var(--pa-paint-colony); }
 /* 2.5.14 弹窗的画下面垫一层配色底色（画不出来时、量对比度时都是它） */
 #pa-root.pa-painted:not(.pa-has-bg) .pa-sheet { background-color: var(--pa-tint); }
+/* 2.5.16 弹窗里的列表行、搜索框底色调淡，画透得出来（行占满了弹窗，原来的白底把画盖住了） */
+#pa-root.pa-painted .pa-sheet { --pa-card: rgba(255, 255, 255, .2); --pa-input-bg: rgba(255, 255, 255, .6); }
 /* 顶栏、标签栏：真正的毛玻璃（不随列表滚动，模糊只算一次） */
 #pa-root.pa-glass .pa-top, #pa-root.pa-glass .pa-tabs { background: rgba(255, 255, 255, .24); border-bottom-color: rgba(255, 255, 255, .58); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }
 /* 浮在列表上的操作条随滚动重算模糊会卡，改成更实的半透明 */

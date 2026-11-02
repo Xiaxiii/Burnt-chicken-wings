@@ -87,10 +87,10 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     const on = m === cur && k.id === curKey;
     return `<button type="button" class="pa-kchip${on ? " on" : ""}" data-m="${esc(m)}" data-k="${esc(k.id)}" aria-pressed="${on}">${esc(kname(k))}</button>`;
   };
-  const selRow = (m) => `<button type="button" class="pa-mpick-item pa-selrow${sel.has(m) ? " picked" : ""}" data-sel="${esc(m)}" aria-pressed="${sel.has(m)}"><span class="pa-selbox" aria-hidden="true"></span><span>${esc(m)}</span></button>`;
+  const selRow = (m) => `<button type="button" class="pa-mpick-item pa-selrow${sel.has(m) ? " picked" : ""}" style="${ROW_STYLE}" data-sel="${esc(m)}" aria-pressed="${sel.has(m)}"><span class="pa-selbox" aria-hidden="true"></span><span>${esc(m)}</span></button>`;
   const plainRow = (m, k = null) => {
     const on = m === cur && (!multi || k?.id === curKey);
-    return `<button class="pa-mpick-item${on ? " on" : ""}" data-m="${esc(m)}"${k ? ` data-k="${esc(k.id)}"` : ""}>${esc(m)}${on ? " ✓" : ""}</button>`;
+    return `<button class="pa-mpick-item${on ? " on" : ""}" style="${ROW_STYLE}" data-m="${esc(m)}"${k ? ` data-k="${esc(k.id)}"` : ""}>${esc(m)}${on ? " ✓" : ""}</button>`;
   };
   const keyRow = (m) => {
     const owners = ownersOf.get(m);
