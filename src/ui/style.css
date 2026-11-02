@@ -1298,6 +1298,15 @@ html.pa-open body { overflow: hidden; }
 @media (pointer: coarse) {
     #pa-root .pa-row-head .pa-head-btn { min-height: 28px; }
 }
+/* 2.5.10 站点标题右边：导入、导出、＋ 添加站点，同一种小按钮 */
+#pa-root .pa-head-btns { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; min-width: 0; }
+#pa-root .pa-head-btns .pa-file { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+#pa-root .pa-imp-list { display: flex; flex-direction: column; border: 1px solid var(--pa-line); border-radius: 10px; overflow: hidden; }
+#pa-root .pa-imp-row { display: block; padding: 8px 12px; line-height: 1.45; }
+#pa-root .pa-imp-row + .pa-imp-row { border-top: 1px solid var(--pa-line); }
+#pa-root .pa-imp-row b { display: block; font-weight: 600; overflow-wrap: anywhere; }
+#pa-root .pa-imp-row small { display: block; color: var(--pa-dim); font-size: .82em; overflow-wrap: anywhere; }
+#pa-root .pa-imp-list + .pa-hint { margin-top: 10px; }
 
 /* 1.9 修正：缝合预览在手机上被撑宽、平板上左右乱滑。
    原因：网格的列默认按内容最宽处排（分组下拉框里的长名称、长条目名），整张卡被撑出弹窗。

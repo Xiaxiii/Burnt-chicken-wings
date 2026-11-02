@@ -450,6 +450,75 @@ function explainApiError(status, text) {
   const why = word || API_STATUS_WORDS[status] || vague || (status >= 500 ? "站点出错" : status >= 400 ? "请求被拒绝" : String(text || "").trim() ? "未知错误" : "没有回复");
   return [status || "", why].filter(Boolean).join(" ");
 }
+// 2.5.10 站点文件：导出成 JSON，导入时也认别处常见的写法（url / baseUrl / api_key …）
+var SITE_FILE_FORMAT = "焦香鸡翅-站点";
+var SITE_URL_FIELDS = ["url", "baseUrl", "baseURL", "base_url", "apiUrl", "apiURL", "api_url", "api-url", "apiBase", "api_base", "apiHost", "api_host", "endpoint", "host", "custom_url", "reverse_proxy", "server"];
+var SITE_KEY_FIELDS = ["key", "apiKey", "api_key", "apikey", "APIKey", "API_KEY", "token", "secret", "proxy_password", "sk"];
+var SITE_NAME_FIELDS = ["name", "title", "label", "alias"];
+var SITE_MODEL_FIELDS = ["model", "defaultModel", "default_model", "modelName", "model_name"];
+var SITE_MODELS_FIELDS = ["models", "modelList", "model_list"];
+var SITE_NOTE_FIELDS = ["note", "notes", "remark", "description", "desc"];
+function sitePick(o, names) {
+  for (const n of names) {
+    const v = o?.[n];
+    if (v != null && v !== "") return v;
+  }
+  return void 0;
+}
+function siteModelsOf(v) {
+  if (typeof v === "string") return v.split(/[\r\n,]+/).map((x) => x.trim()).filter(Boolean);
+  if (!Array.isArray(v)) return [];
+  return [...new Set(v.map((m) => (typeof m === "string" ? m : String(m?.id || m?.name || "")).trim()).filter(Boolean))];
+}
+function siteKeysIn(o) {
+  const textKeys = (t) => String(t || "").split(/[\r\n]+/).map((x) => x.trim()).filter(Boolean);
+  const arr = sitePick(o, ["keys", "apiKeys", "api_keys", "tokens"]);
+  if (Array.isArray(arr)) {
+    return arr.flatMap((k) => {
+      if (typeof k === "string") return textKeys(k).map((key) => ({ name: "", key }));
+      if (!k || typeof k !== "object") return [];
+      const key = String(sitePick(k, SITE_KEY_FIELDS) || "").trim();
+      return [{ name: String(sitePick(k, ["name", "label", "group", "title"]) || "").trim(), key, model: String(sitePick(k, SITE_MODEL_FIELDS) || "").trim(), models: siteModelsOf(sitePick(k, SITE_MODELS_FIELDS)) }];
+    });
+  }
+  const one = sitePick(o, SITE_KEY_FIELDS);
+  return typeof one === "string" ? textKeys(one).map((key) => ({ name: "", key })) : [];
+}
+// 一个对象像不像站点：自定义类型要有 http 开头的网址；其他类型（OpenAI、Claude…）认 source
+function siteFromObject(o, fallbackName = "") {
+  if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+  const source = typeof o.source === "string" && SOURCES[o.source] ? o.source : "custom";
+  const url = String(sitePick(o, SITE_URL_FIELDS) || "").trim();
+  if (source === "custom" && !/^https?:\/\/\S+$/i.test(url)) return null;
+  let host = "";
+  try { host = url ? new URL(url).host : ""; } catch {}
+  const model = String(sitePick(o, SITE_MODEL_FIELDS) || "").trim();
+  const models = siteModelsOf(sitePick(o, SITE_MODELS_FIELDS));
+  const keys = siteKeysIn(o);
+  if (!keys.length) keys.push({ name: "", key: "" });
+  for (const k of keys) {
+    if (!k.model) k.model = keys.length === 1 ? model : "";
+    if (!k.models?.length) k.models = models;
+  }
+  const name = String(sitePick(o, SITE_NAME_FIELDS) || fallbackName || host || SOURCES[source].label).trim();
+  return { name, source, url: source === "custom" ? url : "", note: String(sitePick(o, SITE_NOTE_FIELDS) || "").trim(), keys };
+}
+function parseSiteFile(text) {
+  const data = JSON.parse(String(text).replace(/^﻿/, ""));
+  const out = [];
+  const walk = (v, depth, name = "") => {
+    if (depth > 4 || !v || typeof v !== "object") return;
+    if (Array.isArray(v)) return v.forEach((x) => walk(x, depth + 1));
+    const me = siteFromObject(v, name);
+    if (me) return out.push(me);
+    for (const [k, x] of Object.entries(v)) walk(x, depth + 1, k);
+  };
+  walk(data, 0);
+  return out;
+}
+function keyMaskOf(text) {
+  return text.length > 8 ? `${text.slice(0, 3)}…${text.slice(-4)}` : "已保存";
+}
 // liveBox：当前连接；sitesBox：站点列表；optsBox：两个选项（「方案」页把方案放在当前连接和选项之间）
 function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   const sites = () => settings().sites;
@@ -546,8 +615,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       ? rows.map(reasoningRow).join("") + '<button class="pa-srow pa-optadd" data-a="reasoningadd" type="button">＋ 给其他预设设置</button>'
       : info("开启后", "离开预设时记下推理格式，切回时恢复") + (kept ? `<div class="pa-srow"><div class="pa-srow-main"><b>已记住 ${kept} 个预设</b></div><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningclear">清除</button></div>` : "");
     sitesBox.innerHTML = `
-        <div class="pa-row-head"><h3 class="pa-h">站点${sites().length ? whyBtn("sites") : ""}</h3><button class="pa-btn pa-btn-s pa-head-btn" data-a="new">＋ 添加站点</button></div>
-        ${sites().length ? `${whyNote("sites", "点站点名查看、编辑完整信息，删除也在里面。")}${sites().map(siteRow).join("")}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接。</p>'}`;
+        <div class="pa-row-head"><h3 class="pa-h">站点${sites().length ? whyBtn("sites") : ""}</h3><div class="pa-head-btns">
+          <label class="pa-btn pa-btn-s pa-head-btn pa-file" title="从 JSON 文件导入站点和密钥">导入<input type="file" accept=".json,application/json,text/plain" data-import-sites hidden></label>
+          ${sites().length ? '<button class="pa-btn pa-btn-s pa-head-btn" data-a="exportsites" type="button" title="把站点和密钥存成 JSON 文件">导出</button>' : ""}
+          <button class="pa-btn pa-btn-s pa-head-btn" data-a="new" type="button">＋ 添加站点</button></div></div>
+        ${sites().length ? `${whyNote("sites", "点站点名查看、编辑完整信息，删除也在里面。「导出」把站点和密钥存成 JSON 文件，换设备、重装后点「导入」就不用重填。")}${sites().map(siteRow).join("")}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接；有导出过的站点文件就点「导入」。</p>'}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
@@ -713,7 +785,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         k.localId = lid;
         delete k.legacyKey;
       }
-      k.keyMask = text.length > 8 ? `${text.slice(0, 3)}…${text.slice(-4)}` : "已保存";
+      k.keyMask = keyMaskOf(text);
       typed.delete(k.id);
     };
     // 多个密钥时，新加了却没填的行不算
@@ -942,6 +1014,144 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     saveSettings();
     render();
   }
+  // 2.5.10 导出、导入站点（JSON 文件）。单密钥站点在文件里也写成只有一个的 keys
+  const keysOfSite = (s) => siteMulti(s) ? s.keys : [{ id: null, name: "", secretId: s.secretId || null, keyMask: s.keyMask || "", localKey: !!s.localKey, localId: s.localId, legacyKey: s.legacyKey, model: s.model || "", models: s.models || [] }];
+  const savedKey = (k) => !!(k.secretId || k.localKey || k.legacyKey);
+  async function keyTextOf(site, k) {
+    if (k.secretId) return (await revealSecret(site.source, k.secretId)).value || "";
+    if (k.localKey || k.legacyKey) return getLocalKey({ id: site.id, localId: k.localId, legacyKey: k.legacyKey }) || "";
+    return "";
+  }
+  async function exportSites(btn) {
+    const list = sites();
+    if (!list.length) return toast("还没有站点");
+    const how = await pickBox("导出站点", [
+      { label: "含密钥", sub: "导入后不用重填。文件里的密钥是明文，别发给别人", value: "keys" },
+      { label: "不含密钥", sub: "只有名称、网址、模型和备注", value: "bare" }
+    ], { anchor: btn });
+    if (!how) return;
+    let missing = 0;
+    const out = [];
+    for (const s of list) {
+      const keys = [];
+      for (const k of keysOfSite(s)) {
+        const item = { name: k.name || "", model: k.model || "", models: k.models || [] };
+        if (how === "keys" && savedKey(k)) {
+          const v = await keyTextOf(s, k);
+          if (v) item.key = v;
+          else missing++;
+        }
+        keys.push(item);
+      }
+      out.push({ name: s.name, source: s.source, url: s.url || "", note: s.note || "", keys });
+    }
+    // 文件名只用英文数字：有的浏览器遇到中文文件名会存成「download」
+    const d = new Date(), two = (n) => String(n).padStart(2, "0");
+    const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
+    downloadBlob(new Blob([JSON.stringify({ format: SITE_FILE_FORMAT, version: 1, exported: d.toISOString(), sites: out }, null, 2)], { type: "application/json" }), `api-sites-${stamp}.json`);
+    toast(missing ? `已导出 ${out.length} 个站点。${missing} 个密钥在这个浏览器里看不到全文（更新前或在别处存的），没写进文件，导入后要重填` : `已导出 ${out.length} 个站点${how === "keys" ? "（含密钥）" : ""}`, missing ? "warning" : "success");
+  }
+  // 同名、同网址的站点算同一个：更新它，不再新增
+  const normUrl = (u) => String(u || "").trim().replace(/\/+$/, "").toLowerCase();
+  const sameSite = (f) => sites().find((s) => s.source === f.source && s.name === f.name && normUrl(s.url) === normUrl(f.url));
+  async function importSites(file) {
+    let found;
+    try {
+      found = parseSiteFile(await file.text());
+    } catch {
+      return toast("读不了这个文件：不是 JSON 格式", "error");
+    }
+    if (!found.length) return toast("文件里没找到站点：每个站点要有 http 开头的网址", "warning");
+    const plan = found.map((f) => ({ f, old: sameSite(f) }));
+    const host = (u) => { try { return new URL(u).host; } catch { return u; } };
+    const rows = plan.map(({ f, old }) => {
+      const n = f.keys.filter((k) => k.key).length;
+      const what = [old ? "更新" : "新增", f.url ? host(f.url) : SOURCES[f.source].label, n ? `${n} 个密钥` : "没有密钥"];
+      return `<div class="pa-imp-row"><b>${esc(f.name)}</b><small>${esc(what.join(" · "))}</small></div>`;
+    }).join("");
+    const updates = plan.filter((x) => x.old).length;
+    const ok = await sheet({
+      title: `导入 ${plan.length} 个站点`,
+      place: "center",
+      body: `<div class="pa-imp-list">${rows}</div>${updates ? '<p class="pa-hint">「更新」：已有同名、同网址的站点，文件里有密钥就换成文件里的，模型列表也换成文件里的。</p>' : ""}`,
+      actions: [{ label: "取消", value: false }, { label: "导入", kind: "primary", value: true }]
+    });
+    if (!ok) return;
+    let added = 0, updated = 0;
+    const failed = [];
+    for (const { f, old } of plan) {
+      try {
+        await saveImported(f, old);
+        old ? updated++ : added++;
+      } catch (e) {
+        failed.push(`「${f.name}」${e.message}`);
+      }
+    }
+    saveSettings();
+    render();
+    const done = [added && `新增 ${added} 个`, updated && `更新 ${updated} 个`].filter(Boolean).join("，");
+    if (failed.length) toast(`${done ? done + "；" : ""}没导入：${failed.join("；")}`, "error");
+    else toast(`站点已导入：${done}`, "success");
+  }
+  async function saveImported(f, old) {
+    const s = old || { id: uid(), name: f.name, source: f.source, url: f.url, note: f.note };
+    const before = old ? keysOfSite(old) : [];
+    const made = [], madeLocal = [];
+    const many = f.keys.length > 1;
+    const keys = [];
+    try {
+      for (const [i, ik] of f.keys.entries()) {
+        const prev = (ik.name && before.find((k) => k.name === ik.name)) || before[i] || null;
+        const k = { id: (many && prev?.id) || uid(), name: ik.name || "", secretId: null, keyMask: "", model: ik.model || prev?.model || "", models: ik.models?.length ? ik.models : prev?.models || [] };
+        const keepPrev = () => Object.assign(k, { secretId: prev.secretId || null, keyMask: prev.keyMask || "", localKey: !!prev.localKey, localId: prev.localId, legacyKey: prev.legacyKey });
+        if (ik.key && prev && savedKey(prev) && await keyTextOf(s, prev) === ik.key) keepPrev();
+        else if (ik.key) {
+          if (multiKeySupported()) {
+            k.secretId = await storeKey(f.source, ik.key, many ? `焦香鸡翅·${f.name}·${ik.name || `密钥 ${i + 1}`}` : `焦香鸡翅·${f.name}`);
+            made.push(k.secretId);
+          } else {
+            const lid = many ? `${s.id}.${k.id}` : s.id;
+            if (!setLocalKey(lid, ik.key)) throw new Error("浏览器不允许保存密钥（可能是无痕模式）");
+            madeLocal.push(lid);
+            Object.assign(k, { localKey: true, localId: lid });
+          }
+          k.keyMask = keyMaskOf(ik.key);
+        } else if (prev && savedKey(prev)) keepPrev();
+        keys.push(k);
+      }
+    } catch (e) {
+      for (const id of made) await dropKey(f.source, id);
+      for (const id of madeLocal) if (!old) setLocalKey(id, null);
+      throw e;
+    }
+    if (f.note) s.note = f.note;
+    for (const x of ["secretId", "keyMask", "localKey", "localId", "legacyKey", "model", "models", "keys", "keyId"]) delete s[x];
+    if (many) {
+      s.keys = keys.map((k) => {
+        const o = { id: k.id, name: k.name, secretId: k.secretId, keyMask: k.keyMask, model: k.model, models: k.models };
+        if (k.localKey) Object.assign(o, { localKey: true, localId: k.localId });
+        if (k.legacyKey) o.legacyKey = k.legacyKey;
+        return o;
+      });
+      s.keyId = old?.keyId && keys.some((k) => k.id === old.keyId) ? old.keyId : keys[0].id;
+    } else {
+      const k = keys[0];
+      Object.assign(s, { secretId: k.secretId, keyMask: k.keyMask, model: k.model, models: k.models });
+      if (k.localKey) {
+        s.localKey = true;
+        if (k.localId && k.localId !== s.id) s.localId = k.localId;
+      }
+      if (k.legacyKey) s.legacyKey = k.legacyKey;
+    }
+    if (!old) sites().push(s);
+  }
+  sitesBox.addEventListener("change", (e) => {
+    const input = e.target.closest("[data-import-sites]");
+    if (!input) return;
+    const file = input.files?.[0];
+    input.value = "";
+    if (file) importSites(file);
+  });
   const onChange = (e) => {
     const o = e.target.dataset.o;
     if (o === "chattoast") {
@@ -1161,6 +1371,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return render();
     }
     if (a === "new") return editSite(null);
+    if (a === "exportsites") return exportSites(btn);
     if (a === "edit") return editSite(site);
     if (a === "fetch") {
       busy("获取中…");
