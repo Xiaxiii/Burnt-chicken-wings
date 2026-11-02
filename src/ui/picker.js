@@ -11,7 +11,7 @@ async function pickName({ title, items, current = null, search, extra = null } =
   const useSearch = search ?? true;
   const q0 = useSearch ? `<input class="pa-input pa-npick-q" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索" autocapitalize="off" autocomplete="off">` : "";
   const ex = extra ? `<button class="pa-btn pa-btn-s pa-npick-extra${extra.value === current ? " on" : ""}" type="button" data-v="${esc(extra.value)}">${esc(extra.label)}</button>` : "";
-  const body = el(`<div class="pa-npick">${ex ? `<div class="pa-npick-top">${q0}${ex}</div>` : q0}<div class="pa-npick-list" role="listbox"></div></div>`);
+  const body = el(`<div class="pa-npick" style="${LIST_STYLE}">${ex ? `<div class="pa-npick-top" style="${LIST_STYLE}">${q0}${ex}</div>` : q0}<div class="pa-npick-list" style="${LIST_STYLE}" role="listbox"></div></div>`);
   const q = body.querySelector(".pa-npick-q");
   const box = body.querySelector(".pa-npick-list");
   let picked = null;

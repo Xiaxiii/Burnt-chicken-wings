@@ -8,7 +8,8 @@ const errors = [];
 const ok = (message) => console.log('✓', message);
 // 2.5.12 也有按类名（带 search 的）、按 inputmode / enterkeyhint 改的，外面那层还会加底色和下边距
 const FOREIGN = `html body input[type="search"], html body input[type="password"], html body input[inputmode="search"], html body input[enterkeyhint="search"], html body [class*="search"] input { border-radius: 0 !important; background: #fff !important; border: 1px solid #ddd !important; margin-bottom: 12px !important; }
-  html body [class*="search"], html body div:has(> input[inputmode="search"]) { background: #f4f4f4 !important; padding-bottom: 12px !important; border: 1px solid #ddd !important; }`;
+  html body [class*="search"], html body div:has(> input[inputmode="search"]) { background: #f4f4f4 !important; padding-bottom: 12px !important; border: 1px solid #ddd !important; }
+  html body [role="listbox"], html body div[class*="pick"]:not(.pa-sheet), html body [role="option"], html body button { background: #fafafa !important; }`;
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   page.on('pageerror', (e) => errors.push(e.message));
@@ -35,6 +36,10 @@ try {
   await nq.waitFor();
   const n = await look(nq);
   assert.notEqual(n.radius, '0px'); assert.equal(n.margin, '0px');
+  // 2.5.17 列表外面几层和列表行不被刷成白底（弹窗的画要透出来）
+  const bgs = await page.evaluate(() => ['.pa-npick', '.pa-npick-list', '.pa-npick-item'].map((q) => getComputedStyle(document.querySelector('.pa-sheet ' + q)).backgroundColor));
+  assert.deepEqual(bgs.slice(0, 2), ['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)'], '列表外层没有外来的底色');
+  assert.notEqual(bgs[2], 'rgb(250, 250, 250)', '列表行用配色里的底色');
   await page.click('.pa-sheet-mask:not(.pa-out) .pa-sheet-x'); await page.waitForTimeout(200);
   await page.evaluate(() => {
     document.body.insertAdjacentHTML('beforeend', '<select id="model_custom_select"><option value="m1">m1</option><option value="m2">m2</option></select><input id="custom_model_id">');

@@ -45,6 +45,8 @@ var FIELD_STYLE = "-webkit-appearance:none!important;appearance:none!important;b
 var BOX_STYLE = "background:transparent!important;background-image:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important";
 // 2.5.16 列表行（选预设、选模型）的底色同样写在元素上；选中等状态改 --pa-row-bg（见样式表）
 var ROW_STYLE = "background-color:var(--pa-row-bg,var(--pa-card))!important;background-image:none!important";
+// 2.5.17 列表外面几层（选预设、选模型）：别处的样式会给整块列表铺白底，把弹窗的画盖住；只清底色和阴影
+var LIST_STYLE = "background:transparent!important;background-image:none!important;box-shadow:none!important";
 // 2.5.15 复制文字。http 打开的酒馆（不是 https）里浏览器不给 navigator.clipboard，退回选中再复制；
 // 传了输入框就选中框里的字，复制不了时选区还在，可以长按手动复制
 async function copyText(text, input = null) {

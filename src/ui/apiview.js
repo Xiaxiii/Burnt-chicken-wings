@@ -70,11 +70,11 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   let selecting = false;
   let editing = null;
   const sel = new Set();
-  const body = el(`<div class="pa-mpick">${viewSeg(views)}
+  const body = el(`<div class="pa-mpick" style="${LIST_STYLE}">${viewSeg(views)}
       <div class="pa-mfind" style="${BOX_STYLE}"><input class="pa-input" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
       <div class="pa-mseltools" hidden><span class="pa-selcnt"></span><button type="button" class="pa-link pa-selall"></button><button type="button" class="pa-link pa-selnone">清空</button><span class="pa-selacts"></span>
         <div class="pa-newcat" hidden><input class="pa-input" placeholder="分类名，如 Gemini 逆向、0.07/次" maxlength="60" aria-label="新分类名"><button type="button" class="pa-swpill pa-edit-pill" data-act="newcancel">取消</button><button type="button" class="pa-swpill" data-act="newok">确定</button></div></div>
-      <div class="pa-mpick-list" role="listbox"></div></div>`);
+      <div class="pa-mpick-list" style="${LIST_STYLE}" role="listbox"></div></div>`);
   const input = body.querySelector("input");
   const box = body.querySelector(".pa-mpick-list");
   let picked = null;
@@ -107,7 +107,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   const row = (m) => selecting ? selRow(m) : multi ? keyRow(m) : plainRow(m);
   const custom = () => {
     const q = query();
-    return !selecting && q && !allSet.has(q) ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}"${multi ? ` data-k="${esc(keys[0].id)}"` : ""}>使用「${esc(q)}」</button>` : "";
+    return !selecting && q && !allSet.has(q) ? `<button class="pa-mpick-item pa-mpick-custom" style="${ROW_STYLE}" data-m="${esc(q)}"${multi ? ` data-k="${esc(keys[0].id)}"` : ""}>使用「${esc(q)}」</button>` : "";
   };
   const none = '<p class="pa-hint">没有匹配的模型，可直接输入名称</p>';
   const paint = () => {
@@ -142,7 +142,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       box.innerHTML = keys.map((k) => {
         const ms = (k.models || []).filter(hit);
         const open = !!q || secOpen.has(k.id);
-        const kc = !selecting && q && !(k.models || []).includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" data-m="${esc(q)}" data-k="${esc(k.id)}">使用「${esc(q)}」</button>` : "";
+        const kc = !selecting && q && !(k.models || []).includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" style="${ROW_STYLE}" data-m="${esc(q)}" data-k="${esc(k.id)}">使用「${esc(q)}」</button>` : "";
         const items = ms.map((m) => selecting ? selRow(m) : plainRow(m, k)).join("");
         const empty = !ms.length && !kc ? `<p class="pa-hint">${(k.models || []).length ? "没有匹配的模型" : "还没有模型列表，可在搜索框输入模型名称"}</p>` : "";
         return secHead(k.id, kname(k), (k.models || []).length, open, k.keyMask || "") + (open ? kc + items + empty : "");
