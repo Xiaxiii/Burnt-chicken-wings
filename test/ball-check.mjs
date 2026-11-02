@@ -1,4 +1,4 @@
-// 入口与悬浮球：默认只有魔棒菜单；扩展页设置框和「更多 → 外观」都能选入口（魔棒菜单、悬浮球、两个都要）；
+// 入口与悬浮球：默认只有魔棒菜单；扩展页设置框和「更多 → 外观」都能选入口（魔棒菜单、悬浮球、两个都要、都不要）；
 // 以前开了悬浮球的算「两个都要」；点球打开，拖动后贴边并记住位置。用法同 clean-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert";
@@ -64,6 +64,22 @@ assert.equal(await page.$("#pa-ball"), null, "只用魔棒菜单时没有悬浮�
 assert.equal(await wandShown(), true);
 assert.equal(await page.locator("[data-opt=entry]").inputValue(), "wand", "设置框同步");
 ok("「更多 → 外观」里切换入口，设置框同步");
+
+const noteShown = (sel) => page.$eval(sel, (x) => !x.hidden && getComputedStyle(x).display !== "none");
+assert.equal(await noteShown("[data-mp=look] .pa-noentry"), false, "有入口时不写怎么打开");
+await seg("都不要").click(); await page.waitForTimeout(100);
+assert.equal(await page.$("#pa-ball"), null, "都不要：没有悬浮球");
+assert.equal(await wandShown(), false, "都不要：魔棒菜单里不显示");
+assert.equal((await S()).floatBall, false);
+assert.equal(await page.locator("[data-opt=entry]").inputValue(), "none", "设置框同步");
+assert.equal(await noteShown("[data-mp=look] .pa-noentry"), true, "写出怎么打开");
+assert.match(await page.$eval("[data-mp=look] .pa-noentry", (x) => x.textContent), /\/atelier/);
+assert.equal(await noteShown("#pa-settings .pa-noentry"), true, "设置框也写");
+await page.selectOption("[data-opt=entry]", "wand"); await page.waitForTimeout(100);
+assert.equal(await wandShown(), true, "设置框里选回魔棒菜单");
+assert.equal(await noteShown("#pa-settings .pa-noentry"), false);
+assert.equal(await noteShown("[data-mp=look] .pa-noentry"), false);
+ok("都不要：魔棒菜单和悬浮球都没有，写出从设置框或 /atelier 打开");
 
 assert.deepEqual(errs, []);
 console.log("悬浮球检查全部通过");

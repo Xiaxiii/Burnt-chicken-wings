@@ -347,31 +347,68 @@ function mountCleanKind(kind, box) {
   // ---------- 世界书 ----------
   if (kind === "world") {
     let res = null;
+    const chars = () => ctx().characters || [];
+    const fileBase = (a) => String(a || "").replace(/\.[^.]+$/, "");
+    // 角色的附加世界书记在 world_info.charLore 里，按头像文件名（不带扩展名）对应角色
+    const charLore = () => {
+      const lore = mods.wi?.world_info?.charLore;
+      return Array.isArray(lore) ? lore : [];
+    };
     const usage = () => {
       const out = {};
       const add = (n, w) => n && (out[n] ||= []).push(w);
       for (const n of mods.wi?.selected_world_info || []) add(n, "全局启用");
-      for (const ch of ctx().characters || []) add(ch?.data?.extensions?.world, `角色「${ch.name}」绑定`);
+      for (const ch of chars()) add(ch?.data?.extensions?.world, `角色「${ch.name}」绑定`);
+      const byFile = new Map(chars().map((ch) => [fileBase(ch.avatar), ch]));
+      for (const l of charLore()) {
+        const ch = byFile.get(l?.name);
+        if (ch) for (const n of l.extraBooks || []) add(n, `角色「${ch.name}」附加`);
+      }
       add(ctx().chatMetadata?.world_info, "当前聊天绑定");
       return out;
+    };
+    // 2.5.0 已删除角色卡留下的世界书。导入带世界书的角色卡时，酒馆另存一本世界书（默认名「角色名's Lorebook」，
+    // 文件里留有 originalData）；删角色卡不会删它。没人在用、且满足下面任一条的算残留：
+    // 1) 名字是「X's Lorebook」，X 不是现有角色；2) 带 originalData，名字对不上任何现有角色；3) 是已删角色的附加世界书
+    const leftoverOf = (name, data, use) => {
+      if (use[name]?.length) return null;
+      const names = new Set(chars().map((ch) => ch.name));
+      const files = new Set(chars().map((ch) => fileBase(ch.avatar)));
+      const lore = charLore().find((l) => !files.has(l?.name) && (l.extraBooks || []).includes(name));
+      if (lore) return { from: lore.name, why: "已删角色的附加世界书" };
+      const m = /^(.+)'s Lorebook(?: \(\d+\))?$/.exec(name);
+      if (m) return names.has(m[1]) ? null : { from: m[1], why: "角色卡已不在" };
+      if (data?.originalData && typeof data.originalData === "object") {
+        const own = [name, data.originalData.name].filter(Boolean);
+        if (own.some((x) => names.has(x)) || chars().some((ch) => own.includes(ch?.data?.character_book?.name))) return null;
+        return { from: null, why: "来自角色卡，角色已不在" };
+      }
+      return null;
     };
     const draw = () => {
       const names = listWorldbooks();
       const use = usage();
       const pickN = [...S.sel].length;
       let html = `<div class="pa-sum"><p class="pa-sum-main">世界书 <b>${names.length}</b> 本</p>
-        ${tip(`<p>世界书只在用到时才下载，删除重复的不会让酒馆打开变快，只是更整齐。</p>
-          <p>比对要把全部世界书下载一遍，世界书多、网速慢时要等一会儿。比较每个条目的正文和全部设置（关键词、启用、概率、位置、深度等），只忽略条目编号和排列下标。</p>
-          <p>标有「绑定」「全局启用」的世界书删除后，对应的角色或聊天将失去它。</p>`)}
-        <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${res ? "重新比对" : "比对全部世界书"}</button><span class="pa-hint pa-ck-prog"></span></div></div>`;
+        ${tip(`<p>世界书只在用到时才下载，删除不会让酒馆打开变快，只是更整齐。</p>
+          <p>检查要把全部世界书下载一遍，世界书多、网速慢时要等一会儿。找出三类：条目完全相同的、没有条目的、已删除角色卡留下的。</p>
+          <p>条目相同：比较每个条目的正文和全部设置（关键词、启用、概率、位置、深度等），只忽略条目编号和排列下标。</p>
+          <p>角色卡留下的：导入带世界书的角色卡时，酒馆会另存一本世界书，删除角色卡时不会一起删。列出没被任何现有角色、全局或当前聊天使用，且名为「某某's Lorebook」、或文件里有角色卡导入记录、或是已删角色附加的世界书。改过名的角色会被当成已删除；其他聊天绑定的世界书查不到，请看一眼名字再删。</p>
+          <p>标有「绑定」「附加」「全局启用」的世界书删除后，对应的角色或聊天将失去它。</p>`)}
+        <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-x="scan" ${S.busy ? "disabled" : ""}>${res ? "重新检查" : "检查全部世界书"}</button><span class="pa-hint pa-ck-prog"></span></div></div>`;
       if (res) {
         const groups = [...res.byHash.values()].filter((g) => g.length > 1);
-        const row = (w) => `<label class="pa-crow${S.sel.has(w.name) ? " on" : ""}">${chk(w.name, S.sel.has(w.name), false)}
-          <span class="pa-crow-main"><b>${esc(w.name)}</b><span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${w.n} 条</span>${(use[w.name] || []).slice(0, 2).map((u) => `<span class="pa-chip pa-ctag-use">${esc(u)}</span>`).join("")}</span></span>
+        const row = (w, extra = "") => `<label class="pa-crow${S.sel.has(w.name) ? " on" : ""}">${chk(w.name, S.sel.has(w.name), false)}
+          <span class="pa-crow-main"><b>${esc(w.name)}</b><span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${w.n} 条</span>${extra}${(use[w.name] || []).slice(0, 2).map((u) => `<span class="pa-chip pa-ctag-use">${esc(u)}</span>`).join("")}</span></span>
           <span class="pa-crow-size"><em>${fmtSize(w.size)}</em></span></label>`;
+        // 扫描后又绑定上的，不再算残留
+        const left = res.left.filter((w) => !use[w.name]?.length);
+        const leftTag = (w) => `<span class="pa-chip pa-ctag-old">${esc(w.from ? `原角色「${w.from}」· ${w.why}` : w.why)}</span>`;
         if (res.failed.length) html += `<p class="pa-warn">${res.failed.length} 本读取失败，没有参与比对：${esc(res.failed.slice(0, 4).join("、"))}${res.failed.length > 4 ? " 等" : ""}</p>`;
-        html += groups.length ? `<h3 class="pa-h">条目完全相同（${groups.length} 组）</h3>${groups.map((g) => `<div class="pa-clist pa-ck-group">${g.map(row).join("")}</div>`).join("")}` : '<p class="pa-empty">没有条目完全相同的世界书。</p>';
-        if (res.empty.length) html += `<h3 class="pa-h">没有条目的世界书（${res.empty.length}）</h3><div class="pa-clist">${res.empty.map(row).join("")}</div>`;
+        html += groups.length ? `<h3 class="pa-h">条目完全相同（${groups.length} 组）</h3>${groups.map((g) => `<div class="pa-clist pa-ck-group">${g.map((w) => row(w)).join("")}</div>`).join("")}` : '<p class="pa-empty">没有条目完全相同的世界书。</p>';
+        if (res.empty.length) html += `<h3 class="pa-h">没有条目的世界书（${res.empty.length}）</h3><div class="pa-clist">${res.empty.map((w) => row(w)).join("")}</div>`;
+        const leftOff = left.filter((w) => !S.sel.has(w.name));
+        html += left.length ? `<div class="pa-hrow"><h3 class="pa-h">已删除角色卡留下的（${left.length}）</h3>${leftOff.length ? `<button type="button" class="pa-golink" data-x="pickleft">勾选 ${leftOff.length} 本</button>` : ""}</div><div class="pa-clist pa-ck-left">${left.map((w) => row(w, leftTag(w))).join("")}</div>` : '<p class="pa-empty">没有已删除角色卡留下的世界书。</p>';
       }
       html += actBar(pickN, 0, '<button class="pa-btn pa-btn-danger-soft" data-x="del">下载后删除</button>');
       box.innerHTML = html;
@@ -388,7 +425,8 @@ function mountCleanKind(kind, box) {
         S.busy = true;
         draw();
         const names = listWorldbooks();
-        const byHash = new Map(), empty = [], failed = [];
+        const byHash = new Map(), empty = [], failed = [], left = [];
+        const use = usage();
         res = null;
         for (const [i, n] of names.entries()) {
           const p = box.querySelector(".pa-ck-prog");
@@ -397,6 +435,8 @@ function mountCleanKind(kind, box) {
             const data = await mods.wi.loadWorldInfo(n);
             const list = wiSorted(data);
             const w = { name: n, n: list.length, size: jsonSize(data) };
+            const lo = leftoverOf(n, data, use);
+            if (lo) left.push({ ...w, ...lo });
             if (!list.length) { empty.push(w); continue; }
             // 比较条目的全部设置（启用、概率、位置、深度……），只忽略编号和排列下标
             const h = hashStr(JSON.stringify(list.map((e2) => {
@@ -408,8 +448,13 @@ function mountCleanKind(kind, box) {
             failed.push(n);
           }
         }
-        res = { byHash, empty, failed };
+        res = { byHash, empty, failed, left };
         S.busy = false;
+        return draw();
+      }
+      if (x === "pickleft") {
+        const use = usage();
+        for (const w of res?.left || []) if (!use[w.name]?.length) S.sel.add(w.name);
         return draw();
       }
       if (x === "del") {
@@ -453,6 +498,7 @@ function mountCleanKind(kind, box) {
         if (res) {
           for (const g of res.byHash.values()) for (let i = g.length - 1; i >= 0; i--) if (!listWorldbooks().includes(g[i].name)) g.splice(i, 1);
           res.empty = res.empty.filter((w) => listWorldbooks().includes(w.name));
+          res.left = res.left.filter((w) => listWorldbooks().includes(w.name));
           res.failed = res.failed.filter((n) => listWorldbooks().includes(n));
         }
         S.busy = false;

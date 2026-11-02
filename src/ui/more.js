@@ -30,11 +30,12 @@ function mountMore(page, app) {
         note.hidden = !note.hidden;
         bgWhy.setAttribute("aria-expanded", String(!note.hidden));
       });
-      // 2.5.4 入口三选一，和「文字大小」一样的分段按钮
+      // 2.5.4 入口自选，和「文字大小」一样的分段按钮；选「都不要」时下面写怎么打开
       const entrySlot = box.querySelector(".pa-entryslot");
       entrySlot.addEventListener("click", (e) => { const b = e.target.closest("[data-entry]"); if (b) setEntryMode(b.dataset.entry); });
       const render = () => {
-        entrySlot.innerHTML = `<div class="pa-seg pa-seg-s" role="group" aria-label="打开焦香鸡翅的入口">${ENTRY_MODES.map(([k, l]) => `<button type="button" data-entry="${k}" class="${k === entryMode() ? "on" : ""}">${l}</button>`).join("")}</div>`;
+        entrySlot.innerHTML = `<div class="pa-seg pa-seg-s" role="group" aria-label="打开焦香鸡翅的入口">${ENTRY_MODES.map(([k, l]) => `<button type="button" data-entry="${k}" class="${k === entryMode() ? "on" : ""}">${l}</button>`).join("")}</div>
+          <small class="pa-dim pa-entry-note pa-noentry" ${entryMode() === "none" ? "" : "hidden"}>${NO_ENTRY_NOTE}</small>`;
         fsSlot.innerHTML = fontSizeSeg();
         slot.innerHTML = themeCards();
         bgSlot.innerHTML = bgPanel();

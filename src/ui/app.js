@@ -361,6 +361,7 @@ function addSettingsEntry() {
           <div class="pa-set-row pa-set-optrow">
             <label class="pa-set-check pa-set-entry"><span>入口</span><select class="text_pole" data-opt="entry">${ENTRY_MODES.map(([k, l]) => `<option value="${k}" ${k === entryMode() ? "selected" : ""}>${l}</option>`).join("")}</select></label>
           </div>
+          <div class="pa-set-note pa-noentry" ${entryMode() === "none" ? "" : "hidden"}>${NO_ENTRY_NOTE}</div>
         </div>
         <div class="pa-set-maint"></div>
         ${log.length ? `<details class="pa-set-log pa-set-fold"><summary><span class="pa-set-fold-t">更新说明</span><small class="pa-set-sum">${esc(log[0].head)}</small></summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
@@ -475,9 +476,10 @@ function applyPullGuard() {
 }
 // 2.3.5 悬浮球：点一下打开，按住拖动换位置，松手贴到左右边。默认关闭，扩展页设置框和「更多 → 外观」里开关
 var BALL = 44, BALL_GAP = 8;
-// 2.5.4 入口自选：魔棒菜单、悬浮球、两个都要。不提供都不要；扩展页的「打开」按钮和 /atelier 一直能用。
+// 2.5.4 入口自选：魔棒菜单、悬浮球、两个都要；2.6.1 加「都不要」，这时从扩展页的「打开」按钮或 /atelier 打开。
 // 以前开了悬浮球的（floatBall），魔棒菜单也一直在，算「两个都要」
-var ENTRY_MODES = [["wand", "魔棒菜单"], ["ball", "悬浮球"], ["both", "两个都要"]];
+var ENTRY_MODES = [["wand", "魔棒菜单"], ["ball", "悬浮球"], ["both", "两个都要"], ["none", "都不要"]];
+var NO_ENTRY_NOTE = "从扩展页设置框点「打开」，或在聊天输入框发送 /atelier。";
 function entryMode() {
   const s = settings();
   if (ENTRY_MODES.some(([k]) => k === s.entry)) return s.entry;
@@ -486,18 +488,19 @@ function entryMode() {
 function setEntryMode(mode) {
   if (!ENTRY_MODES.some(([k]) => k === mode)) return;
   settings().entry = mode;
-  settings().floatBall = mode !== "wand";
+  settings().floatBall = mode === "ball" || mode === "both";
   saveSettings();
   applyFloatBall();
   applyMenuEntry();
   const sel = document.querySelector("#pa-settings [data-opt=entry]");
   if (sel) sel.value = mode;
   document.querySelectorAll("#pa-root [data-entry]").forEach((b) => b.classList.toggle("on", b.dataset.entry === mode));
+  document.querySelectorAll(".pa-noentry").forEach((n) => { n.hidden = mode !== "none"; });
 }
 // 魔棒菜单项用 display 藏：酒馆给菜单项的 flex 样式会盖过 hidden 属性
 function applyMenuEntry() {
   const item = document.getElementById("pa-menu-entry");
-  if (item) item.style.display = entryMode() === "ball" ? "none" : "";
+  if (item) item.style.display = entryMode() === "ball" || entryMode() === "none" ? "none" : "";
 }
 // 位置按可移动范围的比例存，换横竖屏、改窗口大小后仍在同一侧
 function placeBall(ball) {
@@ -508,7 +511,7 @@ function placeBall(ball) {
 }
 function applyFloatBall() {
   let ball = document.getElementById("pa-ball");
-  if (entryMode() === "wand") return ball?.remove();
+  if (entryMode() === "wand" || entryMode() === "none") return ball?.remove();
   if (ball) return placeBall(ball);
   ball = el(`<button id="pa-ball" type="button" aria-label="打开${esc(appName())}" title="${esc(appName())}"><i class="fa-solid fa-scissors"></i></button>`);
   let start = null, moved = false, frame = 0, dx = 0, dy = 0;

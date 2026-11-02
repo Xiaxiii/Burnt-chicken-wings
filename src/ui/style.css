@@ -1244,7 +1244,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-theme-dots i { width: 13px; height: 13px; }
 #pa-root .pa-theme b { font-size: .82em; font-weight: 600; }
 #pa-root .pa-theme[aria-pressed="true"] { outline-width: 1.5px; outline-offset: 1px; }
-#pa-root .pa-fs-note { display: block; margin-top: 4px; font-size: .78em; }
+#pa-root .pa-fs-note, #pa-root .pa-entry-note:not([hidden]) { display: block; margin-top: 4px; font-size: .78em; }
 
 /* 思维链统计：手机上一行五格 */
 #pa-root .pa-cot-sum > div { text-align: center; }

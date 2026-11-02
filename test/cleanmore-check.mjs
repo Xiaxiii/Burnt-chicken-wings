@@ -106,13 +106,36 @@ await page.click(".pa-sheet .pa-btn-danger"); await page.waitForTimeout(500);
 assert.deepEqual(deleted, [{ avatar_url: "jiang1.png", delete_chats: false }]);
 assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /没有同名/);
 // 世界书：复制一本相同的、加一本空的
+// 已删除角色卡留下的：「X's Lorebook」X 不在；带 originalData 且对不上；已删角色的附加世界书。现有角色的不算
+await page.evaluate(() => {
+  const s = globalThis.__wiStore, e = { 1: { uid: 1, comment: "c", content: "设定", key: ["k"] } };
+  s["Alice's Lorebook"] = { entries: structuredClone(e) };
+  s["Julian's Lorebook"] = { entries: { 1: { uid: 1, comment: "jl", content: "Julian", key: ["jl"] } } };
+  s["旧卡世界书"] = { entries: { 1: { uid: 1, comment: "o", content: "旧卡", key: ["o"] } }, originalData: { name: "旧卡世界书", entries: [] } };
+  s["姜泰温世界书"] = { entries: { 1: { uid: 1, comment: "j", content: "姜", key: ["j"] } }, originalData: { name: "姜泰温", entries: [] } };
+  s["附加残留"] = { entries: { 1: { uid: 1, comment: "a", content: "附加", key: ["a"] } } };
+  s["附加在用"] = { entries: { 1: { uid: 1, comment: "b", content: "附加2", key: ["b"] } } };
+});
+await page.evaluate(async () => {
+  const m = await import("/test/site/scripts/world-info.js");
+  m.world_info.charLore = [{ name: "gone", extraBooks: ["附加残留"] }, { name: "julian", extraBooks: ["附加在用"] }];
+});
 await page.evaluate(() => { const s = globalThis.__wiStore; s["示例世界书-副本"] = structuredClone(s["示例世界书"]); s["空的"] = { entries: {} }; });
-await page.evaluate(async () => { const m = await import("/test/site/scripts/world-info.js"); m.world_names.push("示例世界书-副本", "空的"); });
+await page.evaluate(async () => { const m = await import("/test/site/scripts/world-info.js"); m.world_names.push("示例世界书-副本", "空的", "Alice's Lorebook", "Julian's Lorebook", "旧卡世界书", "姜泰温世界书", "附加残留", "附加在用"); });
 await page.click('[data-kind="world"]'); await page.waitForTimeout(200);
 await page.click('[data-x="scan"]');
-await page.waitForFunction(() => document.querySelector(".pa-clean-other")?.innerText.includes("重新比对"), null, { timeout: 10000 });
+await page.waitForFunction(() => document.querySelector(".pa-clean-other")?.innerText.includes("重新检查"), null, { timeout: 10000 });
 txt = await page.$eval(".pa-clean-other", (x) => x.innerText);
 assert.match(txt, /条目完全相同（1 组）/); assert.match(txt, /全局启用/); assert.match(txt, /没有条目的世界书（\d）/);
+assert.match(txt, /已删除角色卡留下的（3）/);
+const leftNames = await page.$$eval(".pa-ck-left input[data-k]", (xs) => xs.map((x) => x.dataset.k).sort());
+assert.deepEqual(leftNames, ["Alice's Lorebook", "旧卡世界书", "附加残留"].sort(), "现有角色的、附加在现有角色上的不算");
+assert.match(await page.$eval(".pa-ck-left", (x) => x.innerText), /原角色「Alice」/);
+await page.click('[data-x="pickleft"]'); await page.waitForTimeout(100);
+assert.equal(await page.$$eval(".pa-ck-left input:checked", (xs) => xs.length), 3, "一键勾选残留");
+assert.equal(await page.$('[data-x="pickleft"]'), null, "都勾上后按钮消失");
+for (const k of leftNames) await page.click(`.pa-ck-left input[data-k="${k}"]`);
+await page.waitForTimeout(100);
 await page.screenshot({ path: S + "m-3-world.png" });
 await page.click('.pa-clean-other input[data-k="示例世界书-副本"]'); await page.waitForTimeout(100);
 await page.click('[data-x="del"]'); await page.waitForTimeout(200);
