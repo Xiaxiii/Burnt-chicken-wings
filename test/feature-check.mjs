@@ -40,7 +40,7 @@ ok("新建条目，编辑角色和插入位置");
 
 // 1b) 搜索：先列名称、标签、分组名匹配的；只在正文里出现的要点开才列，并显示正文里匹配的那一句
 await page.click('[data-tool="search"]').catch(() => {});
-await page.fill(".pa-search", "文风");
+await page.fill(".pa-find", "文风");
 await page.waitForTimeout(300);
 let sum = await page.$eval(".pa-qsum", (x) => x.textContent);
 assert.match(sum, /分组名匹配 \d+ 条/);
@@ -49,7 +49,7 @@ assert.equal(await page.locator(".pa-list .pa-hitline").count(), 0, "默认不�
 await page.click(".pa-qsum [data-act=qbody]"); await page.waitForTimeout(200);
 assert.ok(await page.locator(".pa-list .pa-hitline").count() > 0, "点开后列出，并显示正文出处");
 assert.match(await page.locator(".pa-list .pa-hitline").first().textContent(), /^正文：.*文风/);
-await page.fill(".pa-search", ""); await page.waitForTimeout(200);
+await page.fill(".pa-find", ""); await page.waitForTimeout(200);
 await page.click('[data-tool="search"]').catch(() => {});
 ok("搜索分名称和正文两层");
 

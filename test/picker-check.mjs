@@ -10,7 +10,7 @@ await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
 await page.evaluate(() => window.__presetAtelier.open("suture"));
 await page.waitForTimeout(500);
-assert.equal(await page.$(".pa-src .pa-searchrow, .pa-src-q"), null, "缝合页没有单独的搜索框");
+assert.equal(await page.$(".pa-src .pa-findrow, .pa-src-q"), null, "缝合页没有单独的搜索框");
 const n = await page.evaluate(() => window.SillyTavern.getContext().getPresetManager().getPresetList().preset_names.length ?? 0).catch(() => 0);
 await page.click(".pa-src-pick .pa-namebtn"); await page.waitForSelector(".pa-npick-item");
 assert.ok(await page.$(".pa-npick-q"), `预设列表带搜索（${n} 个预设）`);

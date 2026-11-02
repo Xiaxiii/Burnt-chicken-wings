@@ -91,7 +91,7 @@ function mountOrganize(page) {
             <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索条目">${ICON.search}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">${ICON.plus}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">⋯</button>
-            <div class="pa-searchrow" hidden><input class="pa-input pa-search" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索条目名、标签、分组名" aria-label="搜索条目"></div>
+            <div class="pa-findrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索条目名、标签、分组名" aria-label="搜索条目"></div>
             <div class="pa-tools">
                 <button class="pa-btn pa-btn-soft" data-tool="newgroup">＋ 新建分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="newentry">＋ 新建条目</button>
@@ -117,7 +117,7 @@ function mountOrganize(page) {
   const list = page.querySelector(".pa-list");
   const selbar = page.querySelector(".pa-selbar");
   const movebar = page.querySelector(".pa-movebar");
-  const search = page.querySelector(".pa-search");
+  const search = page.querySelector(".pa-find");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (name) => {
     st.selected.clear();
     st.mode = null;
@@ -337,7 +337,7 @@ function mountOrganize(page) {
       if (!t) return;
     }
     if (t === "search") {
-      const row = page.querySelector(".pa-searchrow");
+      const row = page.querySelector(".pa-findrow");
       row.hidden = !row.hidden;
       if (row.hidden && st.query) {
         st.query = "";

@@ -38,6 +38,11 @@ function el(html) {
   t.innerHTML = html.trim();
   return t.content.firstElementChild;
 }
+// 2.5.12 酒馆的主题、其他扩展会改搜索框（方角白底、下面多一截底色），按类型改的、按类名改的都有。
+// 输入框的外观直接写在元素上（行内 !important），样式表盖不过；玻璃主题用变量换边框和阴影。
+// 外面那一层只清掉别人加的底色、边框、内外边距（类名也不再带 search）
+var FIELD_STYLE = "-webkit-appearance:none!important;appearance:none!important;border-radius:8px!important;background-color:var(--pa-input-bg)!important;background-image:none!important;border:1px solid var(--pa-key-bc,var(--pa-line))!important;box-shadow:var(--pa-key-sh,none)!important;margin:0!important";
+var BOX_STYLE = "background:transparent!important;background-image:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important";
 function sheet(opt) {
   return new Promise((resolve) => {
     // place：省略时手机上从底部升起、电脑上居中（大窗口）；"center" 屏幕中间偏上的小卡片；"pop" 贴着 anchor 弹出的菜单

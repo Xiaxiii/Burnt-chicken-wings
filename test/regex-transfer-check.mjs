@@ -275,7 +275,8 @@ try {
       const c = window.SillyTavern.getContext();
       await c.eventSource.emit(c.eventTypes.PRESET_CHANGED, { apiId: 'openai', name: targetName });
     }, { sourceName, targetName, naturalSourceName });
-    assert.equal(await page.locator('.pa-src-list [data-id="source-prompt"] .pa-name').innerText(), naturalSourceName, '随后真实预设变化照常重新读取来源');
+    // 用 textContent：.pa-loose 是 content-visibility: auto，刚重画、还没画到屏幕上时 innerText 会是空的
+    assert.equal(await page.locator('.pa-src-list [data-id="source-prompt"] .pa-name').textContent(), naturalSourceName, '随后真实预设变化照常重新读取来源');
     assert.equal(await page.evaluate(() => window.__regexSourceNode.isConnected), false, '自然事件仍正常刷新页面，而非被旧 guard 吞掉');
     nativeEvents = await page.evaluate(() => window.__nativeRegexEvents);
     assert.equal(nativeEvents.length, 3);

@@ -113,15 +113,15 @@ try {
     await foldAll(page);
     assert.equal(await list.locator('.pa-row').count(), 0);
     await page.locator('[data-page=organize] [data-tool=search]').click();
-    await page.locator('[data-page=organize] .pa-search').fill('性能条目 01199');
+    await page.locator('[data-page=organize] .pa-find').fill('性能条目 01199');
     await page.waitForFunction(() => document.querySelectorAll('[data-page=organize] .pa-list .pa-row').length === 1);
     assert.equal(await list.locator('.pa-row').getAttribute('data-id'), 'perf-1199');
-    await page.locator('[data-page=organize] .pa-search').fill('body-only-needle');
+    await page.locator('[data-page=organize] .pa-find').fill('body-only-needle');
     await page.waitForFunction(() => document.querySelector('[data-page=organize] .pa-qsum')?.textContent.includes('正文里还有 1 条'));
     assert.equal(await list.locator('.pa-row').count(), 0);
     await list.locator('[data-act=qbody]').click();
     assert.equal(await list.locator('.pa-row').getAttribute('data-id'), 'perf-37');
-    await page.locator('[data-page=organize] .pa-search').fill('');
+    await page.locator('[data-page=organize] .pa-find').fill('');
     await page.waitForFunction(() => document.querySelectorAll('[data-page=organize] .pa-list .pa-row').length === 0);
 
     // 页签切换仅绘制可见页；缝合1200→1200仍只为选中4条生成预览。

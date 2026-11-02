@@ -532,7 +532,7 @@ function mountSuture(page, app) {
     side === "src" ? renderSrc() : renderDst();
   }
   function searchBox(side) {
-    const body = el(`<div class="pa-ssearch"><input class="pa-input pa-ss-q" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off">
+    const body = el(`<div class="pa-sfind" style="${BOX_STYLE}"><input class="pa-input pa-ss-q" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off">
         <p class="pa-hint">边打边在${side === "src" ? "「从」" : "「到」"}的列表里筛出来。搜的词会一直留着，列表上方点「✕ 清除」恢复全部。</p></div>`);
     const q = body.querySelector(".pa-ss-q");
     q.value = qOf(side);
