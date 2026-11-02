@@ -151,10 +151,17 @@ html.pa-open body { overflow: hidden; }
 @supports (-webkit-touch-callout: none) {
     #pa-root .pa-input, #pa-root .pa-select { font-size: max(16px, 1em); }
 }
-#pa-root .pa-select { appearance: auto; }
-/* 2.5.0 iPad/iPhone Safari 给 type=search 套系统样式：直角白底，圆角和底色都不生效 */
-#pa-root input[type=search].pa-input { -webkit-appearance: none; appearance: none; }
-#pa-root input[type=search].pa-input::-webkit-search-decoration { -webkit-appearance: none; }
+/* 2.5.1 去掉系统样式，下拉框的箭头自己画（颜色跟着配色走）。
+   2.5.3 搜索框改成普通文本框：有的扩展或主题按「搜索框」类型改样式，会盖过这里。密钥框见 apiview.js 的 KEY_INPUT_STYLE */
+#pa-root .pa-input, #pa-root .pa-select { -webkit-appearance: none; appearance: none; }
+#pa-root .pa-input::-webkit-search-decoration { -webkit-appearance: none; }
+#pa-root .pa-select {
+    padding-right: 28px !important;
+    background-image: linear-gradient(45deg, transparent 50%, var(--pa-dim) 50%), linear-gradient(135deg, var(--pa-dim) 50%, transparent 50%) !important;
+    background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52% !important;
+    background-size: 5px 5px, 5px 5px !important;
+    background-repeat: no-repeat !important;
+}
 #pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }
 #pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }
 #pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
@@ -168,6 +175,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-inline-check input { width: 18px; height: 18px; accent-color: var(--pa-thread); }
 #pa-root .pa-field { display: grid; gap: 4px; font-size: .9em; }
 #pa-root .pa-field > span { color: var(--pa-dim); }
+/* 2.5.1 输入框下面的报错，框边同时标红 */
+#pa-root .pa-field-err { display: block; color: var(--pa-warn); font-size: .92em; line-height: 1.45; }
+#pa-root .pa-input[aria-invalid="true"] { border-color: var(--pa-warn) !important; }
 #pa-root .pa-form { display: grid; gap: 12px; }
 #pa-root .pa-fieldset { border: 1px dashed var(--pa-line); border-radius: var(--pa-r); padding: 10px 12px; display: grid; gap: 8px; }
 #pa-root .pa-fieldset legend { padding: 0 6px; color: var(--pa-dim); font-size: .88em; }
@@ -212,7 +222,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-tools-more { display: none; }
 #pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }
 #pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }
-/* 2.5.0 五个按钮和预设名挤一行时，iPad 上预设名被截、按钮出边；打开搜索时按钮又掉到第三行。
+/* 2.5.8 五个按钮和预设名挤一行时，iPad 上预设名被截、按钮出边；打开搜索时按钮又掉到第三行。
    放不下就收成 ＋ 和 ⋯（和手机一样），一行：预设 🔍 ＋ ⋯ */
 @media (max-width: 1099px) {
     #pa-root .pa-tools { display: none; }
@@ -458,7 +468,8 @@ html.pa-open body { overflow: hidden; }
 @keyframes pa-pop { from { opacity: 0; transform: scale(.96); } }
 @media (prefers-reduced-motion: reduce) { #pa-root .pa-sheet-center, #pa-root .pa-sheet-pop { animation: none; } }
 @keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }
-/* 2.5.0 选项用普通块排版：按钮做 grid 时，iPad Safari 算高度只算说明的第一行，说明折行就和下一项叠在一起 */
+/* 2.5.8 选项用普通块排版，贴按钮的菜单一出来就是最终宽度（.pa-sheet-pop）：以前菜单先按整个面板宽排、再缩到 320px，
+   iPad Safari 不重算 grid 按钮的高度，说明折成两行时下一项压住第二行 */
 #pa-root .pa-pick { display: flex; flex-direction: column; gap: 6px; }
 #pa-root .pa-pick > * { flex: none; }
 #pa-root .pa-pick-item { display: block; width: 100%; height: auto; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; line-height: 1.45; }
@@ -520,25 +531,25 @@ html.pa-open body { overflow: hidden; }
 /* ---------- 思维链页 ---------- */
 #pa-root .pa-cov .pa-hookbtn { grid-row: 1; grid-column: 3; min-height: 28px; padding: 2px 10px; font-size: .82em; }
 #pa-root .pa-cov:has(.pa-hookbtn) .pa-link { grid-row: 2; grid-column: 3; }
-#pa-root .pa-verdict { border: 1px solid var(--pa-line); border-left: 4px solid var(--pa-thread); border-radius: var(--pa-r); padding: 10px 12px; background: var(--pa-card); display: grid; gap: 6px; margin: 4px 0 8px; }
-#pa-root .pa-verdict p { margin: 0; }
-/* 2.5.0 结论一行（右边 ⓘ）、数字一条、说明点开 */
+/* 2.5.0 有问题时：标题一行不加框，待核对的每一项各自一个框，排在标题下面 */
+#pa-root .pa-verdict-head { margin: 6px 2px 8px; }
+#pa-root .pa-verdict-head .pa-verdict-top b { font-size: 1.05em; }
+#pa-root .pa-verdict-head > .pa-whynote { margin-top: 6px; }
+#pa-root .pa-dead-list { margin-bottom: 10px; }
+/* 2.5.0 结论一行（右边 ⓘ），说明点开 */
 #pa-root .pa-verdict-top { display: flex; align-items: flex-start; gap: 6px; }
-#pa-root .pa-verdict-top > p { flex: 1 1 auto; min-width: 0; }
-#pa-root .pa-verdict-top > .pa-why { flex: none; margin: -4px -6px 0 0; }
+#pa-root .pa-verdict-top > p { flex: 1 1 auto; min-width: 0; margin: 0; }
+/* 2.5.5 ⓘ：20px，和标题那一行居中；右边缘对齐下面卡片里的原因胶囊（卡片内边距减去标题区的 2px，再减图标自带的 1px 留白） */
+#pa-root .pa-verdict-top > .pa-why { flex: none; align-self: flex-start; height: calc(1.05em * 1.45); padding: 0; margin: 0 9px 0 0; font-size: inherit; }
+#pa-root .pa-verdict-top > .pa-why svg.pa-info { width: 20px; height: 20px; }
+@media (max-width: 599px) { #pa-root .pa-verdict-top > .pa-why { margin-right: 7px; } }
 #pa-root .pa-why.on { color: var(--pa-text); background: var(--pa-sel); border-radius: 8px; }
-#pa-root .pa-verdict .pa-cot-sum { margin: 2px 0 0; background: transparent; }
-#pa-root .pa-verdict > .pa-whynote { margin: 0; }
 #pa-root .pa-verdict-sub { display: block; margin-top: 2px; color: var(--pa-dim); font-size: .84em; font-weight: 400; }
-#pa-root .pa-verdict .pa-cards { margin-top: 2px; }
-#pa-root .pa-verdict .pa-dead { background: var(--pa-card-2); }
 /* 没有问题时只是一行，不加框 */
 #pa-root .pa-verdict-line { margin: 4px 2px 8px; color: var(--pa-dim); }
 #pa-root .pa-verdict-line.pa-good .pa-verdict-top > p::before { content: "✓ "; color: var(--pa-ok); }
 #pa-root .pa-verdict-line .pa-verdict-top > p { margin: 0; }
 #pa-root .pa-verdict-line > .pa-whynote { margin-top: 4px; }
-#pa-root .pa-verdict.pa-good { border-left-color: var(--pa-ok); }
-#pa-root .pa-verdict.pa-bad { border-left-color: var(--pa-warn); }
 #pa-root .pa-legend { display: grid; gap: 4px; margin: 6px 0 0; padding: 0; list-style: none; font-size: .88em; }
 #pa-root .pa-legend li { display: flex; gap: 8px; align-items: baseline; }
 #pa-root .pa-legend .pa-lv { flex: none; }
@@ -566,7 +577,13 @@ html.pa-open body { overflow: hidden; }
 #pa-root[data-theme="dusk"]     { --pa-tint:#fbf1e6; --pa-text:#1f4a55; --pa-thread:#026d81; --pa-em:#3f6670; --pa-line:#ead9cc; --pa-input-bg:rgba(255,255,255,.76); --pa-warn:#c4503f; --pa-ok:#3f7d5c; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.42); --pa-card-2:rgba(255,255,255,.64); --pa-sel:rgba(2,109,129,.14); }
 #pa-root[data-theme="bud"]      { --pa-tint:#f5f2ee; --pa-text:#2f423d; --pa-thread:#4f6c66; --pa-em:#4f625d; --pa-line:#dcd8d0; --pa-input-bg:rgba(255,255,255,.52); --pa-warn:#b8533f; --pa-ok:#3f7a5c; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.30); --pa-card-2:rgba(255,255,255,.48); --pa-sel:rgba(101,127,120,.15); --pa-shadow:rgba(101,127,120,.40); }
 #pa-root[data-theme="colony"]   { --pa-tint:#eff3f4; --pa-text:#303f47; --pa-thread:#536b78; --pa-em:#4f5f67; --pa-line:#d4dde0; --pa-input-bg:rgba(255,255,255,.52); --pa-warn:#ad5d48; --pa-ok:#46765d; --pa-on-accent:#fff; --pa-card:rgba(255,255,255,.30); --pa-card-2:rgba(255,255,255,.48); --pa-sel:rgba(102,125,135,.15); --pa-shadow:rgba(102,125,135,.40); }
-#pa-root[data-theme="night"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; }
+#pa-root[data-theme="night"]    { --pa-tint:#262a30; --pa-text:#e4e1dc; --pa-thread:#a9bfae; --pa-em:#c3c7c0; --pa-line:#41474f; --pa-input-bg:#1e2126; --pa-warn:#e09a82; --pa-ok:#9fc8a8; --pa-on-accent:#1f2421; --pa-card:rgba(255,255,255,.03); --pa-card-2:rgba(255,255,255,.05); --pa-sel:rgba(169,191,174,.10); }
+/* 2.5.0 夜雾的卡片、选中底色固定成很淡的一层：原来按正文色混出来，几层叠起来太亮，字色为了对比度全被推成白色，分不出层次 */
+/* 2.5.7 「跟随酒馆主题」遇到深色的酒馆主题也一样：卡片按正文色混出来，叠起来太亮，次要文字、强调色都被推成接近白色 */
+#pa-root[data-theme="follow"].pa-dark:not(.pa-has-bg) { --pa-card: rgba(255, 255, 255, .03); --pa-card-2: rgba(255, 255, 255, .05); --pa-sel: rgba(255, 255, 255, .07); }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+    #pa-root[data-theme="follow"].pa-dark:not(.pa-has-bg) { --pa-sel: color-mix(in srgb, var(--pa-thread) 10%, transparent); }
+}
 #pa-root[data-theme]:not([data-theme="follow"]):not([data-theme="night"]) .pa-sheet-mask { background: rgba(60, 60, 70, .28); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -587,7 +604,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; margin: 0; }
 #pa-root .pa-kv dt { color: var(--pa-dim); }
 #pa-root .pa-kv dd { margin: 0; font-variant-numeric: tabular-nums; }
-#pa-root .pa-kv dd small, #pa-root .pa-verdict small.pa-dim { display: block; color: var(--pa-dim); font-size: .84em; }
+#pa-root .pa-kv dd small { display: block; color: var(--pa-dim); font-size: .84em; }
 #pa-root .pa-rtable { display: grid; grid-template-columns: minmax(0, 1.6fr) auto auto auto minmax(0, 1fr); gap: 6px 10px; font-size: .88em; align-items: start; margin-bottom: 4px; }
 #pa-root .pa-rt-head, #pa-root .pa-rt-row { display: contents; }
 #pa-root .pa-rt-head span { color: var(--pa-dim); font-size: .92em; border-bottom: 1px solid var(--pa-line); padding-bottom: 3px; }
@@ -700,9 +717,13 @@ html.pa-open body { overflow: hidden; }
 /* 1.3.9 自定义背景图：图片上盖一层主题底色 */
 #pa-root.pa-has-bg .pa-shell { background: linear-gradient(var(--pa-bg-veil), var(--pa-bg-veil)), var(--pa-bg-img) center / cover no-repeat; }
 #pa-root.pa-has-bg .pa-shell::before { background: none; }
-#pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }
-#pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }
-#pa-root.pa-has-bg { --pa-card: color-mix(in srgb, var(--pa-tint) 58%, transparent); --pa-card-2: color-mix(in srgb, var(--pa-tint) 78%, transparent); }
+/* 2.5.7 color-mix 要 iOS 16.2：更早的系统先用不透明底色，顶栏、卡片不会变透明 */
+#pa-root.pa-has-bg .pa-top, #pa-root.pa-has-bg .pa-tabs { background: var(--pa-tint); background: color-mix(in srgb, var(--pa-tint) 55%, transparent); }
+#pa-root.pa-has-bg :is(.pa-selbar, .pa-movebar, .pa-stitchbar) { background: var(--pa-tint); background: color-mix(in srgb, var(--pa-tint) 82%, transparent); }
+#pa-root.pa-has-bg { --pa-card: var(--pa-tint); --pa-card-2: var(--pa-tint); }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+    #pa-root.pa-has-bg { --pa-card: color-mix(in srgb, var(--pa-tint) 58%, transparent); --pa-card-2: color-mix(in srgb, var(--pa-tint) 78%, transparent); }
+}
 #pa-root .pa-bgpanel input[type=range] { flex: 1 1 auto; accent-color: var(--pa-thread); }
 #pa-root .pa-bgpanel em { font-style: normal; color: var(--pa-dim); min-width: 3em; text-align: right; font-variant-numeric: tabular-nums; }
 
@@ -1009,7 +1030,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-crow-arch { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
 #pa-root .pa-crow-btns { grid-column: 1 / -1; display: flex; gap: 6px; justify-content: flex-end; }
 #pa-root .pa-ctag-same { border-color: var(--pa-warn); color: var(--pa-warn); }
-#pa-root .pa-ctag-old, #pa-root .pa-ctag-series { border-color: color-mix(in srgb, var(--pa-warn) 60%, var(--pa-line)); color: color-mix(in srgb, var(--pa-warn) 75%, var(--pa-text)); }
+#pa-root .pa-ctag-old, #pa-root .pa-ctag-series { border-color: var(--pa-warn); color: var(--pa-warn); border-color: color-mix(in srgb, var(--pa-warn) 60%, var(--pa-line)); color: color-mix(in srgb, var(--pa-warn) 75%, var(--pa-text)); }
 #pa-root .pa-ctag-near { border-style: dashed; }
 #pa-root .pa-ctag-use { border-color: var(--pa-thread); color: var(--pa-thread); }
 #pa-root .pa-clean-help { margin: 14px 2px 4px; font-size: .92em; }
@@ -1046,7 +1067,6 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-item-body { padding: 0 8px 10px; gap: 6px; }
     #pa-root .pa-chip { font-size: .72em; padding: 0 6px; }
     #pa-root .pa-crow { padding: 7px 8px; gap: 4px 8px; }
-    #pa-root .pa-verdict { padding: 8px 10px; }
 }
 
 /* 1.6.0 搬到新版、缝进世界书 */
@@ -1289,7 +1309,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sheet-body pre, #pa-root .pa-sheet-body code { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* 搜索：匹配的文字标出来；只在正文里出现的，名称下面显示出处 */
-#pa-root mark { background: color-mix(in srgb, var(--pa-thread) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+#pa-root mark { background: rgba(240, 190, 60, .35); background: color-mix(in srgb, var(--pa-thread) 28%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 #pa-root .pa-qsum { font-size: .82em; color: var(--pa-dim); padding: 2px 6px 6px; }
 #pa-root .pa-qsum b { color: var(--pa-text); }
 #pa-root .pa-qsum .pa-link { padding: 0 2px; font-size: 1em; }
@@ -1305,9 +1325,18 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-item-head .pa-badges { max-width: none; flex-wrap: wrap; }
 
 /* 思维链页：没发出去的内容，一行摘要，点开看原因和操作 */
-#pa-root .pa-dead > summary { align-items: center; }
-#pa-root .pa-dead-main { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-dead > summary { align-items: center; flex-wrap: nowrap; }
+#pa-root .pa-dead-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
+#pa-root .pa-dead-name, #pa-root .pa-dead-var { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#pa-root .pa-dead-name { font-weight: 600; }
+#pa-root .pa-card .pa-dead-var { color: var(--pa-dim); font-size: .84em; }
 #pa-root .pa-dead .pa-chip { flex: none; max-width: none; }
+/* 2.5.0 一行只留一个状态标记：框用普通实线，警告只靠胶囊（主题警告色相的浅底、警告色字） */
+#pa-root .pa-card-warn.pa-dead { border-color: var(--pa-line); border-style: solid; }
+@supports (background: color-mix(in srgb, red 10%, transparent)) {
+    #pa-root .pa-dead .pa-chip-warn { background: color-mix(in srgb, var(--pa-warn-hue, var(--pa-warn)) 16%, transparent); border-color: transparent; }
+    #pa-root.pa-dark .pa-dead .pa-chip-warn { background: color-mix(in srgb, var(--pa-warn-hue, var(--pa-warn)) 32%, transparent); }
+}
 #pa-root .pa-dead > p { margin: 8px 0 0; }
 
 /* 方案卡片：自动套用的绑定写成一行 */
@@ -1343,6 +1372,8 @@ html.pa-open body { overflow: hidden; }
 #pa-settings .pa-set-card .pa-set-row + .pa-set-row, #pa-settings .pa-set-card .pa-set-optrow { border-top: 1px dashed var(--SmartThemeBorderColor, rgba(127,127,127,.3)); padding-top: 2px; }
 #pa-settings .pa-set-card .pa-set-status { margin: 4px 0; }
 #pa-settings .pa-set-optrow .pa-set-check { flex: 1 1 auto; }
+#pa-settings .pa-set-entry { display: flex; align-items: center; gap: 10px; }
+#pa-settings .pa-set-entry select { width: auto; min-width: 8em; margin: 0; }
 #pa-settings .pa-set-why { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: .78em; cursor: pointer; opacity: .6; border: 1px solid currentColor; }
 #pa-settings .pa-set-whynote { margin: 0 0 6px; }
 #pa-settings .pa-set-fold > summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; min-height: 38px; }
@@ -1421,6 +1452,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-ballrow, #pa-root .pa-hrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 2px 8px; }
 #pa-root .pa-ballrow .pa-h, #pa-root .pa-hrow .pa-h { margin: 0; }
 #pa-root .pa-hrow + .pa-whynote { margin: -2px 2px 8px; }
+/* 2.5.8 配色标题右边的「跟随系统」：文字和开关整块可点，开关用面板里统一的那种 */
+#pa-root .pa-hswitch { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: .9em; color: var(--pa-text); cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+#pa-root .pa-hrow + .pa-look-note { display: block; margin: -4px 2px 10px; font-size: .78em; }
 /* 2.3.6 作者名：小字、浅色 */
 #pa-root .pa-by { flex: none; font-size: .68em; font-weight: 400; color: var(--pa-dim); opacity: .75; align-self: flex-end; margin-bottom: .15em; }
 #pa-settings .pa-set-by { margin-left: 8px; font-size: .8em; opacity: .5; }
@@ -1491,3 +1525,4 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 :where(#pa-root.pa-glass) :is(.pa-group, .pa-card) { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), inset 0 1px 0 rgba(255, 255, 255, .85); }
 #pa-root.pa-glass .pa-card { border-color: transparent; }
 #pa-root.pa-glass :is(.pa-input, .pa-select, .pa-model-btn) { border-color: rgba(255, 255, 255, .7); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8); }
+#pa-root.pa-glass { --pa-key-bc: rgba(255, 255, 255, .7); --pa-key-sh: inset 0 1px 0 rgba(255, 255, 255, .8); }

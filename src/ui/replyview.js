@@ -34,11 +34,11 @@ async function replyFormatDialog(name) {
   const body = el(`<div class="pa-form">
     <div class="pa-whyrow"><p class="pa-hint">当前预设「${esc(name)}」</p>${whyBtn("preset")}</div>
     ${whyNote("preset", "每个预设分别设置。标签名须与预设的输出格式一致。")}
-    <label class="pa-field"><span>正文标签名（不填尖括号）${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40"></label>
+    <label class="pa-field"><span>正文标签名（不填尖括号）${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
     ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
-    <label class="pa-field"><span>额外必需标签（可选，逗号分隔）${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要"></label>
+    <label class="pa-field"><span>额外必需标签（可选，逗号分隔）${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small></label>
     ${guess?.suggest.length ? whyNote("required", `显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入这里。`) : ""}
-    <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40"></label>
+    <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
     ${!saved.thinkingTag && thinkingDefault ? whyNote("thinking", `已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。`) : ""}
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
     <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>${whyBtn("autofix")}</div>
@@ -49,6 +49,7 @@ async function replyFormatDialog(name) {
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
       <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
+      <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;lxs_status&gt; 写成 &lt;状态栏&gt;）时，当作写错了名字：提醒写明改回来，不再让写错的块照常输出；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
       <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断，免得把思考里的步骤搬出来。上次只搬出正文、块还留在思考区末尾的，也会照前几条回复放回原位。</li></ul></details>
     <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
     <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
@@ -73,6 +74,30 @@ async function replyFormatDialog(name) {
     return value;
   };
   const result = body.querySelector('[data-r="result"]');
+  // 2.5.1 标签填错时，报错写在那个输入框下面并滚过去；改动时清掉，离开输入框时重新检查
+  const fieldError = (key, message) => {
+    const box = body.querySelector(`[data-err="${key}"]`);
+    const input = body.querySelector(`[data-r="${key}"]`);
+    if (!box || !input) return false;
+    box.textContent = message || "";
+    box.hidden = !message;
+    if (message) input.setAttribute("aria-invalid", "true");
+    else input.removeAttribute("aria-invalid");
+    return true;
+  };
+  const showError = (e, target = result) => {
+    if (fieldError(e.field, e.message)) {
+      const input = body.querySelector(`[data-r="${e.field}"]`);
+      input.scrollIntoView({ block: "center" });
+      input.focus({ preventScroll: true });
+    } else target.innerHTML = `<p class="pa-warn">${esc(e.message)}</p>`;
+  };
+  body.addEventListener("input", (e) => { if (e.target.dataset?.r) fieldError(e.target.dataset.r, ""); });
+  body.addEventListener("change", (e) => {
+    const key = e.target.dataset?.r;
+    if (!["body", "required", "thinking"].includes(key)) return;
+    try { read(); } catch (err) { if (err.field === key) fieldError(key, err.message); }
+  });
   let pending = null, undo = null;
   const check = (mode) => {
     const config = read();
@@ -86,9 +111,10 @@ async function replyFormatDialog(name) {
     }
     const chat = ctx().chat;
     const layout = replyLayoutLazy(chat, latest ? latest.index : Array.isArray(chat) ? chat.length : 0, config);
-    const report = checkReplyFormat(text, config, { reasoning, layout });
+    const knownTags = replyKnownTagsLazy(name, config.requiredTags);
+    const report = checkReplyFormat(text, config, { reasoning, layout, knownTags });
     const reminder = buildReplyReminder(report, config);
-    const plan = report.issues.length ? planReplyFix(text, config, { reasoning, layout }) : null;
+    const plan = report.issues.length ? planReplyFix(text, config, { reasoning, layout, knownTags }) : null;
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
     const left = plan ? plan.after.issues : [];
     const fix = plan ? `<div class="pa-card"><div class="pa-whyrow"><b>可修正的标签</b>${whyBtn("fixhow")}</div>${whyNote("fixhow", "只移动文字、补写标签，不增删文字。")}<ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
@@ -128,7 +154,7 @@ async function replyFormatDialog(name) {
         return;
       }
       check(button.dataset.r);
-    } catch (e) { result.innerHTML = `<p class="pa-warn">${esc(e.message)}</p>`; }
+    } catch (e) { showError(e); }
   });
   const semanticResult = body.querySelector('[data-r="semantic-result"]');
   const showSemantic = (report) => {
@@ -156,7 +182,7 @@ async function replyFormatDialog(name) {
     body.querySelector('[data-r="ai-cancel"]').hidden = false;
     semanticResult.innerHTML = '<p class="pa-hint">正在请求当前模型审查…</p>';
     try { showSemantic(await reviewReplySemantics(text, { signal: reviewCancel.signal, identity, rules: read() })); }
-    catch (error) { semanticResult.innerHTML = `<p class="pa-warn">${esc(error.message)}</p>`; }
+    catch (error) { showError(error, semanticResult); }
     finally {
       reviewCancel = null; buttons.forEach((b) => b.disabled = !semanticAvailable);
       body.querySelector('[data-r="ai-cancel"]').hidden = true;
@@ -164,7 +190,7 @@ async function replyFormatDialog(name) {
   });
   const value = await sheet({ title: "正文格式检查", body, wide: true, noFocus: true, onMount: (wrap) => wrap.addEventListener("pa-closed", () => reviewCancel?.abort()), actions: [
     { label: "取消", value: null },
-    { label: "保存设置", kind: "primary", validate: () => { try { read(); return true; } catch (e) { result.innerHTML = `<p class="pa-warn">${esc(e.message)}</p>`; return false; } }, value: read }
+    { label: "保存设置", kind: "primary", validate: () => { try { read(); return true; } catch (e) { showError(e); return false; } }, value: read }
   ] });
   if (!value) return;
   settings().replyGuard = { ...settings().replyGuard, [name]: value };

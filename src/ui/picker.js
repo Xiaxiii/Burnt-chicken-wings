@@ -9,7 +9,7 @@
 // extra：搜索框旁边的一个按钮（例如「取消归属」），点了就返回它的 value
 async function pickName({ title, items, current = null, search, extra = null } = {}) {
   const useSearch = search ?? true;
-  const q0 = useSearch ? '<input class="pa-input pa-npick-q" type="search" placeholder="搜索" autocapitalize="off" autocomplete="off">' : "";
+  const q0 = useSearch ? '<input class="pa-input pa-npick-q" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索" autocapitalize="off" autocomplete="off">' : "";
   const ex = extra ? `<button class="pa-btn pa-btn-s pa-npick-extra${extra.value === current ? " on" : ""}" type="button" data-v="${esc(extra.value)}">${esc(extra.label)}</button>` : "";
   const body = el(`<div class="pa-npick">${ex ? `<div class="pa-npick-top">${q0}${ex}</div>` : q0}<div class="pa-npick-list" role="listbox"></div></div>`);
   const q = body.querySelector(".pa-npick-q");
@@ -20,7 +20,7 @@ async function pickName({ title, items, current = null, search, extra = null } =
     const hits = items.filter((it) => !k || String(it.label ?? it.value).toLowerCase().includes(k) || String(it.sub || "").toLowerCase().includes(k));
     box.innerHTML = hits.map((it) => `<button class="pa-npick-item${it.value === current ? " on" : ""}" data-v="${esc(it.value)}" role="option" aria-selected="${it.value === current}"><span>${esc(it.label ?? it.value)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">没有匹配的</p>';
   };
-  q?.addEventListener("input", paint);
+  onSearchInput(q, () => paint(), items.length > 150 ? 120 : 0);
   paint();
   // 2.5.0 几个固定选项（不带搜索）贴着按钮弹出；带搜索的长列表固定高度，只滚列表
   const anchor = recentAnchor();

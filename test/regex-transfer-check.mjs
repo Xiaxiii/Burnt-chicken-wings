@@ -186,6 +186,8 @@ try {
     assert.equal(await d.locator('img,script,iframe').count(), 0, '展开替换内容也只显示文本');
     assert.equal(await page.evaluate(() => window.__regexPwn || 0), 0);
     await d.locator('[data-rx-search]').fill('同名状态栏');
+    // 搜索停一下才筛（2.5.7），等结果出来再数
+    await page.waitForFunction(() => [...document.querySelectorAll('[data-rx-index]')].filter((x) => x.offsetParent !== null).length === 1, null, { timeout: 3000 });
     assert.equal(await d.locator('[data-rx-index]:visible').count(), 1);
     await d.locator('[data-rx-search]').fill('');
     equal(await stored(page), target, '纯预览不改目标');

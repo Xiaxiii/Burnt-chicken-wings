@@ -364,6 +364,25 @@ function setLocalKey(siteId, key) {
     return false;
   }
 }
+// 2.5.0 存进酒馆密钥库的密钥，在这个浏览器里另留一份，眼睛按钮看全文时用：
+// 酒馆默认不把已保存的密钥发回浏览器（config.yaml 的 allowKeysExposure）。和上面一样只存在本浏览器，不进设置文件
+function keyCopyName(secretId) {
+  return `presetAtelier:keycopy:${userHandle()}:${secretId}`;
+}
+function getKeyCopy(secretId) {
+  try {
+    return secretId ? localStorage.getItem(keyCopyName(secretId)) : null;
+  } catch {
+    return null;
+  }
+}
+function setKeyCopy(secretId, key) {
+  if (!secretId) return;
+  try {
+    if (key) localStorage.setItem(keyCopyName(secretId), key);
+    else localStorage.removeItem(keyCopyName(secretId));
+  } catch {}
+}
 // 以前存进设置文件的明文密钥，挪到本浏览器里并从设置文件删掉
 function migrateLegacyKeys(sites) {
   let moved = 0;
@@ -389,6 +408,7 @@ async function storeKey(source, key, label) {
   const prevActive = Array.isArray(before) ? before.find((x) => x.active)?.id || null : null;
   const id = await mods.secrets.writeSecret(secretKey, key, label);
   if (typeof id !== "string" || !id) throw new Error("酒馆没有保存这个密钥，请检查网络或酒馆后台");
+  setKeyCopy(id, key);
   if (prevActive && prevActive !== id) await activateSecret(secretKey, prevActive);
   return id;
 }
@@ -402,6 +422,7 @@ async function activateSecret(secretKey, id) {
 }
 // 删掉一把密钥（添加站点时取消了，刚存进去的密钥不留在密钥库里）
 async function dropKey(source, id) {
+  setKeyCopy(id, null);
   const secretKey = SOURCES[source]?.secret;
   if (!secretKey || !id || typeof mods.secrets?.deleteSecret !== "function") return;
   try {
@@ -410,15 +431,20 @@ async function dropKey(source, id) {
     console.warn("[焦香鸡翅] 删除密钥失败", e);
   }
 }
-// 2.5.0 取出已保存密钥的全文。酒馆要在 config.yaml 打开 allowKeysExposure 才给。
+// 2.5.0 取出已保存密钥的全文：先用本浏览器留的那份；没有再问酒馆，酒馆要在 config.yaml 打开 allowKeysExposure 才给。
 // 返回 { value } 拿到了；{ blocked: true } 酒馆不让看；{} 其他原因没拿到
 async function revealSecret(source, id) {
   const secretKey = SOURCES[source]?.secret;
   if (!secretKey || !id) return {};
+  const copy = getKeyCopy(id);
+  if (copy) return { value: copy };
   if (typeof mods.secrets?.findSecret === "function") {
     try {
       const v = await mods.secrets.findSecret(secretKey, id);
-      if (typeof v === "string" && v) return { value: v };
+      if (typeof v === "string" && v) {
+        setKeyCopy(id, v);
+        return { value: v };
+      }
     } catch {}
   }
   // 旧版没有 findSecret，或者它吞掉了原因：直接问酒馆后台，看是不是被拒绝
@@ -431,7 +457,10 @@ async function revealSecret(source, id) {
     });
     if (r.ok) {
       const d = await r.json().catch(() => ({}));
-      if (typeof d?.value === "string" && d.value) return { value: d.value };
+      if (typeof d?.value === "string" && d.value) {
+        setKeyCopy(id, d.value);
+        return { value: d.value };
+      }
       return {};
     }
     return { blocked: r.status === 403 || r.status === 401 };
@@ -440,8 +469,26 @@ async function revealSecret(source, id) {
   }
 }
 async function readSecretState() {
-  await mods.secrets?.readSecretState?.();
-  return mods.secrets?.secret_state || {};
+  const fresh = typeof mods.secrets?.readSecretState === "function";
+  if (fresh) await mods.secrets.readSecretState();
+  const state = mods.secrets?.secret_state || {};
+  // 没有重新读取的接口时 secret_state 可能是旧缓存，刚存的密钥不在里面，不能拿它来清留底
+  if (fresh) pruneKeyCopies(state);
+  return state;
+}
+// 2.5.7 酒馆密钥库里已经删掉的密钥，本浏览器的留底也删掉，明文不一直留着。
+// 只在读到了密钥库（至少一类有密钥）时才清，读取失败、还没加载时不动
+function pruneKeyCopies(state) {
+  try {
+    const lists = Object.values(state || {}).filter(Array.isArray);
+    if (!lists.some((l) => l.length)) return;
+    const alive = new Set(lists.flat().map((x) => x?.id).filter(Boolean));
+    const prefix = `presetAtelier:keycopy:${userHandle()}:`;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(prefix) && !alive.has(k.slice(prefix.length))) localStorage.removeItem(k);
+    }
+  } catch {}
 }
 function setSelect(sel, value) {
   const el2 = $(sel);
@@ -470,6 +517,7 @@ async function applyConnection(site, { connect = true } = {}) {
     } else if (getLocalKey(site)) {
       const id = await mods.secrets.writeSecret(src.secret, getLocalKey(site), site.name);
       if (typeof id !== "string" || !id) throw new Error("酒馆没有保存这个密钥");
+      setKeyCopy(id, getLocalKey(site));
       // 记下新编号：不记的话，每次连接都会往密钥库里再存一把同样的密钥
       site.secretId = id;
       ctx().saveSettingsDebounced();

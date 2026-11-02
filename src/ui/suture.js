@@ -532,14 +532,13 @@ function mountSuture(page, app) {
     side === "src" ? renderSrc() : renderDst();
   }
   function searchBox(side) {
-    const body = el(`<div class="pa-ssearch"><input class="pa-input pa-ss-q" type="search" placeholder="搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off" enterkeyhint="search">
+    const body = el(`<div class="pa-ssearch"><input class="pa-input pa-ss-q" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off">
         <p class="pa-hint">边打边在${side === "src" ? "「从」" : "「到」"}的列表里筛出来。搜的词会一直留着，列表上方点「✕ 清除」恢复全部。</p></div>`);
     const q = body.querySelector(".pa-ss-q");
     q.value = qOf(side);
     return sheet({ title: side === "src" ? "搜索来源条目" : "搜索目标条目", body, focusInput: true, actions: [{ label: "清空", value: "clear" }, { label: "完成", kind: "primary", value: "ok" }], onMount: (w) => {
-      let t = null;
-      q.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => setQuery(side, q.value.trim()), 120); });
-      q.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); w.querySelector(".pa-sheet-actions .pa-btn-primary")?.click(); } });
+      onSearchInput(q, () => setQuery(side, q.value.trim()));
+      q.addEventListener("keydown", (e) => { if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); w.querySelector(".pa-sheet-actions .pa-btn-primary")?.click(); } });
       w.addEventListener("pa-closed", () => saveSettings());
     } }).then((r) => {
       if (r === "clear") setQuery(side, "");

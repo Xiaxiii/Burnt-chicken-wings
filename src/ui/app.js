@@ -277,6 +277,7 @@ function addMenuEntry() {
     }
   });
   menu.append(item);
+  applyMenuEntry();
   // 别的扩展加载有先有后，有的晚于本扩展才往魔棒菜单里加，本项的位置就会跟着变。始终把它挪回最下面
   const keepLast = new MutationObserver(() => {
     if (item.isConnected && item.parentElement === menu && menu.lastElementChild !== item) menu.append(item);
@@ -358,12 +359,12 @@ function addSettingsEntry() {
           </div>
           <div class="pa-set-note pa-set-whynote" hidden>在页面顶部往下拖时，浏览器会刷新整个酒馆（iPhone、iPad 的 Safari 最常见，安卓 Chrome 也会）。开启后阻止这种刷新；浏览器的刷新按钮照常可用。</div>
           <div class="pa-set-row pa-set-optrow">
-            <label class="checkbox_label pa-set-check"><input type="checkbox" data-opt="floatBall" ${settings().floatBall === true ? "checked" : ""}><span>显示悬浮球</span></label>
+            <label class="pa-set-check pa-set-entry"><span>入口</span><select class="text_pole" data-opt="entry">${ENTRY_MODES.map(([k, l]) => `<option value="${k}" ${k === entryMode() ? "selected" : ""}>${l}</option>`).join("")}</select></label>
           </div>
         </div>
         <div class="pa-set-maint"></div>
         ${log.length ? `<details class="pa-set-log pa-set-fold"><summary><span class="pa-set-fold-t">更新说明</span><small class="pa-set-sum">${esc(log[0].head)}</small></summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
-        <div class="pa-set-foot">打开方式：点上方按钮，或从魔棒菜单打开，或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
+        <div class="pa-set-foot">打开方式：点上方按钮，或用选好的入口（魔棒菜单、悬浮球），或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>
   </div>`);
@@ -394,7 +395,7 @@ function addSettingsEntry() {
         <div class="menu_button menu_button_icon pa-set-mini" data-a="rename-cancel" tabindex="0" role="button"><i class="fa-solid fa-xmark"></i><span>取消</span></div>`;
       const input = row.querySelector("input");
       input.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter") { ev.preventDefault(); act("rename-ok", null); }
+        if (ev.key === "Enter" && !imeEnter(ev)) { ev.preventDefault(); act("rename-ok", null); }
         if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); act("rename-cancel", null); }
       });
       input.focus();
@@ -451,7 +452,7 @@ function addSettingsEntry() {
   box.addEventListener("click", handler);
   box.addEventListener("keydown", handler);
   box.addEventListener("change", (e) => {
-    if (e.target.closest("[data-opt=floatBall]")) return setFloatBall(e.target.checked);
+    if (e.target.closest("[data-opt=entry]")) return setEntryMode(e.target.value);
     const t = e.target.closest("[data-opt=noPullRefresh]");
     if (!t) return;
     settings().noPullRefresh = t.checked;
@@ -474,12 +475,29 @@ function applyPullGuard() {
 }
 // 2.3.5 悬浮球：点一下打开，按住拖动换位置，松手贴到左右边。默认关闭，扩展页设置框和「更多 → 外观」里开关
 var BALL = 44, BALL_GAP = 8;
-function setFloatBall(on) {
-  settings().floatBall = on;
+// 2.5.4 入口自选：魔棒菜单、悬浮球、两个都要。不提供都不要；扩展页的「打开」按钮和 /atelier 一直能用。
+// 以前开了悬浮球的（floatBall），魔棒菜单也一直在，算「两个都要」
+var ENTRY_MODES = [["wand", "魔棒菜单"], ["ball", "悬浮球"], ["both", "两个都要"]];
+function entryMode() {
+  const s = settings();
+  if (ENTRY_MODES.some(([k]) => k === s.entry)) return s.entry;
+  return s.floatBall === true ? "both" : "wand";
+}
+function setEntryMode(mode) {
+  if (!ENTRY_MODES.some(([k]) => k === mode)) return;
+  settings().entry = mode;
+  settings().floatBall = mode !== "wand";
   saveSettings();
   applyFloatBall();
-  const box = document.querySelector("#pa-settings [data-opt=floatBall]");
-  if (box) box.checked = on;
+  applyMenuEntry();
+  const sel = document.querySelector("#pa-settings [data-opt=entry]");
+  if (sel) sel.value = mode;
+  document.querySelectorAll("#pa-root [data-entry]").forEach((b) => b.classList.toggle("on", b.dataset.entry === mode));
+}
+// 魔棒菜单项用 display 藏：酒馆给菜单项的 flex 样式会盖过 hidden 属性
+function applyMenuEntry() {
+  const item = document.getElementById("pa-menu-entry");
+  if (item) item.style.display = entryMode() === "ball" ? "none" : "";
 }
 // 位置按可移动范围的比例存，换横竖屏、改窗口大小后仍在同一侧
 function placeBall(ball) {
@@ -490,7 +508,7 @@ function placeBall(ball) {
 }
 function applyFloatBall() {
   let ball = document.getElementById("pa-ball");
-  if (settings().floatBall !== true) return ball?.remove();
+  if (entryMode() === "wand") return ball?.remove();
   if (ball) return placeBall(ball);
   ball = el(`<button id="pa-ball" type="button" aria-label="打开${esc(appName())}" title="${esc(appName())}"><i class="fa-solid fa-scissors"></i></button>`);
   let start = null, moved = false, frame = 0, dx = 0, dy = 0;

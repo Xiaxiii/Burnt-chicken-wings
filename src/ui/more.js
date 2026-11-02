@@ -18,7 +18,7 @@ function mountMore(page, app) {
     })(),
     look: (() => {
       const box = sec("look");
-      box.innerHTML = `<div class="pa-scroll"><div class="pa-ballrow"><h3 class="pa-h">悬浮球</h3><label class="pa-switch" title="显示悬浮球"><input type="checkbox" data-o="floatball" aria-label="显示悬浮球"><i></i></label></div><h3 class="pa-h">配色</h3><div class="pa-look"></div><h3 class="pa-h">文字大小</h3><div class="pa-fsslot"></div><div class="pa-hrow"><h3 class="pa-h">背景图</h3><button class="pa-why" data-bgwhy type="button" aria-label="说明" aria-expanded="false" title="说明">${INFO_ICON}</button></div><div class="pa-whynote" hidden>图片只保存在本浏览器，不上传。遮罩越高，文字越清楚。</div><div class="pa-bgslot"></div></div>`;
+      box.innerHTML = `<div class="pa-scroll"><h3 class="pa-h">入口</h3><div class="pa-entryslot"></div><div class="pa-look"></div><h3 class="pa-h">文字大小</h3><div class="pa-fsslot"></div><div class="pa-hrow"><h3 class="pa-h">背景图</h3><button class="pa-why" data-bgwhy type="button" aria-label="说明" aria-expanded="false" title="说明">${INFO_ICON}</button></div><div class="pa-whynote" hidden>图片只保存在本浏览器，不上传。遮罩越高，文字越清楚。</div><div class="pa-bgslot"></div></div>`;
       const slot = box.querySelector(".pa-look");
       const bgSlot = box.querySelector(".pa-bgslot");
       const fsSlot = box.querySelector(".pa-fsslot");
@@ -30,10 +30,11 @@ function mountMore(page, app) {
         note.hidden = !note.hidden;
         bgWhy.setAttribute("aria-expanded", String(!note.hidden));
       });
-      const ballBox = box.querySelector("[data-o=floatball]");
-      ballBox.addEventListener("change", () => setFloatBall(ballBox.checked));
+      // 2.5.4 入口三选一，和「文字大小」一样的分段按钮
+      const entrySlot = box.querySelector(".pa-entryslot");
+      entrySlot.addEventListener("click", (e) => { const b = e.target.closest("[data-entry]"); if (b) setEntryMode(b.dataset.entry); });
       const render = () => {
-        ballBox.checked = settings().floatBall === true;
+        entrySlot.innerHTML = `<div class="pa-seg pa-seg-s" role="group" aria-label="打开焦香鸡翅的入口">${ENTRY_MODES.map(([k, l]) => `<button type="button" data-entry="${k}" class="${k === entryMode() ? "on" : ""}">${l}</button>`).join("")}</div>`;
         fsSlot.innerHTML = fontSizeSeg();
         slot.innerHTML = themeCards();
         bgSlot.innerHTML = bgPanel();

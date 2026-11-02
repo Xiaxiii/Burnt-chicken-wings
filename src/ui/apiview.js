@@ -37,6 +37,9 @@ function familyGroups(models) {
   }
   return [...map].sort((a, b) => FAMILY_ORDER.indexOf(a[0]) - FAMILY_ORDER.indexOf(b[0])).map(([name, list]) => ({ name, list }));
 }
+// 2.5.7 密钥框仍用密码框（键盘不记、读屏不念）。有的扩展或主题按「密码框」改样式（方角、白底），盖过焦香鸡翅的：
+// 外观写在元素自己的 style 上并加 !important，任何样式表都盖不过；颜色取配色变量，毛玻璃配色另给边框和内阴影
+const KEY_INPUT_STYLE = "-webkit-appearance:none!important;appearance:none!important;border-radius:8px!important;background-color:var(--pa-input-bg)!important;background-image:none!important;border:1px solid var(--pa-key-bc,var(--pa-line))!important;box-shadow:var(--pa-key-sh,none)!important;margin:0!important";
 // 分段标题（按分类、按分组共用）
 const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
@@ -68,7 +71,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   let editing = null;
   const sel = new Set();
   const body = el(`<div class="pa-mpick">${viewSeg(views)}
-      <div class="pa-msearch"><input class="pa-input" type="search" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
+      <div class="pa-msearch"><input class="pa-input" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
       <div class="pa-mseltools" hidden><span class="pa-selcnt"></span><button type="button" class="pa-link pa-selall"></button><button type="button" class="pa-link pa-selnone">清空</button><span class="pa-selacts"></span>
         <div class="pa-newcat" hidden><input class="pa-input" placeholder="分类名，如 Gemini 逆向、0.07/次" maxlength="60" aria-label="新分类名"><button type="button" class="pa-swpill pa-edit-pill" data-act="newcancel">取消</button><button type="button" class="pa-swpill" data-act="newok">确定</button></div></div>
       <div class="pa-mpick-list" role="listbox"></div></div>`);
@@ -173,11 +176,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     if (!site.modelCats) site.modelCats = [];
     saveSettings();
   };
-  let typing = null;
-  input.addEventListener("input", () => {
-    clearTimeout(typing);
-    typing = setTimeout(paint, all.length > 150 ? 120 : 0);
-  });
+  onSearchInput(input, () => paint(), all.length > 150 ? 120 : 0);
   paint();
   // 列表长时窗口固定高度，只滚列表，搜索框和工具条一直在上面
   await sheet({ title: `${title}（${all.length}）`, body, noFocus: true, cls: `pa-sheet-picker${all.length > 10 ? " pa-sheet-tall" : ""}`, actions: [], onMount: (w) => {
@@ -224,7 +223,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       paint();
     };
     newInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); makeCat(); }
+      if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); makeCat(); }
       if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); newBox.hidden = true; }
     });
     body.querySelector(".pa-mseltools").addEventListener("click", async (e) => {
@@ -656,7 +655,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         const cnt = (k.models || []).length ? `<span class="pa-key-cnt" title="拉取到的模型">✓ ${k.models.length}</span>` : "";
         return `<div class="pa-keyrow" data-k="${esc(k.id)}">
             ${many ? `<span class="pa-key-grip" aria-hidden="true" title="拖动调顺序，排在上面的优先">⋮⋮</span><input class="pa-input pa-key-name" data-f="keyname" value="${esc(k.name)}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
-            <input class="pa-input pa-key-val" data-f="key" type="${shown.has(k.id) ? "text" : "password"}" autocomplete="off" placeholder="${esc(shown.has(k.id) && revealed.get(k.id) || ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || "")}">
+            <input class="pa-input pa-key-val" data-f="key" type="${shown.has(k.id) ? "text" : "password"}" style="${KEY_INPUT_STYLE}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(shown.has(k.id) && revealed.get(k.id) || ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || "")}">
             <button class="pa-icon-btn pa-key-eye${shown.has(k.id) ? " on" : ""}" data-f="keyeye" type="button" aria-pressed="${shown.has(k.id)}" aria-label="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}" title="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}">${ICON.eye}</button>
             ${cnt}${many ? `<button class="pa-icon-btn pa-key-del" data-f="keydel" type="button" aria-label="删除这个密钥" title="删除这个密钥">✕</button>` : ""}
           </div>${keyNote.has(k.id) ? `<p class="pa-hint pa-key-note">${esc(keyNote.get(k.id))}</p>` : ""}`;
@@ -739,7 +738,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           setModel(w, readModel(w));
           keysBox.querySelector(".pa-keyrow:last-of-type [data-f=key]")?.focus();
         });
-        // 眼睛：显示、隐藏密钥。刚填的直接看；已保存的，酒馆允许时取出来放在提示文字里看
+        // 眼睛：显示、隐藏密钥。刚填的直接看；已保存的，用本浏览器留的那份，没有再问酒馆
         keysBox.addEventListener("click", async (e) => {
           const eye = e.target.closest("[data-f=keyeye]");
           if (!eye) return;
@@ -756,7 +755,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
               if (got.value) revealed.set(id, got.value);
               else {
                 shown.delete(id);
-                keyNote.set(id, got.blocked ? "酒馆不让看已保存的密钥。要看：在酒馆的 config.yaml 里把 allowKeysExposure 改成 true，重启酒馆。" : k.secretId ? "没取到这个密钥（可能已从酒馆密钥库删除），重新粘贴一次就行。" : "这个密钥只存在这个浏览器里，看不了全文；要确认就重新粘贴一次。");
+                keyNote.set(id, got.blocked ? "这把密钥是更新前或在别的浏览器里存的，这里没留底。重新粘贴一次保存，以后就能看；或在酒馆的 config.yaml 里把 allowKeysExposure 改成 true，重启酒馆。" : k.secretId ? "没取到这个密钥，可能已从酒馆密钥库删除。重新粘贴一次就行。" : "这个密钥只存在这个浏览器里，看不了全文；要确认就重新粘贴一次。");
               }
             }
           }

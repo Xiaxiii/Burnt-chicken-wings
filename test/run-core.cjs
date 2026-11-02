@@ -557,3 +557,4 @@ require("./performance-list.cjs");
 
 require("./regex-core.cjs");
 require("./regex-host.cjs");
+require("./compat-floor.cjs");

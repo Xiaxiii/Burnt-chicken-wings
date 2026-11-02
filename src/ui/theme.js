@@ -4,7 +4,6 @@
 // 自定义背景图存在本浏览器的 IndexedDB，不写进酒馆设置文件，不影响酒馆加载速度。
 var THEMES = [
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
-  { id: "system", name: "跟随手机系统", sub: "系统深色时用夜雾，浅色时用原来的配色", dots: ["#f4efe6", "#a9bfae", "#262a30"], auto: true },
   { id: "bean", fg: "#45343f", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
   { id: "mist", fg: "#2f3a46", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
   { id: "oat", fg: "#4a3438", name: "秋樱", sub: "粉色花海", dots: ["#f4dcd9", "#b5566a", "#a9b48c"], paint: true },
@@ -90,9 +89,15 @@ function watchTheme(root) {
   // 不观察条目、聊天内容或整个 DOM 子树；宿主换主题时只合并处理一次。
   const observer = new MutationObserver(refresh);
   for (const node of [document.documentElement, document.body]) observer.observe(node, { attributes: true, attributeFilter: ["class", "style"] });
+  // 2.5.8 Safari 13 及更早只有 addListener
   const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-  media?.addEventListener?.("change", refresh);
-  const stop = () => { observer.disconnect(); cancelAnimationFrame(frame); media?.removeEventListener?.("change", refresh); };
+  if (media?.addEventListener) media.addEventListener("change", refresh);
+  else media?.addListener?.(refresh);
+  const stop = () => {
+    observer.disconnect(); cancelAnimationFrame(frame);
+    if (media?.removeEventListener) media.removeEventListener("change", refresh);
+    else media?.removeListener?.(refresh);
+  };
   themeWatcher = { root, stop };
   // 扩展/脚本重载走应用现有销毁流程，释放旧面板和媒体监听。
   if (typeof cleanups !== "undefined") cleanups.push(stop);
@@ -135,16 +140,26 @@ function guardRules() {
   if (typeof cleanups !== "undefined") cleanups.push(() => style.remove());
 }
 var bgUrl = null;
-// 2.3.7 「跟随手机系统」：系统深色用夜雾，浅色用切换前的配色（themeLight，默认跟随酒馆主题）。
-// 系统切换时由 watchTheme 里的 prefers-color-scheme 监听重新上色。
-function effectiveTheme() {
+// 2.5.8 「跟随系统」是配色标题右边的开关（followSystem），不再是一张配色卡：
+// 开着时系统深色用夜雾，浅色用选中的配色。系统切换时由 watchTheme 里的 prefers-color-scheme 监听重新上色。
+// 2.3.7～2.5.7 存的是 theme: "system"，浅色配色记在 themeLight，这里换成新写法。
+function themePrefs() {
+  const s = settings();
   const valid = (id) => THEMES.some((t) => t.id === id);
+  if (s.theme === "system") {
+    s.followSystem = true;
+    s.theme = valid(s.themeLight) && s.themeLight !== "night" ? s.themeLight : "follow";
+    delete s.themeLight;
+  }
   // 1.4.0 去掉了薰衣草、海盐，2.3.8 去掉了春芽，选过的回到默认
-  const id = valid(settings().theme) ? settings().theme : "follow";
-  if (id !== "system") return id;
-  if (window.matchMedia?.("(prefers-color-scheme: dark)").matches) return "night";
-  const light = settings().themeLight;
-  return valid(light) && light !== "system" && light !== "night" ? light : "follow";
+  return { theme: valid(s.theme) ? s.theme : "follow", followSystem: s.followSystem === true };
+}
+function systemDark() {
+  return !!window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+}
+function effectiveTheme() {
+  const { theme, followSystem } = themePrefs();
+  return followSystem && systemDark() ? "night" : theme;
 }
 function applyTheme(root) {
   if (!root) return;
@@ -165,7 +180,7 @@ function applyTheme(root) {
   const signature = JSON.stringify([id, ...(id === "follow" ? hostColors : [])]);
   if (root._paThemeSignature === signature) return applyBackground(root);
   root._paThemeSignature = signature;
-  for (const key of ["text", "dim", "em", "thread", "on-accent", "control-border", "checkmark", "warn", "ok"]) root.style.removeProperty(`--pa-${key}`);
+  for (const key of ["text", "dim", "em", "thread", "on-accent", "control-border", "checkmark", "warn", "warn-hue", "ok"]) root.style.removeProperty(`--pa-${key}`);
   if (id !== "follow") {
     root.style.removeProperty("--pa-tint");
     root.style.removeProperty("--pa-input-bg");
@@ -178,7 +193,10 @@ function applyTheme(root) {
   const cs = getComputedStyle(root);
   const color = (key, fallback) => readColor(cs.getPropertyValue(`--pa-${key}`).trim()) || fallback;
   const base = color("tint", { r: 28, g: 26, b: 30 });
+  // 2.5.7 深色底：样式表据此把「跟随酒馆主题」的卡片、选中底色换成固定的淡层（见 style.css 的 .pa-dark），要在下面算表面颜色之前设好
+  root.classList.toggle("pa-dark", themeLuminance(base) <= .179);
   const requestedText = color("text", { r: 230, g: 225, b: 216 }), requestedAccent = color("thread", { r: 224, g: 162, b: 74 });
+  const requestedWarn = color("warn", { r: 224, g: 120, b: 74 });
   const surfaceColors = () => {
     const layer = Object.fromEntries(["card", "card-2", "input-bg", "sel"].map(key => [key, color(key, { ...base, a: 0 })]));
     const panels = [base, themeMix(layer.card, base), themeMix(layer["card-2"], base), themeMix(layer["card-2"], themeMix(layer.card, base))];
@@ -206,9 +224,11 @@ function applyTheme(root) {
     dim: readableThemeColor(themeMix(text, base, .68), surfaces, 4.5),
     em: readableThemeColor(color("em", text), surfaces, 4.5),
     "control-border": readableThemeColor(themeMix(text, base, .6), surfaces, 3),
-    warn: readableThemeColor(color("warn", { r: 224, g: 120, b: 74 }), surfaces, 4.5),
+    warn: readableThemeColor(requestedWarn, surfaces, 4.5),
     ok: readableThemeColor(color("ok", { r: 111, g: 179, b: 138 }), surfaces, 4.5)
   })) root.style.setProperty(`--pa-${key}`, themeRgb(value));
+  // 2.5.0 警告色为了字够清楚会被调亮、调暗（深色主题里接近白色），浅色底用主题原本的色相
+  root.style.setProperty("--pa-warn-hue", themeRgb(requestedWarn));
   root.style.setProperty("--pa-on-accent", ink);
   root.style.setProperty("--pa-checkmark", `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='${ink.replace("#", "%23")}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`);
   root.style.colorScheme = themeLuminance(base) > .179 ? "light" : "dark";
@@ -293,10 +313,13 @@ function trimBorders(bmp) {
   return { x, y, w: Math.min(bmp.width - x, Math.ceil((right - left + 1) * s)), h: Math.min(bmp.height - y, Math.ceil((bottom - top + 1) * s)) };
 }
 function themeCards() {
-  const cur = settings().theme || "follow";
-  return `<div class="pa-themes">${THEMES.map((t) => {
+  const { theme: cur, followSystem } = themePrefs();
+  const head = `<div class="pa-hrow"><h3 class="pa-h">配色</h3>
+      <label class="pa-hswitch"><span>跟随系统</span><span class="pa-switch"><input type="checkbox" data-follow-system ${followSystem ? "checked" : ""}><i></i></span></label></div>
+    ${followSystem ? '<small class="pa-dim pa-look-note">系统是深色时用夜雾，浅色时用选中的配色</small>' : ""}`;
+  return `${head}<div class="pa-themes">${THEMES.map((t) => {
     const dots = t.dots || ["var(--SmartThemeBlurTintColor, #333)", "var(--SmartThemeQuoteColor, #e0a24a)", "var(--SmartThemeBodyColor, #ddd)"];
-    const style = t.auto ? "" : t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]};border-color:${t.dots[1]}55` : "";
+    const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]};border-color:${t.dots[1]}55` : "";
     return `<button class="pa-theme${t.paint ? ` pa-paint-${t.id}` : ""}" data-theme-id="${t.id}" aria-pressed="${t.id === cur}" title="${esc(t.sub)}" style="${style}">
         <span class="pa-theme-dots">${dots.map((c2) => `<i style="background:${c2}"></i>`).join("")}</span>
         <b>${esc(t.name)}</b></button>`;
@@ -306,12 +329,22 @@ function bindThemeCards(box, after) {
   box.addEventListener("click", (e) => {
     const b = e.target.closest("[data-theme-id]");
     if (!b) return;
-    const prev = settings().theme;
-    if (b.dataset.themeId === "system" && prev && prev !== "system" && prev !== "night") settings().themeLight = prev;
+    themePrefs();
     settings().theme = b.dataset.themeId;
     saveSettings();
     applyTheme(document.getElementById("pa-root"));
     box.querySelectorAll("[data-theme-id]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    after?.();
+  });
+  box.addEventListener("change", (e) => {
+    const t = e.target.closest("[data-follow-system]");
+    if (!t) return;
+    themePrefs();
+    settings().followSystem = t.checked;
+    saveSettings();
+    applyTheme(document.getElementById("pa-root"));
+    box.innerHTML = themeCards();
+    box.querySelector("[data-follow-system]")?.focus({ preventScroll: true });
     after?.();
   });
 }

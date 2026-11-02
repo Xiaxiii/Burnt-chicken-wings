@@ -82,10 +82,10 @@ try {
   await page.fill('[data-r=sample]', '<分析区>内部文字</分析区><正文>故事正文</正文><摘要>概述</摘要><状态>晴</状态>');
   await page.click('[data-r=paste]');
   assert.match(await page.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
-  await page.fill('[data-r=body]', '<非法标签>');
+  await page.fill('[data-r=body]', '<1非法>');
   await page.locator('.pa-sheet-actions .pa-btn-primary').click();
   assert.equal(await page.locator('.pa-sheet [data-r=body]').count(), 1);
-  assert.match(await page.locator('[data-r=result]').innerText(), /标签名/);
+  assert.match(await page.locator('.pa-sheet [data-err=body]').innerText(), /标签名/, '报错写在正文标签框下面');
   assert.deepEqual(await settings(page), {});
   await page.fill('[data-r=body]', '正文');
   await page.check('[data-r=enabled]');
