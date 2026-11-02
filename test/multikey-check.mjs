@@ -167,8 +167,11 @@ try {
   const row1 = () => page.locator(".pa-sheet .pa-keyrow").first();
   const kbox = row1().locator("[data-f=key]");
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
-  assert.equal(await kbox.getAttribute("placeholder"), kept, "有留底时不问酒馆，直接显示");
-  assert.equal(await kbox.inputValue(), "", "看到的密钥不填进框里，保存时不会再存一遍");
+  assert.equal(await kbox.inputValue(), kept, "有留底时不问酒馆，直接填进框里");
+  // 2.5.15 看到的密钥能复制
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: "http://127.0.0.1:8765" });
+  await row1().locator("[data-f=keycopy]").click(); await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), kept, "点复制，剪贴板里是密钥全文");
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(100);
   // 没有留底（更新前存的）：关掉重开编辑窗口，酒馆拒绝时说明，允许时显示并留底
   await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("presetAtelier:keycopy:")) localStorage.removeItem(k); });
@@ -178,10 +181,10 @@ try {
   assert.match(await page.locator(".pa-sheet .pa-key-note").textContent(), /重新粘贴一次[\s\S]*allowKeysExposure/);
   reveal = { status: 200, json: { value: "sk-aaaaaaaaaaaa" } };
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
-  assert.equal(await kbox.getAttribute("placeholder"), "sk-aaaaaaaaaaaa");
+  assert.equal(await kbox.inputValue(), "sk-aaaaaaaaaaaa");
   assert.equal(await copyOf(firstSid), "sk-aaaaaaaaaaaa", "酒馆给了全文后也留一份");
-  assert.equal(await kbox.inputValue(), "");
-  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click();
+  // 框里显示着没改的密钥，保存时不再存一遍
+  const vaultBefore = await vault();
   const grips = page.locator(".pa-sheet .pa-key-grip");
   const g2 = await grips.nth(1).boundingBox();
   const g1 = await grips.nth(0).boundingBox();
@@ -191,6 +194,7 @@ try {
   assert.deepEqual(await page.locator(".pa-sheet [data-f=keyname]").evaluateAll((x) => x.map((y) => y.value)), ["按量", "按次"], "拖动后按量排到上面");
   await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
   assert.deepEqual((await S()).sites[0].keys.map((k) => k.name), ["按量", "按次"]);
+  assert.equal(await vault(), vaultBefore, "显示着的密钥没改，保存时密钥库不变");
   // 换回原顺序，后面的检查照旧
   await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].keys.reverse());
   ok("拖动调顺序");

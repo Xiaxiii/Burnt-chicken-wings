@@ -742,7 +742,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       keysBox.querySelectorAll(".pa-keyrow").forEach((row) => {
         const k = ks.find((x) => x.id === row.dataset.k);
         if (!k) return;
-        typed.set(k.id, row.querySelector("[data-f=key]").value.trim());
+        // 2.5.15 框里是看到的已存密钥（没改）时，不算新填的，保存时不再存一遍
+        const v = row.querySelector("[data-f=key]").value.trim();
+        if (v && v === revealed.get(k.id)) typed.delete(k.id);
+        else typed.set(k.id, v);
         const n = row.querySelector("[data-f=keyname]");
         if (n) k.name = n.value.trim();
       });
@@ -755,8 +758,9 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         const cnt = (k.models || []).length ? `<span class="pa-key-cnt" title="拉取到的模型">✓ ${k.models.length}</span>` : "";
         return `<div class="pa-keyrow" data-k="${esc(k.id)}">
             ${many ? `<span class="pa-key-grip" aria-hidden="true" title="拖动调顺序，排在上面的优先">⋮⋮</span><input class="pa-input pa-key-name" data-f="keyname" value="${esc(k.name)}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
-            <input class="pa-input pa-key-val" data-f="key" type="${shown.has(k.id) ? "text" : "password"}" style="${KEY_INPUT_STYLE}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(shown.has(k.id) && revealed.get(k.id) || ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || "")}">
+            <input class="pa-input pa-key-val" data-f="key" type="${shown.has(k.id) ? "text" : "password"}" style="${KEY_INPUT_STYLE}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || shown.has(k.id) && revealed.get(k.id) || "")}">
             <button class="pa-icon-btn pa-key-eye${shown.has(k.id) ? " on" : ""}" data-f="keyeye" type="button" aria-pressed="${shown.has(k.id)}" aria-label="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}" title="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}">${ICON.eye}</button>
+            ${shown.has(k.id) && (typed.get(k.id) || revealed.get(k.id)) ? `<button class="pa-icon-btn pa-key-copy" data-f="keycopy" type="button" aria-label="复制密钥" title="复制密钥">${ICON.copy}</button>` : ""}
             ${cnt}${many ? `<button class="pa-icon-btn pa-key-del" data-f="keydel" type="button" aria-label="删除这个密钥" title="删除这个密钥">✕</button>` : ""}
           </div>${keyNote.has(k.id) ? `<p class="pa-hint pa-key-note">${esc(keyNote.get(k.id))}</p>` : ""}`;
       }).join("");
@@ -860,6 +864,15 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             }
           }
           paintKeys();
+        });
+        keysBox.addEventListener("click", async (e) => {
+          const b = e.target.closest("[data-f=keycopy]");
+          if (!b) return;
+          const input = b.closest(".pa-keyrow").querySelector("[data-f=key]");
+          const text = input.value.trim();
+          if (!text) return;
+          const ok = await copyText(text, input);
+          toast(ok ? "已复制" : "复制失败，长按框里的密钥手动复制", ok ? "success" : "warning");
         });
         keysBox.addEventListener("click", (e) => {
           if (!e.target.closest("[data-f=keydel]")) return;

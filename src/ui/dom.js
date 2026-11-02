@@ -43,6 +43,27 @@ function el(html) {
 // 外面那一层只清掉别人加的底色、边框、内外边距（类名也不再带 search）
 var FIELD_STYLE = "-webkit-appearance:none!important;appearance:none!important;border-radius:8px!important;background-color:var(--pa-input-bg)!important;background-image:none!important;border:1px solid var(--pa-key-bc,var(--pa-line))!important;box-shadow:var(--pa-key-sh,none)!important;margin:0!important";
 var BOX_STYLE = "background:transparent!important;background-image:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0!important";
+// 2.5.15 复制文字。http 打开的酒馆（不是 https）里浏览器不给 navigator.clipboard，退回选中再复制；
+// 传了输入框就选中框里的字，复制不了时选区还在，可以长按手动复制
+async function copyText(text, input = null) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return true; } catch {}
+  }
+  const box = input || Object.assign(document.createElement("textarea"), { value: text });
+  if (!input) {
+    box.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;";
+    (rootEl || document.body).append(box);
+  }
+  let ok = false;
+  try {
+    box.focus({ preventScroll: true });
+    box.select();
+    box.setSelectionRange(0, box.value.length);
+    ok = document.execCommand("copy");
+  } catch {}
+  if (!input) box.remove();
+  return ok;
+}
 function sheet(opt) {
   return new Promise((resolve) => {
     // place：省略时手机上从底部升起、电脑上居中（大窗口）；"center" 屏幕中间偏上的小卡片；"pop" 贴着 anchor 弹出的菜单

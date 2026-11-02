@@ -851,7 +851,8 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-key-eye { width: 30px; height: 30px; }
 #pa-root .pa-key-note { margin: -2px 0 2px; color: var(--pa-warn); font-size: .82em; }
 #pa-root .pa-key-eye.on { color: var(--pa-text); background: var(--pa-sel); }
-#pa-root .pa-key-eye svg { width: 17px; height: 17px; }
+#pa-root .pa-key-eye svg, #pa-root .pa-key-copy svg { width: 17px; height: 17px; }
+#pa-root .pa-key-copy { width: 30px; height: 30px; }
 /* 选择模型窗口固定高度时，顶上的切换、搜索框、多选工具条不被压扁 */
 #pa-root .pa-sheet-picker .pa-mpick > :not(.pa-mpick-list), #pa-root .pa-sheet-picker .pa-npick > :not(.pa-npick-list) { flex: none; }
 #pa-root .pa-kview { align-self: start; }
