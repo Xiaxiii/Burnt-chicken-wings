@@ -78,7 +78,7 @@ try {
 
   // 5) 不是 JSON、没有站点
   await importFile("bad.json", "not json");
-  assert.match((await toasts()).join("|"), /error:读不了这个文件/);
+  assert.match((await toasts()).join("|"), /error:不是 JSON 文件/);
   await importFile("empty.json", JSON.stringify({ hello: "world" }));
   assert.match((await toasts()).join("|"), /没找到站点/);
   ok("坏文件、没有站点的文件给出提示");

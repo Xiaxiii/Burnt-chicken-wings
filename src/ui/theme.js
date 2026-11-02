@@ -316,7 +316,7 @@ function themeCards() {
   const { theme: cur, followSystem } = themePrefs();
   const head = `<div class="pa-hrow"><h3 class="pa-h">配色</h3>
       <label class="pa-hswitch"><span>跟随系统</span><span class="pa-switch"><input type="checkbox" data-follow-system ${followSystem ? "checked" : ""}><i></i></span></label></div>
-    ${followSystem ? '<small class="pa-dim pa-look-note">系统是深色时用夜雾，浅色时用选中的配色</small>' : ""}`;
+    ${followSystem ? '<small class="pa-dim pa-look-note">深色用夜雾，浅色用选中的配色</small>' : ""}`;
   return `${head}<div class="pa-themes">${THEMES.map((t) => {
     const dots = t.dots || ["var(--SmartThemeBlurTintColor, #333)", "var(--SmartThemeQuoteColor, #e0a24a)", "var(--SmartThemeBodyColor, #ddd)"];
     const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]};border-color:${t.dots[1]}55` : "";

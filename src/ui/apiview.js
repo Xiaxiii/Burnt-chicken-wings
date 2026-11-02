@@ -619,7 +619,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           <label class="pa-btn pa-btn-s pa-head-btn pa-file" title="从 JSON 文件导入站点和密钥">导入<input type="file" accept=".json,application/json,text/plain" data-import-sites hidden></label>
           ${sites().length ? '<button class="pa-btn pa-btn-s pa-head-btn" data-a="exportsites" type="button" title="把站点和密钥存成 JSON 文件">导出</button>' : ""}
           <button class="pa-btn pa-btn-s pa-head-btn" data-a="new" type="button">＋ 添加站点</button></div></div>
-        ${sites().length ? `${whyNote("sites", "点站点名查看、编辑完整信息，删除也在里面。「导出」把站点和密钥存成 JSON 文件，换设备、重装后点「导入」就不用重填。")}${sites().map(siteRow).join("")}` : '<p class="pa-empty">暂无站点。点「＋ 添加站点」，或点上方「未保存为站点」保存当前连接；有导出过的站点文件就点「导入」。</p>'}`;
+        ${sites().length ? `${whyNote("sites", "点站点名编辑或删除。导出的文件可在重装、换设备后导入。")}${sites().map(siteRow).join("")}` : '<p class="pa-empty">暂无站点。可添加、导入，或保存上方的当前连接。</p>'}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
@@ -1026,8 +1026,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const list = sites();
     if (!list.length) return toast("还没有站点");
     const how = await pickBox("导出站点", [
-      { label: "含密钥", sub: "导入后不用重填。文件里的密钥是明文，别发给别人", value: "keys" },
-      { label: "不含密钥", sub: "只有名称、网址、模型和备注", value: "bare" }
+      { label: "含密钥", sub: "密钥为明文", value: "keys" },
+      { label: "不含密钥", sub: "仅名称、网址、模型、备注", value: "bare" }
     ], { anchor: btn });
     if (!how) return;
     let missing = 0;
@@ -1049,7 +1049,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const d = new Date(), two = (n) => String(n).padStart(2, "0");
     const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
     downloadBlob(new Blob([JSON.stringify({ format: SITE_FILE_FORMAT, version: 1, exported: d.toISOString(), sites: out }, null, 2)], { type: "application/json" }), `api-sites-${stamp}.json`);
-    toast(missing ? `已导出 ${out.length} 个站点。${missing} 个密钥在这个浏览器里看不到全文（更新前或在别处存的），没写进文件，导入后要重填` : `已导出 ${out.length} 个站点${how === "keys" ? "（含密钥）" : ""}`, missing ? "warning" : "success");
+    toast(missing ? `已导出 ${out.length} 个站点；${missing} 个密钥读不到，未写入` : `已导出 ${out.length} 个站点${how === "keys" ? "（含密钥）" : ""}`, missing ? "warning" : "success");
   }
   // 同名、同网址的站点算同一个：更新它，不再新增
   const normUrl = (u) => String(u || "").trim().replace(/\/+$/, "").toLowerCase();
@@ -1059,9 +1059,9 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     try {
       found = parseSiteFile(await file.text());
     } catch {
-      return toast("读不了这个文件：不是 JSON 格式", "error");
+      return toast("不是 JSON 文件", "error");
     }
-    if (!found.length) return toast("文件里没找到站点：每个站点要有 http 开头的网址", "warning");
+    if (!found.length) return toast("没找到站点（需有 http 开头的网址）", "warning");
     const plan = found.map((f) => ({ f, old: sameSite(f) }));
     const host = (u) => { try { return new URL(u).host; } catch { return u; } };
     const rows = plan.map(({ f, old }) => {
@@ -1073,7 +1073,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const ok = await sheet({
       title: `导入 ${plan.length} 个站点`,
       place: "center",
-      body: `<div class="pa-imp-list">${rows}</div>${updates ? '<p class="pa-hint">「更新」：已有同名、同网址的站点，文件里有密钥就换成文件里的，模型列表也换成文件里的。</p>' : ""}`,
+      body: `<div class="pa-imp-list">${rows}</div>${updates ? '<p class="pa-hint">更新：同名同网址的站点，密钥和模型列表以文件为准。</p>' : ""}`,
       actions: [{ label: "取消", value: false }, { label: "导入", kind: "primary", value: true }]
     });
     if (!ok) return;
@@ -1090,8 +1090,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     saveSettings();
     render();
     const done = [added && `新增 ${added} 个`, updated && `更新 ${updated} 个`].filter(Boolean).join("，");
-    if (failed.length) toast(`${done ? done + "；" : ""}没导入：${failed.join("；")}`, "error");
-    else toast(`站点已导入：${done}`, "success");
+    if (failed.length) toast(`${done ? done + "；" : ""}未导入：${failed.join("；")}`, "error");
+    else toast(`已导入：${done}`, "success");
   }
   async function saveImported(f, old) {
     const s = old || { id: uid(), name: f.name, source: f.source, url: f.url, note: f.note };
