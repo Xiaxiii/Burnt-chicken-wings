@@ -190,16 +190,41 @@ function listWorldbooks() {
 }
 async function readWorldbook(name) {
   const data = await mods.wi.loadWorldInfo(name);
-  const entries = Object.values(data?.entries || {});
+  return worldItems(`wi:${name}`, Object.values(data?.entries || {}));
+}
+// 2.6.1 世界书条目 → 缝合来源。角色卡内嵌的世界书（keys、enabled、insertion_order）先换成酒馆世界书的写法
+function worldEntryOf(e, i) {
+  if (!e || typeof e !== "object" || typeof e.content !== "string") return null;
+  if (Array.isArray(e.key)) return structuredClone(e);
+  const ext = e.extensions || {};
+  const out = {
+    uid: Number.isFinite(Number(e.uid ?? e.id)) ? Number(e.uid ?? e.id) : i,
+    key: Array.isArray(e.keys) ? [...e.keys] : [],
+    keysecondary: Array.isArray(e.secondary_keys) ? [...e.secondary_keys] : [],
+    comment: String(e.comment || e.name || ""),
+    content: e.content,
+    constant: !!e.constant,
+    selective: e.selective ?? true,
+    disable: e.disable != null ? !!e.disable : e.enabled === false,
+    order: Number(e.order ?? e.insertion_order ?? 100) || 100
+  };
+  for (const k of ["position", "depth", "role", "probability"]) {
+    const v = typeof e[k] === "number" ? e[k] : ext[k];
+    if (typeof v === "number") out[k] = v;
+  }
+  return out;
+}
+function worldItems(prefix, list) {
+  const entries = (list || []).map(worldEntryOf).filter(Boolean);
   entries.sort((a, b) => (a.displayIndex ?? a.order ?? 0) - (b.displayIndex ?? b.order ?? 0));
   return entries.map((e) => ({
-    id: `wi:${name}:${e.uid}`,
+    id: `${prefix}:${e.uid}`,
     uid: e.uid,
     name: e.comment || (Array.isArray(e.key) ? e.key.join(",") : "") || `条目${e.uid}`,
     content: e.content || "",
     enabled: !e.disable,
     // 1.6.0：缝进世界书时整条复制设置；缝进预设时提醒关键词触发
-    raw: structuredClone(e)
+    raw: e
   }));
 }
 // 1.6.0 世界书作为缝合目标
@@ -534,6 +559,10 @@ async function applyConnection(site, { connect = true } = {}) {
     } else {
       setSelect(src.model, site.model);
     }
+  } else if (site.source === "custom") {
+    // 2.6.1 站点没记模型、上一个站点的模型也不在这个站点的列表里：清空，连上后酒馆从新站点的列表里选第一个
+    const cur = String($("#custom_model_id").val() || "");
+    if (cur && !(site.models || []).includes(cur)) $("#custom_model_id").val("").trigger("input");
   }
   if (connect) {
     $("#api_button_openai").trigger("click");

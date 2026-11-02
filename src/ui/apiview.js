@@ -51,7 +51,8 @@ const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kv
 async function modelPicker({ site = null, keys = null, list = [], cur = "", curKey = null, title = "选择模型" }) {
   const multi = Array.isArray(keys) && keys.length > 1;
   const kname = (k) => keyName(site, k);
-  const all = multi ? [...new Set(keys.flatMap((k) => k.models || []))] : [...new Set([cur, ...list].filter(Boolean))];
+  // 2.6.1 当前模型不在这个站点的列表里时不混进列表（换站点后上一个站点的模型）；列表为空时才列出当前模型
+  const all = multi ? [...new Set(keys.flatMap((k) => k.models || []))] : [...new Set((list.length ? list : [cur]).filter(Boolean))];
   const allSet = new Set(all);
   const ownersOf = new Map(all.map((m) => [m, []]));
   if (multi) for (const k of keys) for (const m of new Set(k.models || [])) ownersOf.get(m).push(k);
@@ -74,6 +75,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       <div class="pa-mfind" style="${BOX_STYLE}"><input class="pa-input" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索，或输入模型名称" autocapitalize="off" autocomplete="off">${site ? '<button type="button" class="pa-swpill pa-edit-pill pa-selbtn">多选</button>' : ""}</div>
       <div class="pa-mseltools" hidden><span class="pa-selcnt"></span><button type="button" class="pa-link pa-selall"></button><button type="button" class="pa-link pa-selnone">清空</button><span class="pa-selacts"></span>
         <div class="pa-newcat" hidden><input class="pa-input" placeholder="分类名，如 Gemini 逆向、0.07/次" maxlength="60" aria-label="新分类名"><button type="button" class="pa-swpill pa-edit-pill" data-act="newcancel">取消</button><button type="button" class="pa-swpill" data-act="newok">确定</button></div></div>
+      ${!multi && cur && list.length && !allSet.has(cur) ? `<p class="pa-hint pa-mcur-miss">当前模型「${esc(cur)}」不在此站点的列表中</p>` : ""}
       <div class="pa-mpick-list" style="${LIST_STYLE}" role="listbox"></div></div>`);
   const input = body.querySelector("input");
   const box = body.querySelector(".pa-mpick-list");

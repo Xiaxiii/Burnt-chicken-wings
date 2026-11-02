@@ -50,6 +50,9 @@ function mountSuture(page, app) {
     srcPreset: null,
     srcWorld: null,
     fileDraft: null,
+    // 2.6.1 文件来源的种类：preset / world / regex；world 时条目在 fileWorld
+    fileKind: null,
+    fileWorld: null,
     picked: /* @__PURE__ */ new Map(),
     // key -> {name, content, prompt, from}
     srcCollapsedMap: /* @__PURE__ */ new Map(),
@@ -72,7 +75,6 @@ function mountSuture(page, app) {
                 <button class="pa-typebtn" data-st="srctype" type="button" aria-label="来源类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-src-pick"></div>
                 <button class="pa-icon-btn pa-qbtn" data-st="srcsearch" aria-label="搜索来源条目" title="搜索条目">${ICON.search}</button>
-                <button class="pa-btn pa-btn-s" data-st="regex" type="button" title="缝制来源预设中的正则">正则</button>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
             <div class="pa-scroll pa-src-list"></div>
@@ -149,20 +151,24 @@ function mountSuture(page, app) {
     settings().sutureSplit = applySplit((settings().sutureSplit ?? 45) + k);
     saveSettings();
   });
-  // 来源类型：预设 / 世界书 / 文件 / 粘贴
-  const SRC_TYPES = [["preset", "预设"], ["world", "世界书"], ["file", "文件"], ["paste", "粘贴"]];
+  // 来源类型：预设 / 世界书 / 文件 / 粘贴。2.6.1 菜单里多一项「正则」：打开缝合正则窗口，来源类型不变
+  const SRC_TYPES = [["preset", "预设"], ["regex", "正则"], ["world", "世界书"], ["file", "文件"], ["paste", "粘贴"]];
+  // 正则文件读入后，来源栏显示正则条数和打开按钮
+  const regexSource = () => st.srcType === "file" && st.fileKind === "regex";
   function paintSrcHead() {
     page.querySelector('[data-st="srctype"] span').textContent = SRC_TYPES.find(([k]) => k === st.srcType)[1];
   }
   async function setSrcType(type) {
+    if (type === "regex") return regexSuture({ ask: true });
     if (!type || type === st.srcType) return;
     st.srcType = type;
     renderSrcPick();
     renderSrc();
+    renderBar();
   }
   function renderSrcPick() {
     paintSrcHead();
-    page.querySelector('[data-st="srcsearch"]').hidden = st.srcType === "paste";
+    page.querySelector('[data-st="srcsearch"]').hidden = st.srcType === "paste" || regexSource();
     if (st.srcType === "preset") {
       const names = listPresets();
       if (!st.srcPreset || !names.includes(st.srcPreset)) st.srcPreset = names.find((n) => n !== focusPreset()) || names[0];
@@ -172,7 +178,7 @@ function mountSuture(page, app) {
       if (!st.srcWorld || !names.includes(st.srcWorld)) st.srcWorld = names[0] || null;
       srcPick.innerHTML = names.length ? nameBtnHtml(st.srcWorld, "pa-src-name") : '<span class="pa-hint">没有世界书</span>';
     } else if (st.srcType === "file") {
-      srcPick.innerHTML = `<label class="pa-namebtn pa-file" title="${esc(st.fileDraft?.name || "")}"><span>${esc(st.fileDraft ? st.fileDraft.name : "选择预设文件…")}</span><i aria-hidden="true">${ICON.folder}</i><input type="file" accept=".json,application/json" hidden></label>`;
+      srcPick.innerHTML = `<label class="pa-namebtn pa-file" title="${esc(fileName() || "")}"><span>${esc(fileName() || "选择文件…")}</span><i aria-hidden="true">${ICON.folder}</i><input type="file" accept=".json,application/json,text/plain" hidden></label>`;
     } else {
       srcPick.innerHTML = '<span class="pa-hint pa-src-paste">粘贴一段文字</span>';
     }
@@ -197,20 +203,75 @@ function mountSuture(page, app) {
     if (e.target.matches("input[type=file]")) {
       const f = e.target.files[0];
       if (!f) return;
+      e.target.value = "";
       try {
-        const data = JSON.parse(await f.text());
-        if (!Array.isArray(data.prompts)) throw new Error("不是聊天补全预设（缺少 prompts）");
-        st.fileDraft = new Draft(f.name.replace(/\.json$/i, ""), data);
+        const data = JSON.parse((await f.text()).replace(/^\uFEFF/, ""));
+        const name = f.name.replace(/\.json$/i, "");
+        const got = readSourceFile(name, data);
+        Object.assign(st, got);
         renderSrcPick();
         renderSrc();
+        renderBar();
+        if (st.fileKind === "regex") regexSuture();
       } catch (err) {
         toast("无法读取文件：" + err.message, "error");
       }
     }
   });
+  // 2.6.1 文件来源认三种：聊天补全预设（prompts）、世界书（entries，含角色卡内嵌的 character_book）、正则（酒馆导出的单条、多条或 regex_scripts）
+  const isRegexScript = (x) => !!x && typeof x === "object" && typeof x.findRegex === "string";
+  function readSourceFile(name, data) {
+    // 只有正则、没有提示词条目的预设文件按正则文件处理
+    if (Array.isArray(data?.prompts) && (data.prompts.length || !data.extensions?.regex_scripts?.length)) return { fileKind: "preset", fileDraft: new Draft(name, data), fileWorld: null };
+    const book = data?.entries ?? data?.character_book?.entries ?? data?.data?.character_book?.entries;
+    if (book && typeof book === "object") {
+      const items = worldItems(`wf:${name}`, Object.values(book));
+      if (items.length) return { fileKind: "world", fileDraft: null, fileWorld: { name, items } };
+    }
+    const scripts = isRegexScript(data) ? [data] : Array.isArray(data) && data.length && data.every(isRegexScript) ? data
+      : Array.isArray(data?.regex_scripts) ? data.regex_scripts : Array.isArray(data?.extensions?.regex_scripts) ? data.extensions.regex_scripts : null;
+    if (scripts?.length) return { fileKind: "regex", fileDraft: new Draft(name, { prompts: [], extensions: { regex_scripts: scripts } }), fileWorld: null };
+    throw new Error("无法识别。支持聊天补全预设、世界书、正则文件");
+  }
+  const fileName = () => st.fileKind === "world" ? st.fileWorld?.name : st.fileDraft?.name;
+  function regexSourceDraft() {
+    if (st.srcType === "file") return st.fileKind === "world" ? null : st.fileDraft;
+    return st.srcType === "preset" && st.srcPreset ? getDraft(st.srcPreset) : null;
+  }
+  // 正则来源：列出条数，按钮打开缝合正则窗口
+  function renderRegexSrc() {
+    let d = null, n = 0;
+    try {
+      d = regexSourceDraft();
+      n = d ? presetRegexList(d).length : 0;
+    } catch (e) {
+      srcList.innerHTML = `<p class="pa-empty">${esc(e.message)}</p>`;
+      return;
+    }
+    srcList.dataset.kind = "regex";
+    if (!d) {
+      srcList.innerHTML = `<p class="pa-empty">${st.srcType === "file" ? "请选择文件" : "没有预设"}</p>`;
+      return;
+    }
+    let to = "";
+    try { to = st.dstType === "preset" ? target().name : ""; } catch {}
+    srcList.innerHTML = `<div class="pa-card pa-rx-src"><b>「${esc(d.name)}」中有 ${n} 条正则</b>
+      <p class="pa-hint">${n ? to ? `缝入目标预设「${esc(to)}」，可逐条选择。` : "正则只能缝入预设，请将目标切换为「预设」。" : "文件中没有正则。"}</p>
+      ${n && to ? '<div class="pa-card-act"><button class="pa-btn" data-st="regex" type="button">选择正则…</button></div>' : ""}</div>`;
+  }
+  // 世界书条目列表（酒馆里的世界书和世界书文件共用）
+  function renderWorldRows(items, from) {
+    srcList.dataset.kind = "world";
+    srcList._items = items;
+    srcList._from = from;
+    const wq = qOf("src").toLowerCase();
+    const shown = wq ? items.filter((it) => String(it.name).toLowerCase().includes(wq) || String(it.content || "").toLowerCase().includes(wq)) : items;
+    srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
+  }
   async function renderSrc() {
+    if (regexSource()) return renderRegexSrc();
     const keyOf = (id) => `${st.srcType}:${st.srcType === "preset" ? st.srcPreset : st.srcType === "file" ? st.fileDraft?.name : ""}:${id}`;
-    if (st.srcType === "preset" || st.srcType === "file") {
+    if (st.srcType === "preset" || st.srcType === "file" && st.fileKind !== "world") {
       let d;
       try {
         d = st.srcType === "preset" ? st.srcPreset ? getDraft(st.srcPreset) : null : st.fileDraft;
@@ -230,6 +291,8 @@ function mountSuture(page, app) {
       srcList.dataset.kind = "draft";
       srcList._draft = d;
       srcList._keyOf = keyOf;
+    } else if (st.srcType === "file" && st.fileKind === "world") {
+      renderWorldRows(st.fileWorld.items, `世界书文件 ${st.fileWorld.name}`);
     } else if (st.srcType === "world") {
       if (!st.srcWorld) {
         srcList.innerHTML = '<p class="pa-empty">没有世界书</p>';
@@ -249,11 +312,7 @@ function mountSuture(page, app) {
         }
         if (st.srcType !== "world" || st.srcWorld !== wname) return;
       }
-      srcList.dataset.kind = "world";
-      srcList._items = items;
-      const wq = qOf("src").toLowerCase();
-      const shown = wq ? items.filter((it) => String(it.name).toLowerCase().includes(wq) || String(it.content || "").toLowerCase().includes(wq)) : items;
-      srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
+      renderWorldRows(items, `世界书 ${wname}`);
     } else {
       srcList.dataset.kind = "paste";
       const pasted = [...st.picked.entries()].filter(([k]) => k.startsWith("paste:"));
@@ -287,8 +346,8 @@ function mountSuture(page, app) {
       const r = e.target.closest("[data-wid]");
       if (!r) return;
       const it = srcList._items.find((x) => x.id === r.dataset.wid);
-      if (peekBtn) return editWorldEntry(st.srcWorld, it.uid, it.name, it.content);
-      st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: `世界书 ${st.srcWorld}`, raw: it.raw });
+      if (peekBtn) return st.srcType === "file" ? editFileWorldEntry(it) : editWorldEntry(st.srcWorld, it.uid, it.name, it.content);
+      st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: srcList._from, raw: it.raw });
       return renderSrc();
     }
     const d = srcList._draft;
@@ -348,6 +407,17 @@ function mountSuture(page, app) {
     if (file) Object.assign(cur, next);
     else mutate(dd, "编辑条目", (x) => Object.assign(x.prompt(id), next));
     syncPicked((v) => v.srcId === id && v.from === dd.name, { name: cur.name, content: cur.content, prompt: cur, srcDraft: dd });
+    renderSrc();
+    toast("已保存", "success");
+  }
+  // 2.6.1 世界书文件里的条目：只改这次读入的内容
+  async function editFileWorldEntry(it) {
+    const r = await editEntrySheet({ name: it.name, content: it.content }, { promptOnly: true, hint: "只改这次读入的文件内容，不会写回文件。" });
+    if (!r || r.name === it.name && r.content === it.content) return;
+    Object.assign(it, { name: r.name, content: r.content });
+    Object.assign(it.raw, { comment: r.name, content: r.content });
+    const v = st.picked.get(it.id);
+    if (v) Object.assign(v, { name: r.name, content: r.content });
     renderSrc();
     toast("已保存", "success");
   }
@@ -550,9 +620,6 @@ function mountSuture(page, app) {
   function searchDst() { return searchBox("dst"); }
   function renderBar() {
     paintQBtns();
-    const regexButton = page.querySelector('[data-st="regex"]');
-    regexButton.disabled = st.dstType !== "preset" || !["preset", "file"].includes(st.srcType);
-    regexButton.title = regexButton.disabled ? "正则缝制需要来源预设或预设文件，以及目标预设" : "缝制来源预设中的正则，无需选择提示词或插入位置";
     const n = st.picked.size;
     let d = null;
     try {
@@ -570,12 +637,19 @@ function mountSuture(page, app) {
     undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
     if (!undo.hidden) undo.textContent = `撤销刚缝的 ${st.lastWb.uids.length} 条`;
   }
-  async function regexSuture() {
-    if (st.dstType !== "preset" || !["preset", "file"].includes(st.srcType)) return toast("请使用来源预设或预设文件，并选择目标预设");
+  // ask：来源不是预设或含正则的文件时（世界书、粘贴等），先问从哪个预设缝
+  async function regexSuture({ ask = false } = {}) {
+    if (st.dstType !== "preset") return toast("正则只能缝入预设，请将目标切换为「预设」");
     try {
-      const source = st.srcType === "file" ? st.fileDraft : st.srcPreset ? getDraft(st.srcPreset) : null;
-      if (!source) return toast("请先选择来源预设或预设文件");
-      return await presetRegexDialog(source, target());
+      let source = regexSourceDraft();
+      if (!source && ask) {
+        const v = await pickName({ title: "缝合哪个预设的正则", current: st.srcPreset, items: listPresets().map((n) => ({ value: n, sub: n === focusPreset() ? "目标" : "" })) });
+        if (!v) return;
+        source = getDraft(v);
+      }
+      if (!source) return toast(st.srcType === "file" && st.fileKind === "world" ? "世界书文件不含正则" : "请先选择来源预设或文件");
+      await presetRegexDialog(source, target());
+      if (regexSource()) renderSrc();
     } catch (err) { toast("正则缝制失败：" + err.message, "error"); }
   }
   page.addEventListener("click", async (e) => {
@@ -595,13 +669,14 @@ function mountSuture(page, app) {
     if (a === "picked") return pickedSheet();
     if (a === "srcsearch") return searchSrc();
     if (a === "dstsearch") return searchDst();
-    if (a === "srctype") return setSrcType(await pickName({ title: "从哪里缝", current: st.srcType, search: false, items: SRC_TYPES.map(([k, l]) => ({ value: k, label: l })) }));
+    if (a === "srctype") return setSrcType(await pickName({ title: "从哪里缝", current: st.srcType, search: false, items: SRC_TYPES.map(([k, l]) => ({ value: k, label: l, sub: { regex: "缝合预设中的正则", file: "预设、世界书或正则文件" }[k] || "" })) }));
     if (a === "dsttype") return setDstType(await pickName({ title: "缝到哪里", current: st.dstType, search: false, items: [{ value: "preset", label: "预设" }, { value: "world", label: "世界书" }] }));
     if (a === "srcmenu") {
-      // 栏窄时「正则」按钮收起来了（见样式 2.4.0），放进这里
-      const regexHidden = !page.querySelector("[data-st=regex]")?.offsetParent;
+      // 2.6.1 缝合正则移到来源类型「正则」；预设文件里的正则从这里缝
+      let fileRegex = 0;
+      try { fileRegex = st.srcType === "file" && st.fileKind === "preset" ? presetRegexList(st.fileDraft).length : 0; } catch {}
       const v = await pickBox("更多操作", [
-        ...regexHidden ? [{ label: "缝制正则…", sub: "缝制来源预设中的正则", value: "regex" }] : [],
+        ...fileRegex ? [{ label: "缝合文件中的正则…", sub: `文件中有 ${fileRegex} 条正则`, value: "regex" }] : [],
         { label: "搬到新版…", sub: "来源选旧版、目标选新版，将旧版中缝入的条目按原位置搬到新版", value: "migrate" },
         { label: "清空已选条目", value: "clearpicked" }
       ]);

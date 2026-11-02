@@ -1532,6 +1532,10 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root.pa-painted:not(.pa-has-bg) .pa-sheet { background-color: var(--pa-tint); }
 /* 2.5.16 弹窗里的列表行、搜索框底色调淡，画透得出来（行占满了弹窗，原来的白底把画盖住了） */
 #pa-root.pa-painted .pa-sheet { --pa-card: rgba(255, 255, 255, .2); --pa-input-bg: rgba(255, 255, 255, .6); }
+/* 2.6.1 弹窗里没有自己底色的外层（表单、预览、缝合正则、选择列表）：别处样式按类名铺的底色清掉，弹窗的画透得出来。
+   #pa-root 加 !important，别处不带 #pa-root 的规则盖不过 */
+#pa-root .pa-sheet-body, #pa-root :is(.pa-form, .pa-review, .pa-regex-transfer, .pa-conn-pick, .pa-imp-list, .pa-npick, .pa-npick-top, .pa-npick-list, .pa-mpick, .pa-mpick-list, .pa-sfind, .pa-pick) { background-color: transparent !important; background-image: none !important; box-shadow: none !important; }
+#pa-root .pa-input, #pa-root .pa-select { border-radius: 8px !important; margin: 0 !important; }
 /* 顶栏、标签栏：真正的毛玻璃（不随列表滚动，模糊只算一次） */
 #pa-root.pa-glass .pa-top, #pa-root.pa-glass .pa-tabs { background: rgba(255, 255, 255, .24); border-bottom-color: rgba(255, 255, 255, .58); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }
 /* 浮在列表上的操作条随滚动重算模糊会卡，改成更实的半透明 */
