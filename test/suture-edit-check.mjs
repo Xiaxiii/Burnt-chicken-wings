@@ -70,7 +70,7 @@ for (const [label, opt] of sizes) {
 
   // 来源世界书：只改正文，名称（备注）不动
   await page.click("[data-st=srctype]"); await page.waitForTimeout(250);
-  await page.locator(".pa-sheet .pa-npick-item", { hasText: "世界书" }).click(); await page.waitForTimeout(400);
+  await page.locator('.pa-sheet .pa-npick-item[data-v="world"]').click(); await page.waitForTimeout(400);
   await page.click(".pa-src-pick .pa-src-name"); await page.waitForTimeout(250);
   await page.locator(".pa-sheet .pa-npick-item", { hasText: "示例世界书" }).click(); await page.waitForTimeout(500);
   const wrow = page.locator(".pa-src-list .pa-row", { hasText: "示例条目" });
