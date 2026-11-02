@@ -452,9 +452,9 @@ function explainApiError(status, text) {
 }
 // 2.5.10 站点文件：导出成 JSON，导入时也认别处常见的写法（url / baseUrl / api_key …）
 var SITE_FILE_FORMAT = "焦香鸡翅-站点";
-var SITE_URL_FIELDS = ["url", "baseUrl", "baseURL", "base_url", "apiUrl", "apiURL", "api_url", "api-url", "apiBase", "api_base", "apiHost", "api_host", "endpoint", "host", "custom_url", "reverse_proxy", "server"];
+var SITE_URL_FIELDS = ["url", "baseUrl", "baseURL", "base_url", "customUrl", "customURL", "custom_url", "apiUrl", "apiURL", "api_url", "api-url", "apiBase", "api_base", "apiHost", "api_host", "endpoint", "proxyUrl", "reverseProxy", "reverse_proxy", "host", "server"];
 var SITE_KEY_FIELDS = ["key", "apiKey", "api_key", "apikey", "APIKey", "API_KEY", "token", "secret", "proxy_password", "sk"];
-var SITE_NAME_FIELDS = ["name", "title", "label", "alias"];
+var SITE_NAME_FIELDS = ["name", "groupName", "siteName", "configName", "title", "label", "alias"];
 var SITE_MODEL_FIELDS = ["model", "defaultModel", "default_model", "modelName", "model_name"];
 var SITE_MODELS_FIELDS = ["models", "modelList", "model_list"];
 var SITE_NOTE_FIELDS = ["note", "notes", "remark", "description", "desc"];
@@ -465,10 +465,12 @@ function sitePick(o, names) {
   }
   return void 0;
 }
+// 模型可以是字符串，也可以是对象（customModel / model / id / name；别处的 name 常带站点前缀，排在后面）
+const siteModelId = (m) => (typeof m === "string" ? m : String(m?.customModel || m?.model || m?.id || m?.name || "")).trim();
 function siteModelsOf(v) {
   if (typeof v === "string") return v.split(/[\r\n,]+/).map((x) => x.trim()).filter(Boolean);
   if (!Array.isArray(v)) return [];
-  return [...new Set(v.map((m) => (typeof m === "string" ? m : String(m?.id || m?.name || "")).trim()).filter(Boolean))];
+  return [...new Set(v.filter((m) => !m?.isPlaceholder).map(siteModelId).filter(Boolean))];
 }
 function siteKeysIn(o) {
   const textKeys = (t) => String(t || "").split(/[\r\n]+/).map((x) => x.trim()).filter(Boolean);
@@ -485,15 +487,31 @@ function siteKeysIn(o) {
   return typeof one === "string" ? textKeys(one).map((key) => ({ name: "", key })) : [];
 }
 // 一个对象像不像站点：自定义类型要有 http 开头的网址；其他类型（OpenAI、Claude…）认 source
-function siteFromObject(o, fallbackName = "") {
+// catNames：文件里的分类（编号 → 名称），模型对象带 categoryIds 时据此建分类
+function siteFromObject(o, fallbackName = "", catNames = new Map()) {
   if (!o || typeof o !== "object" || Array.isArray(o)) return null;
   const source = typeof o.source === "string" && SOURCES[o.source] ? o.source : "custom";
   const url = String(sitePick(o, SITE_URL_FIELDS) || "").trim();
   if (source === "custom" && !/^https?:\/\/\S+$/i.test(url)) return null;
   let host = "";
   try { host = url ? new URL(url).host : ""; } catch {}
-  const model = String(sitePick(o, SITE_MODEL_FIELDS) || "").trim();
-  const models = siteModelsOf(sitePick(o, SITE_MODELS_FIELDS));
+  const rawModels = sitePick(o, SITE_MODELS_FIELDS);
+  const models = siteModelsOf(rawModels);
+  const active = Array.isArray(rawModels) ? rawModels.find((m) => m && typeof m === "object" && m.isActive && !m.isPlaceholder) : null;
+  const model = String(sitePick(o, SITE_MODEL_FIELDS) || (active && siteModelId(active)) || "").trim();
+  // 分类：我们自己的文件是 cats: [{ name, models }]；别处是模型上的 categoryIds
+  const cats = new Map();
+  for (const c of Array.isArray(o.cats) ? o.cats : []) if (c?.name) cats.set(String(c.name), new Set(siteModelsOf(c.models)));
+  if (Array.isArray(rawModels)) for (const m of rawModels) {
+    if (!m || typeof m !== "object" || m.isPlaceholder) continue;
+    const id = siteModelId(m);
+    for (const cid of new Set([...(Array.isArray(m.categoryIds) ? m.categoryIds : []), m.categoryId].filter(Boolean))) {
+      const name = catNames.get(String(cid));
+      if (!id || !name) continue;
+      if (!cats.has(name)) cats.set(name, new Set());
+      cats.get(name).add(id);
+    }
+  }
   const keys = siteKeysIn(o);
   if (!keys.length) keys.push({ name: "", key: "" });
   for (const k of keys) {
@@ -501,15 +519,25 @@ function siteFromObject(o, fallbackName = "") {
     if (!k.models?.length) k.models = models;
   }
   const name = String(sitePick(o, SITE_NAME_FIELDS) || fallbackName || host || SOURCES[source].label).trim();
-  return { name, source, url: source === "custom" ? url : "", note: String(sitePick(o, SITE_NOTE_FIELDS) || "").trim(), keys };
+  return { name, source, url: source === "custom" ? url : "", note: String(sitePick(o, SITE_NOTE_FIELDS) || "").trim(), keys, cats: [...cats].map(([n, ms]) => ({ name: n, models: [...ms] })).filter((c) => c.models.length) };
 }
 function parseSiteFile(text) {
-  const data = JSON.parse(String(text).replace(/^﻿/, ""));
+  const data = JSON.parse(String(text).replace(/^\uFEFF/, ""));
+  // 先找分类表：键名带 categor 的数组，元素有 id 和 name
+  const catNames = new Map();
+  const findCats = (v, depth) => {
+    if (depth > 5 || !v || typeof v !== "object") return;
+    for (const [k, x] of Object.entries(v)) {
+      if (Array.isArray(x) && /categor/i.test(k)) for (const c of x) if (c?.id != null && c?.name) catNames.set(String(c.id), String(c.name));
+      if (x && typeof x === "object") findCats(x, depth + 1);
+    }
+  };
+  findCats(data, 0);
   const out = [];
   const walk = (v, depth, name = "") => {
-    if (depth > 4 || !v || typeof v !== "object") return;
+    if (depth > 5 || !v || typeof v !== "object") return;
     if (Array.isArray(v)) return v.forEach((x) => walk(x, depth + 1));
-    const me = siteFromObject(v, name);
+    const me = siteFromObject(v, name, catNames);
     if (me) return out.push(me);
     for (const [k, x] of Object.entries(v)) walk(x, depth + 1, k);
   };
@@ -1043,7 +1071,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         }
         keys.push(item);
       }
-      out.push({ name: s.name, source: s.source, url: s.url || "", note: s.note || "", keys });
+      out.push({ name: s.name, source: s.source, url: s.url || "", note: s.note || "", keys, ...(s.modelCats?.length ? { cats: s.modelCats.map((c) => ({ name: c.name, models: c.models || [] })) } : {}) });
     }
     // 文件名只用英文数字：有的浏览器遇到中文文件名会存成「download」
     const d = new Date(), two = (n) => String(n).padStart(2, "0");
@@ -1066,7 +1094,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const host = (u) => { try { return new URL(u).host; } catch { return u; } };
     const rows = plan.map(({ f, old }) => {
       const n = f.keys.filter((k) => k.key).length;
-      const what = [old ? "更新" : "新增", f.url ? host(f.url) : SOURCES[f.source].label, n ? `${n} 个密钥` : "没有密钥"];
+      const nm = new Set(f.keys.flatMap((k) => k.models || [])).size;
+      const what = [old ? "更新" : "新增", f.url ? host(f.url) : SOURCES[f.source].label, n ? `${n} 个密钥` : "没有密钥", nm && `${nm} 个模型`, f.cats.length && `${f.cats.length} 个分类`].filter(Boolean);
       return `<div class="pa-imp-row"><b>${esc(f.name)}</b><small>${esc(what.join(" · "))}</small></div>`;
     }).join("");
     const updates = plan.filter((x) => x.old).length;
@@ -1125,6 +1154,15 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       throw e;
     }
     if (f.note) s.note = f.note;
+    // 分类按名称合并：同名的并进模型，没有的新建
+    if (f.cats.length) {
+      const mine = s.modelCats || (s.modelCats = []);
+      for (const c of f.cats) {
+        const hit = mine.find((x) => x.name === c.name);
+        if (hit) hit.models = [...new Set([...(hit.models || []), ...c.models])];
+        else mine.push({ id: uid(), name: c.name, models: [...c.models] });
+      }
+    }
     for (const x of ["secretId", "keyMask", "localKey", "localId", "legacyKey", "model", "models", "keys", "keyId"]) delete s[x];
     if (many) {
       s.keys = keys.map((k) => {

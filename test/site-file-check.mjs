@@ -76,7 +76,41 @@ try {
   assert.equal(await vault(), 4);
   ok("站点没了密钥：导入后补回");
 
-  // 5) 不是 JSON、没有站点
+  // 5) 别的扩展导出的分组格式（grouped-api-configs-export）：customUrl、groupName、apiKeys、models 里的 customModel、分类
+  await importFile("api-configs-export.json", JSON.stringify({
+    version: "2.0", exportTime: "2026-11-02T04:21:28.166Z", format: "grouped-api-configs-export", configs: [],
+    configStore: {
+      version: 2, format: "grouped-api-configs",
+      categories: [{ id: "c1", name: "Claude" }, { id: "c2", name: "常用" }],
+      groups: [{
+        groupName: "🌲", groupKey: "🌲|https://tree.example.ai/v1", source: "custom", customUrl: "https://tree.example.ai/v1",
+        apiKeys: [{ id: "k1", key: "sk-tree00001111", testResult: { success: true, message: "可用" }, isFailed: false, successCount: 0, failureCount: 0 }],
+        enableKeyRotation: false,
+        models: [
+          { name: "[🌲] [AWS-A-S]Claude-opus-4-6", customModel: "[AWS-A-S]Claude-opus-4-6", currentKeyIndex: 0, categoryId: "c1", categoryIds: ["c1"], isActive: false, isPlaceholder: false },
+          { name: "[🌲] [AWS-A]Claude-opus-4-6", customModel: "[AWS-A]Claude-opus-4-6", categoryIds: ["c1", "c2"], isActive: true, isPlaceholder: false },
+          { name: "[🌲] 占位", customModel: "", isPlaceholder: true }
+        ]
+      }]
+    }
+  }));
+  const row = (await page.locator(".pa-imp-row").allTextContents()).join("|");
+  assert.match(row, /🌲.*新增.*tree\.example\.ai.*1 个密钥.*2 个模型.*2 个分类/, row);
+  await page.click(".pa-sheet-actions >> text=导入"); await page.waitForTimeout(400);
+  s = await S();
+  const t = s.sites.find((x) => x.name === "🌲");
+  assert.deepEqual([t.url, t.model, t.models, t.keyMask, !!t.secretId], ["https://tree.example.ai/v1", "[AWS-A]Claude-opus-4-6", ["[AWS-A-S]Claude-opus-4-6", "[AWS-A]Claude-opus-4-6"], "sk-…1111", true]);
+  assert.deepEqual(t.modelCats.map((c) => [c.name, c.models]), [["Claude", ["[AWS-A-S]Claude-opus-4-6", "[AWS-A]Claude-opus-4-6"]], ["常用", ["[AWS-A]Claude-opus-4-6"]]]);
+  ok("别的扩展的分组格式：网址、密钥、模型（去掉站点前缀和占位）、当前模型、分类都导进来");
+  await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
+  const [dl2] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=不含密钥")]);
+  const f2 = JSON.parse(fs.readFileSync(await dl2.path(), "utf8"));
+  const tree = f2.sites.find((x) => x.name === "🌲");
+  assert.deepEqual(tree.cats.map((c) => c.name), ["Claude", "常用"]);
+  assert.equal(tree.keys[0].key, undefined, "不含密钥");
+  ok("导出带分类；选「不含密钥」时文件里没有密钥");
+
+  // 6) 不是 JSON、没有站点
   await importFile("bad.json", "not json");
   assert.match((await toasts()).join("|"), /error:不是 JSON 文件/);
   await importFile("empty.json", JSON.stringify({ hello: "world" }));
