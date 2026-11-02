@@ -1,7 +1,7 @@
 // 1.8.0 新功能的端到端检查：新建、复制、编辑角色和位置，已选清单，设置框改名，站点模型，缝进世界书后撤销。
 // 用法同 clean-check.mjs
 import { chromium } from "playwright";
-import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
+import { choose, chooseSrcType, chooseDstType, expandAll, organizeTool } from "./choose.mjs";
 import assert from "node:assert";
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
@@ -16,10 +16,10 @@ const live = () => page.evaluate(() => window.__mock.live.prompts);
 // 1) 新建条目：放在选中的条目后面，编辑角色、插入位置、深度，点保存才写进去
 await page.evaluate(() => window.__presetAtelier.open("organize"));
 await page.waitForTimeout(400);
-await page.click("text=全部展开"); await page.waitForTimeout(200);
+await expandAll(page); await page.waitForTimeout(200);
 const firstId = await page.locator(".pa-list .pa-row").first().getAttribute("data-id");
 await page.locator(".pa-list .pa-row").first().click();
-await page.click('[data-tool="newentry"]'); await page.waitForTimeout(200);
+await organizeTool(page, "newentry"); await page.waitForTimeout(200);
 await page.fill(".pa-sheet input", "测试新条目");
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
 assert.equal(await page.$eval(".pa-sheet-head b", (x) => x.textContent), "编辑条目");

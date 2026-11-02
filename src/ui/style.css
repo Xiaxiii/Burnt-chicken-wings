@@ -152,6 +152,9 @@ html.pa-open body { overflow: hidden; }
     #pa-root .pa-input, #pa-root .pa-select { font-size: max(16px, 1em); }
 }
 #pa-root .pa-select { appearance: auto; }
+/* 2.5.0 iPad/iPhone Safari 给 type=search 套系统样式：直角白底，圆角和底色都不生效 */
+#pa-root input[type=search].pa-input { -webkit-appearance: none; appearance: none; }
+#pa-root input[type=search].pa-input::-webkit-search-decoration { -webkit-appearance: none; }
 #pa-root .pa-input:focus, #pa-root .pa-select:focus, #pa-root button:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }
 #pa-root .pa-input-s { min-height: 34px; padding: 5px 8px; }
 #pa-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
@@ -209,9 +212,13 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-tools-more { display: none; }
 #pa-root .pa-tools { display: flex; gap: 6px; flex-wrap: wrap; }
 #pa-root .pa-tools .pa-btn { min-height: 34px; padding: 4px 10px; font-size: .9em; }
-@media (max-width: 759px) {
+/* 2.5.0 五个按钮和预设名挤一行时，iPad 上预设名被截、按钮出边；打开搜索时按钮又掉到第三行。
+   放不下就收成 ＋ 和 ⋯（和手机一样），一行：预设 🔍 ＋ ⋯ */
+@media (max-width: 1099px) {
     #pa-root .pa-tools { display: none; }
     #pa-root .pa-tools-more { display: inline-flex; }
+}
+@media (max-width: 759px) {
     #pa-root .pa-toolbar { padding-top: 8px; padding-bottom: 6px; gap: 6px; }
     #pa-root .pa-chip { max-width: 7em; }
     #pa-root .pa-badges { max-width: 32%; }
@@ -440,7 +447,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sheet-center .pa-sheet-actions { padding-bottom: 10px; }
 /* 2.5.0 贴着按钮弹出的菜单：点外面关掉 */
 #pa-root .pa-sheet-mask.pa-mask-pop { display: block; background: rgba(0, 0, 0, .14); }
-#pa-root .pa-sheet-pop { position: absolute; max-width: none; border-radius: 12px; border-bottom: 1px solid var(--pa-line); box-shadow: 0 10px 32px rgba(0, 0, 0, .26); animation: pa-pop .14s ease-out; }
+#pa-root .pa-sheet-pop { position: absolute; width: min(320px, calc(100% - 16px)); max-width: none; border-radius: 12px; border-bottom: 1px solid var(--pa-line); box-shadow: 0 10px 32px rgba(0, 0, 0, .26); animation: pa-pop .14s ease-out; }
 #pa-root .pa-sheet-pop .pa-sheet-head { padding: 7px 6px 5px 12px; font-size: .86em; color: var(--pa-dim); }
 #pa-root .pa-sheet-pop .pa-sheet-head .pa-sheet-x { width: 28px; height: 28px; }
 #pa-root .pa-sheet-pop .pa-sheet-body { padding: 4px; }
@@ -451,11 +458,15 @@ html.pa-open body { overflow: hidden; }
 @keyframes pa-pop { from { opacity: 0; transform: scale(.96); } }
 @media (prefers-reduced-motion: reduce) { #pa-root .pa-sheet-center, #pa-root .pa-sheet-pop { animation: none; } }
 @keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }
-#pa-root .pa-pick { display: grid; gap: 6px; }
-#pa-root .pa-pick-item { display: grid; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; }
-#pa-root .pa-pick-item small { color: var(--pa-dim); }
+/* 2.5.0 选项用普通块排版：按钮做 grid 时，iPad Safari 算高度只算说明的第一行，说明折行就和下一项叠在一起 */
+#pa-root .pa-pick { display: flex; flex-direction: column; gap: 6px; }
+#pa-root .pa-pick > * { flex: none; }
+#pa-root .pa-pick-item { display: block; width: 100%; height: auto; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--pa-line); background: var(--pa-card); cursor: pointer; min-height: 44px; line-height: 1.45; }
+#pa-root .pa-pick-label { display: block; }
+#pa-root .pa-pick-item small { display: block; margin-top: 2px; color: var(--pa-dim); line-height: 1.45; overflow-wrap: anywhere; }
 /* 2.5.0 菜单里一行两个短按钮 */
-#pa-root .pa-pick-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#pa-root .pa-pick-pair { display: flex; gap: 6px; }
+#pa-root .pa-pick-pair > .pa-pick-item { flex: 1 1 0; min-width: 0; }
 #pa-root .pa-sheet-pop .pa-pick-pair { gap: 0; border-top: 1px solid var(--pa-line); }
 #pa-root .pa-sheet-pop .pa-pick-pair:first-child { border-top: 0; }
 #pa-root .pa-sheet-pop .pa-pick-pair > .pa-pick-item + .pa-pick-item { border-top: 0; border-left: 1px solid var(--pa-line); }
@@ -1155,7 +1166,7 @@ html.pa-open body { overflow: hidden; }
 
 /* 整理页工具栏：预设 + 🔍 ＋ ⋯ 一行 */
 #pa-root .pa-toolbar > .pa-icon-btn { flex: none; width: 34px; height: 34px; }
-#pa-root .pa-toolbar > .pa-searchrow { padding: 0; }
+#pa-root .pa-toolbar > .pa-searchrow { padding: 0; order: 9; }
 
 /* 说明收起：一行小字「ⓘ 说明」 */
 #pa-root .pa-tip { font-size: .82em; color: var(--pa-dim); }

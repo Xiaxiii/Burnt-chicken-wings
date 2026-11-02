@@ -2,6 +2,7 @@
 // 本地密钥重新存进密钥库后记下编号（FIX-09）、只清当前账号的草稿（FIX-01）。用法同 clean-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert";
+import { expandAll } from "./choose.mjs";
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const ok = (m) => console.log("✓", m);
@@ -42,7 +43,7 @@ async function boot(ctx) {
   const nameA = await page.evaluate(() => window.__nameA);
   await page.evaluate(() => window.__presetAtelier.open("organize"));
   await page.waitForTimeout(400);
-  await page.click("text=全部展开").catch(() => {});
+  await expandAll(page);
   await page.locator(".pa-list .pa-row .pa-switch").first().click();
   await page.waitForTimeout(600); // 自动保存已发出，还没回来
   assert.ok(log.includes("save-start:" + nameA) && !log.includes("save-end:" + nameA), "保存正在进行");
@@ -138,7 +139,7 @@ async function boot(ctx) {
     window.__presetAtelier.open("organize");
   }, [otherKey, mineKey]);
   await page.waitForTimeout(400);
-  await page.click("text=全部展开").catch(() => {});
+  await expandAll(page);
   await page.locator(".pa-list .pa-row .pa-switch").first().click();
   // 单次修改不再立刻整份写草稿（等自动保存）；关页面/切后台时才写，这里模拟关页面
   assert.equal(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("presetAtelier:recovery:v180:default-user:") && !k.endsWith(":旧预设")).length), 0, "点一下开关不立刻写整份草稿");

@@ -211,7 +211,7 @@ async function pickBox(title, items, { hint = "", anchor = recentAnchor() } = {}
   // item.pair：一行放两个短按钮（如 ↑ 上移、↓ 下移），值写成 "序号.0" / "序号.1"
   list.innerHTML = items.map((it, i) => it.pair
     ? `<div class="pa-pick-pair">${it.pair.map((p, j) => `<button class="pa-pick-item" data-v="${i}.${j}">${esc(p.label)}</button>`).join("")}</div>`
-    : `<button class="pa-pick-item" data-v="${i}">${esc(it.label)}${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
+    : `<button class="pa-pick-item" data-v="${i}"><span class="pa-pick-label">${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
   const p = sheet({ title, body, place: pop ? "pop" : "center", anchor, actions: pop ? [] : [{ label: "取消", value: null }], onMount: (w) => {
     list.addEventListener("click", (e) => {
       const b = e.target.closest("[data-v]");

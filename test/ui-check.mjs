@@ -2,6 +2,7 @@
 // 用合成的「众生相风格」预设，干净环境可跑。用法同 clean-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert";
+import { expandAll } from "./choose.mjs";
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const page = await browser.newPage({ viewport: { width: 1024, height: 1366 }, hasTouch: true });
@@ -16,7 +17,7 @@ await page.evaluate(() => {
   window.__presetAtelier.open("organize");
 });
 await page.waitForTimeout(400);
-await page.click("text=全部展开"); await page.waitForTimeout(200);
+await expandAll(page); await page.waitForTimeout(200);
 const names = () => page.evaluate(() => [...document.querySelectorAll(".pa-list .pa-row .pa-name")].map((x) => x.textContent.trim()));
 
 // 1) 整理：点两行选中，移动到第 6 行之后

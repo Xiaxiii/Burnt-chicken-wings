@@ -2,6 +2,7 @@
 // 用法：在仓库根目录起静态服务（python3 -m http.server 8765）；node test/safety-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert";
+import { expandAll } from "./choose.mjs";
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const URL0 = "http://127.0.0.1:8765/test/site/index.html";
@@ -26,7 +27,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   const { page, errs } = await boot(ctx);
   await page.evaluate(() => window.__presetAtelier.open("organize"));
   await page.waitForTimeout(400);
-  await page.click("text=全部展开").catch(() => {});
+  await expandAll(page);
   await page.locator(firstToggle).first().click(); await page.waitForTimeout(900);
   const n1 = await savedCount(page);
   assert.ok(n1 >= 1, "第一次修改自动保存");
@@ -79,7 +80,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   const { page } = await boot(ctx, breakIdb);
   await page.evaluate(() => window.__presetAtelier.open("organize"));
   await page.waitForTimeout(400);
-  await page.click("text=全部展开").catch(() => {});
+  await expandAll(page);
   const before = await savedCount(page);
   await page.locator(firstToggle).first().click(); await page.waitForTimeout(900);
   assert.equal(await savedCount(page), before, "备份失败时不写入");
@@ -100,7 +101,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   const { page, errs } = await boot(ctx, breakIdb);
   await page.evaluate(() => { const c = window.SillyTavern.getContext(); c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), autoBackup: false }; window.__presetAtelier.open("organize"); });
   await page.waitForTimeout(400);
-  await page.click("text=全部展开").catch(() => {});
+  await expandAll(page);
   const before = await savedCount(page);
   await page.locator(firstToggle).first().click(); await page.waitForTimeout(900);
   assert.ok(await savedCount(page) > before, "关闭自动备份后直接保存");
@@ -116,7 +117,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   const { page, errs } = await boot(ctx);
   await page.evaluate(() => window.__presetAtelier.open("organize"));
   await page.waitForTimeout(400);
-  await page.click("text=全部展开").catch(() => {});
+  await expandAll(page);
   const row = page.locator(".pa-list .pa-row").first();
   const id = await row.getAttribute("data-id");
   const content0 = await page.evaluate((id) => window.__mock.live.prompts.find((p) => p.identifier === id)?.content, id);

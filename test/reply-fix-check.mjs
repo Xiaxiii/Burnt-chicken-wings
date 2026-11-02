@@ -2,6 +2,7 @@
 // 用法：PW_CHROME=/usr/bin/chromium node test/reply-fix-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { expandAll } from "./choose.mjs";
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
@@ -106,7 +107,7 @@ try {
   ok('正文标签前的大段分析文字列出原文片段，不提供自动修正');
 
   await page.evaluate(() => { window.__emits = []; window.__presetAtelier.open('organize'); });
-  await page.click('text=全部展开').catch(() => {});
+  await expandAll(page);
   const saves = await page.evaluate(() => window.__saved || 0);
   await page.locator('.pa-list .pa-row .pa-switch').first().click();
   await page.waitForFunction((n) => (window.__saved || 0) > n, saves);
