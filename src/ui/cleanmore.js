@@ -391,7 +391,7 @@ function mountCleanKind(kind, box) {
       const pickN = [...S.sel].length;
       let html = `<div class="pa-sum"><p class="pa-sum-main">世界书 <b>${names.length}</b> 本</p>
         ${tip(`<p>世界书只在用到时才下载，删除不会让酒馆打开变快，只是更整齐。</p>
-          <p>检查要把全部世界书下载一遍，世界书多、网速慢时要等一会儿。找出三类：条目完全相同的、没有条目的、已删除角色卡留下的。</p>
+          <p>检查要把全部世界书下载一遍，世界书多、网速慢时要等一会儿。找出三类：条目完全相同的、没有条目的、已删除角色卡留下的。删除时可先下载备份（zip）。</p>
           <p>条目相同：比较每个条目的正文和全部设置（关键词、启用、概率、位置、深度等），只忽略条目编号和排列下标。</p>
           <p>角色卡留下的：导入带世界书的角色卡时，酒馆会另存一本世界书，删除角色卡时不会一起删。列出没被任何现有角色、全局或当前聊天使用，且名为「某某's Lorebook」、或文件里有角色卡导入记录、或是已删角色附加的世界书。改过名的角色会被当成已删除；其他聊天绑定的世界书查不到，请看一眼名字再删。</p>
           <p>标有「绑定」「附加」「全局启用」的世界书删除后，对应的角色或聊天将失去它。</p>`)}
@@ -410,7 +410,7 @@ function mountCleanKind(kind, box) {
         const leftOff = left.filter((w) => !S.sel.has(w.name));
         html += left.length ? `<div class="pa-hrow"><h3 class="pa-h">已删除角色卡留下的（${left.length}）</h3>${leftOff.length ? `<button type="button" class="pa-golink" data-x="pickleft">勾选 ${leftOff.length} 本</button>` : ""}</div><div class="pa-clist pa-ck-left">${left.map((w) => row(w, leftTag(w))).join("")}</div>` : '<p class="pa-empty">没有已删除角色卡留下的世界书。</p>';
       }
-      html += actBar(pickN, 0, '<button class="pa-btn pa-btn-danger-soft" data-x="del">下载后删除</button>');
+      html += actBar(pickN, 0, '<button class="pa-btn pa-btn-danger-soft" data-x="del">删除</button>');
       box.innerHTML = html;
     };
     box.addEventListener("change", (e) => {
@@ -461,32 +461,38 @@ function mountCleanKind(kind, box) {
         const list = [...S.sel];
         const use = usage();
         const bound = list.filter((n) => use[n]?.length);
-        if (!await confirmBox("删除世界书", `将删除 ${list.length} 本世界书：${list.slice(0, 4).join("、")}${list.length > 4 ? " 等" : ""}。删除前会先下载一份 zip。${bound.length ? `其中 ${bound.join("、")} 正被使用，删除后对应的角色或聊天将失去它。` : ""}`, "下载后删除", true)) return;
-        S.busy = true;
-        const files = [];
-        const unread = [];
-        for (const n of list) {
-          try {
-            const data = await mods.wi.loadWorldInfo(n);
-            if (!data || typeof data !== "object") throw new Error("读取结果为空");
-            files.push({ name: `${n}.json`, data: JSON.stringify(data, null, 2) });
-          } catch {
-            unread.push(n);
+        // 2.6.2 备份不强制：弹窗里提醒，可点「下载备份」（弹窗不关，下载完再删），也可直接删
+        const names = `${list.slice(0, 4).join("、")}${list.length > 4 ? " 等" : ""}`;
+        const usedNote = bound.length ? `其中 ${bound.join("、")} 正被使用，删除后对应的角色或聊天将失去它。` : "";
+        let saved = "";
+        for (;;) {
+          const v = await sheet({
+            title: "删除世界书",
+            place: "center",
+            body: `<p class="pa-p">将删除 ${list.length} 本世界书：${esc(names)}。删除后不能恢复，需要的话先下载备份。${esc(usedNote)}</p>${saved ? `<p class="pa-hint pa-wb-saved">${saved}</p>` : ""}`,
+            actions: [{ label: "取消", value: null }, { label: saved ? "重新下载" : "下载备份", value: "dl" }, { label: "删除", kind: "danger", value: "del" }]
+          });
+          if (v !== "dl") {
+            if (v !== "del") return;
+            break;
           }
-        }
-        // 没备份下来的不删
-        if (unread.length) toast(`${unread.join("、")} 读取失败、没有备份下来，这些不删除`, "warning");
-        if (files.length) {
+          const files = [], unread = [];
+          for (const n of list) {
+            try {
+              const data = await mods.wi.loadWorldInfo(n);
+              if (!data || typeof data !== "object") throw new Error("读取结果为空");
+              files.push({ name: `${n}.json`, data: JSON.stringify(data, null, 2) });
+            } catch {
+              unread.push(n);
+            }
+          }
           const fname = `worldbooks-backup-${stamp()}.zip`;
-          const zip = makeZip(files);
-          downloadBlob(zip, fname);
-          if (!await confirmDownloaded(fname, () => downloadBlob(zip, fname))) {
-            S.busy = false;
-            return draw();
-          }
+          if (files.length) downloadBlob(makeZip(files), fname);
+          saved = `${files.length ? `已让浏览器下载「${esc(fname)}」，可在下载记录里确认。` : ""}${unread.length ? `${esc(unread.join("、"))} 读取失败，没有备份进去。` : ""}`;
         }
+        S.busy = true;
         let ok = 0;
-        for (const n of list.filter((x) => !unread.includes(x))) {
+        for (const n of list) {
           try {
             await deleteWorldbook(n);
             S.sel.delete(n);

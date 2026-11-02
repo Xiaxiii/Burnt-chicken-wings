@@ -138,14 +138,33 @@ for (const k of leftNames) await page.click(`.pa-ck-left input[data-k="${k}"]`);
 await page.waitForTimeout(100);
 await page.screenshot({ path: S + "m-3-world.png" });
 await page.click('.pa-clean-other input[data-k="示例世界书-副本"]'); await page.waitForTimeout(100);
+const wbHas = (n) => page.evaluate(async (n) => (await import("/test/site/scripts/world-info.js")).world_names.includes(n), n);
+const top = ".pa-sheet-mask:not(.pa-out) .pa-sheet";
+// 备份不强制：弹窗里提醒，点「下载备份」下载后弹窗还在，再点「删除」
+assert.equal(await page.$eval('[data-x="del"]', (x) => x.textContent), "删除");
 await page.click('[data-x="del"]'); await page.waitForTimeout(200);
+assert.match(await page.$eval(top, (x) => x.innerText), /需要的话先下载备份/);
 const dl2 = page.waitForEvent("download");
-await page.click(".pa-sheet .pa-btn-danger");
+await page.click(`${top} button:has-text("下载备份")`);
 assert.match((await dl2).suggestedFilename(), /^worldbooks-backup-\d+\.zip$/);
 await page.waitForTimeout(300);
-assert.ok(await page.evaluate(async () => (await import("/test/site/scripts/world-info.js")).world_names.includes("示例世界书-副本")), "确认前不删除世界书");
-await page.click(".pa-sheet-mask:last-child .pa-btn-danger"); await page.waitForTimeout(400);
-assert.ok(!(await page.evaluate(async () => (await import("/test/site/scripts/world-info.js")).world_names.includes("示例世界书-副本"))));
+assert.ok(await wbHas("示例世界书-副本"), "下载不等于删除");
+assert.match(await page.$eval(top, (x) => x.innerText), /已让浏览器下载「worldbooks-backup-\d+\.zip」/, "弹窗还在，写明已下载");
+await page.click(`${top} .pa-btn-danger`); await page.waitForTimeout(400);
+assert.ok(!(await wbHas("示例世界书-副本")));
+// 不下载直接删
+let dlCount = 0;
+page.on("download", () => dlCount++);
+await page.click('.pa-clean-other input[data-k="空的"]'); await page.waitForTimeout(100);
+await page.click('[data-x="del"]'); await page.waitForTimeout(200);
+await page.click(`${top} .pa-btn-danger`); await page.waitForTimeout(400);
+assert.ok(!(await wbHas("空的")), "不下载也能删");
+assert.equal(dlCount, 0, "没点下载就不下载");
+// 取消不删
+await page.click('.pa-clean-other input[data-k="Alice\'s Lorebook"]'); await page.waitForTimeout(100);
+await page.click('[data-x="del"]'); await page.waitForTimeout(200);
+await page.click(`${top} button:has-text("取消")`); await page.waitForTimeout(300);
+assert.ok(await wbHas("Alice's Lorebook"), "取消不删");
 // 本地备份
 await page.evaluate(async () => { for (let i = 0; i < 5; i++) await new Promise((res, rej) => { const rq = indexedDB.open("preset-atelier", 2); rq.onupgradeneeded = () => { const d = rq.result; if (!d.objectStoreNames.contains("backups")) d.createObjectStore("backups", { keyPath: "id", autoIncrement: true }).createIndex("preset", "preset"); if (!d.objectStoreNames.contains("assets")) d.createObjectStore("assets"); }; rq.onerror = () => rej(rq.error); rq.onsuccess = () => { const t = rq.result.transaction("backups", "readwrite"); t.objectStore("backups").add({ preset: "P1", reason: "x", time: i, data: { prompts: ["z".repeat(1000)] } }); t.oncomplete = () => { rq.result.close(); res(); }; t.onerror = () => rej(t.error); }; }); });
 await page.click('[data-kind="local"]'); await page.waitForTimeout(600);
