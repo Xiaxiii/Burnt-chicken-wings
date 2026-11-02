@@ -267,8 +267,7 @@ function mountSchemes(page, { after } = {}) {
   const box = page.querySelector(".pa-schemes");
   const nudge = page.querySelector(".pa-scheme-nudge");
   const all = () => settings().schemes;
-  const open = new Set();
-  let opened = false;
+  // 2.6.6 方案分组的展开、收起记住最后一次的状态；没动过的组，当前角色（预设、人设）那组默认展开
   // 🗑️ 勾选删除
   let picking = false;
   const picked = new Set();
@@ -331,14 +330,11 @@ function mountSchemes(page, { after } = {}) {
     // 当前角色（或当前预设、当前人设）那一组排最前，其余按最近用过排；「未分角色」放最后
     const mineKey = view() === "char" ? ck || "" : view() === "preset" ? cur : listPersonas().find((p) => p.avatar === currentPersona())?.name || "";
     const keys = [...groups.keys()].sort((a, b) => (b === mineKey) - (a === mineKey) || (!a) - (!b) || Math.max(...groups.get(b).map(t)) - Math.max(...groups.get(a).map(t)));
-    if (!opened) {
-      opened = true;
-      if (groups.has(mineKey)) open.add(view() + "|" + mineKey);
-      else if (keys[0] !== void 0) open.add(view() + "|" + keys[0]);
-    }
+    const defOpen = groups.has(mineKey) ? mineKey : keys[0];
+    const isOpenK = (k) => foldGet("schemes", view() + "|" + k, k === defOpen);
     box.innerHTML = keys.map((k) => {
       const list = groups.get(k).sort((a, b) => t(b) - t(a));
-      const isOpen = open.has(view() + "|" + k);
+      const isOpen = isOpenK(k);
       return `<section class="pa-sgroup${isOpen ? " open" : ""}" data-k="${esc(k)}">
           <header class="pa-sghead" data-a="fold" tabindex="0"><span class="pa-sgcaret">${isOpen ? "▾" : "▸"}</span>${picking ? `<input type="checkbox" data-a="pickgroup" aria-label="选中这一组" ${list.every((s) => picked.has(s.id)) ? "checked" : ""}>` : ""}<b>${esc(groupName(k))}</b>${k === mineKey && k ? '<span class="pa-chip pa-chip-dim">当前</span>' : ""}<small>${list.length} 个方案</small></header>
           ${isOpen ? `<div class="pa-sgbody">${list.map((s) => row(s, d)).join("")}</div>` : ""}</section>`;
@@ -407,7 +403,7 @@ function mountSchemes(page, { after } = {}) {
       markChatHandled();
     }
     saveSettings();
-    open.add(view() + "|" + groupKey(s));
+    foldSet("schemes", view() + "|" + groupKey(s), true);
     toast(`已保存方案「${s.name}」${r.bind ? "。进入这个聊天时将自动切换到它" : ""}`, "success");
     render();
   }
@@ -572,7 +568,6 @@ function mountSchemes(page, { after } = {}) {
       if (!v) return;
       settings().schemeView = v;
       saveSettings();
-      opened = false;
       return render();
     }
     const a = e.target.closest("[data-a]")?.dataset.a;
@@ -580,7 +575,7 @@ function mountSchemes(page, { after } = {}) {
       const k = e.target.closest(".pa-sgroup").dataset.k;
       const ids = all().filter((x) => String(groupKey(x)) === k).map((x) => x.id);
       for (const id of ids) e.target.checked ? picked.add(id) : picked.delete(id);
-      if (e.target.checked) open.add(view() + "|" + k);
+      if (e.target.checked) foldSet("schemes", view() + "|" + k, true);
       return render();
     }
     if (a === "pick") {
@@ -590,8 +585,8 @@ function mountSchemes(page, { after } = {}) {
     }
     if (picking && e.target.closest(".pa-srow")) return;
     if (a === "fold") {
-      const k = view() + "|" + e.target.closest(".pa-sgroup").dataset.k;
-      open.has(k) ? open.delete(k) : open.add(k);
+      const sec = e.target.closest(".pa-sgroup");
+      foldSet("schemes", view() + "|" + sec.dataset.k, !sec.classList.contains("open"));
       return render();
     }
     const rowEl = e.target.closest(".pa-srow");

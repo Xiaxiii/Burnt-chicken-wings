@@ -552,17 +552,14 @@ function keyMaskOf(text) {
 // liveBox：当前连接；sitesBox：站点列表；optsBox：两个选项（「方案」页把方案放在当前连接和选项之间）
 function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   const sites = () => settings().sites;
-  // 2.4.0：底部选项行点开的（只在面板打开期间记住）
-  const optOpen = /* @__PURE__ */ new Set();
-  // 2.5.0：点开的多密钥站点（只在面板打开期间记住）
-  const siteOpen = /* @__PURE__ */ new Set();
+  // 2.4.0 底部选项行、2.5.0 多密钥站点点开的：2.6.6 起记住最后一次的展开、收起（foldGet / foldSet）
   const shortLabel = (source) => (SOURCES[source]?.label || source || "—").split("（")[0];
   // 2.4.1：当前连接还没存成站点时，拉取到的模型列表先记在这里（面板打开期间）
   let liveFetched = null;
   // 2.5.0 测试结果：写在模型那一行下面；换了模型就不显示
   let liveTest = null;
   // 2.5.0 ⋯ 在卡片里原地展开详情，不再弹窗
-  let liveOpen = false;
+  const liveOpen = () => foldGet("live", "detail");
   // 酒馆实际在用的模型（测试用的就是它）
   const usingModel = (live = liveConnection()) => {
     const c = ctx();
@@ -605,12 +602,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const sub = live.url || src?.label || "";
     liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">当前连接</h3></div>
         <article class="pa-card pa-site pa-site-on pa-live"${active ? ` data-id="${esc(active.id)}"` : ""}>
-            <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more${liveOpen ? " on" : ""}" data-a="livemore" aria-expanded="${liveOpen}" aria-label="连接详情" title="连接详情">⋯</button></header>
+            <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more${liveOpen() ? " on" : ""}" data-a="livemore" aria-expanded="${liveOpen()}" aria-label="连接详情" title="连接详情">⋯</button></header>
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
-        ${liveOpen ? liveDetails(live, active) : ""}
+        ${liveOpen() ? liveDetails(live, active) : ""}
         </article>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
     const siteRow = (x) => {
@@ -624,7 +621,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     };
     // 2.5.0 多密钥站点：左边小三角，点开每个分组一行，各有「切换」；折起时小字是当前分组和模型
     const multiRow = (x, on, used) => {
-      const open = siteOpen.has(x.id);
+      const open = foldGet("sites", x.id);
       const k = siteKey(x);
       const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       const lines = open ? `<div class="pa-klines">${x.keys.map((y) => {
@@ -657,7 +654,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   }
   // 2.4.0 选项行：只有方框管勾选，点这一行其他地方展开
   function optCard(key, check, label, count, body) {
-    const on = optOpen.has(key);
+    const on = foldGet("opts", key);
     return `<section class="pa-sgroup pa-optgroup${on ? " open" : ""}" data-w="${key}">
         <header class="pa-sghead pa-opthead" data-a="optfold" tabindex="0" aria-expanded="${on}"><label class="pa-optcheck">${check}</label><span class="pa-optlabel">${label}</span>${count ? `<span class="pa-optcount">${count}</span>` : ""}<span class="pa-sgcaret">${on ? "▾" : "▸"}</span></header>
         ${on ? `<div class="pa-sgbody">${body}</div>` : ""}</section>`;
@@ -1226,7 +1223,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     if (a === "optfold") {
       if (e.target.closest(".pa-optcheck")) return;
       const k = e.target.closest("[data-w]").dataset.w;
-      optOpen.has(k) ? optOpen.delete(k) : optOpen.add(k);
+      foldSet("opts", k, !foldGet("opts", k));
       return render();
     }
     const site = sites().find((x) => x.id === e.target.closest(".pa-site")?.dataset.id);
@@ -1313,7 +1310,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       else btn.textContent = t;
     };
     if (a === "livemore") {
-      liveOpen = !liveOpen;
+      foldSet("live", "detail", !liveOpen());
       return render();
     }
     if (a === "reasoningclear") {
@@ -1351,7 +1348,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return render();
     }
     if (a === "sitefold") {
-      siteOpen.has(site.id) ? siteOpen.delete(site.id) : siteOpen.add(site.id);
+      foldSet("sites", site.id, !foldGet("sites", site.id));
       return render();
     }
     // 2.5.0 多密钥站点正在用：选模型时一并选分组，换了分组就换密钥重新连接
