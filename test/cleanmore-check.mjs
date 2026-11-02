@@ -164,6 +164,23 @@ await page.click('.pa-clean-other input[data-k="Alice\'s Lorebook"]'); await pag
 await page.click('[data-x="del"]'); await page.waitForTimeout(200);
 await page.click(`${top} button:has-text("取消")`); await page.waitForTimeout(300);
 assert.ok(await wbHas("Alice's Lorebook"), "取消不删");
+// 2.6.3 酒馆的 deleteWorldInfo 返回 false（它的名单里没有这本书）：改用接口删；本来就不在了也算删掉；失败的合成一条提示
+await page.evaluate(async () => {
+  window.__toasts = [];
+  window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
+  const m = await import("/test/site/scripts/world-info.js");
+  for (const n of ["Alice's Lorebook", "附加残留"]) m.world_names.splice(m.world_names.indexOf(n), 1);
+});
+let delCalls = 0;
+await page.route("**/api/worldinfo/delete", (r) => { delCalls++; const n = JSON.parse(r.request().postData()).name; r.fulfill(n === "附加残留" ? { status: 500, body: `World info file ${n}.json doesn't exist.` } : { status: 200, body: "ok" }); });
+await page.click('.pa-clean-other input[data-k="附加残留"]'); await page.waitForTimeout(100);
+await page.click('[data-x="del"]'); await page.waitForTimeout(200);
+await page.click(`${top} .pa-btn-danger`); await page.waitForTimeout(500);
+const wbToasts = await page.evaluate(() => window.__toasts.splice(0));
+assert.equal(delCalls, 2, "两本都改用接口删");
+assert.ok(!wbToasts.some((t) => t.startsWith("error:")), wbToasts.join("|"));
+assert.ok(wbToasts.includes("success:已删除 2 本世界书"), wbToasts.join("|"));
+await page.unroute("**/api/worldinfo/delete");
 // 本地备份
 await page.evaluate(async () => { for (let i = 0; i < 5; i++) await new Promise((res, rej) => { const rq = indexedDB.open("preset-atelier", 2); rq.onupgradeneeded = () => { const d = rq.result; if (!d.objectStoreNames.contains("backups")) d.createObjectStore("backups", { keyPath: "id", autoIncrement: true }).createIndex("preset", "preset"); if (!d.objectStoreNames.contains("assets")) d.createObjectStore("assets"); }; rq.onerror = () => rej(rq.error); rq.onsuccess = () => { const t = rq.result.transaction("backups", "readwrite"); t.objectStore("backups").add({ preset: "P1", reason: "x", time: i, data: { prompts: ["z".repeat(1000)] } }); t.oncomplete = () => { rq.result.close(); res(); }; t.onerror = () => rej(t.error); }; }); });
 await page.click('[data-kind="local"]'); await page.waitForTimeout(600);

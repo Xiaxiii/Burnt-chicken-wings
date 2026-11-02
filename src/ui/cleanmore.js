@@ -106,14 +106,16 @@ async function deleteCharacterKeepChats(avatar) {
   const r = await stPost("api/characters/delete", { avatar_url: avatar, delete_chats: false });
   if (!r.ok) throw new Error(`删除失败（${r.status}）`);
 }
+// 2.6.3 酒馆的 deleteWorldInfo 在它的名单里找不到这本书、或后台没删掉时只返回 false，不给原因。
+// 这时直接调删除接口；删完或本来就不在了都算删掉，删不掉时写明酒馆给的原因
 async function deleteWorldbook(name) {
-  if (typeof mods.wi?.deleteWorldInfo === "function") {
-    const ok = await mods.wi.deleteWorldInfo(name);
-    if (ok === false) throw new Error("删除失败");
-    return;
-  }
+  if (typeof mods.wi?.deleteWorldInfo === "function" && await mods.wi.deleteWorldInfo(name) !== false) return;
   const r = await stPost("api/worldinfo/delete", { name });
-  if (!r.ok) throw new Error(`删除失败（${r.status}）`);
+  const text = r.ok ? "" : await r.text().catch(() => "");
+  try { await mods.wi?.updateWorldInfoList?.(); } catch {}
+  if (r.ok || !listWorldbooks().includes(name)) return;
+  if (/exist|ENOENT|not found/i.test(text)) throw new Error("酒馆找不到这本世界书的文件，刷新页面后再试");
+  throw new Error(`酒馆返回 ${r.status}${text && text.length < 80 && !/<\w/.test(text) ? `：${text.trim()}` : ""}`);
 }
 async function backupAll() {
   return ((await tx("backups", "readonly", (s) => s.getAll())) || []).filter(backupMine);
@@ -483,15 +485,18 @@ function mountCleanKind(kind, box) {
         if (!go) return;
         S.busy = true;
         let ok = 0;
+        const fail = [];
         for (const n of list) {
           try {
             await deleteWorldbook(n);
             S.sel.delete(n);
             ok++;
           } catch (er) {
-            toast(`删除「${n}」失败：${er.message}`, "error");
+            fail.push(`「${n}」${er.message}`);
           }
         }
+        // 2.6.3 失败的合成一条提示
+        if (fail.length) toast(`${fail.length} 本没有删除：${fail.slice(0, 3).join("；")}${fail.length > 3 ? " 等" : ""}`, "error");
         if (res) {
           for (const g of res.byHash.values()) for (let i = g.length - 1; i >= 0; i--) if (!listWorldbooks().includes(g[i].name)) g.splice(i, 1);
           res.empty = res.empty.filter((w) => listWorldbooks().includes(w.name));

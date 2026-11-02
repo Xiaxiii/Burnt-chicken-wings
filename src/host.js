@@ -441,9 +441,25 @@ async function storeKey(source, key, label) {
 async function activateSecret(secretKey, id) {
   const cur = (await readSecretState())[secretKey];
   if (Array.isArray(cur) && cur.find((x) => x.active)?.id === id) return;
-  await mods.secrets.rotateSecret(secretKey, id);
+  if (!await rotateSecretQuiet(secretKey, id)) await mods.secrets.rotateSecret(secretKey, id);
   const after = (await readSecretState())[secretKey];
   if (!Array.isArray(after) || after.find((x) => x.active)?.id !== id) throw new Error("切换密钥没有成功");
+}
+// 2.6.3 酒馆的 rotateSecret 换完密钥会触发 #main_api 的 change，重新加载当前预设：预设带正则时，每换一次弹一条
+// 「包含被启用的正则，重新加载聊天以使正则生效」。拉取模型要换过去再换回来，就弹两条。
+// 这里直接调换密钥的接口，不触发重新加载；需要连接时由调用方自己连。接口不可用时返回 false，改用 rotateSecret
+async function rotateSecretQuiet(secretKey, id) {
+  try {
+    const r = await fetch(stUrl("api/secrets/rotate"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
+      body: JSON.stringify({ key: secretKey, id }),
+      cache: "no-cache"
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
 }
 // 删掉一把密钥（添加站点时取消了，刚存进去的密钥不留在密钥库里）
 async function dropKey(source, id) {
