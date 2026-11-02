@@ -325,21 +325,14 @@ function mountCleanup(sec) {
   }
   async function doDelete(names) {
     const users = usersOf(names);
-    const ok = await sheet({
-      place: "center",
-      title: `删除 ${names.length} 个预设`,
-      body: `<p class="pa-p">将从服务器上删除这些预设，<b>删除后无法在酒馆中恢复</b>。如果以后可能还会用到，建议改用「归档」。</p>
-        ${users.length ? `<p class="pa-p pa-warn">${esc(users.slice(0, 4).join("、"))}${users.length > 4 ? ` 等 ${users.length} 处` : ""}正在使用这些预设，删除后它们将无法套用。</p>` : ""}
-        <label class="pa-cbox"><input type="checkbox" data-zip checked> 删除前先下载一份到本地（zip）</label>`,
-      actions: [{ label: "取消", value: null }, { label: "删除", kind: "danger", value: (w) => ({ zip: w.querySelector("[data-zip]").checked }) }]
-    });
-    if (!ok) return;
-    if (ok.zip) {
+    // 2.6.3 备份不强制：弹窗提醒，可先下载备份，也可直接删
+    const go = await confirmDeleteOfferBackup(`删除 ${names.length} 个预设`, `<p class="pa-p">将从服务器上删除这些预设，<b>删除后无法在酒馆中恢复</b>，需要的话先下载备份。如果以后可能还会用到，建议改用「归档」。</p>
+        ${users.length ? `<p class="pa-p pa-warn">${esc(users.slice(0, 4).join("、"))}${users.length > 4 ? ` 等 ${users.length} 处` : ""}正在使用这些预设，删除后它们将无法套用。</p>` : ""}`, async () => {
       const fname = `preset-backup-${stamp()}.zip`;
-      const zip = zipOf(names);
-      downloadBlob(zip, fname);
-      if (!await confirmDownloaded(fname, () => downloadBlob(zip, fname))) return;
-    }
+      downloadBlob(zipOf(names), fname);
+      return `已让浏览器下载「${esc(fname)}」，可在下载记录里确认。`;
+    });
+    if (!go) return;
     let n = 0;
     const fail = [];
     for (const [i, name] of names.entries()) {

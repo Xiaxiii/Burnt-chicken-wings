@@ -137,7 +137,7 @@ test('a required tag written under another name is named in the check, reminder 
   const reminder = buildReplyReminder(report, rules);
   assert.match(reminder, /上一轮把 <lxs_status> 写成了 <状态栏>/);
   assert.doesNotMatch(reminder, /正文后的[^。]*<状态栏>[^。]*照常输出/, '不再点名让 <状态栏> 照常输出');
-  assert.match(reminder, /正文后的 <author_note>/, '预设里有的块照常点名');
+  assert.doesNotMatch(reminder, /author_note/, '只点名正文和必需标签');
   // 用到时才扫预设：没缺必需标签时不调用
   let calls = 0;
   checkReplyFormat('<content>正文</content><lxs_status>x</lxs_status>', rules, { knownTags: () => { calls++; return knownTags; } });
@@ -199,14 +199,17 @@ test('reminder uses configured complete tags and never asks to reveal thoughts',
   // 不和预设的思维链、转述打架：不说「无需展示思考」「不要复述」，也不叫正文写完就结束
   assert(!/展示思考|复述|写完即结束/.test(reminder));
 });
-test('reminder names the blocks earlier replies had outside the body so they are not dropped', () => {
-  const layout = learnReplyLayout(['<StatusBlock>夜</StatusBlock>\n<content>上一条</content>\n<theater>小剧场</theater>']);
+test('reminder names only the body tag and the required tags, not blocks learned from earlier replies', () => {
+  const layout = learnReplyLayout(['<状态栏>夜</状态栏>\n<content>上一条</content>\n<theater>小剧场</theater>']);
   const swallowed = buildReplyReminder(checkReplyFormat('', undefined, { reasoning: '想。\n<content>正文</content>', layout }));
-  assert.match(swallowed, /思考标签必须在 <StatusBlock> 开始之前闭合/);
-  assert.match(swallowed, /正文前的 <StatusBlock>、正文后的 <theater>照常输出/);
+  assert.match(swallowed, /思考标签必须在第一个输出块（正文或正文前的块）开始之前闭合/, '正文前有块时不点名，只说第一个输出块');
+  assert.doesNotMatch(swallowed, /状态栏|theater|照常输出/);
   const tail = buildReplyReminder(checkReplyFormat('<content>正文</content>\n后面还有一大段没有被标签包住的零散说明文字，字数超过二十个。', undefined, { layout }));
   assert.match(tail, /正文结束后不追加说明或总结/);
-  assert.match(tail, /正文后的 <theater>照常输出/);
+  assert.doesNotMatch(tail, /状态栏|theater/);
+  const rules = normalizeReplyRules({ requiredTags: ['状态栏'] });
+  const withTag = buildReplyReminder(checkReplyFormat('<content>正文</content>', rules, { layout }), rules);
+  assert.match(withTag, /<状态栏>…<\/状态栏>/, '用户填了才提醒');
 });
 
 test('analysis written before the body tag is reported with an excerpt', () => {
@@ -322,7 +325,8 @@ test('blocks left at the end of the reasoning go back to where earlier replies h
   const reasoning = '我先想想剧情。\n<status>\n时间：晨\n</status>\n<theater>\n这条小剧场\n</theater>';
   const report = checkReplyFormat('<content>\n这条正文\n</content>', undefined, { reasoning, layout });
   assert.deepEqual(report.issues.map((i) => i.kind), ['stranded']);
-  assert.match(buildReplyReminder(report), /思考标签必须在 <status> 开始之前闭合/);
+  assert.match(buildReplyReminder(report), /思考标签必须在第一个输出块（正文或正文前的块）开始之前闭合/);
+  assert.doesNotMatch(buildReplyReminder(report), /status|theater/, '不点名没填的标签');
   const plan = fixed('<content>\n这条正文\n</content>', undefined, { reasoning, layout });
   assert.equal(plan.text, '<status>\n时间：晨\n</status>\n<content>\n这条正文\n</content>\n<theater>\n这条小剧场\n</theater>');
   assert.equal(plan.reasoning, '我先想想剧情。');

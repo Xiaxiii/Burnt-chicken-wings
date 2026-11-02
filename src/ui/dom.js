@@ -197,20 +197,20 @@ async function confirmBox(title, text, okLabel = "确定", danger = false) {
   const r = await sheet({ title, place: "center", body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: "取消", value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
   return !!r;
 }
-// 删除前的备份是交给浏览器下载的：浏览器可能弹窗询问、被拦截或下载失败，这里没法知道文件是否真的存到了本地。
-// 所以下载之后先停一下，由用户确认文件已经保存，再继续删除。返回 true 才删。
-async function confirmDownloaded(fileName, redownload) {
+// 2.6.3 删除前提醒备份，不强制：「下载备份」交给浏览器下载，弹窗不关、写明下载了什么；「删除」不管下没下载都删。
+// download() 负责下载并返回写在弹窗里的说明（HTML，已转义）。返回 true 才删
+async function confirmDeleteOfferBackup(title, html, download) {
+  let note = "";
   for (;;) {
     const v = await sheet({
-      title: "确认备份已保存",
-      body: `<p class="pa-p">已让浏览器下载「${esc(fileName)}」。浏览器可能会询问、拦截或下载失败，请先在浏览器的下载记录里确认文件已经保存，再继续删除。</p>`,
-      actions: [{ label: "取消删除", value: null }, { label: "重新下载", value: "redo" }, { label: "已保存，继续删除", kind: "danger", value: "ok" }]
+      title,
+      place: "center",
+      body: `${html}${note ? `<p class="pa-hint pa-dl-note">${note}</p>` : ""}`,
+      actions: [{ label: "取消", value: null }, { label: note ? "重新下载" : "下载备份", value: "dl" }, { label: "删除", kind: "danger", value: "del" }]
     });
-    if (v === "redo") {
-      redownload();
-      continue;
-    }
-    return v === "ok";
+    if (v === "del") return true;
+    if (v !== "dl") return false;
+    note = await download();
   }
 }
 async function promptBox(title, value = "", placeholder = "") {

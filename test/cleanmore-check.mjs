@@ -62,22 +62,21 @@ assert.ok(await page.$eval('.pa-clean-other input[data-k="presetAtelier"]', (x) 
 await page.screenshot({ path: S + "m-1-ext.png" });
 await page.click('[data-x="pickorphans"]'); await page.waitForTimeout(200);
 assert.ok(await page.$eval('.pa-clean-other input[data-k="oldUninstalled"]', (x) => x.checked), "疑似残留被勾选");
+// 备份不强制：「下载备份」下载后弹窗还在、不删；取消不删；「删除」才删
+const topSheet = ".pa-sheet-mask:not(.pa-out) .pa-sheet";
+assert.equal(await page.$eval('[data-x="del"]', (x) => x.textContent), "删除");
 await page.click('[data-x="del"]'); await page.waitForTimeout(200);
 const dl = page.waitForEvent("download");
-await page.click(".pa-sheet .pa-btn-danger");
+await page.click(`${topSheet} button:has-text("下载备份")`);
 assert.match((await dl).suggestedFilename(), /^extension-data-backup-\d+\.json$/);
-await page.waitForTimeout(200);
-// 下载只是交给浏览器，没确认文件存好之前不删（FIX-02/03）
-assert.equal(await page.$eval(".pa-sheet-mask:last-child .pa-sheet-head b", (x) => x.textContent), "确认备份已保存");
-assert.ok(await page.evaluate(() => "oldUninstalled" in window.SillyTavern.getContext().extensionSettings), "确认前不删除");
-await page.click(".pa-sheet-mask:last-child >> text=取消删除"); await page.waitForTimeout(250);
+await page.waitForTimeout(250);
+assert.match(await page.$eval(topSheet, (x) => x.innerText), /已让浏览器下载「extension-data-backup-\d+\.json」/);
+assert.ok(await page.evaluate(() => "oldUninstalled" in window.SillyTavern.getContext().extensionSettings), "下载不等于删除");
+await page.click(`${topSheet} button:has-text("取消")`); await page.waitForTimeout(250);
 assert.ok(await page.evaluate(() => "oldUninstalled" in window.SillyTavern.getContext().extensionSettings), "取消后不删除");
 await page.click('[data-x="del"]'); await page.waitForTimeout(200);
-const dlAgain = page.waitForEvent("download");
-await page.click(".pa-sheet .pa-btn-danger");
-await dlAgain; await page.waitForTimeout(200);
-await page.click(".pa-sheet-mask:last-child .pa-btn-danger"); await page.waitForTimeout(250);
-assert.ok(!(await page.evaluate(() => "oldUninstalled" in window.SillyTavern.getContext().extensionSettings)));
+await page.click(`${topSheet} .pa-btn-danger`); await page.waitForTimeout(250);
+assert.ok(!(await page.evaluate(() => "oldUninstalled" in window.SillyTavern.getContext().extensionSettings)), "不下载也能删");
 // 角色卡
 await page.click('[data-kind="char"]'); await page.waitForTimeout(300);
 txt = await page.$eval(".pa-clean-other", (x) => x.innerText);

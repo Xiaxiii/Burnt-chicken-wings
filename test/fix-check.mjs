@@ -53,7 +53,8 @@ async function boot(ctx) {
   await page.click('[data-f="all"]'); await page.waitForTimeout(200);
   await page.click(`.pa-crow:has-text("${nameA}") input[data-c=pick]`);
   await page.click('[data-c="del"]'); await page.waitForTimeout(200);
-  await page.uncheck(".pa-sheet [data-zip]");
+  // 备份不强制：弹窗里有「下载备份」，不点就直接删
+  assert.ok(await page.$('.pa-sheet button:has-text("下载备份")'));
   await page.click(".pa-sheet .pa-btn-danger");
   await page.waitForTimeout(3500);
   assert.deepEqual(log.filter((x) => x === "delete" || x.endsWith(nameA)), ["save-start:" + nameA, "save-end:" + nameA, "delete"], "保存结束后才删除");

@@ -164,7 +164,7 @@ function mountCleanKind(kind, box) {
         <div class="pa-sum"><p class="pa-sum-main">扩展数据 <b>${fmtSize(total)}</b> · ${list.length} 项${orphans.length ? ` · <span class="pa-warn">疑似残留 ${orphans.length}</span>` : ""}</p>
           <div class="pa-tiprow">${tip(`<p>设置文件每次打开酒馆都要下载，每次保存都要上传，删掉已卸载扩展的残留数据能减少这部分。</p>
             <p>「可能已卸载」只是按名称推测。「实际检测」会下载已安装扩展的脚本，查找谁在使用这些数据；扩展用拼接出来的名字读数据时查不出来，结果只能作参考。</p>
-            <p>正在使用的数据不能勾选。删除前会先下载一份备份（JSON），需要时可交给对应扩展重新导入。</p>`)}<span class="pa-golinks">${orphans.length ? `<button type="button" class="pa-golink" data-x="pickorphans">勾选 ${orphans.length} 项疑似残留</button>` : ""}<button type="button" class="pa-golink" data-x="scan" ${S.busy ? "disabled" : ""}>${S.busy ? "检测中…" : scan ? "重新检测 ›" : "实际检测 ›"}</button></span></div>
+            <p>正在使用的数据不能勾选。删除时可先下载备份（JSON），需要时交给对应扩展重新导入。</p>`)}<span class="pa-golinks">${orphans.length ? `<button type="button" class="pa-golink" data-x="pickorphans">勾选 ${orphans.length} 项疑似残留</button>` : ""}<button type="button" class="pa-golink" data-x="scan" ${S.busy ? "disabled" : ""}>${S.busy ? "检测中…" : scan ? "重新检测 ›" : "实际检测 ›"}</button></span></div>
           ${S.busy ? '<p class="pa-hint pa-ck-prog"></p>' : ""}
           ${scan ? `<p class="pa-hint">${orphans.length ? "勾选后请逐项确认名称再删除。" : "没有找到疑似残留的数据。"}${scan.partial.length ? `「${scan.partial.map((x) => x.manifest?.display_name || x.base).join("、")}」没有查完，标「请确认」的需自行判断。` : ""}</p>` : ""}</div>
         ${err ? `<p class="pa-warn">${esc(err)}</p>` : ""}
@@ -172,7 +172,7 @@ function mountCleanKind(kind, box) {
           ${chk(r.k, S.sel.has(r.k), r.state === "core" || r.state === "used")}
           <span class="pa-crow-main"><b>${esc(r.k)}</b><span class="pa-crow-tags"><span class="pa-chip ${r.state === "orphan" ? "pa-ctag-same" : r.state === "maybe" ? "pa-ctag-old" : r.state === "used" ? "pa-ctag-use" : "pa-chip-dim"}">${esc(r.label)}</span></span></span>
           <span class="pa-crow-size"><i class="pa-bar"><b style="width:${Math.max(2, Math.round(r.size / max * 100))}%"></b></i><em>${fmtSize(r.size)}</em></span></label>`).join("")}</div>
-        ${actBar(pick.length, pick.reduce((n, r) => n + r.size, 0), '<button class="pa-btn pa-btn-danger-soft" data-x="del">下载备份并删除</button>')}`;
+        ${actBar(pick.length, pick.reduce((n, r) => n + r.size, 0), '<button class="pa-btn pa-btn-danger-soft" data-x="del">删除</button>')}`;
     };
     box.addEventListener("change", (e) => {
       if (e.target.dataset.x !== "pick") return;
@@ -206,12 +206,13 @@ function mountCleanKind(kind, box) {
       if (x === "del") {
         const keys = [...S.sel];
         if (!keys.length) return;
-        if (!await confirmBox("删除扩展数据", `将从设置文件中删除 ${keys.length} 项数据：${keys.slice(0, 5).join("、")}${keys.length > 5 ? " 等" : ""}。删除前会先下载备份。如果对应的扩展其实还在使用，它会恢复成默认设置。`, "下载备份并删除", true)) return;
         const es = ctx().extensionSettings;
-        const fname = `extension-data-backup-${stamp()}.json`;
-        const blob = new Blob([JSON.stringify(Object.fromEntries(keys.map((k) => [k, es[k]])), null, 2)], { type: "application/json" });
-        downloadBlob(blob, fname);
-        if (!await confirmDownloaded(fname, () => downloadBlob(blob, fname))) return;
+        const go = await confirmDeleteOfferBackup("删除扩展数据", `<p class="pa-p">将从设置文件中删除 ${keys.length} 项数据：${esc(keys.slice(0, 5).join("、"))}${keys.length > 5 ? " 等" : ""}。删除后不能恢复，需要的话先下载备份（JSON），可交给对应扩展重新导入。如果对应的扩展其实还在使用，它会恢复成默认设置。</p>`, async () => {
+          const fname = `extension-data-backup-${stamp()}.json`;
+          downloadBlob(new Blob([JSON.stringify(Object.fromEntries(keys.map((k) => [k, es[k]])), null, 2)], { type: "application/json" }), fname);
+          return `已让浏览器下载「${esc(fname)}」，可在下载记录里确认。`;
+        });
+        if (!go) return;
         for (const k of keys) {
           delete es[k];
           S.sel.delete(k);
@@ -461,21 +462,10 @@ function mountCleanKind(kind, box) {
         const list = [...S.sel];
         const use = usage();
         const bound = list.filter((n) => use[n]?.length);
-        // 2.6.2 备份不强制：弹窗里提醒，可点「下载备份」（弹窗不关，下载完再删），也可直接删
+        // 2.6.2 备份不强制：弹窗提醒，可先下载备份，也可直接删
         const names = `${list.slice(0, 4).join("、")}${list.length > 4 ? " 等" : ""}`;
         const usedNote = bound.length ? `其中 ${bound.join("、")} 正被使用，删除后对应的角色或聊天将失去它。` : "";
-        let saved = "";
-        for (;;) {
-          const v = await sheet({
-            title: "删除世界书",
-            place: "center",
-            body: `<p class="pa-p">将删除 ${list.length} 本世界书：${esc(names)}。删除后不能恢复，需要的话先下载备份。${esc(usedNote)}</p>${saved ? `<p class="pa-hint pa-wb-saved">${saved}</p>` : ""}`,
-            actions: [{ label: "取消", value: null }, { label: saved ? "重新下载" : "下载备份", value: "dl" }, { label: "删除", kind: "danger", value: "del" }]
-          });
-          if (v !== "dl") {
-            if (v !== "del") return;
-            break;
-          }
+        const go = await confirmDeleteOfferBackup("删除世界书", `<p class="pa-p">将删除 ${list.length} 本世界书：${esc(names)}。删除后不能恢复，需要的话先下载备份。${esc(usedNote)}</p>`, async () => {
           const files = [], unread = [];
           for (const n of list) {
             try {
@@ -488,8 +478,9 @@ function mountCleanKind(kind, box) {
           }
           const fname = `worldbooks-backup-${stamp()}.zip`;
           if (files.length) downloadBlob(makeZip(files), fname);
-          saved = `${files.length ? `已让浏览器下载「${esc(fname)}」，可在下载记录里确认。` : ""}${unread.length ? `${esc(unread.join("、"))} 读取失败，没有备份进去。` : ""}`;
-        }
+          return `${files.length ? `已让浏览器下载「${esc(fname)}」，可在下载记录里确认。` : ""}${unread.length ? `${esc(unread.join("、"))} 读取失败，没有备份进去。` : ""}`;
+        });
+        if (!go) return;
         S.busy = true;
         let ok = 0;
         for (const n of list) {
