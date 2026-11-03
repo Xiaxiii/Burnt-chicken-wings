@@ -1337,6 +1337,10 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-site-del svg { width: 17px; height: 17px; }
 #pa-root .pa-site-del:focus-visible { outline: 2px solid var(--pa-warn); outline-offset: -2px; }
 @media (hover: hover) { #pa-root .pa-site-del:hover { color: var(--pa-warn); background: var(--pa-card); } }
+/* 2.6.14 拖动中：各行单独成层，让位用位移过渡，交给合成器；被拖的那一行不过渡、跟手 */
+#pa-root .pa-sorting > .pa-site-edit { will-change: transform; transition: transform .18s ease; }
+#pa-root .pa-sorting > .pa-site-edit.pa-dragging { transition: none; }
+@media (prefers-reduced-motion: reduce) { #pa-root .pa-sorting > .pa-site-edit { transition: none; } }
 #pa-root .pa-site-edit.pa-dragging {
     position: relative; z-index: 2; border-color: var(--pa-thread);
     background: var(--pa-tint); background: color-mix(in srgb, var(--pa-tint) 92%, var(--pa-thread));

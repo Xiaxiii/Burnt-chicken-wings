@@ -1563,26 +1563,19 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     }
   }
   // 2.6.9 编辑模式排序。拖动：按住 ≡，这一行跟着手指走，越过别的站点一半时它们让位（滑过去），
-  // 靠近滚动区上下边缘时自动滚动，松手保存。键盘：焦点在 ≡ 上按上下方向键移动一格
+  // 靠近滚动区上下边缘时自动滚动，松手保存。键盘：焦点在 ≡ 上按上下方向键移动一格。
+  // 2.6.14 拖动很卡：以前每次手指移动都量一遍各行、越过一行就挪动页面元素并逐行强制重排，被拖的行还连着油画背景一起重画。
+  // 现在按下时量一次各行位置，拖动中只改位移（transform，各行单独成层，交给合成器），手指移动每帧最多处理一次，
+  // 页面结构等松手才改
   const still = () => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  // 把各行从记下的位置（相对列表顶部）滑到现在的位置
+  // 从原来的位置（相对列表顶部）滑到现在的位置；用 Web Animations，不逐行读写样式
   function slideFrom(rows, tops, ms = 180) {
     if (still()) return;
     for (const x of rows) {
       const dy = (tops.get(x.dataset.id) ?? x.offsetTop) - x.offsetTop;
-      if (!dy) continue;
-      x.style.transition = "none";
-      x.style.transform = `translateY(${dy}px)`;
-      x.getBoundingClientRect();
-      x.style.transition = `transform ${ms}ms ease`;
-      x.style.transform = "";
+      if (dy) x.animate?.([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: ms, easing: "ease" });
     }
   }
-  // 屏幕上看到的位置（含正在滑动的位移），相对列表顶部
-  const seenTops = (list) => {
-    const t = list.getBoundingClientRect().top;
-    return new Map([...list.children].map((x) => [x.dataset.id, x.getBoundingClientRect().top - t]));
-  };
   function saveOrder(ids) {
     const old = sites().map((x) => x.id).join("\n");
     sites().sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
@@ -1594,68 +1587,77 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     e.preventDefault();
     const row = grip.closest(".pa-site-edit");
     const list = row.parentElement;
+    const rows = [...list.children];
+    const from = rows.indexOf(row);
     const scroller = row.closest(".pa-scroll");
-    const top = () => list.getBoundingClientRect().top;
-    const grab = e.clientY - (top() + row.offsetTop);
-    let y = e.clientY;
-    let raf = 0;
+    // 按下时量一次：各行位置（相对列表）、行距、滚动区
+    const tops = rows.map((x) => x.offsetTop);
+    const hs = rows.map((x) => x.offsetHeight);
+    const mids = rows.map((x, i) => tops[i] + hs[i] / 2);
+    const gap = rows.length > 1 ? Math.max(0, tops[1] - tops[0] - hs[0]) : 0;
+    const step = hs[from] + gap;
+    const minDy = tops[0] - tops[from];
+    const maxDy = tops.at(-1) + hs.at(-1) - hs[from] - tops[from];
+    const box = scroller?.getBoundingClientRect();
+    const scroll0 = scroller?.scrollTop || 0;
+    const y0 = e.clientY;
+    const shift = rows.map(() => 0);
+    let y = y0, frame = 0, dy = 0, to = from, live = true;
     dragging = true;
+    list.classList.add("pa-sorting");
     row.classList.add("pa-dragging");
-    row.style.transition = "none";
     grip.setPointerCapture?.(e.pointerId);
-    const place = () => {
-      // 拖着的行不超出列表上下：超出会撑大滚动区，自动滚动就停不下来
-      const rt = Math.max(0, Math.min(list.offsetHeight - row.offsetHeight, y - grab - top()));
-      const rb = rt + row.offsetHeight;
-      const others = [...list.children].filter((x) => x !== row);
-      // 原在上面的站点：这一行的上沿越过它的中线就换到它上面；原在下面的：下沿越过中线就换到它下面
-      const mid = (x) => x.offsetTop + x.offsetHeight / 2;
-      const above = others.filter((x) => x.offsetTop < row.offsetTop ? rt >= mid(x) : rb > mid(x)).length;
-      const next = others[above] || null;
-      if (next !== row.nextElementSibling) {
-        const tops = seenTops(list);
-        // 只挪别的行：拖着的这一行一旦离开文档，指针捕获就断了，松手收不到
-        if (!next || row.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING) {
-          while (row.nextElementSibling !== next) list.insertBefore(row.nextElementSibling, row);
-        } else {
-          let p;
-          do {
-            p = row.previousElementSibling;
-            row.after(p);
-          } while (p !== next);
+    // 这一帧：被拖的行跟手（含自动滚动的距离）；中线越过谁，谁让开一个身位
+    const update = () => {
+      frame = 0;
+      if (!live) return;
+      // 朝哪边拖、到了哪边的边缘才往哪边滚：从底部那一行往上拖时，列表不先往下滚
+      const near = scroller && box ? (y < box.top + 48 && y < y0 ? -1 : y > box.bottom - 48 && y > y0 ? 1 : 0) : 0;
+      if (near) scroller.scrollTop += near < 0 ? -Math.min(14, (box.top + 48 - y) / 3) : Math.min(14, (y - box.bottom + 48) / 3);
+      dy = Math.max(minDy, Math.min(maxDy, y - y0 + (scroller ? scroller.scrollTop - scroll0 : 0)));
+      const mid = mids[from] + dy;
+      to = from;
+      rows.forEach((x, i) => {
+        // 拖到头时中线正好落在首、末行的中线上，相等也算越过
+        const s = i < from && mid <= mids[i] ? step : i > from && mid >= mids[i] ? -step : 0;
+        if (s > 0) to--;
+        if (s < 0) to++;
+        if (i !== from && s !== shift[i]) {
+          shift[i] = s;
+          x.style.transform = s ? `translateY(${s}px)` : "";
         }
-        slideFrom(others, tops);
-      }
-      row.style.transform = `translateY(${rt - row.offsetTop}px)`;
+      });
+      row.style.transform = `translateY(${dy}px)`;
+      // 靠着边缘时每帧接着滚
+      if (near) frame = requestAnimationFrame(update);
     };
-    const tick = () => {
-      if (scroller) {
-        const r = scroller.getBoundingClientRect();
-        const edge = 48;
-        const v = y < r.top + edge ? -Math.min(14, (r.top + edge - y) / 3) : y > r.bottom - edge ? Math.min(14, (y - r.bottom + edge) / 3) : 0;
-        const was = scroller.scrollTop;
-        if (v) scroller.scrollTop += v;
-        if (scroller.scrollTop !== was) place();
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
     const move = (ev) => {
       y = ev.clientY;
-      place();
+      if (!frame) frame = requestAnimationFrame(update);
     };
-    const up = () => {
-      cancelAnimationFrame(raf);
+    const up = (ev) => {
+      // 最后一次移动可能还排在下一帧：先按松手的位置算完
+      cancelAnimationFrame(frame);
+      if (ev?.clientY != null) y = ev.clientY;
+      update();
+      cancelAnimationFrame(frame);
+      live = false;
       grip.removeEventListener("pointermove", move);
       grip.removeEventListener("pointerup", up);
       grip.removeEventListener("pointercancel", up);
-      const tops = seenTops(list);
+      const ids = rows.map((x) => x.dataset.id);
+      const [id] = ids.splice(from, 1);
+      ids.splice(to, 0, id);
+      // 松手时被拖的行在屏幕上的位置（相对列表），重画后从这里滑进新位置
+      const seen = new Map([[id, tops[from] + dy]]);
       dragging = false;
-      saveOrder([...list.children].map((x) => x.dataset.id));
+      saveOrder(ids);
       render();
-      const rows = [...sitesBox.querySelectorAll(".pa-site-edit")];
-      slideFrom(rows, tops, 160);
-      rows.find((x) => x.dataset.id === row.dataset.id)?.classList.add("pa-dropped");
+      const now = sitesBox.querySelector(`.pa-site-edit[data-id="${CSS.escape(id)}"]`);
+      if (now) {
+        slideFrom([now], seen, 160);
+        now.classList.add("pa-dropped");
+      }
     };
     grip.addEventListener("pointermove", move);
     grip.addEventListener("pointerup", up);
@@ -1670,11 +1672,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const i = ids.indexOf(id);
     const j = i + (e.key === "ArrowUp" ? -1 : 1);
     if (j < 0 || j >= ids.length) return;
-    const tops = seenTops(grip.closest(".pa-site-list"));
+    const list = grip.closest(".pa-site-list");
+    const tops = new Map([...list.children].map((x) => [x.dataset.id, x.offsetTop]));
     [ids[i], ids[j]] = [ids[j], ids[i]];
     saveOrder(ids);
     render();
-    slideFrom([...sitesBox.querySelectorAll(".pa-site-edit")], tops);
+    const moved = [ids[i], ids[j]].map((x) => sitesBox.querySelector(`.pa-site-edit[data-id="${CSS.escape(x)}"]`)).filter(Boolean);
+    slideFrom(moved, tops);
     sitesBox.querySelector(`.pa-site-edit[data-id="${CSS.escape(id)}"] .pa-site-grip`)?.focus();
   });
   const onKey = (e) => {

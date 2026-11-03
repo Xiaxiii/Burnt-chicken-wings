@@ -56,6 +56,7 @@ try {
   }, { preset, NAME, wrong });
   await page.click('[data-reply-format]');
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   const result = page.locator('[data-r=result]');
   const text = await result.innerText();
   assert.match(text, /<状态栏> 预设没有用到，多半是写错了名字的 <lxs_status>/);

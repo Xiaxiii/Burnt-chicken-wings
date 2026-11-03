@@ -116,6 +116,7 @@ try {
   // 4) 写错名：世界书里写了 <lxs_status> 的子标签，结构对得上，判为写错名；提醒不复述 <状态栏>
   await setChat('<content>\n第 5 轮正文。\n</content>\n<状态栏>\n<时>子时</时>\n<地>东宫</地>\n</状态栏>');
   await page.click('.pa-sheet [data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   await result.locator('text=多半是写错了名字').waitFor();
   assert.match(await result.innerText(), /<状态栏> 预设没有用到，多半是写错了名字的 <lxs_status>/);
   const remind = await page.locator('.pa-sheet [data-r=remind-card] pre').textContent();
@@ -127,6 +128,7 @@ try {
   await setChat(clean(5), [clean(1), clean(2)]);
   await page.fill('.pa-sheet [data-r=required]', '状态栏');
   await page.click('.pa-sheet [data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   await result.locator('text=这张卡没有用到').waitFor();
   assert.match(await result.innerText(), /这张卡没有用到 <状态栏>：预设条目、角色卡、世界书和最近 10 条回复里都没有，未检查/);
   assert.match(await result.innerText(), /未发现配置范围内的格式问题/);

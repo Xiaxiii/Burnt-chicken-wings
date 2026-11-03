@@ -45,6 +45,7 @@ try {
   });
   await page.click('[data-reply-format]');
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   const result = page.locator('[data-r=result]');
   assert.match(await result.innerText(), /思考区在正文开始前结束/);
   await page.click('[data-r=fix]');
@@ -65,12 +66,14 @@ try {
 
   await page.evaluate(() => { window.SillyTavern.getContext().chat[2] = { is_user: false, mes: '<状态栏>积分：3</状态栏>', extra: { reasoning: '我在想。\n<content>被吞进思考区的正文</content>' } }; });
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await result.innerText(), /解析进了思考区/);
   assert.equal((await result.innerText()).includes('我在想'), false, '不展示思考内容');
   await page.evaluate(() => { window.SillyTavern.getContext().chat[2].mes += ' '; });
   await page.click('[data-r=fix]');
   assert.match(await result.innerText(), /已变化，请重新检查/);
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   await page.click('[data-r=fix]');
   await page.locator('[data-r=undo-fix]').waitFor();
   const moved = await page.evaluate(() => window.SillyTavern.getContext().chat[2]);
@@ -91,15 +94,18 @@ try {
   await page.click('[data-reply-format]');
   assert.equal(await page.locator('[data-r=thinking]').inputValue(), 'ECoT');
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await result.innerText(), /<ECoT> 留在了正文里/);
   assert.match(await result.innerText(), /请求思维链/);
   assert.match(await result.innerText(), /未发现配置范围内的格式问题/);
   await page.evaluate(() => { window.SillyTavern.getContext().chat[2].extra.reasoning_type = 'parsed'; });
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.doesNotMatch(await result.innerText(), /留在了正文里/);
   ok('模型自带思考挤掉 <ECoT> 时说明原因和关法；推理前缀自动当作思考标签');
   await page.fill('[data-r=sample]', '我需要先检查用户要求，再安排剧情，然后写出符合人设的对话内容。\n<content>故事。</content>');
   await page.click('[data-r=paste]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await result.innerText(), /爆思维链/);
   assert.match(await result.innerText(), /我需要先检查用户要求/);
   assert.equal(await page.locator('[data-r=fix]').count(), 0);

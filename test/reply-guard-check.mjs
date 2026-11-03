@@ -58,6 +58,7 @@ const reply = (page, text, greeting = GREETING) => page.evaluate(([text, greetin
 const arm = async (page) => {
   await dialog(page);
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   await page.click('[data-r=remind]');
   await page.locator('[data-r=unremind]').waitFor();
   const text = await page.locator('[data-r=remind-card] pre').textContent();
@@ -75,12 +76,15 @@ try {
   assert.equal(await page.locator('[data-r=enabled]').count(), 0, '没有「下一轮提醒 AI」勾选框');
   assert.equal(await page.locator('[data-r=notice]').isChecked(), true, '生成后提示默认开');
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await page.locator('[data-r=result]').innerText(), /缺少完整的 <content>/);
   await page.fill('[data-r=sample]', '<content>正文<think>内部分析</think></content>');
   await page.click('[data-r=paste]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await page.locator('[data-r=result]').innerText(), /正文内部出现/);
   await page.fill('[data-r=sample]', '<think><content>正文</content></think>');
   await page.click('[data-r=paste]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await page.locator('[data-r=result]').innerText(), /吞入思考区/);
   await close(page);
   assert.deepEqual(await settings(page), {});
@@ -93,6 +97,7 @@ try {
   await page.fill('[data-r=thinking]', '分析区');
   await page.fill('[data-r=sample]', '<分析区>内部文字</分析区><正文>故事正文</正文><摘要>概述</摘要><状态>晴</状态>');
   await page.click('[data-r=paste]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await page.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
   await page.fill('[data-r=body]', '<1非法>');
   await page.locator('.pa-sheet-actions .pa-btn-primary').click();
@@ -141,6 +146,7 @@ try {
   await generate(page); assert.equal(await reminder(page), '', '换聊天后作废');
   await dialog(page);
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   await page.click('[data-r=remind]');
   await page.click('[data-r=unremind]');
   await page.locator('[data-r=remind]').waitFor();
@@ -159,6 +165,7 @@ try {
   assert.equal(await page.locator('[data-r=body]').inputValue(), 'content');
   await reply(page, '坏回复');
   await page.click('[data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.equal(await page.locator('[data-r=remind]').count(), 0, '看的不是正在用的预设：不给提醒按钮');
   assert.match(await page.locator('[data-r=result]').innerText(), /切到这个预设后才能提醒/);
   await close(page, true);
@@ -170,13 +177,16 @@ try {
   await dialog(fallback);
   assert.match(await fallback.locator('.pa-sheet').innerText(), /可以检查和修正，不能提醒下一轮/);
   await fallback.click('[data-r=latest]');
+  await fallback.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /发现 \d+ 个格式风险/);
   assert.equal(await fallback.locator('[data-r=remind]').count(), 0, '不能提醒时不给按钮');
   await fallback.evaluate(() => { window.SillyTavern.getContext().chat = [{ is_user: false, mes: '开场白' }, { is_system: true, mes: '系统' }, { is_user: true, mes: '用户' }]; });
   await fallback.click('[data-r=latest]');
+  await fallback.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /没有可检查的 AI 回复/);
   await fallback.fill('[data-r=sample]', '<content>手检正常</content>');
   await fallback.click('[data-r=paste]');
+  await fallback.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
   await close(fallback, true);
   assert.equal(Object.values(await settings(fallback))[0].enabled, undefined);
@@ -195,6 +205,7 @@ try {
   assert.equal(await mobile.locator('[data-r=paste]').isVisible(), true, '移动端可使用粘贴检测');
   await mobile.fill('[data-r=sample]', '<content>移动端正文</content>');
   await mobile.click('[data-r=paste]');
+  await mobile.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await mobile.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
   await close(mobile, true);
   ok('390px 移动端弹窗、字段与操作无横向溢出');

@@ -74,6 +74,7 @@ try {
   assert.equal(await page.locator('.pa-sheet [data-r=autofix]').isChecked(), true);
   assert.equal(await page.locator('.pa-sheet [data-r=enabled]').count(), 0, '没有「下一轮提醒 AI」勾选框');
   await page.click('.pa-sheet [data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   await page.locator('.pa-sheet [data-r=remind]').waitFor();
   const text = await page.locator('.pa-sheet [data-r=remind-card] pre').textContent();
   assert.match(text, /正文标签外不要写任何分析/, '按修正前的问题写');
@@ -83,6 +84,7 @@ try {
   assert.equal(await nextTurn(), '', '只用一次');
   ok('点「下一轮提醒一次」后，下一次生成按修正前的问题提醒一次');
   await page.click('.pa-sheet [data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
   await page.locator('.pa-sheet [data-r=undo-auto]').click();
   await page.locator('.pa-sheet', { hasText: '已撤销自动修正' }).waitFor();
   assert.equal((await chat()).mes, LEAK, '撤销后恢复原文');

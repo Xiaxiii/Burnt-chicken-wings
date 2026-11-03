@@ -119,7 +119,12 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     return `<div class="pa-card" data-r="earlier-card"><p class="pa-p">前面还有 ${earlier.length} 条回复也多包了一层（${esc(kinds.slice(0, 2).join("、"))}${kinds.length > 2 ? " 等" : ""}）。模型会照着前面的回复写，建议一并去掉。</p>
       <div class="pa-toolbar"><button class="pa-btn" data-r="unwrap-earlier">一并去掉</button></div></div>`;
   };
+  // 2.6.14 检查要先读世界书等（异步）：进行中标 aria-busy，读屏和测试都等它结束
   const check = async (mode) => {
+    result.setAttribute("aria-busy", "true");
+    try { await checkNow(mode); } finally { result.removeAttribute("aria-busy"); }
+  };
+  const checkNow = async (mode) => {
     const config = read();
     let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字", reasoning = "", latest = null;
     if (mode === "latest") {
