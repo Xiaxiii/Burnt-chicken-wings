@@ -121,6 +121,8 @@ async function flushPresetNotice() {
 }
 // backup：写之前把服务器上的旧版本存一份备份（每批修改只存一次，由调用方决定）
 async function writePreset(name, data, reason = "保存", { backup = true } = {}) {
+  // 2.6.12 预设改了：格式检查缓存的已知标签作废（单独加载本文件的测试里没有它）
+  if (typeof replyTagsStale === "function") replyTagsStale();
   const { presets } = pm().getPresetList();
   const idx = presetIndex(name);
   // 备份失败就不写：顶栏承诺了「可以恢复到修改前」，没备份时由调用方问用户怎么办

@@ -1,6 +1,7 @@
 // 2.6.11 状态栏格式只写在世界书里的卡（<lxs_status>），模型在外面又包了一层 <状态栏>：
 // 生成后只提示玩家、不提醒 AI；点提示打开检查；去掉这条和前面回复多包的一层（可撤销）；
 // 写错名的判断用上世界书里的结构；与这张卡不符的必需标签不检查；关掉提示、只有疑似问题时不提示。
+// 2.6.12 世界书不再每轮重读。
 // 先构建并在仓库根目录运行 8765 静态服务。
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -64,6 +65,8 @@ try {
 
   // 1) 生成后：只提示玩家，不提醒 AI；同一条回复只提示一次
   assert.equal(await turn(wrapped(3)), '', '不自动提醒');
+  const loadsAfterFirst = await page.evaluate(() => globalThis.__wiLoads || 0);
+  assert.equal(loadsAfterFirst, 2, '第一次用到时读两本生效的世界书（示例世界书、东宫状态栏）各一次');
   let t = await toasts();
   assert.equal(t.length, 1);
   assert.equal(t[0].type, 'warning');
@@ -77,6 +80,8 @@ try {
   // 2) 点提示：打开「思维链 → 格式」并直接检查最近回复
   // 再生成一条新回复拿到可点的提示
   await turn(wrapped(4));
+  // 2.6.12 世界书读过一次就记着（酒馆已缓存的直接读，不复制），不再每轮重读
+  assert.equal(await page.evaluate(() => globalThis.__wiLoads || 0), loadsAfterFirst, '后面几轮不再读世界书');
   await page.evaluate(() => window.__toasts.splice(0).at(-1).o.onclick());
   const result = page.locator('.pa-sheet [data-r=result]');
   await result.locator('text=外面多包了一层').waitFor();

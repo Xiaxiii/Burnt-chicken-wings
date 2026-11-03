@@ -6,8 +6,10 @@ const store = globalThis.__wiStore ||= {
   } },
   "空白世界书": { entries: {} }
 };
-export async function loadWorldInfo(name) { return structuredClone(store[name]); }
-export async function saveWorldInfo(name, data) { store[name] = structuredClone(data); globalThis.__wiSaved = (globalThis.__wiSaved || 0) + 1; }
+// 和酒馆一样：读过的世界书记在 worldInfoCache 里，loadWorldInfo 每次给一份副本
+export const worldInfoCache = new Map();
+export async function loadWorldInfo(name) { globalThis.__wiLoads = (globalThis.__wiLoads || 0) + 1; if (store[name]) worldInfoCache.set(name, store[name]); return structuredClone(store[name]); }
+export async function saveWorldInfo(name, data) { store[name] = structuredClone(data); worldInfoCache.set(name, store[name]); globalThis.__wiSaved = (globalThis.__wiSaved || 0) + 1; }
 export function createWorldInfoEntry(_name, data) {
   const used = Object.keys(data.entries).map(Number);
   const uid = used.length ? Math.max(...used) + 1 : 0;
@@ -16,5 +18,5 @@ export function createWorldInfoEntry(_name, data) {
   return e;
 }
 export const selected_world_info = ["示例世界书"];
-export async function deleteWorldInfo(name) { const i = world_names.indexOf(name); if (i < 0) return false; world_names.splice(i, 1); delete store[name]; return true; }
+export async function deleteWorldInfo(name) { const i = world_names.indexOf(name); if (i < 0) return false; world_names.splice(i, 1); delete store[name]; worldInfoCache.delete(name); return true; }
 export const world_info = { charLore: [] };

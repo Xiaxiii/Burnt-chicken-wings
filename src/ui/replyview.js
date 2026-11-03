@@ -131,12 +131,17 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     }
     const chat = ctx().chat;
     const at = latest ? latest.index : Array.isArray(chat) ? chat.length : 0;
-    const extra = { ...await replyCheckExtras(chat, at, config, name), reasoning };
-    const report = checkReplyFormat(text, config, extra);
+    let { report, extra } = await replyCheckChat(text, config, { chat, index: at, reasoning, name });
     const reminder = buildReplyReminder(report, config);
     const plan = report.issues.length ? planReplyFix(text, config, extra) : null;
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
-    earlier = latest ? replyWrappedEarlier(chat, latest.index, normalizeReplyRules(config), extra.knownTags) : null;
+    const rules = normalizeReplyRules(config);
+    earlier = latest ? await replyWrappedEarlier(chat, latest.index, rules, extra.knownTags) : null;
+    // 前面的回复要用已知标签、世界书却还没读：读完再查一遍（只查筛出来的那几条）
+    if (latest && extra.needWorld()) {
+      extra = { ...replyCheckExtras(chat, at, rules, name, await replyWorldTexts()), reasoning };
+      earlier = await replyWrappedEarlier(chat, latest.index, rules, extra.knownTags);
+    }
     const left = plan ? plan.after.issues : [];
     const fix = plan ? `<div class="pa-card"><div class="pa-whyrow"><b>可修正的标签</b>${whyBtn("fixhow")}</div>${whyNote("fixhow", "只移动文字、补写或去掉标签，不增删文字。")}<ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
       ${left.length ? `<p class="pa-warn">修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}</p>` : ""}
@@ -155,9 +160,13 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     if (!button) return;
     try {
       const r = button.dataset.r;
+      // 2.6.12 只重画提醒卡片，不重新检查
       if (r === "remind" || r === "unremind") {
-        armReplyReminder(r === "remind" ? button.closest('[data-r="remind-card"]').querySelector("pre").textContent : null);
-        await check("latest");
+        const card = button.closest('[data-r="remind-card"]');
+        const text = card.querySelector("pre").textContent;
+        armReplyReminder(r === "remind" ? text : null);
+        card.outerHTML = remindCard(text);
+        result.querySelector(r === "remind" ? '[data-r="unremind"]' : '[data-r="remind"]')?.focus({ preventScroll: true });
         return;
       }
       if (r === "unwrap-earlier") {
