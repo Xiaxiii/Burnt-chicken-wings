@@ -41,7 +41,7 @@ function familyGroups(models) {
 // 外观写在元素自己的 style 上并加 !important，任何样式表都盖不过；颜色取配色变量，毛玻璃配色另给边框和内阴影
 const KEY_INPUT_STYLE = FIELD_STYLE;
 // 分段标题（按分类、按分组共用）
-const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
+const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" style="${ROW_STYLE}" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
 // 1.4.0：模型选择框。系统下拉框在平板上又宽又长，改为带搜索的列表，高度限制在屏幕内
 // 2.5.0：一个选择框管单密钥和多密钥站点。
@@ -93,7 +93,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   };
   const chip = (m, k) => {
     const on = m === cur && k.id === curKey;
-    return `<button type="button" class="pa-kchip${on ? " on" : ""}" data-m="${esc(m)}" data-k="${esc(k.id)}" aria-pressed="${on}">${esc(kname(k))}</button>`;
+    return `<button type="button" class="pa-kchip${on ? " on" : ""}" style="${BARE_STYLE}" data-m="${esc(m)}" data-k="${esc(k.id)}" aria-pressed="${on}">${esc(kname(k))}</button>`;
   };
   const selRow = (m) => `<button type="button" class="pa-mpick-item pa-selrow${sel.has(m) ? " picked" : ""}" style="${ROW_STYLE}" data-sel="${esc(m)}" aria-pressed="${sel.has(m)}"><span class="pa-selbox" aria-hidden="true"></span><span>${esc(m)}</span></button>`;
   const plainRow = (m, k = null) => {
@@ -105,19 +105,19 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     const on = m === cur;
     let tail;
     if (owners.length <= 2) tail = owners.map((k) => chip(m, k)).join("");
-    else if (more.has(m)) tail = owners.map((k) => chip(m, k)).join("") + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="true" aria-label="收起分组">收起</button>`;
+    else if (more.has(m)) tail = owners.map((k) => chip(m, k)).join("") + `<button type="button" class="pa-kmore" style="${BARE_STYLE}" data-more="${esc(m)}" aria-expanded="true" aria-label="收起分组">收起</button>`;
     else {
       const shown = owners.find((k) => on && k.id === curKey) || owners[0];
-      tail = chip(m, shown) + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="false" aria-label="还有 ${owners.length - 1} 个分组">+${owners.length - 1}</button>`;
+      tail = chip(m, shown) + `<button type="button" class="pa-kmore" style="${BARE_STYLE}" data-more="${esc(m)}" aria-expanded="false" aria-label="还有 ${owners.length - 1} 个分组">+${owners.length - 1}</button>`;
     }
-    return `<div class="pa-krow${on ? " on" : ""}"><button type="button" class="pa-kname" data-m="${esc(m)}" data-k="${esc(owners[0].id)}">${esc(m)}${on ? " ✓" : ""}</button>${tail}</div>`;
+    return `<div class="pa-krow${on ? " on" : ""}" style="${ROW_STYLE}"><button type="button" class="pa-kname" style="${BARE_STYLE}" data-m="${esc(m)}" data-k="${esc(owners[0].id)}">${esc(m)}${on ? " ✓" : ""}</button>${tail}</div>`;
   };
   const row = (m) => selecting ? selRow(m) : multi ? keyRow(m) : plainRow(m);
   const custom = () => {
     const q = query();
     return !selecting && q && !allSet.has(q) ? `<button class="pa-mpick-item pa-mpick-custom" style="${ROW_STYLE}" data-m="${esc(q)}"${multi ? ` data-k="${esc(keys[0].id)}"` : ""}>使用「${esc(q)}」</button>` : "";
   };
-  const none = '<p class="pa-hint">没有匹配的模型，可直接输入名称</p>';
+  const none = `<p class="pa-hint" style="${BARE_STYLE}">没有匹配的模型，可直接输入名称</p>`;
   const paint = () => {
     body.querySelectorAll(".pa-kview button").forEach((b) => {
       b.classList.toggle("on", b.dataset.v === mode);
@@ -136,7 +136,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
         if (q && !ms.length) continue;
         const id = `c:${c.id}`;
         const open = !!q || secOpen.has(id);
-        html += `<div class="pa-ksec-wrap">${secHead(id, c.name, present.length, open)}<button type="button" class="pa-icon-btn pa-cat-more" data-catmenu="${esc(c.id)}" aria-label="分类「${esc(c.name)}」的操作">⋯</button></div>${open ? ms.map(row).join("") : ""}`;
+        html += `<div class="pa-ksec-wrap" style="${ROW_STYLE}">${secHead(id, c.name, present.length, open)}<button type="button" class="pa-icon-btn pa-cat-more" style="${BARE_STYLE}" data-catmenu="${esc(c.id)}" aria-label="分类「${esc(c.name)}」的操作">⋯</button></div>${open ? ms.map(row).join("") : ""}`;
       }
       for (const f of fams()) {
         const ms = f.list.filter(hit);
@@ -152,7 +152,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
         const open = !!q || secOpen.has(k.id);
         const kc = !selecting && q && !(k.models || []).includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" style="${ROW_STYLE}" data-m="${esc(q)}" data-k="${esc(k.id)}">使用「${esc(q)}」</button>` : "";
         const items = ms.map((m) => selecting ? selRow(m) : plainRow(m, k)).join("");
-        const empty = !ms.length && !kc ? `<p class="pa-hint">${(k.models || []).length ? "没有匹配的模型" : "还没有模型列表，可在搜索框输入模型名称"}</p>` : "";
+        const empty = !ms.length && !kc ? `<p class="pa-hint" style="${BARE_STYLE}">${(k.models || []).length ? "没有匹配的模型" : "还没有模型列表，可在搜索框输入模型名称"}</p>` : "";
         return secHead(k.id, kname(k), (k.models || []).length, open, k.keyMask || "") + (open ? kc + items + empty : "");
       }).join("");
     }

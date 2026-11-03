@@ -136,7 +136,7 @@ html.pa-open body { overflow: hidden; }
     border: 0; background: none; border-radius: 8px; cursor: pointer; color: var(--pa-dim);
     -webkit-tap-highlight-color: transparent;
 }
-@media (hover: hover) { #pa-root .pa-icon-btn:hover { background: var(--pa-card); color: var(--pa-text); } }
+@media (hover: hover) { #pa-root .pa-icon-btn:hover { background: var(--pa-card); --pa-own-bg: var(--pa-card); color: var(--pa-text); } }
 #pa-root svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #pa-root .pa-input, #pa-root .pa-select {
     width: 100%; min-height: 38px; padding: 7px 10px;
@@ -458,9 +458,9 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-sheet-pop .pa-sheet-head .pa-sheet-x { width: 28px; height: 28px; }
 #pa-root .pa-sheet-pop .pa-sheet-body { padding: 4px; }
 #pa-root .pa-sheet-pop .pa-pick { gap: 0; }
-#pa-root .pa-sheet-pop .pa-pick-item { border: 0; border-radius: 8px; background: none; min-height: 40px; padding: 8px 10px; }
+#pa-root .pa-sheet-pop .pa-pick-item { border: 0; border-radius: 8px; background: none; --pa-row-bg: transparent; min-height: 40px; padding: 8px 10px; }
 #pa-root .pa-sheet-pop .pa-pick-item + .pa-pick-item { border-top: 1px solid var(--pa-line); border-radius: 0; }
-@media (hover: hover) { #pa-root .pa-sheet-pop .pa-pick-item:hover { background: var(--pa-card); } }
+@media (hover: hover) { #pa-root .pa-sheet-pop .pa-pick-item:hover { background: var(--pa-card); --pa-row-bg: var(--pa-card); } }
 @keyframes pa-pop { from { opacity: 0; transform: scale(.96); } }
 @media (prefers-reduced-motion: reduce) { #pa-root .pa-sheet-center, #pa-root .pa-sheet-pop { animation: none; } }
 @keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }
@@ -863,13 +863,14 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-kpick > .pa-hint { margin: 0; padding: 6px 10px; }
 #pa-root .pa-krow { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 5px; padding: 4px 8px 4px 10px; border-bottom: 1px solid var(--pa-line); }
 #pa-root .pa-krow:last-child, #pa-root .pa-kpick > :last-child { border-bottom: 0; }
-#pa-root .pa-krow.on { background: var(--pa-sel); }
+/* 2.6.10 多密钥站点「按模型」「按分类」的行：底色写在元素上（ROW_STYLE），选中改 --pa-row-bg；行里的模型名按钮、标签透明（BARE_STYLE） */
+#pa-root .pa-krow.on { background: var(--pa-sel); --pa-row-bg: var(--pa-sel); }
 /* 屏幕外的行不排版、不绘制（iOS 18、安卓 Chrome 85 起生效，旧系统照常显示） */
 #pa-root .pa-krow, #pa-root .pa-kpick > .pa-mpick-item { content-visibility: auto; contain-intrinsic-size: auto 40px; }
 #pa-root .pa-kname { flex: 1 1 auto; min-width: 0; min-height: 30px; padding: 4px 0; border: 0; background: none; color: var(--pa-text); text-align: left; cursor: pointer; overflow-wrap: anywhere; font-family: inherit; }
 #pa-root .pa-krow.on .pa-kname { font-weight: 600; }
 #pa-root .pa-kchip, #pa-root .pa-kmore { flex: none; font: inherit; font-size: .76em; line-height: 1.7; padding: 0 8px; border-radius: 999px; border: 1px solid var(--pa-line); background: none; color: var(--pa-em); cursor: pointer; white-space: nowrap; }
-#pa-root .pa-kchip.on { border-color: var(--pa-thread); background: var(--pa-thread); color: var(--pa-on-accent); }
+#pa-root .pa-kchip.on { border-color: var(--pa-thread); background: var(--pa-thread); --pa-own-bg: var(--pa-thread); color: var(--pa-on-accent); }
 #pa-root .pa-kmore { border-style: dashed; color: var(--pa-dim); }
 #pa-root .pa-ksec { display: flex; align-items: baseline; gap: 6px; width: 100%; min-height: 36px; padding: 6px 10px; border: 0; border-bottom: 1px solid var(--pa-line); background: var(--pa-card); color: var(--pa-thread); text-align: left; cursor: pointer; font: inherit; }
 #pa-root .pa-ksec small { color: var(--pa-dim); font-size: .8em; }
@@ -905,7 +906,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-selrow.picked .pa-selbox { background: var(--pa-thread); border-color: var(--pa-thread); }
 #pa-root .pa-selrow.picked .pa-selbox::after { content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid var(--pa-on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg); }
 #pa-root .pa-ksec-wrap { display: flex; align-items: stretch; background: var(--pa-card); border-bottom: 1px solid var(--pa-line); }
-#pa-root .pa-ksec-wrap > .pa-ksec { flex: 1 1 auto; min-width: 0; border-bottom: 0; background: none; }
+#pa-root .pa-ksec-wrap > .pa-ksec { flex: 1 1 auto; min-width: 0; border-bottom: 0; background: none; --pa-row-bg: transparent; }
 #pa-root .pa-cat-more { flex: none; width: 36px; height: auto; min-height: 36px; border-radius: 0; }
 /* 2.5.0 站点列表的「切换」：小圆角胶囊，按下轻轻一缩；触屏时点按范围照样约 44px */
 #pa-root .pa-swpill { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; height: 26px; padding: 0 12px; border: 1px solid var(--pa-thread); border-radius: 999px; background: var(--pa-sel); color: var(--pa-thread); font-size: .8em; font-weight: 600; letter-spacing: .04em; line-height: 1; white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background-color .12s ease, color .12s ease; }
@@ -1180,7 +1181,7 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-fromto .pa-src-pick, #pa-root .pa-fromto .pa-dst-picker, #pa-root .pa-fromto .pa-dst-wbslot { flex: 1 1 auto; min-width: 0; display: flex; padding: 0; }
 #pa-root .pa-fromto .pa-picker > span { display: none; }
 #pa-root .pa-fromto .pa-icon-btn { width: 30px; height: 30px; flex: none; }
-#pa-root .pa-icon-btn.on { background: var(--pa-sel); color: var(--pa-text); }
+#pa-root .pa-icon-btn.on { background: var(--pa-sel); --pa-own-bg: var(--pa-sel); color: var(--pa-text); }
 #pa-root .pa-src-menu { margin-left: 0; }
 #pa-root .pa-src-paste { margin: 0; align-self: center; }
 #pa-root .pa-findrow { padding: 0 10px 4px; flex: 1 0 100%; }

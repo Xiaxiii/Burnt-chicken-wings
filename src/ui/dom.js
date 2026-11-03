@@ -47,6 +47,9 @@ var BOX_STYLE = "background:transparent!important;background-image:none!importan
 var ROW_STYLE = "background-color:var(--pa-row-bg,var(--pa-card))!important;background-image:none!important";
 // 2.5.17 列表外面几层（选预设、选模型）：别处的样式会给整块列表铺白底，把弹窗的画盖住；只清底色和阴影
 var LIST_STYLE = "background:transparent!important;background-image:none!important;box-shadow:none!important";
+// 2.6.10 列表里本身透明的元素（模型名按钮、分组标签、分类的 ⋯、「没有匹配」的提示）：没有声明底色的元素，
+// 别处哪怕一条普通规则也能给它铺底色，所以同样写在元素上；选中、悬停等状态改 --pa-own-bg（见样式表）
+var BARE_STYLE = "background-color:var(--pa-own-bg,transparent)!important;background-image:none!important;box-shadow:none!important";
 // 2.5.15 复制文字。http 打开的酒馆（不是 https）里浏览器不给 navigator.clipboard，退回选中再复制；
 // 传了输入框就选中框里的字，复制不了时选区还在，可以长按手动复制
 async function copyText(text, input = null) {
@@ -233,15 +236,15 @@ async function promptBox(title, value = "", placeholder = "") {
 }
 // 2.5.0 选项不多的菜单贴着刚点的按钮弹出（点外面关掉）；选项多或带说明时放在屏幕中间
 async function pickBox(title, items, { hint = "", anchor = recentAnchor() } = {}) {
-  const body = el(`<div>${hint ? `<p class="pa-hint">${esc(hint)}</p>` : ""}<div class="pa-pick"></div></div>`);
+  const body = el(`<div>${hint ? `<p class="pa-hint">${esc(hint)}</p>` : ""}<div class="pa-pick" style="${LIST_STYLE}"></div></div>`);
   const list = body.querySelector(".pa-pick");
   let resolveFn;
   const pop = !!anchor && !hint && items.length <= 9;
   // 先填好选项再弹出，贴按钮时才量得准高度
   // item.pair：一行放两个短按钮（如 ↑ 上移、↓ 下移），值写成 "序号.0" / "序号.1"
   list.innerHTML = items.map((it, i) => it.pair
-    ? `<div class="pa-pick-pair">${it.pair.map((p, j) => `<button class="pa-pick-item" data-v="${i}.${j}">${esc(p.label)}</button>`).join("")}</div>`
-    : `<button class="pa-pick-item" data-v="${i}"><span class="pa-pick-label">${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
+    ? `<div class="pa-pick-pair" style="${LIST_STYLE}">${it.pair.map((p, j) => `<button class="pa-pick-item" style="${ROW_STYLE}" data-v="${i}.${j}">${esc(p.label)}</button>`).join("")}</div>`
+    : `<button class="pa-pick-item" style="${ROW_STYLE}" data-v="${i}"><span class="pa-pick-label">${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
   const p = sheet({ title, body, place: pop ? "pop" : "center", anchor, actions: pop ? [] : [{ label: "取消", value: null }], onMount: (w) => {
     list.addEventListener("click", (e) => {
       const b = e.target.closest("[data-v]");
