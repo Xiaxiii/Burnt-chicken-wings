@@ -461,6 +461,45 @@ var API_ERROR_VAGUE = [
   [/failed to fetch|networkerror|load failed/i, "连不上酒馆"]
 ];
 var API_STATUS_WORDS = { 400: "请求参数不对", 401: "密钥无效", 402: "余额不足", 403: "无权限", 404: "模型或网址不存在", 408: "超时", 413: "内容超长", 429: "太频繁或额度用完", 500: "站点出错", 502: "上游连不上", 503: "暂无可用渠道", 504: "上游超时", 520: "站点异常", 521: "服务器未开", 522: "连接超时", 523: "连不上服务器", 524: "处理超时", 529: "上游过载" };
+// 2.6.15 测试消息的回复：事件流只读到第一个 data 行（注释、event 行、空行跳过）；开头是 { 的是整段 JSON（报错，
+// 或站点没按流式回），读完再解析。返回 { error: 报错文字 }，没报错时 error 为空
+async function firstReply(res) {
+  const errorOf = (text) => {
+    let data = null;
+    try { data = JSON.parse(text); } catch {}
+    // Claude 的事件流报错是 {"type":"error","error":{…}}
+    return data?.error || data?.type === "error" ? apiErrorText(data) || text.trim() || "未知错误" : "";
+  };
+  if (!res.body?.getReader) {
+    const text = await res.text();
+    return { error: res.ok ? errorOf(text) : errorOf(text) || text.trim() };
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (value) buf += dec.decode(value, { stream: !done });
+      const head = buf.trimStart();
+      if (head.startsWith("{") || head.startsWith("[") || !res.ok) {
+        if (!done) continue;
+        return { error: errorOf(head) || (res.ok ? "" : head) };
+      }
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).replace(/\r$/, "");
+        buf = buf.slice(nl + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        return { error: data === "[DONE]" ? "" : errorOf(data) };
+      }
+      if (done) return { error: "" };
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+}
 // 一句话的问题：「503 暂无可用渠道」；都对不上时用报错原文
 function explainApiError(status, text) {
   const word = API_ERROR_WORDS.find(([re]) => re.test(text || ""))?.[1];
@@ -1347,9 +1386,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       btn.classList.add("pa-busy");
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 60e3);
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 60e3);
     try {
-      const payload = await svc.presetToGeneratePayload({}, {}, { model, messages: [{ role: "user", content: "Hi" }], stream: false, max_tokens: 300, n: 1 });
+      // 2.6.15 流式请求，收到第一段就算通、随即断开（酒馆随之关掉对站点的请求）。以前等整段回复写完才返回，
+      // 带着「请求思维链」、思考强度等设置时，思考模型要先想一阵再写完，一次测试要十几秒到几十秒
+      const payload = await svc.presetToGeneratePayload({}, {}, { model, messages: [{ role: "user", content: "Hi" }], stream: true, max_tokens: 300, n: 1 });
       // 自己发请求（和酒馆发聊天用同一个接口），才拿得到站点返回的状态码
       const res = await fetch(stUrl("api/backends/chat-completions/generate"), {
         method: "POST",
@@ -1358,13 +1400,14 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         cache: "no-cache",
         signal: controller.signal
       });
-      const text = await res.text();
-      let data = null;
-      try { data = JSON.parse(text); } catch {}
-      if (!res.ok || data?.error) throw { status: res.status, message: apiErrorText(data) || text.trim() || res.statusText };
+      // 酒馆转交流式报错时把 401 改成 400（免得浏览器清掉登录），状态说明还是 Unauthorized
+      const status = res.status === 400 && /unauthori[sz]ed/i.test(res.statusText) ? 401 : res.status;
+      const first = await firstReply(res);
+      controller.abort();
+      if (!res.ok || first.error) throw { status, message: first.error || res.statusText };
       liveTest = { model, source: live.source, url: live.url || "", secretId: live.secretId || null, ok: true, text: k ? `${keyName(active, k)} · Successful` : "Successful" };
     } catch (err) {
-      const raw = String(controller.signal.aborted ? "没有回复" : err?.message || "");
+      const raw = String(timedOut ? "没有回复" : err?.message || "");
       const why = explainApiError(errStatus(err?.status, raw), raw);
       liveTest = { model, source: live.source, url: live.url || "", secretId: live.secretId || null, ok: false, text: k ? `${keyName(active, k)} · ${why}` : why, raw };
     } finally {

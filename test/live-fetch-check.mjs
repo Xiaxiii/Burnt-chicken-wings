@@ -168,6 +168,41 @@ try {
   assert.ok(!(await page.evaluate(() => window.__toasts.some((t) => /测试失败|可以用/.test(t)))), '不另弹提示');
   ok('点测试发送测试消息，结果写在模型下面一行');
 
+  // 2.6.15 流式请求：收到第一段就算通，随即断开，不等模型想完、写完；第一段是报错时照样认出
+  await page.unroute('**/api/backends/chat-completions/generate');
+  const streamReply = (text, { close = true, status = 200 } = {}) => page.evaluate(([text, close, status]) => {
+    window.__orig ||= window.fetch;
+    window.__cancelled = false;
+    window.fetch = (url, opt) => {
+      if (!String(url).includes('chat-completions/generate')) return window.__orig(url, opt);
+      window.__sentStream = JSON.parse(opt.body).stream;
+      const body = new ReadableStream({
+        start(c) { c.enqueue(new TextEncoder().encode(text)); if (close) c.close(); },
+        cancel() { window.__cancelled = true; }
+      });
+      return Promise.resolve(new Response(body, { status, headers: { 'Content-Type': 'text/event-stream' } }));
+    };
+  }, [text, close, status]);
+  // 只给第一段、连接一直不关（模型还在写）：照样马上显示成功，并断开
+  await streamReply(': keep-alive\n\nevent: message\ndata: {"choices":[{"delta":{"role":"assistant","content":""}}]}\n\n', { close: false });
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === 'Successful' && window.__cancelled, null, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => window.__sentStream), true, '按流式请求');
+  // 第一段是报错事件
+  await streamReply('data: {"error":{"message":"no available channel for model claude-y"}}\n\n');
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === '该分组无此模型', null, { timeout: 5000 });
+  // Claude 的事件流报错
+  await streamReply('event: error\ndata: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}\n\n');
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === '上游过载', null, { timeout: 5000 });
+  // 流式请求被拒：酒馆把状态码和报错原样转回来
+  await streamReply('{"error":{"message":"Invalid token"}}', { status: 400 });
+  await page.click('.pa-live [data-a=testmodel]');
+  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-res')?.textContent === '400 密钥无效', null, { timeout: 5000 });
+  await page.evaluate(() => { window.fetch = window.__orig; });
+  ok('流式请求：收到第一段就显示成功并断开；第一段是报错、请求被拒时显示原因');
+
   await page.click('[data-a=livemore]');
   assert.equal(await page.locator('.pa-sheet').count(), 0, '⋯ 在卡片里展开，不弹窗');
   const acts = await page.locator('.pa-live-acts button').allInnerTexts();
