@@ -71,6 +71,30 @@ try {
   assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").getAttribute("type"), "password");
   ok("粘贴多行拆开；＋ 加一行；一个密钥时没有名称框；眼睛显示、隐藏密钥");
 
+  // 2.6.13 不触发粘贴的插入（手机输入法剪贴板：换行在单行框里变成空格）也拆开；回车新开一行；逐字打的空格不拆
+  {
+    const keyVals = () => page.locator(".pa-sheet [data-f=key]").evaluateAll((x) => x.map((y) => y.value));
+    const before = await page.locator(".pa-sheet .pa-keyrow").count();
+    await page.click(".pa-sheet [data-f=keyadd]");
+    const last = page.locator(".pa-sheet [data-f=key]").last();
+    await last.focus();
+    await page.keyboard.insertText("sk-cccc3333\nsk-dddd4444");
+    assert.deepEqual((await keyVals()).slice(before), ["sk-cccc3333", "sk-dddd4444"], "输入法一次插入两个密钥：拆成两行");
+    assert.equal(await page.evaluate(() => document.activeElement.value), "sk-dddd4444", "焦点落在最后一个");
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), before + 3, "回车新开一行");
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.f), "key", "焦点到新的一行");
+    await page.keyboard.press("Enter");
+    assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), before + 3, "空的一行按回车不再加");
+    await page.keyboard.type("Bearer sk-eeee5555");
+    assert.equal((await keyVals()).at(-1), "Bearer sk-eeee5555", "逐字打的空格不拆");
+    // 收回这几行，后面的步骤只用前两个密钥
+    for (let n = 0; n < 3; n++) await page.locator(".pa-sheet .pa-keyrow").last().locator("[data-f=keydel]").click();
+    assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), before);
+    await page.evaluate(() => { window.__toasts = []; });
+    ok("输入法剪贴板插入多个密钥也拆开；回车新开一行接着填；逐字打的空格不拆");
+  }
+
   // 2) 获取模型列表：每个密钥各拉一次，行尾显示数量；选择框按模型列，标出分组
   await page.click(".pa-sheet [data-f=fetch]");
   await page.locator(".pa-kpick").waitFor();

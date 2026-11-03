@@ -40,6 +40,17 @@ function familyGroups(models) {
 // 2.5.7 密钥框仍用密码框（键盘不记、读屏不念）。有的扩展或主题按「密码框」改样式（方角、白底），盖过焦香鸡翅的：
 // 外观写在元素自己的 style 上并加 !important，任何样式表都盖不过；颜色取配色变量，毛玻璃配色另给边框和内阴影
 const KEY_INPUT_STYLE = FIELD_STYLE;
+// 2.6.13 一段文字里有几个密钥：按换行拆；只有一行时，按空格、逗号、分号拆，但每段都要像密钥（8 个字符以上），
+// 「Bearer sk-…」这类不拆。只有一个时返回 null
+function splitKeyText(text) {
+  const t = String(text || "").trim();
+  let list = t.split(/[\r\n\u2028\u2029]+/).map((x) => x.trim()).filter(Boolean);
+  if (list.length < 2) {
+    const parts = t.split(/[\s,，;；、]+/).filter(Boolean);
+    list = parts.length > 1 && parts.every((x) => x.length >= 8) ? parts : [];
+  }
+  return list.length > 1 ? list : null;
+}
 // 分段标题（按分类、按分组共用）
 const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" style="${ROW_STYLE}" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
@@ -776,7 +787,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const many = ks.length > 1;
       keysBox.classList.toggle("pa-keys-many", many);
       keysBox.innerHTML = ks.map((k, i) => {
-        const ph = hasKey(k) ? (k.keyMask ? `${k.keyMask} · 留空不改` : "不修改请留空") : many ? "粘贴密钥，可多行" : "留空则使用酒馆当前密钥，可多行粘贴";
+        const ph = hasKey(k) ? (k.keyMask ? `${k.keyMask} · 留空不改` : "不修改请留空") : many ? "粘贴密钥，回车填下一个" : "留空则用酒馆当前密钥；多个可一次粘贴，或回车分行";
         const cnt = (k.models || []).length ? `<span class="pa-key-cnt" title="拉取到的模型">✓ ${k.models.length}</span>` : "";
         return `<div class="pa-keyrow" data-k="${esc(k.id)}">
             ${many ? `<span class="pa-key-grip" aria-hidden="true" title="拖动调顺序，排在上面的优先">⋮⋮</span><input class="pa-input pa-key-name" data-f="keyname" value="${esc(k.name)}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
@@ -912,25 +923,51 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             setModel(w, readModel(w));
           }
         });
-        // 一次粘贴多行：一行一个密钥，拆成多行
-        keysBox.addEventListener("paste", (e) => {
-          const box = e.target.closest("[data-f=key]");
-          if (!box) return;
-          const lines = (e.clipboardData?.getData("text") || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
-          if (lines.length < 2) return;
-          e.preventDefault();
+        // 一次填进多个密钥：一个一行，拆成多行（box：填进去的那个框）
+        const spreadKeys = (box, list) => {
           syncTyped();
           const id = box.closest(".pa-keyrow").dataset.k;
           let i = ks.findIndex((k) => k.id === id);
-          typed.set(id, lines[0]);
-          for (const line of lines.slice(1)) {
+          typed.set(id, list[0]);
+          for (const key of list.slice(1)) {
             const k = blankKey();
             ks.splice(++i, 0, k);
-            typed.set(k.id, line);
+            typed.set(k.id, key);
           }
           paintKeys();
           setModel(w, readModel(w));
-          toast(`已拆成 ${lines.length} 个密钥，可在左边填分组名`, "success");
+          keysBox.querySelector(`.pa-keyrow[data-k="${CSS.escape(ks[i].id)}"] [data-f=key]`)?.focus();
+          toast(`已拆成 ${list.length} 个密钥，可在左边填分组名`, "success");
+        };
+        keysBox.addEventListener("paste", (e) => {
+          const box = e.target.closest("[data-f=key]");
+          const list = box && splitKeyText(e.clipboardData?.getData("text"));
+          if (!list) return;
+          e.preventDefault();
+          spreadKeys(box, list);
+        });
+        // 2.6.13 手机输入法的剪贴板、拖放等不触发粘贴，单行框会把换行变成空格：一次插进来的一串里有几个密钥时照样拆开。
+        // 一个字一个字打的不拆（打错一个空格不会把密钥切开）
+        keysBox.addEventListener("input", (e) => {
+          const box = e.target.closest?.("[data-f=key]");
+          if (!box || e.isComposing) return;
+          const bulk = /^insertFrom|^insertReplacement/.test(e.inputType || "") || (e.inputType === "insertText" && (e.data || "").length > 1);
+          const list = bulk && splitKeyText(box.value);
+          if (list) spreadKeys(box, list);
+        });
+        // 2.6.13 回车：新开一行，接着填下一个密钥
+        keysBox.addEventListener("keydown", (e) => {
+          const box = e.target.closest?.("[data-f=key]");
+          if (!box || e.key !== "Enter" || imeEnter(e)) return;
+          e.preventDefault();
+          if (!box.value.trim()) return;
+          syncTyped();
+          const id = box.closest(".pa-keyrow").dataset.k;
+          const k = blankKey();
+          ks.splice(ks.findIndex((x) => x.id === id) + 1, 0, k);
+          paintKeys();
+          setModel(w, readModel(w));
+          keysBox.querySelector(`.pa-keyrow[data-k="${CSS.escape(k.id)}"] [data-f=key]`)?.focus();
         });
         // 按住 ⋮⋮ 拖动调顺序（排在上面的优先）
         keysBox.addEventListener("pointerdown", (e) => {
