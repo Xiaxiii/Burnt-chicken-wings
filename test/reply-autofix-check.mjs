@@ -1,4 +1,5 @@
-// 2.4.1 正文格式自动修正：生成结束后自动修好这条回复，下一轮仍按修正前的问题提醒，可在「格式」窗口撤销。
+// 2.4.1 正文格式自动修正：生成结束后自动修好这条回复，可在「格式」窗口撤销。
+// 2.6.11 不再自动提醒：窗口里的「下一轮提醒一次」按修正前的问题写提醒，下一次生成加入一次。
 // 正文被吞进思考区时，前后的状态栏、小剧场照前几条回复一起搬出来。
 // 先构建并在仓库根目录运行 8765 静态服务。
 import assert from 'node:assert/strict';
@@ -50,27 +51,37 @@ try {
   }, config);
 
   // 默认关闭：不改聊天
-  await setConfig({ bodyTag: 'content', requiredTags: [], enabled: true });
+  await setConfig({ bodyTag: 'content', requiredTags: [], enabled: true, notice: false });
   await generate(LEAK);
   assert.equal((await chat()).mes, LEAK, '没开自动修正时不改聊天');
   ok('默认不自动修正');
 
-  // 开启：思考移进思考区，注释和正文留在原处；弹提示；下一轮按修正前的问题提醒
+  // 开启：思考移进思考区，注释和正文留在原处；弹提示；旧版存的「下一轮提醒」不再自动提醒
   await setConfig({ bodyTag: 'content', requiredTags: [], enabled: true, autoFix: true });
   await generate(LEAK);
   const fixed = await chat();
   assert.equal(fixed.mes, '<!-- 锚定 -->\n<content>\n正文\n</content>');
   assert.match(fixed.extra.reasoning, /^\[按步骤详细思考[\s\S]*第二步：梳理前文和人物。$/);
   assert.match(await page.evaluate(() => window.__toasts.at(-1)), /^success:已自动修正这条回复：.*移进思考区/);
-  await page.evaluate(async () => { const c = window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS, 'normal', {}, false); });
-  assert.match(await page.evaluate((key) => window.__prompts[key] || '', KEY), /\S/, '修好后下一轮仍提醒');
-  ok('生成结束后自动修正，下一轮照样提醒');
+  const nextTurn = async () => { await page.evaluate(async () => { const c = window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS, 'normal', {}, false); }); return page.evaluate((key) => window.__prompts[key] || '', KEY); };
+  assert.equal(await nextTurn(), '', '不自动提醒');
+  ok('生成结束后自动修正，不自动提醒');
 
-  // 「格式」窗口里显示已自动修正，可撤销
+  // 「格式」窗口：显示已自动修正；「下一轮提醒一次」按修正前的问题写，只用一次；可撤销自动修正
   await page.evaluate(() => window.__presetAtelier.open('cot'));
   await page.click('[data-reply-format]');
   await page.locator('.pa-sheet [data-r=autofix]').waitFor();
   assert.equal(await page.locator('.pa-sheet [data-r=autofix]').isChecked(), true);
+  assert.equal(await page.locator('.pa-sheet [data-r=enabled]').count(), 0, '没有「下一轮提醒 AI」勾选框');
+  await page.click('.pa-sheet [data-r=latest]');
+  await page.locator('.pa-sheet [data-r=remind]').waitFor();
+  const text = await page.locator('.pa-sheet [data-r=remind-card] pre').textContent();
+  assert.match(text, /正文标签外不要写任何分析/, '按修正前的问题写');
+  await page.click('.pa-sheet [data-r=remind]');
+  await page.locator('.pa-sheet [data-r=unremind]').waitFor();
+  assert.equal(await nextTurn(), text, '下一次生成加入一次');
+  assert.equal(await nextTurn(), '', '只用一次');
+  ok('点「下一轮提醒一次」后，下一次生成按修正前的问题提醒一次');
   await page.click('.pa-sheet [data-r=latest]');
   await page.locator('.pa-sheet [data-r=undo-auto]').click();
   await page.locator('.pa-sheet', { hasText: '已撤销自动修正' }).waitFor();

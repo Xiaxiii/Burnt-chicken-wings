@@ -49,9 +49,21 @@ const generate = (page, type = 'normal', dryRun = false) => page.evaluate(async 
   const c = window.SillyTavern.getContext();
   await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS, type, {}, dryRun);
 }, { type, dryRun });
-const reply = (page, text) => page.evaluate((text) => {
-  window.SillyTavern.getContext().chat = [{ is_user: false, mes: '开场白' }, { is_user: true, mes: '继续故事' }, { is_user: false, mes: text, extra: { reasoning: '模型单独返回的推理字段' } }];
-}, text);
+// 2.6.11 开场白里有的标签才算这张卡用得上（预设、角色卡、世界书都没写 <摘要>、<状态>）
+const GREETING = '<正文>开场白</正文><摘要>序</摘要><状态>晴</状态>';
+const reply = (page, text, greeting = GREETING) => page.evaluate(([text, greeting]) => {
+  window.SillyTavern.getContext().chat = [{ is_user: false, mes: greeting }, { is_user: true, mes: '继续故事' }, { is_user: false, mes: text, extra: { reasoning: '模型单独返回的推理字段' } }];
+}, [text, greeting]);
+// 打开格式窗口，检查最近回复，点「下一轮提醒一次」
+const arm = async (page) => {
+  await dialog(page);
+  await page.click('[data-r=latest]');
+  await page.click('[data-r=remind]');
+  await page.locator('[data-r=unremind]').waitFor();
+  const text = await page.locator('[data-r=remind-card] pre').textContent();
+  await close(page);
+  return text;
+};
 try {
   const page = await openPage();
   const active = await page.evaluate(() => window.__mock.live.preset_settings_openai);
@@ -60,8 +72,8 @@ try {
   assert.equal(await reminder(page), '');
   assert.deepEqual(await settings(page), {});
   await dialog(page);
-  assert.equal(await page.locator('[data-r=enabled]').isChecked(), false);
-  assert.equal(await page.locator('[data-r=enabled]').isDisabled(), false);
+  assert.equal(await page.locator('[data-r=enabled]').count(), 0, '没有「下一轮提醒 AI」勾选框');
+  assert.equal(await page.locator('[data-r=notice]').isChecked(), true, '生成后提示默认开');
   await page.click('[data-r=latest]');
   assert.match(await page.locator('[data-r=result]').innerText(), /缺少完整的 <content>/);
   await page.fill('[data-r=sample]', '<content>正文<think>内部分析</think></content>');
@@ -73,7 +85,7 @@ try {
   await close(page);
   assert.deepEqual(await settings(page), {});
   assert.equal(await page.evaluate(() => JSON.stringify(window.SillyTavern.getContext().chat)), original.chat);
-  ok('默认关闭，手检发现掉标签、思考夹入正文和正文被吞；取消不保存、不修改聊天');
+  ok('默认不提醒，手检发现掉标签、思考夹入正文和正文被吞；取消不保存、不修改聊天');
 
   await dialog(page);
   await page.fill('[data-r=body]', '正文');
@@ -88,36 +100,53 @@ try {
   assert.match(await page.locator('.pa-sheet [data-err=body]').innerText(), /标签名/, '报错写在正文标签框下面');
   assert.deepEqual(await settings(page), {});
   await page.fill('[data-r=body]', '正文');
-  await page.check('[data-r=enabled]');
   await page.fill('[data-r=sample]', '仅供手检的未保存样本');
   await close(page, true);
-  assert.deepEqual((await settings(page))[active], { bodyTag: '正文', requiredTags: ['摘要', '状态'], thinkingTag: '分析区', enabled: true });
+  assert.deepEqual((await settings(page))[active], { bodyTag: '正文', requiredTags: ['摘要', '状态'], thinkingTag: '分析区' });
   assert.equal(JSON.stringify(await settings(page)).includes('仅供手检'), false);
   assert.equal(await page.evaluate(() => JSON.stringify(window.__mock.presets)), original.presets);
   assert.equal(await page.evaluate(() => window.__saved || 0), original.saves);
   ok('支持自定义正文、必需和思考标签；非法标签阻止保存，样本不持久化，预设不改动');
 
+  // 2.6.11 不自动提醒；点了「下一轮提醒一次」才在下一次生成加入一次
   await reply(page, '本轮丢标签');
   await generate(page);
-  assert.match(await reminder(page), /<正文>…<\/正文>/);
-  assert.match(await reminder(page), /<摘要>…<\/摘要>/);
-  assert.deepEqual(await page.evaluate(() => window.__replyCalls.at(-1).slice(2)), [1, 0, false, 0]);
-  await reply(page, '<分析区><正文>正文</正文><摘要>概述</摘要><状态>晴</状态></分析区>');
-  await generate(page); assert.ok(await reminder(page));
-  await reply(page, '<正文>正常正文</正文><摘要>概述</摘要><状态>晴</状态>');
-  await generate(page); assert.equal(await reminder(page), '');
+  assert.equal(await reminder(page), '', '有问题也不自动提醒');
+  let armed = await arm(page);
+  assert.match(armed, /<正文>…<\/正文>、<摘要>…<\/摘要>、<状态>…<\/状态> 各完整成对出现一次/);
   for (const type of ['quiet', 'impersonate', 'first_message', 'continue']) {
-    await reply(page, '坏回复'); await generate(page); assert.ok(await reminder(page));
-    await generate(page, type); assert.equal(await reminder(page), '');
+    await generate(page, type); assert.equal(await reminder(page), '', type);
   }
-  await generate(page); assert.ok(await reminder(page));
-  await generate(page, 'normal', true); assert.equal(await reminder(page), '');
+  await generate(page, 'normal', true); assert.equal(await reminder(page), '', '试算不用掉');
+  await generate(page);
+  assert.equal(await reminder(page), armed);
+  assert.deepEqual(await page.evaluate(() => window.__replyCalls.at(-1).slice(2)), [1, 0, false, 0]);
+  await generate(page); assert.equal(await reminder(page), '', '只提醒一轮');
+  // 只点名出问题的标签
+  await reply(page, '<正文>正常正文</正文><状态>晴</状态>');
+  armed = await arm(page);
+  assert.match(armed, /请让 <摘要>…<\/摘要> 完整成对出现一次/);
+  assert.doesNotMatch(armed, /<正文>|<状态>/);
   for (const event of ['CHAT_CHANGED', 'PRESET_CHANGED', 'GENERATION_ENDED', 'GENERATION_STOPPED']) {
-    await generate(page); assert.ok(await reminder(page));
+    if (event !== 'CHAT_CHANGED') await arm(page);
+    else await generate(page);
+    if (event !== 'CHAT_CHANGED') await generate(page);
+    assert.ok(await reminder(page), event);
     await page.evaluate(async (event) => { const c = window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes[event]); }, event);
     assert.equal(await reminder(page), '', event);
   }
-  ok('生成前只在异常时注入；正常回复、特殊生成及聊天/预设/完成/停止事件清空提醒');
+  // 换聊天作废；取消后不提醒
+  await arm(page);
+  await page.evaluate(async () => { const c = window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes.CHAT_CHANGED); });
+  await generate(page); assert.equal(await reminder(page), '', '换聊天后作废');
+  await dialog(page);
+  await page.click('[data-r=latest]');
+  await page.click('[data-r=remind]');
+  await page.click('[data-r=unremind]');
+  await page.locator('[data-r=remind]').waitFor();
+  await close(page);
+  await generate(page); assert.equal(await reminder(page), '', '取消后不提醒');
+  ok('不自动提醒；点「下一轮提醒一次」后下一次生成加入一次，只点名出问题的标签；续写等不用掉，换聊天、取消后作废');
 
   const second = '正文检查测试预设';
   await page.evaluate((name) => {
@@ -128,26 +157,21 @@ try {
   await choose(page, '.pa-picker-slot:visible .pa-namebtn', second);
   await dialog(page);
   assert.equal(await page.locator('[data-r=body]').inputValue(), 'content');
-  assert.equal(await page.locator('[data-r=enabled]').isChecked(), false);
+  await reply(page, '坏回复');
+  await page.click('[data-r=latest]');
+  assert.equal(await page.locator('[data-r=remind]').count(), 0, '看的不是正在用的预设：不给提醒按钮');
+  assert.match(await page.locator('[data-r=result]').innerText(), /切到这个预设后才能提醒/);
   await close(page, true);
-  assert.equal((await settings(page))[second].enabled, false);
+  assert.equal((await settings(page))[second].enabled, undefined);
   assert.equal((await settings(page))[active].bodyTag, '正文');
-  await reply(page, '坏回复'); await generate(page);
-  assert.match(await reminder(page), /<正文>/, '浏览其他预设设置不会替换实际使用中预设的规则');
-  await page.evaluate(async (name) => {
-    const c = window.SillyTavern.getContext();
-    await c.getPresetManager().selectPreset(window.__mock.names.indexOf(name));
-    await c.eventSource.emit(c.eventTypes.PRESET_CHANGED, { apiId: 'openai' });
-  }, second);
-  await generate(page); assert.equal(await reminder(page), '');
-  ok('规则按预设保存，自动提醒跟随酒馆实际使用的预设');
+  ok('规则按预设保存；提醒只给酒馆正在用的预设');
 
   const fallback = await openPage({ interfaces: false });
   await dialog(fallback);
-  assert.equal(await fallback.locator('[data-r=enabled]').isDisabled(), true);
-  assert.match(await fallback.locator('.pa-sheet').innerText(), /手动检测可用，自动提醒不可用/);
+  assert.match(await fallback.locator('.pa-sheet').innerText(), /可以检查和修正，不能提醒下一轮/);
   await fallback.click('[data-r=latest]');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /发现 \d+ 个格式风险/);
+  assert.equal(await fallback.locator('[data-r=remind]').count(), 0, '不能提醒时不给按钮');
   await fallback.evaluate(() => { window.SillyTavern.getContext().chat = [{ is_user: false, mes: '开场白' }, { is_system: true, mes: '系统' }, { is_user: true, mes: '用户' }]; });
   await fallback.click('[data-r=latest]');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /没有可检查的 AI 回复/);
@@ -155,8 +179,8 @@ try {
   await fallback.click('[data-r=paste]');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
   await close(fallback, true);
-  assert.equal(Object.values(await settings(fallback))[0].enabled, false);
-  ok('缺少宿主接口时禁用自动提醒，最近回复与粘贴手检仍可用');
+  assert.equal(Object.values(await settings(fallback))[0].enabled, undefined);
+  ok('缺少宿主接口时不能提醒，最近回复与粘贴手检仍可用');
 
   const mobile = await openPage({ mobile: true });
   await dialog(mobile);

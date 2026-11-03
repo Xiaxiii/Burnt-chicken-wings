@@ -1,4 +1,6 @@
 // 只检查当前回复原文；格式提醒通过酒馆的临时提示接口加入，不改聊天或预设正文。
+// 2.6.11 不再自动提醒。检查发现问题后，玩家在「思维链 → 格式」点「下一轮提醒一次」，下一次生成加入一次，用完即清；
+// 生成后发现问题时只弹提示给玩家看（不发给 AI），点提示打开检查
 var REPLY_GUARD_KEY = "presetAtelier:reply-format";
 function replyGuardConfig(name = currentPresetName()) {
   const saved = settings().replyGuard;
@@ -31,15 +33,22 @@ function replyLayoutBefore(chat, index, rules) {
 // 判断回复里多出来的块是不是写错了名字的必需标签（如把 <lxs_status> 写成 <状态栏>）；读不到预设时返回 null，不判断。
 // 2.5.7 tags.children：want 里每个必需标签内部写过哪些子标签（条目里 <lxs_status>…</lxs_status> 之间的、同一条正则里的其他标签），
 // 用来确认陌生块的结构对得上
-function replyKnownTags(name = currentPresetName(), want = []) {
+// 2.6.11 world：当前生效的世界书条目（replyWorldTexts 读好的），只写在世界书里的状态栏标签（如 <lxs_status>）不再被当成陌生块。
+// tags.asked：条目、角色卡、世界书里写过的（要求模型输出的），不含只在正则里出现的，用来判断必需标签这张卡用不用
+function replyKnownTags(name = currentPresetName(), want = [], world = []) {
   const tags = new Set();
+  const asked = new Set();
   const children = new Map(want.map((t) => [String(t).toLowerCase(), new Set()]));
   tags.children = children;
+  tags.asked = asked;
   const tagRe = /<\s*\/?\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39})/gu;
   const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const scan = (text) => {
+  const scan = (text, ask = true) => {
     const str = String(text || "");
-    for (const m of str.matchAll(tagRe)) tags.add(m[1].toLowerCase());
+    for (const m of str.matchAll(tagRe)) {
+      tags.add(m[1].toLowerCase());
+      if (ask) asked.add(m[1].toLowerCase());
+    }
     for (const [tag, set] of children) {
       if (!str.toLowerCase().includes(`<${tag}`)) continue;
       for (const m of str.matchAll(new RegExp(`<\\s*${esc(tag)}(?:\\s[^>]*)?>([\\s\\S]*?)<\\s*\\/\\s*${esc(tag)}\\s*>`, "giu"))) {
@@ -55,7 +64,7 @@ function replyKnownTags(name = currentPresetName(), want = []) {
         for (const t of found) tags.add(t);
         for (const [tag, set] of children) if (found.has(tag)) for (const t of found) if (t !== tag) set.add(t);
       } catch {}
-      scan(rule.replaceString);
+      scan(rule.replaceString, false);
     }
   };
   try {
@@ -72,61 +81,157 @@ function replyKnownTags(name = currentPresetName(), want = []) {
     }
     rules(c.extensionSettings?.regex);
   } catch {}
+  for (const t of world?.texts || []) scan(t);
   return tags;
+}
+// 2.6.11 当前生效的世界书：全局启用、角色绑定、角色附加、聊天绑定。读一次记 60 秒，列表变了重读
+var replyWorldCache = null;
+function replyWorldNames(c = ctx()) {
+  const wi = mods.wi;
+  const names = new Set();
+  const add = (n) => n && names.add(String(n));
+  for (const n of wi?.selected_world_info || []) add(n);
+  const ch = c.characters?.[Number(c.characterId)];
+  add(ch?.data?.extensions?.world);
+  const file = String(ch?.avatar || "").replace(/\.[^.]+$/, "");
+  for (const l of Array.isArray(wi?.world_info?.charLore) ? wi.world_info.charLore : []) if (file && l?.name === file) for (const n of l.extraBooks || []) add(n);
+  add(c.chatMetadata?.world_info);
+  return [...names];
+}
+async function replyWorldTexts() {
+  const names = replyWorldNames();
+  const key = JSON.stringify(names);
+  if (replyWorldCache?.key === key && Date.now() - replyWorldCache.at < 60000) return replyWorldCache;
+  const texts = [];
+  for (const n of names) {
+    try {
+      const data = await mods.wi?.loadWorldInfo?.(n);
+      for (const e of Object.values(data?.entries || {})) if (e && !e.disable && e.content) texts.push(e.content);
+    } catch {}
+  }
+  replyWorldCache = { key, at: Date.now(), texts };
+  return replyWorldCache;
 }
 // 用到时才扫，扫过的记 60 秒：模型连着几轮写错名时不必每轮重扫（大预设在手机上扫一次要几十到一百多毫秒）
 var replyKnownTagsCache = null;
-function replyKnownTagsLazy(name, want) {
+function replyKnownTagsLazy(name, want, world = null) {
+  let value;
   return () => {
+    if (value !== undefined) return value;
     const c = ctx();
-    const key = JSON.stringify([name, want, c.characterId ?? null]);
-    if (replyKnownTagsCache?.key === key && Date.now() - replyKnownTagsCache.at < 60000) return replyKnownTagsCache.value;
-    const value = replyKnownTags(name, want);
+    const key = JSON.stringify([name, want, c.characterId ?? null, world?.key ?? null, world?.at ?? null]);
+    if (replyKnownTagsCache?.key === key && Date.now() - replyKnownTagsCache.at < 60000) return value = replyKnownTagsCache.value;
+    value = replyKnownTags(name, want, world);
     replyKnownTagsCache = { key, at: Date.now(), value };
     return value;
   };
+}
+// 2.6.11 必需标签这张卡用不用得上：条目、角色卡、世界书里写过，或第 index 条之前最近 10 条 AI 回复（含开场白）里出现过。
+// 读不到预设时一律算用得上
+function replyRecentTags(chat, index) {
+  const tags = new Set();
+  let n = 0;
+  for (let i = Math.min(index, Array.isArray(chat) ? chat.length : 0) - 1; i >= 0 && n < 10; i--) {
+    const m = chat[i];
+    if (!m || m.is_user || m.is_system || typeof m.mes !== "string") continue;
+    n++;
+    for (const t of replyTagTokens(replyCheckMask(m.mes))) tags.add(t.key);
+  }
+  return tags;
+}
+function replyApplicable(knownTags, chat, index) {
+  let recent;
+  return (key) => {
+    const known = knownTags();
+    if (!(known instanceof Set) || known.asked?.has(key)) return true;
+    return (recent ??= replyRecentTags(chat, index)).has(key);
+  };
+}
+// 检查一条聊天回复要用到的东西：前几条回复的布局、预设和世界书里的标签（用到时才算）、必需标签适用与否
+async function replyCheckExtras(chat, index, rules, name = currentPresetName()) {
+  const knownTags = replyKnownTagsLazy(name, rules.requiredTags, await replyWorldTexts());
+  return { layout: replyLayoutLazy(chat, index, rules), knownTags, isApplicable: replyApplicable(knownTags, chat, index) };
 }
 // 用到时才学，学一次：多数回复没有问题，也不会在思考区末尾留块，发送前不必去读前几条
 function replyLayoutLazy(chat, index, rules) {
   let value;
   return () => value ??= replyLayoutBefore(chat, index, rules);
 }
-// 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改。
-// 修正前的问题记在这里，下一轮照样提醒 AI；undo 供「格式」窗口撤销
+// 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改（2.6.11 起不改标签名、不去掉多包的一层）。
+// 修正前的问题记在这里，点「下一轮提醒一次」时按修正前的问题写提醒；undo 供「格式」窗口撤销
 var replyAutoFixed = null;
 var replyAutoFixPending = false;
 // 这一轮被手动停止过（停止和结束两个事件谁先到都不改）
 var replyAutoFixStopped = false;
+// 2.6.11 生成后提示玩家的问题：确定的问题才提示，「疑似推理标题」这类要人工判断的不提示；每条回复最多提示一次
+var REPLY_NOTICE_KINDS = new Set(["missing", "order", "duplicate", "swallowed", "reasoning", "stranded", "outside", "leak", "empty", "wrapped"]);
+var replyNoticed = null;
+function replyNoticeToast(text, type = "warning") {
+  const t = globalThis.toastr;
+  if (!t?.[type]) return console.log("[焦香鸡翅]", text);
+  t[type](text, "", { timeOut: 9000, extendedTimeOut: 3000, escapeHtml: true, preventDuplicates: true, onclick: () => openReplyCheck() });
+}
+// 点提示：打开「思维链」页的格式检查，直接检查最近回复
+function openReplyCheck() {
+  try {
+    open("cot");
+    replyFormatDialog(currentPresetName(), { check: true }).catch((e) => toast("格式检查失败：" + e.message, "error"));
+  } catch (e) {
+    console.warn("[焦香鸡翅] 打开格式检查失败", e);
+  }
+}
 function scheduleReplyAutoFix() {
   if (!replyAutoFixPending) return;
   replyAutoFixPending = false;
-  if (!replyGuardConfig()?.autoFix) return;
-  // 等酒馆和其他扩展处理完这条消息（渲染、保存）再改
+  const first = replyGuardConfig();
+  if (!first?.bodyTag || !first.autoFix && first.notice === false) return;
+  // 等酒馆和其他扩展处理完这条消息（渲染、保存）再看
   setTimeout(async () => {
     try {
       const config = replyGuardConfig();
-      const latest = latestReplyForCheck(ctx().chat);
-      if (!config?.autoFix || !latest || replyAutoFixStopped) return;
+      const c = ctx();
+      const latest = latestReplyForCheck(c.chat);
+      if (!config?.bodyTag || !latest || replyAutoFixStopped) return;
       const rules = normalizeReplyRules(config);
-      const reasoning = latest.message.extra?.reasoning;
-      const layout = replyLayoutLazy(ctx().chat, latest.index, rules);
-      const knownTags = replyKnownTagsLazy(currentPresetName(), rules.requiredTags);
-      const report = checkReplyFormat(latest.message.mes, rules, { reasoning, layout, knownTags });
+      const extra = { ...await replyCheckExtras(c.chat, latest.index, rules), reasoning: latest.message.extra?.reasoning };
+      const report = checkReplyFormat(latest.message.mes, rules, extra);
       if (!report.issues.length) return;
-      const plan = planReplyFix(latest.message.mes, rules, { reasoning, layout, knownTags, noTailClose: true, strict: true });
-      if (!plan) return;
-      const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
-      replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
-      const left = plan.after.issues.length;
-      toast(`已自动修正这条回复：${plan.steps.join("；")}${left ? `。还有 ${left} 个问题要手动处理` : ""}。可在「思维链 → 格式」里撤销`, left ? "warning" : "success");
+      let left = report.issues;
+      if (config.autoFix) {
+        const plan = planReplyFix(latest.message.mes, rules, { ...extra, noTailClose: true, auto: true });
+        if (plan) {
+          const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
+          replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
+          left = plan.after.issues;
+          const rest = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));
+          replyNoticed = undo.snapshot;
+          if (rest.length && config.notice !== false) return replyNoticeToast(`已自动修正这条回复：${plan.steps.join("；")}。还有 ${rest.length} 个问题，点此查看，可提醒下一轮`);
+          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。可在「思维链 → 格式」里撤销`, left.length ? "warning" : "success");
+        }
+      }
+      const sure = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));
+      const snap = replyMessageSnapshot(latest.index);
+      if (config.notice === false || !sure.length || replyNoticed === snap) return;
+      replyNoticed = snap;
+      replyNoticeToast(`上一条回复：${sure[0].text}${sure.length > 1 ? `，另有 ${sure.length - 1} 个问题` : ""}。点此查看，可提醒下一轮`);
     } catch (e) {
-      console.warn("[焦香鸡翅] 自动修正失败", e);
+      console.warn("[焦香鸡翅] 生成后的格式检查失败", e);
     }
   }, 300);
 }
 // 这条回复是不是刚被自动修正过、之后没再变
 function replyAutoFixFor(index) {
   return replyAutoFixed && replyAutoFixed.undo.index === index && replyMessageSnapshot(index) === replyAutoFixed.snapshot ? replyAutoFixed : null;
+}
+// 2.6.11 一次性提醒：记下提醒原文和当时的聊天；下一次正常生成（新回复、重新生成、滑动）时加入一次，用完即清，换聊天作废
+var replyRemindOnce = null;
+var REPLY_SKIP_TYPES = ["quiet", "impersonate", "first_message", "continue"];
+const replyChatKey = (c = ctx()) => String(c.getCurrentChatId?.() || c.chatId || "");
+function armReplyReminder(text) {
+  replyRemindOnce = text ? { chat: replyChatKey(), text } : null;
+}
+function replyReminderArmed() {
+  return replyRemindOnce && replyRemindOnce.chat === replyChatKey() ? replyRemindOnce.text : null;
 }
 function clearReplyGuard() {
   const c = ctx();
@@ -136,33 +241,28 @@ function clearReplyGuard() {
 function prepareReplyGuard(type, _options, dryRun) {
   try {
     clearReplyGuard();
-    const c = ctx(), config = replyGuardConfig();
-    // 续写需要延续已有标签，要求再输出一整对可能制造重复，留给手动检查。
-    if (!replyGuardAvailable(c) || !config?.enabled || dryRun || ["quiet", "impersonate", "first_message", "continue"].includes(type)) return;
+    const c = ctx();
+    // 续写需要延续已有标签，代拟、后台生成与这条回复无关：都不用掉这次提醒
+    if (!replyRemindOnce || !replyGuardAvailable(c) || dryRun || REPLY_SKIP_TYPES.includes(type)) return;
     if (c.mainApi && c.mainApi !== "openai") return;
-    // 按当前 mes 重算，编辑、删除、滑动后不会沿用旧问题。extra.reasoning 只在可见回复没有正文标签时本地查标签位置。
-    const latest = latestReplyForCheck(c.chat);
-    if (!latest) return;
-    const rules = normalizeReplyRules(config);
-    // 已自动修正过的回复，按修正前的问题提醒
-    const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules), knownTags: replyKnownTagsLazy(currentPresetName(), rules.requiredTags) });
-    const reminder = buildReplyReminder(report, rules);
-    if (reminder) c.setExtensionPrompt(REPLY_GUARD_KEY, reminder, 1, 0, false, 0);
+    if (replyRemindOnce.chat !== replyChatKey(c)) { replyRemindOnce = null; return; }
+    c.setExtensionPrompt(REPLY_GUARD_KEY, replyRemindOnce.text, 1, 0, false, 0);
+    replyRemindOnce = null;
   } catch (e) {
-    console.warn("[焦香鸡翅] 正文格式检查失败", e);
+    console.warn("[焦香鸡翅] 加入格式提醒失败", e);
   }
 }
 function bindReplyGuard(on, events) {
   on(events.GENERATION_AFTER_COMMANDS, prepareReplyGuard);
   on(events.GENERATION_AFTER_COMMANDS, (type, _options, dryRun) => {
     if (dryRun) return;
-    replyAutoFixPending = !["quiet", "impersonate", "first_message", "continue"].includes(type);
+    replyAutoFixPending = !REPLY_SKIP_TYPES.includes(type);
     replyAutoFixStopped = false;
   });
   on(events.GENERATION_ENDED, scheduleReplyAutoFix);
-  // 手动停止的回复不完整，不自动改
+  // 手动停止的回复不完整，不自动改、不提示
   on(events.GENERATION_STOPPED, () => { replyAutoFixPending = false; replyAutoFixStopped = true; });
-  on(events.CHAT_CHANGED, () => { replyAutoFixPending = false; replyAutoFixed = null; });
+  on(events.CHAT_CHANGED, () => { replyAutoFixPending = false; replyAutoFixed = null; replyRemindOnce = null; });
   for (const ev of [events.CHAT_CHANGED, events.PRESET_CHANGED, events.GENERATION_STARTED, events.GENERATION_ENDED, events.GENERATION_STOPPED]) on(ev, clearReplyGuard);
   cleanups.push(clearReplyGuard);
 }
@@ -174,6 +274,10 @@ function replyMessageSnapshot(index) {
   return JSON.stringify([String(c.getCurrentChatId?.() || c.chatId || ""), index, m.swipe_id ?? null, m.mes, m.extra?.reasoning ?? null]);
 }
 async function writeReplyMessage(index, mes, reasoning) {
+  await setReplyMessage(index, mes, reasoning);
+  await ctx().saveChat?.();
+}
+async function setReplyMessage(index, mes, reasoning) {
   const c = ctx(), m = c.chat[index];
   m.mes = mes;
   if (Array.isArray(m.swipes) && Number.isInteger(m.swipe_id) && m.swipes[m.swipe_id] !== undefined) m.swipes[m.swipe_id] = mes;
@@ -188,7 +292,6 @@ async function writeReplyMessage(index, mes, reasoning) {
   // 与酒馆手动编辑一致地通知，让其他扩展（如状态栏渲染）按新原文刷新
   if (ev?.MESSAGE_EDITED) await c.eventSource?.emit(ev.MESSAGE_EDITED, index);
   if (ev?.MESSAGE_UPDATED) await c.eventSource?.emit(ev.MESSAGE_UPDATED, index);
-  await c.saveChat?.();
 }
 async function applyReplyFix(index, plan, snapshot) {
   if (replyMessageSnapshot(index) !== snapshot) throw new Error("这条回复已变化，请重新检查");
@@ -201,4 +304,43 @@ async function applyReplyFix(index, plan, snapshot) {
 async function undoReplyFix(undo) {
   if (replyMessageSnapshot(undo.index) !== undo.snapshot) throw new Error("这条回复在修正后又被改动，无法撤销");
   await writeReplyMessage(undo.index, undo.mes, undo.reasoning);
+}
+// 2.6.11 聊天里前面的回复也多包了同一层（如 <状态栏> 包住 <lxs_status>）：模型会照着前面的回复学，一并去掉。
+// 只看第 index 条之前最近 200 条 AI 回复当前显示的那一版；keys 是要去掉的外层标签
+function replyWrappedEarlier(chat, index, rules, knownTags, keys = null) {
+  const out = [];
+  let n = 0;
+  for (let i = Math.min(index, Array.isArray(chat) ? chat.length : 0) - 1; i >= 0 && n < 200; i--) {
+    const m = chat[i];
+    if (!m || m.is_user || m.is_system || typeof m.mes !== "string") continue;
+    n++;
+    const un = replyUnwrap(m.mes, rules, knownTags, keys);
+    if (un) out.push({ index: i, text: un.text, steps: un.steps, pairs: un.pairs });
+  }
+  return out.reverse();
+}
+async function unwrapEarlierReplies(list) {
+  const c = ctx();
+  const items = [];
+  for (const { index, text } of list) {
+    const m = c.chat[index];
+    if (!m) continue;
+    items.push({ index, before: m.mes, after: text });
+    await setReplyMessage(index, text);
+  }
+  await c.saveChat?.();
+  return { chat: replyChatKey(c), items };
+}
+// 撤销：之后又被改过的那几条不动，返回撤销了几条
+async function undoEarlierReplies(undo) {
+  const c = ctx();
+  if (undo.chat !== replyChatKey(c)) throw new Error("已换了聊天，无法撤销");
+  let n = 0;
+  for (const { index, before, after } of undo.items) {
+    if (c.chat[index]?.mes !== after) continue;
+    await setReplyMessage(index, before);
+    n++;
+  }
+  await c.saveChat?.();
+  return n;
 }

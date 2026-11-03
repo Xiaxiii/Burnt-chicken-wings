@@ -1,4 +1,4 @@
-// 必需标签写错了名字（预设要 <lxs_status>，模型写成 <状态栏>）：检查点名、提醒不再让 <状态栏> 照常输出、修正时改名。
+// 必需标签写错了名字（预设要 <lxs_status>，模型写成 <状态栏>）：检查点名、修正时改名；2.6.11 提醒不复述写错的名字。
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/reply-misnamed-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -59,10 +59,10 @@ try {
   const result = page.locator('[data-r=result]');
   const text = await result.innerText();
   assert.match(text, /<状态栏> 预设没有用到，多半是写错了名字的 <lxs_status>/);
-  const reminder = await page.locator('[data-r=result] pre.pa-pre').last().textContent();
-  assert.match(reminder, /上一轮把 <lxs_status> 写成了 <状态栏>/);
-  assert.doesNotMatch(reminder, /<状态栏>[^。]*照常输出/);
-  ok('检查点名写错名的 <状态栏>；提醒写明改回 <lxs_status>，不再让 <状态栏> 照常输出');
+  const reminder = await page.locator('[data-r=result] .pa-card', { hasText: '下一轮提醒' }).locator('pre').textContent();
+  assert.match(reminder, /上一轮的 <lxs_status> 标签名写错了：请用 <lxs_status>…<\/lxs_status>/);
+  assert.doesNotMatch(reminder, /状态栏|author_note/, '提醒不复述写错的名字，只点名出问题的标签');
+  ok('检查点名写错名的 <状态栏>；提醒只写改回 <lxs_status>，不复述 <状态栏>');
   await page.click('[data-r=fix]');
   await page.locator('[data-r=undo-fix]').waitFor();
   const fixed = await page.evaluate(() => window.SillyTavern.getContext().chat[4].mes);
