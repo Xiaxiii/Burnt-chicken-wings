@@ -65,7 +65,13 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   if (!views.some(([v]) => v === mode)) mode = "model";
   // 默认展开：多密钥的第一个分组；当前模型所在的第一个分类，没有就是它的系列
   const firstCat = cats().find((c) => c.models.includes(cur));
-  const secOpen = new Set([multi ? keys[0].id : "", firstCat ? `c:${firstCat.id}` : `f:${modelFamily(cur || all[0])}`]);
+  // 2.6.8 段落的展开、收起记住最后一次的状态（按站点存在设置 fold.mpick 里）；没动过的段落按默认：多密钥的第一个分组、当前模型所在的分类或系列
+  const secDefault = new Set([multi ? keys[0].id : "", firstCat ? `c:${firstCat.id}` : `f:${modelFamily(cur || all[0])}`]);
+  const secKey = (id) => `${site?.id || "live"}\u0001${id}`;
+  const secOpen = {
+    has: (id) => foldGet("mpick", secKey(id), secDefault.has(id)),
+    set: (id, on) => foldSet("mpick", secKey(id), on, 300)
+  };
   const more = new Set();
   // 多选：sel 是勾选的模型；editing 是正在编辑模型的分类
   let selecting = false;
@@ -216,7 +222,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       const c = { id: uid(), name, models: all.filter((m) => sel.has(m)) };
       site.modelCats.push(c);
       saveCats();
-      secOpen.add(`c:${c.id}`);
+      secOpen.set(`c:${c.id}`, true);
       toast(`已新建「${name}」，${c.models.length} 个模型`, "success");
       newInput.value = "";
       stopSelect();
@@ -261,7 +267,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
         const before = c.models.length;
         c.models = [...new Set([...c.models, ...all.filter((m) => sel.has(m))])];
         saveCats();
-        secOpen.add(`c:${c.id}`);
+        secOpen.set(`c:${c.id}`, true);
         toast(`已加入「${c.name}」，新增 ${c.models.length - before} 个`, "success");
       }
       stopSelect();
@@ -302,7 +308,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       }
       const f = e.target.closest("[data-fold]");
       if (f) {
-        secOpen.has(f.dataset.fold) ? secOpen.delete(f.dataset.fold) : secOpen.add(f.dataset.fold);
+        secOpen.set(f.dataset.fold, !secOpen.has(f.dataset.fold));
         return paint();
       }
       const sr = e.target.closest("[data-sel]");

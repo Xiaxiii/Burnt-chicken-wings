@@ -43,6 +43,12 @@ try {
   assert.deepEqual(await page.locator('.pa-ksec b').allTextContents(), ['Gemini'], '搜索时只留有结果的系列');
   assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.modelView), 'cat');
   await page.locator('.pa-sheet-x').last().click();
+  // 2.6.8 段落的展开、收起记住最后一次：重新打开时 Gemini 仍展开
+  await page.waitForTimeout(250);
+  await page.click('[data-a=livemodel]');
+  await page.locator('.pa-ksec').first().waitFor();
+  assert.deepEqual(await page.locator('.pa-ksec').evaluateAll((x) => x.map((y) => y.getAttribute('aria-expanded'))), ['true', 'true'], '重新打开后段落保持最后一次的状态');
+  await page.locator('.pa-sheet-x').last().click();
   ok('拉取后出现 ▾，点开是全部模型');
 
   // 2.5.0 自建分类：多选 → 搜索 → 全选搜索结果 → 新建分类；加入已有分类；编辑模型；改名；删除
@@ -76,7 +82,8 @@ try {
   assert.equal(await page.locator('.pa-ksec', { hasText: 'Gemini' }).locator('small').textContent(), '自动');
   // 加入已有分类：一个模型可以同时在几个分类里，所以先再建一个
   await page.locator('.pa-selbtn').click();
-  await page.locator('.pa-mpick-list .pa-ksec', { hasText: 'Gemini' }).click(); // 展开自动段 Gemini
+  // 展开自动段 Gemini（2.6.8 起记住上次的展开状态，前面已展开过就不再点）
+  { const g = page.locator('.pa-mpick-list .pa-ksec', { hasText: 'Gemini' }); if (await g.getAttribute('aria-expanded') !== 'true') await g.click(); }
   await page.locator('.pa-mpick-list [data-sel="gemini-z"]').click();
   await page.locator('.pa-mseltools [data-act=newcat]').click();
   await page.locator('.pa-newcat input').fill('出图');

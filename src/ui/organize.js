@@ -124,10 +124,25 @@ function mountOrganize(page) {
     setFocusPreset(name);
   });
   const draft = () => getDraft(focusPreset());
+  // 2.6.8 分组折叠记住最后一次的状态：按「预设名 + 分组名（同名第几个）」存在设置里（fold.org），没动过的组按预设里存的状态。
+  // 以前只在内存里记、按分组编号记：重新加载或切换预设后回到预设里存的状态，编号变了也对不上，合上的组又展开
+  function orgFoldKeys(d) {
+    const seen = new Map(), out = new Map();
+    for (const g of d.groups.groups) {
+      const n = seen.get(g.name) || 0;
+      seen.set(g.name, n + 1);
+      out.set(g.id, `${d.name}\u0001${g.name}\u0001${n}`);
+    }
+    return out;
+  }
+  function setOpen(d, gid, on) {
+    const k = orgFoldKeys(d).get(gid);
+    if (k) foldSet("org", k, on, 600);
+  }
   function ensureCollapsed(d) {
-    if (st.collapsedFor === d.name && st.collapsed) return;
+    const keys = orgFoldKeys(d);
     st.collapsedFor = d.name;
-    st.collapsed = new Set(d.groups.groups.filter((g) => g.collapsed).map((g) => g.id));
+    st.collapsed = new Set(d.groups.groups.filter((g) => !foldGet("org", keys.get(g.id), !g.collapsed)).map((g) => g.id));
   }
   const allFolded = (d) => d.groups.groups.length > 0 && d.groups.groups.every((g) => st.collapsed.has(g.id));
   function render() {
@@ -199,7 +214,7 @@ function mountOrganize(page) {
     st.mode = null;
     st.keep = [];
     st.selected.clear();
-    if (gid) st.collapsed.delete(gid);
+    if (gid) setOpen(d, gid, true);
     toast(`已移动 ${ids.length} 条`, "success");
     flash(ids);
     render();
@@ -208,7 +223,7 @@ function mountOrganize(page) {
     ids.forEach((i) => st.highlight.add(i));
   }
   function showGroup(gid) {
-    st.collapsed.delete(gid);
+    setOpen(draft(), gid, true);
     render();
     list.querySelector(`.pa-group[data-gid="${CSS.escape(gid)}"]`)?.scrollIntoView({ block: "center" });
   }
@@ -277,7 +292,7 @@ function mountOrganize(page) {
     }
     if (st.mode && act === "collapse" && head) {
       const gid = head.dataset.gid;
-      st.collapsed.has(gid) ? st.collapsed.delete(gid) : st.collapsed.add(gid);
+      setOpen(d, gid, st.collapsed.has(gid));
       return render();
     }
     if (st.mode) {
@@ -295,7 +310,7 @@ function mountOrganize(page) {
     if (head) {
       const gid = head.dataset.gid;
       if (act === "collapse" || !act) {
-        st.collapsed.has(gid) ? st.collapsed.delete(gid) : st.collapsed.add(gid);
+        setOpen(d, gid, st.collapsed.has(gid));
         return render();
       }
       if (act === "gtoggle") {
@@ -363,8 +378,8 @@ function mountOrganize(page) {
       return render();
     }
     if (t === "fold") {
-      if (allFolded(d)) st.collapsed.clear();
-      else d.groups.groups.forEach((g) => st.collapsed.add(g.id));
+      const openAll = allFolded(d);
+      d.groups.groups.forEach((g) => setOpen(d, g.id, openAll));
       render();
     }
     if (t === "smart") smartGroups(d);
@@ -437,7 +452,7 @@ function mountOrganize(page) {
       mutate(d, "移入分组", (x) => x.moveIntoGroup(ids, gid, { keepClickOrder: settings().keepClickOrder }));
       st.selected.clear();
       flash(ids);
-      st.collapsed.delete(gid);
+      setOpen(d, gid, true);
       return render();
     }
     if (a === "sorttags") {
@@ -536,7 +551,7 @@ function mountOrganize(page) {
     });
     st.selected.clear();
     const g = d.groupOf(id);
-    if (g) st.collapsed.delete(g);
+    if (g) setOpen(d, g, true);
     flash([id]);
     render();
     return peek(getDraft(d.name), id);
@@ -636,7 +651,7 @@ function mountOrganize(page) {
     if (!result?.assignedIds.length) return;
     if (focusPreset() !== d.name || getDraft(d.name) !== d || JSON.stringify(d.toPreset()) !== original) return toast("预设已变化，请重新识别分区", "warning");
     mutate(d, "识别并归入分区", (x) => { findOrderList(x.preset).order = result.order; x.groups = result.groups; });
-    result.newGroupIds.forEach((id) => st.collapsed.add(id));
+    result.newGroupIds.forEach((id) => setOpen(d, id, false));
     toast(`已归组 ${result.assignedIds.length} 条，可撤销`, "success");
     render();
   }
@@ -826,7 +841,7 @@ function mountOrganize(page) {
     const d = draft();
     ids.forEach((i) => {
       const g = d.groupOf(i);
-      if (g) st.collapsed.delete(g);
+      if (g) setOpen(d, g, true);
     });
     flash(ids);
     render();

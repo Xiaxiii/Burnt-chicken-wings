@@ -34,16 +34,16 @@ function foldGet(area, key, def = false) {
   const v = settings().fold?.[area]?.[key];
   return typeof v === "boolean" ? v : def;
 }
-function foldSet(area, key, on) {
+function foldSet(area, key, on, cap = 200) {
   const s = settings();
   if (!s.fold || typeof s.fold !== "object" || Array.isArray(s.fold)) s.fold = {};
   if (!s.fold[area] || typeof s.fold[area] !== "object" || Array.isArray(s.fold[area])) s.fold[area] = {};
   const a = s.fold[area];
-  // 最近改过的排在后面，每个区域只留最近 200 项
+  // 最近改过的排在后面，每个区域只留最近 cap 项
   delete a[key];
   a[key] = !!on;
   const keys = Object.keys(a);
-  for (const k of keys.slice(0, Math.max(0, keys.length - 200))) delete a[k];
+  for (const k of keys.slice(0, Math.max(0, keys.length - cap))) delete a[k];
   saveSettings();
 }
 var drafts = /* @__PURE__ */ new Map();

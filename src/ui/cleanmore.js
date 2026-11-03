@@ -515,8 +515,8 @@ function mountCleanKind(kind, box) {
   // ---------- 本地备份（本扩展在这个浏览器里存的东西） ----------
   if (kind === "local") {
     let info = null;
-    // 2.5.0 自动备份的设置默认折起，标题行显示开关和保留几份
-    let bkOpen = false;
+    // 2.5.0 自动备份的设置默认折起，标题行显示开关和保留几份。2.6.8 记住最后一次的展开、收起
+    const bkIsOpen = () => foldGet("clean", "backup", false);
     const load = async () => {
       const all = await backupAll().catch(() => []);
       const by = new Map();
@@ -540,10 +540,10 @@ function mountCleanKind(kind, box) {
     // 2.4.2：自动备份开关和保留份数（1–30）
     const setCard = () => {
       const on = backupOn(), n = backupMax();
-      return `<div class="pa-bk-set${on ? "" : " pa-off"}${bkOpen ? " open" : ""}">
-          <div class="pa-bk-row pa-bk-head" data-bk="fold" role="button" tabindex="0" aria-expanded="${bkOpen}"><span class="pa-sgcaret" aria-hidden="true">${bkOpen ? "▾" : "▸"}</span><b>自动备份</b><small class="pa-bk-sum">${on ? `每个预设保留 ${n} 份` : ""}</small><label class="pa-switch"><input type="checkbox" data-bk="on" aria-label="自动备份" ${on ? "checked" : ""}><i></i></label></div>
+      return `<div class="pa-bk-set${on ? "" : " pa-off"}${bkIsOpen() ? " open" : ""}">
+          <div class="pa-bk-row pa-bk-head" data-bk="fold" role="button" tabindex="0" aria-expanded="${bkIsOpen()}"><span class="pa-sgcaret" aria-hidden="true">${bkIsOpen() ? "▾" : "▸"}</span><b>自动备份</b><small class="pa-bk-sum">${on ? `每个预设保留 ${n} 份` : ""}</small><label class="pa-switch"><input type="checkbox" data-bk="on" aria-label="自动备份" ${on ? "checked" : ""}><i></i></label></div>
           ${on ? "" : '<p class="pa-bk-warn">已关闭。此后的修改无法从备份恢复。</p>'}
-          ${!bkOpen ? "</div>" : `${on ? '<p class="pa-hint">修改预设前自动备份，可从右上角 ⟲ 恢复。</p>' : ""}
+          ${!bkIsOpen() ? "</div>" : `${on ? '<p class="pa-hint">修改预设前自动备份，可从右上角 ⟲ 恢复。</p>' : ""}
           <div class="pa-bk-row pa-bk-cnt"><span>每个预设保留</span><span class="pa-bk-num"><span class="pa-bk-step"><button type="button" data-bk="dec" aria-label="减少" ${on && n > 1 ? "" : "disabled"}>−</button><input data-bk="n" inputmode="numeric" aria-label="保留份数" value="${n}" ${on ? "" : "disabled"}><button type="button" data-bk="inc" aria-label="增加" ${on && n < 30 ? "" : "disabled"}>＋</button></span>份</span></div>
           <p class="pa-hint pa-bk-note">注：世界书缝合、编辑前的备份同样适用。</p></div>`}`;
     };
@@ -586,7 +586,7 @@ function mountCleanKind(kind, box) {
       if (bk === "dec" || bk === "inc") return setMax(backupMax() + (bk === "inc" ? 1 : -1));
       if (bk === "fold") {
         if (e.target.closest(".pa-switch")) return;
-        bkOpen = !bkOpen;
+        foldSet("clean", "backup", !bkIsOpen());
         return draw();
       }
       const x = e.target.closest("[data-x]")?.dataset.x;
