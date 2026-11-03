@@ -1299,9 +1299,56 @@ html.pa-open body { overflow: hidden; }
 @media (pointer: coarse) {
     #pa-root .pa-row-head .pa-head-btn { min-height: 28px; }
 }
-/* 2.5.10 站点标题右边：导入、导出、＋ 添加站点，同一种小按钮 */
-#pa-root .pa-head-btns { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px; min-width: 0; }
-#pa-root .pa-head-btns .pa-file { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+/* 2.6.9 站点标题右边：铅笔（编辑）、＋（添加站点）两个圆形图标，和「切换」胶囊同一套描边与配色；
+   编辑时换成「导入」「导出」（图标加字）和实心的「完成」 */
+#pa-root .pa-head-btns { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; min-width: 0; }
+#pa-root .pa-head-btns .pa-file { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; overflow: visible; }
+#pa-root .pa-head-btns.pa-head-editing { gap: 6px; }
+#pa-root .pa-head-ico {
+    position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; padding: 0; border: 1px solid var(--pa-line); border-radius: 999px;
+    background: var(--pa-card); color: var(--pa-em); cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: transform .12s ease, background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+#pa-root .pa-head-ico svg { width: 16px; height: 16px; stroke-width: 2; }
+#pa-root .pa-head-ico.pa-head-add { border-color: var(--pa-thread); background: var(--pa-sel); color: var(--pa-thread); }
+#pa-root .pa-head-ico.pa-head-add svg { width: 17px; height: 17px; stroke-width: 2.2; }
+#pa-root .pa-head-ico:active { transform: scale(.9); }
+#pa-root .pa-head-ico:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 2px; }
+@media (hover: hover) { #pa-root .pa-head-ico:hover { border-color: var(--pa-thread); background: var(--pa-thread); color: var(--pa-on-accent); } }
+@media (pointer: coarse) { #pa-root .pa-head-ico::before { content: ""; position: absolute; inset: -8px -4px; } }
+#pa-root .pa-swpill.pa-ico-pill { gap: 4px; padding: 0 11px 0 8px; }
+#pa-root .pa-swpill.pa-ico-pill svg { width: 15px; height: 15px; stroke-width: 2; }
+#pa-root .pa-swpill.pa-done-pill { background: var(--pa-thread); color: var(--pa-on-accent); }
+#pa-root .pa-swpill.pa-done-pill:focus-visible, #pa-root .pa-swpill.pa-ico-pill:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 2px; }
+#pa-root .pa-empty .pa-file.pa-link { display: inline; padding: 0 2px; }
+/* 编辑模式的站点行：≡ 拖动柄、名称、删除。拖着的那一行不透明、浮起，其他行滑开让位 */
+#pa-root .pa-site-list { position: relative; }
+#pa-root .pa-site-edit { gap: 4px; padding-left: 2px; padding-right: 4px; }
+#pa-root .pa-site-grip {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: none; color: var(--pa-dim);
+    cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+#pa-root .pa-site-grip:active { cursor: grabbing; color: var(--pa-thread); }
+#pa-root .pa-site-grip:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; color: var(--pa-thread); }
+#pa-root .pa-site-del { width: 34px; height: 32px; color: var(--pa-em); }
+#pa-root .pa-site-del svg { width: 17px; height: 17px; }
+#pa-root .pa-site-del:focus-visible { outline: 2px solid var(--pa-warn); outline-offset: -2px; }
+@media (hover: hover) { #pa-root .pa-site-del:hover { color: var(--pa-warn); background: var(--pa-card); } }
+#pa-root .pa-site-edit.pa-dragging {
+    position: relative; z-index: 2; border-color: var(--pa-thread);
+    background: var(--pa-tint); background: color-mix(in srgb, var(--pa-tint) 92%, var(--pa-thread));
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .16);
+}
+#pa-root .pa-site-edit.pa-dragging .pa-site-grip { color: var(--pa-thread); cursor: grabbing; }
+@media (pointer: coarse) {
+    #pa-root .pa-site-grip, #pa-root .pa-site-del { position: relative; }
+    #pa-root .pa-site-grip::before, #pa-root .pa-site-del::before { content: ""; position: absolute; inset: -6px -2px; }
+}
+#pa-root .pa-site-edit.pa-dropped { animation: pa-drop .6s ease-out; }
+@keyframes pa-drop { from { border-color: var(--pa-thread); } }
+@media (prefers-reduced-motion: reduce) { #pa-root .pa-head-ico { transition: none; } #pa-root .pa-head-ico:active { transform: none; } #pa-root .pa-site-edit.pa-dropped { animation: none; } }
 #pa-root .pa-imp-list { display: flex; flex-direction: column; border: 1px solid var(--pa-line); border-radius: 10px; overflow: hidden; }
 #pa-root .pa-imp-row { display: block; padding: 8px 12px; line-height: 1.45; }
 #pa-root .pa-imp-row + .pa-imp-row { border-top: 1px solid var(--pa-line); }

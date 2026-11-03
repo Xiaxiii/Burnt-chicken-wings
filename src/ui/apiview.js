@@ -564,6 +564,9 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   let liveFetched = null;
   // 2.5.0 测试结果：写在模型那一行下面；换了模型就不显示
   let liveTest = null;
+  // 2.6.9 站点编辑模式：排序、删除、导入导出；拖动期间不重画站点列表
+  let editing = false;
+  let dragging = false;
   // 2.5.0 ⋯ 在卡片里原地展开详情，不再弹窗
   const liveOpen = () => foldGet("live", "detail");
   // 酒馆实际在用的模型（测试用的就是它）
@@ -616,9 +619,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         ${liveOpen() ? liveDetails(live, active) : ""}
         </article>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
-    const siteRow = (x) => {
+    const siteRow = (x, i) => {
       const used = usedBy(x.id);
       const on = x.id === s.activeSiteId;
+      if (editing) return editRow(x, i, on, used);
       if (siteMulti(x)) return multiRow(x, on, used);
       const info = [x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       return `<div class="pa-sgroup pa-sitecard pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
@@ -640,6 +644,14 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <div class="pa-srow-main"><b>${esc(x.name)}</b>${info ? `<small class="pa-site-model">${esc(info)}</small>` : ""}</div>
             ${on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : ""}<button class="pa-swpill pa-fold-pill" data-a="sitefold" type="button" aria-expanded="${open}" aria-label="${x.keys.length} 个分组，${open ? "收起" : "展开"}">${x.keys.length} 组 ${open ? "▾" : "▸"}</button></div>${lines}</div>`;
     };
+    // 2.6.9 编辑模式的一行：左边 ≡ 拖动排序（键盘按上下方向键），右边删除；多密钥站点不展开，小字写分组数
+    const editRow = (x, i, on, used) => {
+      const info = [siteMulti(x) ? `${x.keys.length} 组` : x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
+      return `<div class="pa-sgroup pa-sitecard pa-site pa-site-edit${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
+            <button class="pa-site-grip" type="button" aria-label="${esc(`「${x.name}」第 ${i + 1} 个，共 ${sites().length} 个，按上下方向键移动`)}" title="拖动排序">${ICON.grip}</button>
+            <div class="pa-srow-main"><b>${esc(x.name)}</b><small class="pa-site-model">${esc(info)}</small></div>
+            ${on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : ""}<button class="pa-icon-btn pa-site-del" data-a="del" type="button" aria-label="删除「${esc(x.name)}」" title="删除">${ICON.trash}</button></div>`;
+    };
     const info = (t, d) => `<div class="pa-srow"><div class="pa-srow-main"><b>${t}</b><small>${d}</small></div></div>`;
     const follow = s.reasoningFollowPreset === true;
     const rows = follow ? reasoningRows() : [];
@@ -647,12 +659,17 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const reasoningBody = follow
       ? rows.map(reasoningRow).join("") + '<button class="pa-srow pa-optadd" data-a="reasoningadd" type="button">＋ 给其他预设设置</button>'
       : info("开启后", "离开预设时记下推理格式，切回时恢复") + (kept ? `<div class="pa-srow"><div class="pa-srow-main"><b>已记住 ${kept} 个预设</b></div><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningclear">清除</button></div>` : "");
-    sitesBox.innerHTML = `
-        <div class="pa-row-head"><h3 class="pa-h">站点${sites().length ? whyBtn("sites") : ""}</h3><div class="pa-head-btns">
-          <label class="pa-btn pa-btn-s pa-head-btn pa-file" title="从 JSON 文件导入站点和密钥">导入<input type="file" accept=".json,application/json,text/plain" data-import-sites hidden></label>
-          ${sites().length ? '<button class="pa-btn pa-btn-s pa-head-btn" data-a="exportsites" type="button" title="把站点和密钥存成 JSON 文件">导出</button>' : ""}
-          <button class="pa-btn pa-btn-s pa-head-btn" data-a="new" type="button">＋ 添加站点</button></div></div>
-        ${sites().length ? `${whyNote("sites", "点站点名编辑或删除。导出的文件可在重装、换设备后导入。")}${sites().map(siteRow).join("")}` : '<p class="pa-empty">暂无站点。可添加、导入，或保存上方的当前连接。</p>'}`;
+    // 2.6.9 标题右边：平时是铅笔（编辑）和 ＋（添加站点）两个圆形图标；编辑时换成导入、导出、完成。
+    // 没有站点时不能编辑，导入放在空列表的提示里（换设备后最先要用的就是它）
+    const n = sites().length;
+    if (!n) editing = false;
+    const fileIn = (cls, label) => `<label class="${cls} pa-file" role="button" tabindex="0" title="从 JSON 文件导入站点和密钥">${label}<input type="file" accept=".json,application/json,text/plain" data-import-sites hidden></label>`;
+    const headBtns = editing
+      ? `${fileIn("pa-swpill pa-edit-pill pa-ico-pill", `${ICON.fileIn}<span>导入</span>`)}<button class="pa-swpill pa-edit-pill pa-ico-pill" data-a="exportsites" type="button" title="把站点和密钥存成 JSON 文件">${ICON.fileOut}<span>导出</span></button><button class="pa-swpill pa-done-pill" data-a="sitesdone" type="button">完成</button>`
+      : `${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：排序、删除、导入导出" title="编辑：排序、删除、导入导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
+    if (!dragging) sitesBox.innerHTML = `
+        <div class="pa-row-head"><h3 class="pa-h">站点${n ? whyBtn("sites") : ""}</h3><div class="pa-head-btns${editing ? " pa-head-editing" : ""}">${headBtns}</div></div>
+        ${n ? `${whyNote("sites", editing ? "按住左边 ≡ 拖动排序，点垃圾桶删除。导出的站点文件可在重装、换设备后导入。" : "点站点名修改详情。点铅笔可排序、删除，导入或导出站点文件。")}<div class="pa-site-list${editing ? " pa-site-editing" : ""}">${sites().map(siteRow).join("")}</div>` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
@@ -1439,6 +1456,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return render();
     }
     if (a === "new") return editSite(null);
+    if (a === "sitesedit" || a === "sitesdone") {
+      editing = a === "sitesedit";
+      render();
+      // 按钮换掉了，焦点落到对应的另一个按钮上
+      sitesBox.querySelector(editing ? "[data-a=sitesdone]" : "[data-a=sitesedit]")?.focus({ preventScroll: true });
+      return;
+    }
     if (a === "exportsites") return exportSites(btn);
     if (a === "edit") return editSite(site);
     if (a === "fetch") {
@@ -1501,8 +1525,125 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       render();
     }
   }
+  // 2.6.9 编辑模式排序。拖动：按住 ≡，这一行跟着手指走，越过别的站点一半时它们让位（滑过去），
+  // 靠近滚动区上下边缘时自动滚动，松手保存。键盘：焦点在 ≡ 上按上下方向键移动一格
+  const still = () => globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  // 把各行从记下的位置（相对列表顶部）滑到现在的位置
+  function slideFrom(rows, tops, ms = 180) {
+    if (still()) return;
+    for (const x of rows) {
+      const dy = (tops.get(x.dataset.id) ?? x.offsetTop) - x.offsetTop;
+      if (!dy) continue;
+      x.style.transition = "none";
+      x.style.transform = `translateY(${dy}px)`;
+      x.getBoundingClientRect();
+      x.style.transition = `transform ${ms}ms ease`;
+      x.style.transform = "";
+    }
+  }
+  // 屏幕上看到的位置（含正在滑动的位移），相对列表顶部
+  const seenTops = (list) => {
+    const t = list.getBoundingClientRect().top;
+    return new Map([...list.children].map((x) => [x.dataset.id, x.getBoundingClientRect().top - t]));
+  };
+  function saveOrder(ids) {
+    const old = sites().map((x) => x.id).join("\n");
+    sites().sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    if (sites().map((x) => x.id).join("\n") !== old) saveSettings();
+  }
+  sitesBox.addEventListener("pointerdown", (e) => {
+    const grip = e.target.closest(".pa-site-grip");
+    if (!grip || e.button > 0) return;
+    e.preventDefault();
+    const row = grip.closest(".pa-site-edit");
+    const list = row.parentElement;
+    const scroller = row.closest(".pa-scroll");
+    const top = () => list.getBoundingClientRect().top;
+    const grab = e.clientY - (top() + row.offsetTop);
+    let y = e.clientY;
+    let raf = 0;
+    dragging = true;
+    row.classList.add("pa-dragging");
+    row.style.transition = "none";
+    grip.setPointerCapture?.(e.pointerId);
+    const place = () => {
+      // 拖着的行不超出列表上下：超出会撑大滚动区，自动滚动就停不下来
+      const rt = Math.max(0, Math.min(list.offsetHeight - row.offsetHeight, y - grab - top()));
+      const rb = rt + row.offsetHeight;
+      const others = [...list.children].filter((x) => x !== row);
+      // 原在上面的站点：这一行的上沿越过它的中线就换到它上面；原在下面的：下沿越过中线就换到它下面
+      const mid = (x) => x.offsetTop + x.offsetHeight / 2;
+      const above = others.filter((x) => x.offsetTop < row.offsetTop ? rt >= mid(x) : rb > mid(x)).length;
+      const next = others[above] || null;
+      if (next !== row.nextElementSibling) {
+        const tops = seenTops(list);
+        // 只挪别的行：拖着的这一行一旦离开文档，指针捕获就断了，松手收不到
+        if (!next || row.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING) {
+          while (row.nextElementSibling !== next) list.insertBefore(row.nextElementSibling, row);
+        } else {
+          let p;
+          do {
+            p = row.previousElementSibling;
+            row.after(p);
+          } while (p !== next);
+        }
+        slideFrom(others, tops);
+      }
+      row.style.transform = `translateY(${rt - row.offsetTop}px)`;
+    };
+    const tick = () => {
+      if (scroller) {
+        const r = scroller.getBoundingClientRect();
+        const edge = 48;
+        const v = y < r.top + edge ? -Math.min(14, (r.top + edge - y) / 3) : y > r.bottom - edge ? Math.min(14, (y - r.bottom + edge) / 3) : 0;
+        const was = scroller.scrollTop;
+        if (v) scroller.scrollTop += v;
+        if (scroller.scrollTop !== was) place();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const move = (ev) => {
+      y = ev.clientY;
+      place();
+    };
+    const up = () => {
+      cancelAnimationFrame(raf);
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+      const tops = seenTops(list);
+      dragging = false;
+      saveOrder([...list.children].map((x) => x.dataset.id));
+      render();
+      const rows = [...sitesBox.querySelectorAll(".pa-site-edit")];
+      slideFrom(rows, tops, 160);
+      rows.find((x) => x.dataset.id === row.dataset.id)?.classList.add("pa-dropped");
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
+  });
+  sitesBox.addEventListener("keydown", (e) => {
+    const grip = e.target.closest?.(".pa-site-grip");
+    if (!grip || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    const id = grip.closest(".pa-site").dataset.id;
+    const ids = sites().map((x) => x.id);
+    const i = ids.indexOf(id);
+    const j = i + (e.key === "ArrowUp" ? -1 : 1);
+    if (j < 0 || j >= ids.length) return;
+    const tops = seenTops(grip.closest(".pa-site-list"));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    saveOrder(ids);
+    render();
+    slideFrom([...sitesBox.querySelectorAll(".pa-site-edit")], tops);
+    sitesBox.querySelector(`.pa-site-edit[data-id="${CSS.escape(id)}"] .pa-site-grip`)?.focus();
+  });
   const onKey = (e) => {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".pa-sghead, .pa-site-mhead")) { e.preventDefault(); e.target.click(); }
+    // 导入是包着文件框的 label，键盘回车、空格也能打开选文件
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches?.("label.pa-file[role=button]")) { e.preventDefault(); e.target.querySelector("input[type=file]")?.click(); }
   };
   bindWhy(sitesBox);
   for (const box of new Set([liveBox, sitesBox, optsBox])) box.addEventListener("click", onClick);

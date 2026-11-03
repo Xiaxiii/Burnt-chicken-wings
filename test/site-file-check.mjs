@@ -1,4 +1,4 @@
-// 2.5.10 站点导入、导出（JSON 文件）：认别处常见的写法；导出含密钥；再导入同名同网址的站点是更新，密钥一样就不重复存；
+// 2.5.10 站点导入、导出（JSON 文件；2.6.9 起在站点编辑模式中）：认别处常见的写法；导出含密钥；再导入同名同网址的站点是更新，密钥一样就不重复存；
 // 站点丢了密钥时，导入文件补回来。先构建并在仓库根目录运行 8765 静态服务。
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -21,13 +21,19 @@ try {
     window.__presetAtelier.open("more", "schemes");
   });
   await page.waitForTimeout(400);
+  // 2.6.9 有站点时导入、导出在编辑模式里（标题右边的铅笔）；没有站点时导入在空列表的提示里
+  const editMode = async () => {
+    if (await page.locator('[data-a="sitesedit"]').count()) { await page.click('[data-a="sitesedit"]'); await page.waitForTimeout(150); }
+  };
   const importFile = async (name, text) => {
+    if (!await page.locator("[data-import-sites]").count()) await editMode();
     await page.setInputFiles("[data-import-sites]", { name, mimeType: "application/json", buffer: Buffer.from(text) });
     await page.waitForTimeout(300);
   };
 
   // 1) 别处的写法：数组、baseUrl / apiKey、api_url + keys
   assert.equal(await page.locator('[data-a="exportsites"]').count(), 0, "没有站点时不显示导出");
+  assert.equal(await page.locator('.pa-empty [data-import-sites]').count(), 1, "没有站点时导入在空列表的提示里");
   await importFile("my-apis.json", JSON.stringify([
     { name: "A站", baseUrl: "https://a.example.com/v1", apiKey: "sk-aaaa1111", model: "m1", models: ["m1", "m2"], remark: "月卡" },
     { title: "B站", api_url: "https://b.example.com/v1/", keys: [{ name: "按次", key: "sk-bbbb0001" }, { name: "按量", key: "sk-bbbb0002" }] },
@@ -47,7 +53,9 @@ try {
   assert.match((await toasts()).join("|"), /新增 2 个/);
   ok("导入别处写法的文件：预览后新增两个站点，密钥存进密钥库");
 
-  // 2) 导出（含密钥）
+  // 2) 导出（含密钥）：平时标题右边只有铅笔和 ＋，导出在编辑模式里
+  assert.equal(await page.locator('[data-a="exportsites"]').count(), 0, "平时不显示导出");
+  await editMode();
   await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
   const [dl] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=含密钥")]);
   assert.match(dl.suggestedFilename(), /^api-sites-\d{8}-\d{4}\.json$/);
