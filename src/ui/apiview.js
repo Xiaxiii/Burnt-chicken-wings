@@ -605,7 +605,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more${liveOpen() ? " on" : ""}" data-a="livemore" aria-expanded="${liveOpen()}" aria-label="连接详情" title="连接详情">⋯</button></header>
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
-            ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
+            ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         ${liveOpen() ? liveDetails(live, active) : ""}
         </article>`;
@@ -1053,6 +1053,18 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     else list.push(s);
     saveSettings();
     render();
+    // 2.6.7 改的是当前连接的站点、又存了新密钥：storeKey 为了不打断当前连接会切回原来的密钥，
+    // 当前连接就一直用旧密钥（测试报 401，「获取模型列表」临时换新密钥所以能拉到）。这里换上新密钥并重新连接
+    if (settings().activeSiteId === s.id && (madeKeys.some((m) => keep.has(m.id)) || madeLocal.length)) {
+      try {
+        await applyConnection(siteMulti(s) ? keyView(s, s.keyId) : s);
+        const on = liveConnection().online;
+        toast(on ? "已保存，已用新密钥重新连接" : "已保存，用新密钥重新连接未成功，请检查网址和密钥", on ? "success" : "warning");
+      } catch (e) {
+        toast("已保存，但没能换上新密钥：" + e.message, "error");
+      }
+      render();
+    }
   }
   // 2.5.10 导出、导入站点（JSON 文件）。单密钥站点在文件里也写成只有一个的 keys
   const keysOfSite = (s) => siteMulti(s) ? s.keys : [{ id: null, name: "", secretId: s.secretId || null, keyMask: s.keyMask || "", localKey: !!s.localKey, localId: s.localId, legacyKey: s.legacyKey, model: s.model || "", models: s.models || [] }];
@@ -1290,11 +1302,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       let data = null;
       try { data = JSON.parse(text); } catch {}
       if (!res.ok || data?.error) throw { status: res.status, message: apiErrorText(data) || text.trim() || res.statusText };
-      liveTest = { model, source: live.source, url: live.url || "", ok: true, text: k ? `${keyName(active, k)} · Successful` : "Successful" };
+      liveTest = { model, source: live.source, url: live.url || "", secretId: live.secretId || null, ok: true, text: k ? `${keyName(active, k)} · Successful` : "Successful" };
     } catch (err) {
       const raw = String(controller.signal.aborted ? "没有回复" : err?.message || "");
       const why = explainApiError(errStatus(err?.status, raw), raw);
-      liveTest = { model, source: live.source, url: live.url || "", ok: false, text: k ? `${keyName(active, k)} · ${why}` : why, raw };
+      liveTest = { model, source: live.source, url: live.url || "", secretId: live.secretId || null, ok: false, text: k ? `${keyName(active, k)} · ${why}` : why, raw };
     } finally {
       clearTimeout(timer);
     }
