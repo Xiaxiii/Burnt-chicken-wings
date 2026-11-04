@@ -65,7 +65,7 @@ function mountHealthPage(page) {
         <p class="cw-hint"><span class="cw-narrow-only">窄屏上省略了笔数和忙碌时长，可在宽屏或导出的报告里查看。</span>「结束于」是这一类最后一笔请求在打开后第几秒结束，不是它的耗时。「忙碌时长」是这一类请求时间段的并集，同时进行的不重复计算；各类之间也有重叠，不能相加。「实际传输」是经过网络的字节，缓存命中时为 0。</p>
         <h4 class="cw-h4">单笔耗时最长的请求</h4>
         ${r.slow.length ? html`${rank(r.slow.map((s) => html`<div title="${redactUrl(s.url)}"><span>${CAT_LABEL[s.cat] || s.cat}${s.provider ? html`<i class="cw-dim">·${s.provider}</i>` : ""}</span>${sizeBar(s.dur, r.slow[0].dur)}<em>${fmtMs(s.dur)}${s.transfer ? ` · ${fmtSize(s.transfer)}` : s.transfer == null ? " · 体积未取得" : ""}</em></div>`))}
-          <p class="cw-hint">单笔耗时从发出请求算到接收完毕，包含排队、等待首字节和接收数据，不全是服务器处理时间。「每笔明细」可看分段。</p>` : html`<p class="cw-hint">没有超过 0.3 秒的请求，或未记录到。</p>`}
+          <p class="cw-hint">单笔耗时从发出请求算到接收完毕，包含排在其他请求后面等待、等待首字节和接收数据，不全是服务器处理时间。点「每笔明细」可以看分段。</p>` : html`<p class="cw-hint">没有超过 0.3 秒的请求，或未记录到。</p>`}
         <h4 class="cw-h4">最大的预设（内存中）</h4>
         ${r.presets.length ? rank(r.presets.slice(0, 8).map((p) => html`<div><span>${p.api !== "openai" ? html`<i class="cw-dim">${PRESET_APIS.find(([a]) => a === p.api)?.[1] || ""}·</i>` : ""}${p.name}</span>${sizeBar(p.size, maxP)}<em>${fmtSize(p.size)}</em></div>`)) : html`<p class="cw-hint">未读取到</p>`}
         <h4 class="cw-h4">扩展在设置文件中的数据</h4>

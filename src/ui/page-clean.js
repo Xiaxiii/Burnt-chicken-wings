@@ -480,7 +480,7 @@ function mountCleanPage(page) {
         <section class="cw-cgroup"><div class="cw-cgroup-h"><b>条目完全相同</b><small class="cw-dim">${groups.length} 组</small></div>${groups.length ? groups.map((g) => html`<div class="cw-clist">${g.map((w) => wrow(w))}</div>`) : html`<p class="cw-hint">没有条目完全相同的世界书。</p>`}</section>
         ${res.empty.length ? html`<section class="cw-cgroup"><div class="cw-cgroup-h"><b>没有条目的世界书</b><small class="cw-dim">${res.empty.length} 本</small></div><div class="cw-clist">${res.empty.map((w) => wrow(w))}</div></section>` : ""}
         <section class="cw-cgroup"><div class="cw-cgroup-h"><b>已删除角色卡留下的</b><small class="cw-dim">${left.length} 本</small><span class="cw-gap"></span>${leftOff.length ? html`<button type="button" class="cw-link" data-act="pickleft">勾选 ${leftOff.length} 本</button>` : ""}</div>
-          ${left.length ? html`<div class="cw-clist">${left.map((w) => wrow(w, pill(w.from ? `原角色「${w.from}」· ${w.why}` : w.why, "warn")))}</div>` : html`<p class="cw-hint">没有已删除角色卡留下的世界书。</p>`}</section>`;
+          ${left.length ? html`<div class="cw-clist" data-r="left">${left.map((w) => wrow(w, pill(w.from ? `原角色「${w.from}」· ${w.why}` : w.why, "warn")))}</div>` : html`<p class="cw-hint">没有已删除角色卡留下的世界书。</p>`}</section>`;
     }
     body.innerHTML = String(html`
       ${sum(html`世界书 <b>${names.length}</b> 本`,

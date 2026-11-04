@@ -30,7 +30,13 @@ export async function open(page, tab, sub) {
   await page.waitForTimeout(400);
 }
 export const P = (k) => `#cw-root .cw-page[data-page="${k}"]`;
+// 窄屏上清理、备份、体检、外观收在「更多」里
 export async function nav(page, k) {
+  const direct = page.locator(`#cw-root [data-nav="${k}"]:visible`).first();
+  if (!(await direct.count())) {
+    await page.locator('#cw-root .cw-tabbar [data-nav="more"]').click();
+    await page.waitForTimeout(250);
+  }
   await page.locator(`#cw-root [data-nav="${k}"]:visible`).first().click();
   await page.waitForTimeout(350);
 }
