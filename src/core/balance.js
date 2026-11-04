@@ -66,9 +66,11 @@ function balanceRead(plan, data) {
   const limit = balanceNum(a?.hard_limit_usd ?? a?.system_hard_limit_usd);
   if (limit == null) return fail("站点不提供查询", "这个中转站没有开放余额接口，或密钥失效");
   const used = balanceNum(b?.total_usage);
-  if (limit >= 1e8) return { ok: true, text: "不限额", sub: used == null ? "这个密钥不限额；账户余额要到网站看" : `这个密钥已用 ${balanceMoney(used / 100)}；账户余额要到网站看` };
-  if (used == null) return { ok: true, text: balanceMoney(limit), sub: "总额度，用量没查到" };
-  return { ok: true, text: balanceMoney(limit - used / 100), sub: `总额度 ${balanceMoney(limit)}，已用 ${balanceMoney(used / 100)}` };
+  // used：这个密钥累计用了多少（美元），手填账户余额时拿它扣减
+  const spent = used == null ? null : used / 100;
+  if (limit >= 1e8) return { ok: true, text: "不限额", sub: spent == null ? "这个密钥不限额；可手填账户余额" : `这个密钥已用 ${balanceMoney(spent)}；可手填账户余额`, used: spent };
+  if (spent == null) return { ok: true, text: balanceMoney(limit), sub: "总额度，用量没查到", used: null };
+  return { ok: true, text: balanceMoney(limit - spent), sub: `总额度 ${balanceMoney(limit)}，已用 ${balanceMoney(spent)}`, used: spent };
 }
 // 多久以前：刚刚、3 分钟前、2 小时前、昨天、3 天前
 function balanceAgo(at, now = Date.now()) {
@@ -77,4 +79,22 @@ function balanceAgo(at, now = Date.now()) {
   if (s < 3600) return `${Math.floor(s / 60)} 分钟前`;
   if (s < 86400) return `${Math.floor(s / 3600)} 小时前`;
   return s < 172800 ? "昨天" : `${Math.floor(s / 86400)} 天前`;
+}
+// 2.6.20 手填的账户余额。不限额的令牌查不到账户余额，但查得到它累计用了多少：
+// 填的时候记下各密钥已用（base[kid] = { used, sec }），之后余额 = 填的数 − 各密钥此后多用的。
+// 密钥换了（sec 不同）或用量比记下的少（令牌重建），从 0 算。readings：[{ kid, sec, used }]，used 查不到时为 null
+function balanceManual(manual, readings) {
+  let spent = 0, missing = 0;
+  for (const r of readings) {
+    const b = manual?.base?.[r.kid];
+    if (r.used == null || !b) { missing++; continue; }
+    spent += b.sec === r.sec && r.used >= b.used ? r.used - b.used : r.used;
+  }
+  return { remain: (manual?.amount ?? 0) - spent, spent, missing };
+}
+// 玩家填的金额：去掉货币符号、逗号、空白；不是非负数时为 null
+function balanceParseAmount(text) {
+  const t = String(text == null ? "" : text).replace(/[$¥￥,，\s]|美元|元|刀/g, "");
+  if (!/^\d+(\.\d+)?$/.test(t)) return null;
+  return Number(t);
 }

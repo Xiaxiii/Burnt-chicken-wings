@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const f = new Function(fs.readFileSync(path.join(__dirname, '../src/core/balance.js'), 'utf8') + '\nreturn { balancePlan, balanceRead, balanceMoney, balanceAgo };')();
+const f = new Function(fs.readFileSync(path.join(__dirname, '../src/core/balance.js'), 'utf8') + '\nreturn { balancePlan, balanceRead, balanceMoney, balanceAgo, balanceManual, balanceParseAmount };')();
 let passed = 0;
 function test(name, run) {
   try { run(); passed++; console.log(`ok - ${name}`); }
@@ -22,9 +22,9 @@ test('the balance endpoint is chosen by the site address', () => {
 });
 test('relay balance is the limit minus usage; unlimited keys say so', () => {
   const relay = { kind: 'relay' };
-  assert.deepEqual(f.balanceRead(relay, [{ hard_limit_usd: 50 }, { total_usage: 1234 }]), { ok: true, text: '$37.66', sub: '总额度 $50.00，已用 $12.34' });
-  assert.deepEqual(f.balanceRead(relay, [{ hard_limit_usd: 100000000 }, { total_usage: 500 }]), { ok: true, text: '不限额', sub: '这个密钥已用 $5.00；账户余额要到网站看' });
-  assert.deepEqual(f.balanceRead(relay, [{ hard_limit_usd: 20 }, null]), { ok: true, text: '$20.00', sub: '总额度，用量没查到' });
+  assert.deepEqual(f.balanceRead(relay, [{ hard_limit_usd: 50 }, { total_usage: 1234 }]), { ok: true, text: '$37.66', sub: '总额度 $50.00，已用 $12.34', used: 12.34 });
+  assert.deepEqual(f.balanceRead(relay, [{ hard_limit_usd: 100000000 }, { total_usage: 500 }]), { ok: true, text: '不限额', sub: '这个密钥已用 $5.00；可手填账户余额', used: 5 });
+  assert.deepEqual(f.balanceRead(relay, [{ hard_limit_usd: 20 }, null]), { ok: true, text: '$20.00', sub: '总额度，用量没查到', used: null });
   assert.deepEqual(f.balanceRead(relay, [null]), { ok: false, text: '站点不提供查询', why: '这个中转站没有开放余额接口，或密钥失效' });
 });
 test('provider balances are read from their own shapes', () => {
@@ -43,5 +43,16 @@ test('amounts and times read naturally', () => {
   assert.equal(f.balanceMoney(-2), '-$2.00');
   const now = Date.parse('2026-11-04T10:00:00Z');
   assert.deepEqual([30e3, 5 * 60e3, 3 * 3600e3, 30 * 3600e3, 4 * 86400e3].map((d) => f.balanceAgo(now - d, now)), ['刚刚', '5 分钟前', '3 小时前', '昨天', '4 天前']);
+});
+// 2.6.20 手填账户余额：按各密钥此后多用的扣减
+test('a hand-entered account balance is reduced by what each key used since', () => {
+  const manual = { amount: 50, base: { a: { used: 5, sec: 'id1' }, b: { used: 1, sec: 'id2' } } };
+  const r = f.balanceManual(manual, [{ kid: 'a', sec: 'id1', used: 8.2 }, { kid: 'b', sec: 'id2', used: 1.5 }]);
+  assert.equal(Math.round(r.remain * 100) / 100, 46.3);
+  assert.equal(r.missing, 0);
+  assert.equal(f.balanceManual(manual, [{ kid: 'a', sec: 'id9', used: 0.4 }]).spent, 0.4, '换了密钥：新令牌从 0 算');
+  assert.equal(f.balanceManual(manual, [{ kid: 'a', sec: 'id1', used: 2 }]).spent, 2, '用量比起点少（令牌重建）：从 0 算');
+  assert.deepEqual(f.balanceManual(manual, [{ kid: 'a', sec: 'id1', used: null }, { kid: 'c', sec: 'x', used: 3 }]), { remain: 50, spent: 0, missing: 2 }, '查不到用量、还没起点的不扣');
+  assert.deepEqual(['50', '$50.5', '¥1,200', ' 30 元', '12.', 'abc', '-3', ''].map(f.balanceParseAmount), [50, 50.5, 1200, 30, null, null, null, null]);
 });
 console.log(`${passed} balance tests passed`);

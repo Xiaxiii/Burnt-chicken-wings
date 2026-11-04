@@ -619,19 +619,40 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   let dragging = false;
   // 2.5.0 ⋯ 在卡片里原地展开详情，不再弹窗
   const liveOpen = () => foldGet("live", "detail");
-  // 2.6.19 余额：正在查的（按 balanceId），本次打开面板是否已自动查过当前连接
+  // 2.6.19 余额：正在查的（按 balanceId）；2.6.20 每个连接最近一次自动查的时间（面板只挂载一次，不能按挂载算）
   const balBusy = new Set();
-  let balAuto = false;
+  const balTried = new Map();
   // 当前连接要查余额的站点：存成站点的按站点和分组记，没存的按类型和网址记
+  // owner：这个分组属于哪个站点（手填账户余额按站点记，各分组的用量都从里面扣）
   const liveBalTarget = (live, active, ak, same) => same
-    ? { site: keyView(active, ak.id), id: balanceId(active, ak) }
+    ? { site: keyView(active, ak.id), id: balanceId(active, ak), owner: { siteId: active.id, k: ak } }
     : live.source ? { site: { id: "live", name: "当前连接", source: live.source, url: live.url || "", secretId: live.secretId }, id: `live:${live.source}:${live.url || ""}` } : null;
-  async function queryBalance(site, id) {
+  // 2.6.20 手填账户余额：分组在扣减里的名字、换没换过密钥
+  const balKid = (x, k) => siteMulti(x) ? k.id : "main";
+  const balSec = (k) => String(k.secretId || k.localId || (k.localKey ? "local" : ""));
+  const balKeys = (x) => siteMulti(x) ? x.keys : [x];
+  // 手填后，一个分组第一次查到用量时记下作起点
+  function balBase(owner, result) {
+    const x = owner && sites().find((y) => y.id === owner.siteId);
+    const m = x?.manualBalance;
+    if (!m || result?.used == null) return;
+    const kid = balKid(x, owner.k), sec = balSec(owner.k);
+    if (m.base?.[kid]?.sec === sec) return;
+    m.base = { ...(m.base || {}), [kid]: { used: result.used, sec } };
+  }
+  // 手填的账户余额扣掉各分组此后的用量
+  function balManualNow(x) {
+    const readings = balKeys(x).map((k) => ({ kid: balKid(x, k), sec: balSec(k), used: balanceGet(balanceId(x, k))?.used ?? null }));
+    return balanceManual(x.manualBalance, readings);
+  }
+  async function queryBalance(site, id, owner = null) {
     if (balBusy.has(id)) return;
     balBusy.add(id);
     render();
     try {
-      balanceSet(id, await fetchBalance(site));
+      const result = await fetchBalance(site);
+      balanceSet(id, result);
+      balBase(owner, result);
     } catch (e) {
       balanceSet(id, { ok: false, text: "没查到", why: e.message, at: Date.now() });
     } finally {
@@ -640,16 +661,43 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       render();
     }
   }
+  // 查这个站点全部分组（手填余额后要各分组的用量作起点）
+  async function querySite(x) {
+    for (const k of balKeys(x)) {
+      const target = keyView(x, k.id);
+      if (!balancePlan(target).none) await queryBalance(target, balanceId(x, k), { siteId: x.id, k });
+    }
+  }
+  // 填、改、清除手填的账户余额；amount 为 null 时清除
+  async function setManualBalance(x, amount) {
+    if (amount == null) delete x.manualBalance;
+    else x.manualBalance = { amount, at: Date.now(), base: {} };
+    saveSettings();
+    render();
+    if (amount != null) await querySite(x);
+  }
   const balLine = (t) => {
     if (!t || balancePlan(t.site).none) return "";
     const b = balanceGet(t.id);
     const again = `<button class="pa-icon-btn pa-bal-again" data-a="balance" type="button" aria-label="重新查余额" title="重新查余额">${ICON.refresh}</button>`;
+    const x = t.owner && sites().find((y) => y.id === t.owner.siteId);
+    // 填余额：不限额的令牌、没查到余额时才给；已手填的给「改余额」
+    const setBtn = x && balancePlan(t.site).kind === "relay" && (x.manualBalance || b && (!b.ok || b.text === "不限额")) ? `<button class="pa-link pa-bal-set" data-a="balanceset" type="button">${x.manualBalance ? "改余额" : "填余额"}</button>` : "";
     if (balBusy.has(t.id)) return '<p class="pa-live-bal"><span class="pa-hint">正在查余额…</span></p>';
+    // 2.6.20 手填了账户余额：显示扣减后的余额
+    if (x?.manualBalance) {
+      const m = balManualNow(x);
+      const all = balKeys(x).length;
+      const note = [`手填 ${balanceMoney(x.manualBalance.amount)}`, `之后用了 ${balanceMoney(m.spent)}`, m.missing ? `${m.missing === all ? "" : `${m.missing} 个分组`}用量还没查到` : "", b ? balanceAgo(b.at) : ""].filter(Boolean).join(" · ");
+      return `<p class="pa-live-bal"><span>余额</span><b>${esc(balanceMoney(m.remain))}</b><small>${esc(note)}</small>${setBtn}${again}</p>`;
+    }
     if (!b) return '<p class="pa-live-bal"><button class="pa-link" data-a="balance" type="button">查余额</button></p>';
-    if (!b.ok) return `<p class="pa-live-bal bad"${b.why ? ` title="${esc(b.why)}"` : ""}><span>余额</span><small>${esc(b.text)} · ${balanceAgo(b.at)}</small>${again}</p>`;
-    return `<p class="pa-live-bal"><span>余额</span><b>${esc(b.text)}</b><small>${esc([b.sub, balanceAgo(b.at)].filter(Boolean).join(" · "))}</small>${again}</p>`;
+    if (!b.ok) return `<p class="pa-live-bal bad"${b.why ? ` title="${esc(b.why)}"` : ""}><span>余额</span><small>${esc(b.text)} · ${balanceAgo(b.at)}</small>${setBtn}${again}</p>`;
+    return `<p class="pa-live-bal"><span>余额</span><b>${esc(b.text)}</b><small>${esc([b.sub, balanceAgo(b.at)].filter(Boolean).join(" · "))}</small>${setBtn}${again}</p>`;
   };
+  // 站点小字：手填了账户余额的写扣减后的余额（多密钥站点写在站点那一行，不写在各分组上）
   const balShort = (x, k) => {
+    if (x.manualBalance) return k === x || siteMulti(x) && k === siteKey(x) && !foldGet("sites", x.id) ? `余额 ${balanceMoney(balManualNow(x).remain)}` : "";
     const b = balanceGet(balanceId(x, k));
     return b?.ok ? `余额 ${b.text}` : "";
   };
@@ -703,12 +751,17 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         ${liveOpen() ? liveDetails(live, active) : ""}
         </article>`;
-    // 2.6.19 打开面板时，当前连接的余额超过 10 分钟没查过就查一次
-    if (!balAuto) {
-      balAuto = true;
+    // 2.6.19 当前连接的余额超过 10 分钟没查过就查一次（打开方案页、换了站点或分组时）；同一个连接 10 分钟内最多自动查一次。
+    // 2.6.20 手填了账户余额的站点要跟着用量走，改为 1 分钟
+    {
       const t = liveBalTarget(live, active, ak, sameSite);
       const b = t && balanceGet(t.id);
-      if (t && !balancePlan(t.site).none && (!b || Date.now() - b.at > 600000)) setTimeout(() => queryBalance(t.site, t.id), 0);
+      const now = Date.now();
+      const gap = sameSite && active.manualBalance ? 60000 : 600000;
+      if (t && !balancePlan(t.site).none && (!b || now - b.at > gap) && !(now - (balTried.get(t.id) || 0) < gap)) {
+        balTried.set(t.id, now);
+        setTimeout(() => queryBalance(t.site, t.id, t.owner), 0);
+      }
     }
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
     const siteRow = (x, i) => {
@@ -725,7 +778,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const multiRow = (x, on, used) => {
       const open = foldGet("sites", x.id);
       const k = siteKey(x);
-      const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", x.source === "custom" ? "" : shortLabel(x.source), on ? balShort(x, k) : "", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
+      const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", x.source === "custom" ? "" : shortLabel(x.source), on || x.manualBalance ? balShort(x, k) : "", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       const lines = open ? `<div class="pa-klines">${x.keys.map((y) => {
         const cur = on && y.id === k.id;
         return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}" data-a="edit"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc([y.model || "未选模型", balShort(x, y)].filter(Boolean).join(" · "))}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
@@ -840,6 +893,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <div class="pa-field"><span class="pa-keyhead">密钥<button class="pa-icon-btn pa-key-add" data-f="keyadd" type="button" aria-label="加一个密钥" title="加一个密钥（同一站点的其他分组）">＋</button></span><div class="pa-keys" data-f="keys"></div></div>
             <div class="pa-field"><span>模型</span>${modelBtn(s.model, 'data-f="modelbtn" type="button"')}<input type="hidden" data-f="model" value="${esc(s.model || "")}"></div>
             <button class="pa-btn pa-btn-soft" data-f="fetch" type="button" data-show="custom">获取模型列表</button>
+            <label class="pa-field" data-show="custom"><span>账户余额（可选）</span><input class="pa-input" data-f="manualbal" value="${esc(s.manualBalance ? String(s.manualBalance.amount) : "")}" inputmode="decimal" autocomplete="off" placeholder="密钥不限额时，填网站上的余额，之后按用量扣减"></label>
             <label class="pa-field"><span>备注</span><input class="pa-input" data-f="note" value="${esc(s.note || "")}" placeholder="例如：月卡至 11 月"></label>
             <p class="pa-hint">${multiKeySupported() ? "密钥存入酒馆密钥库，本扩展只记录编号。" : "酒馆版本较旧，没有密钥库。密钥只保存在这个浏览器里，不写进酒馆设置文件；换设备、换浏览器需要重新填写。"}</p>
         </div>`);
@@ -907,7 +961,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         source: w.querySelector("[data-f=source]").value,
         url: w.querySelector("[data-f=url]").value.trim(),
         model: readModel(w),
-        note: w.querySelector("[data-f=note]").value.trim()
+        note: w.querySelector("[data-f=note]").value.trim(),
+        manualbal: w.querySelector("[data-f=manualbal]").value.trim()
       };
     };
     // 这个对话框里存进密钥库的新密钥。取消时删掉；同一个对话框里换过、删掉的，旧的也删掉
@@ -1149,6 +1204,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             toast("自定义类型需填写网址");
             return false;
           }
+          if (v.source === "custom" && v.manualbal && balanceParseAmount(v.manualbal) == null) {
+            toast("账户余额请填一个金额，如 50 或 12.5");
+            return false;
+          }
           return true;
         },
         value: read
@@ -1170,6 +1229,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const keep = new Set(final.map((k) => k.secretId).filter(Boolean));
     for (const k of madeKeys) if (!keep.has(k.id)) await dropKey(k.source, k.id);
     Object.assign(s, { name: r.name, source: r.source, url: r.source === "custom" ? r.url : "", note: r.note });
+    // 2.6.20 手填的账户余额：改了数就重新起算（保存后查一遍各分组的用量作起点），清空则不再手填
+    const amount = r.source === "custom" && r.manualbal ? balanceParseAmount(r.manualbal) : null;
+    const newBalance = amount != null && amount !== s.manualBalance?.amount;
+    if (amount == null) delete s.manualBalance;
+    else if (newBalance) s.manualBalance = { amount, at: Date.now(), base: {} };
     for (const f of ["secretId", "keyMask", "localKey", "localId", "legacyKey", "model", "models", "keys", "keyId"]) delete s[f];
     if (final.length > 1) {
       s.keys = final.map((k) => {
@@ -1194,6 +1258,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     else list.push(s);
     saveSettings();
     render();
+    if (newBalance) querySite(s).catch((e) => console.warn("[焦香鸡翅] 查余额失败", e));
     // 2.6.7 改的是当前连接的站点、又存了新密钥：storeKey 为了不打断当前连接会切回原来的密钥，
     // 当前连接就一直用旧密钥（测试报 401，「获取模型列表」临时换新密钥所以能拉到）。这里换上新密钥并重新连接
     if (settings().activeSiteId === s.id && (madeKeys.some((m) => keep.has(m.id)) || madeLocal.length)) {
@@ -1544,8 +1609,29 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const active = sites().find((x) => x.id === settings().activeSiteId);
       const same = isSame(active, live);
       const t = liveBalTarget(live, active, same ? siteKey(active) : null, same);
-      if (t) await queryBalance(t.site, t.id);
+      // 手填了账户余额的站点，各分组一起查，扣减才准
+      if (t?.owner && active.manualBalance) await querySite(active);
+      else if (t) await queryBalance(t.site, t.id, t.owner);
       return;
+    }
+    // 2.6.20 手填账户余额（充值后改一下），之后按站点查到的用量扣减
+    if (a === "balanceset") {
+      const x = sites().find((y) => y.id === settings().activeSiteId);
+      if (!x) return;
+      if (x.manualBalance) {
+        const how = await pickBox(`「${x.name}」的账户余额`, [{ label: "改余额", sub: "充值后填网站上现在的余额", value: "edit" }, { label: "不再手填", sub: "改回显示查到的结果", value: "clear" }]);
+        if (!how) return;
+        if (how === "clear") {
+          await setManualBalance(x, null);
+          return toast(`「${x.name}」不再手填余额`, "success");
+        }
+      }
+      const raw = await promptBox(`「${x.name}」的账户余额`, x.manualBalance ? String(x.manualBalance.amount) : "", "网站上显示的余额，如 50");
+      if (raw == null) return;
+      const n = balanceParseAmount(raw);
+      if (n == null) return toast("请填一个金额，如 50 或 12.5", "error");
+      await setManualBalance(x, n);
+      return toast(`「${x.name}」的账户余额记为 ${balanceMoney(n)}，之后按站点查到的用量扣减`, "success");
     }
     // 2.6.19 逐个查全部站点（多密钥站点逐个分组）的余额；官方接口不提供的跳过
     if (a === "balanceall") {
@@ -1555,7 +1641,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         for (const k of siteMulti(x) ? x.keys : [x]) {
           const target = keyView(x, k.id);
           if (balancePlan(target).none) { skip++; continue; }
-          await queryBalance(target, balanceId(x, k));
+          await queryBalance(target, balanceId(x, k), { siteId: x.id, k });
           if (balanceGet(balanceId(x, k))?.ok) ok++;
           else bad++;
         }
