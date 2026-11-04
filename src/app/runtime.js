@@ -61,7 +61,7 @@ function applyPullGuard() {
   } else if (!on && st) st.remove();
 }
 
-// 2.3.5 悬浮球：点一下打开，按住拖动换位置，松手贴到左右边。默认关闭，扩展页设置框和「更多 → 外观」里开关
+// 2.3.5 悬浮球：点一下打开，按住拖动换位置，松手贴到左右边。默认关闭，扩展页设置框和「外观」页里开关
 var BALL = 44, BALL_GAP = 8;
 
 // 2.5.4 入口自选：魔棒菜单、悬浮球、两个都要；2.6.1 加「都不要」，这时从扩展页的「打开」按钮或 /atelier 打开。
@@ -85,7 +85,7 @@ function setEntryMode(mode) {
   applyMenuEntry();
   const sel = document.querySelector("#cw-settings [data-opt=entry]");
   if (sel) sel.value = mode;
-  document.querySelectorAll("#cw-root [data-entry]").forEach((b) => b.classList.toggle("on", b.dataset.entry === mode));
+  document.querySelectorAll("#cw-root [data-entry]").forEach((b) => { b.classList.toggle("on", b.dataset.entry === mode); b.setAttribute("aria-selected", b.dataset.entry === mode); });
   document.querySelectorAll(".cw-noentry").forEach((n) => { n.hidden = mode !== "none"; });
 }
 

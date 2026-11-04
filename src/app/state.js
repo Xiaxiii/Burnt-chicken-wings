@@ -164,7 +164,7 @@ async function resolveSaveProblem(name) {
     const v = await sheet({
       place: "center",
       title: "预设在别处被修改过",
-      body: `<p class="pa-p">「${esc(name)}」在本次修改开始后被酒馆或其他扩展改动。继续保存会覆盖这些改动，自动保存已暂停。</p><p class="pa-hint">当前修改仍保留，可先下载两个版本再决定。</p>`,
+      body: `<p class="cw-p">「${esc(name)}」在本次修改开始后被酒馆或其他扩展改动。继续保存会覆盖这些改动，自动保存已暂停。</p><p class="cw-hint">当前修改仍保留，可先下载两个版本再决定。</p>`,
       actions: [
         { label: "下载两个版本", value: "dl" },
         { label: "放弃我的修改", kind: "danger", value: "drop" },
@@ -194,7 +194,7 @@ async function resolveSaveProblem(name) {
     const v = await sheet({
       place: "center",
       title: "自动备份失败",
-      body: `<p class="pa-p">保存「${esc(name)}」之前要先备份修改前的版本，但备份没有成功：${esc(b.message)}</p><p class="pa-hint">常见原因是浏览器存储已满，或处于无痕模式。没有备份时，顶栏的备份按钮无法恢复到修改前。</p>`,
+      body: `<p class="cw-p">保存「${esc(name)}」之前要先备份修改前的版本，但备份没有成功：${esc(b.message)}</p><p class="cw-hint">常见原因是浏览器存储已满，或处于无痕模式。没有备份时，「备份」页无法恢复到修改前。</p>`,
       actions: [
         { label: "暂不保存", value: null },
         { label: "不备份直接保存", value: "skip" },
@@ -277,7 +277,7 @@ async function resolveRecovery(name, cached) {
   const v = await sheet({
     place: "center",
     title: "发现未保存的草稿",
-    body: `<p class="pa-p">「${esc(name)}」有一份 ${esc(when)} 未保存完的草稿，但这个预设之后在别处被改过。用草稿会盖掉那些修改。</p>`,
+    body: `<p class="cw-p">「${esc(name)}」有一份 ${esc(when)} 未保存完的草稿，但这个预设之后在别处被改过。用草稿会盖掉那些修改。</p>`,
     actions: [
       { label: "下载草稿", value: "dl" },
       { label: "丢弃草稿", kind: "danger", value: "drop" },
