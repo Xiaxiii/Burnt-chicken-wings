@@ -50,9 +50,9 @@ async function boot(ctx) {
   // 用户在酒馆里换到了别的预设，再去清理页删除甲
   await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("conn"); });
   await page.evaluate(() => window.__presetAtelier.open('clean')); await page.waitForTimeout(300);
-  await page.click('[data-f="all"]'); await page.waitForTimeout(200);
-  await page.click(`.pa-crow:has-text("${nameA}") input[data-c=pick]`);
-  await page.click('[data-c="del"]'); await page.waitForTimeout(200);
+  await page.click('[data-filter="all"]'); await page.waitForTimeout(200);
+  await page.click(`.cw-crow:has-text("${nameA}") input[data-act=pick]`);
+  await page.click('.cw-cleanbar [data-act="del"]'); await page.waitForTimeout(200);
   // 备份不强制：弹窗里有「下载备份」，不点就直接删
   assert.ok(await page.$('.cw-dlg button:has-text("下载备份")'));
   await page.click(".cw-dlg .cw-btn-danger");

@@ -35,9 +35,9 @@ try {
     m.presets.splice(0, m.presets.length, preset);
     m.live.preset_settings_openai = NAME;
     Object.assign(m.live, structuredClone(preset));
-    window.__presetAtelier.open('preset', 'cot');
+    window.__presetAtelier.open('preset', 'vars');
   }, { preset, NAME });
-  const cards = page.locator('.pa-dead');
+  const cards = page.locator('#cw-root .cw-vars .cw-dead');
   await cards.first().waitFor();
   assert.equal(await cards.count(), 3);
 
@@ -45,7 +45,7 @@ try {
   await draft.locator('summary').click();
   assert.match(await draft.innerText(), /思维链没读/);
   assert.equal(await draft.locator('#cw-root [data-act=repair]').count(), 0, '片段变量不再给出会报「需人工核对」的通用修复');
-  await draft.locator('[data-cotread]').click();
+  await draft.locator('[data-act=vars-cotread]').click();
   const sheet = page.locator('.cw-dlg');
   await sheet.locator('[data-k=preview]').waitFor();
   assert.equal(await sheet.locator('[data-k=cot]').inputValue(), 'cot', '默认加到读取其他片段最多的思维链');
@@ -55,31 +55,32 @@ try {
   await sheet.locator('.cw-dlg-foot .cw-btn-primary').click();
   await page.waitForFunction((name) => window.__mock.presets[0].prompts.find((x) => x.identifier === 'cot').content.includes('{{getvar::草稿检查小CoT}}'), NAME);
   assert.equal(await cotText(page), '<thinking>\n{{getvar::草稿检查小CoT}}\n1. 回顾剧情\n{{getvar::文风cot}}\n{{getvar::TheaterCoT}}\n2. 安排本轮\n</thinking>');
-  await page.waitForFunction(() => document.querySelectorAll('.pa-dead').length === 2);
+  await page.waitForFunction(() => document.querySelectorAll('#cw-root .cw-vars .cw-dead').length === 2);
   ok('片段变量可选思维链和行，预览后加入读取，待核对随之消失');
 
   await page.click('#cw-root .cw-top [data-act=undo]');
   await page.waitForFunction(() => !window.__mock.presets[0].prompts.find((x) => x.identifier === 'cot').content.includes('草稿检查小CoT'));
-  await page.waitForFunction(() => document.querySelectorAll('.pa-dead').length === 3);
+  await page.waitForFunction(() => document.querySelectorAll('#cw-root .cw-vars .cw-dead').length === 3);
   ok('顶栏撤销恢复思维链原文');
 
   const nsfw = cards.filter({ hasText: 'NSFWcot' });
   await nsfw.locator('summary').click();
   assert.match(await nsfw.innerText(), /另一套思维链/);
-  assert.equal(await nsfw.locator('[data-fix]').count(), 0, '不提供开启另一套思维链');
-  assert.equal(await nsfw.locator('[data-cotread]').count(), 1);
+  assert.equal(await nsfw.locator('[data-act=vars-enable]').count(), 0, '不提供开启另一套思维链');
+  assert.equal(await nsfw.locator('[data-act=vars-cotread]').count(), 1);
   ok('读取它的是关着的另一套思维链时，只建议在当前思维链里加入读取');
 
   const mis = cards.filter({ hasText: 'Theatercot' });
   await mis.locator('summary').click();
   assert.match(await mis.innerText(), /名字对不上/);
-  await mis.locator('[data-rename]').click();
+  await mis.locator('[data-act=vars-rename]').click();
   await sheet.locator('.cw-dlg-foot .cw-btn-primary').click();
   await page.waitForFunction(() => window.__mock.presets[0].prompts.find((x) => x.identifier === 'mis').content.includes('{{setvar::TheaterCoT::'));
-  await page.waitForFunction(() => document.querySelectorAll('.pa-dead').length === 2);
+  await page.waitForFunction(() => document.querySelectorAll('#cw-root .cw-vars .cw-dead').length === 2);
   assert.equal((await stored(page)).prompts.find((x) => x.identifier === 'mis').content, '{{setvar::TheaterCoT::\n- 小剧场怎么写\n}}');
   ok('写入与读取的变量名只差大小写时，可把写入改成读取用的名字');
-  assert.equal(await page.locator('.pa-cot .cw-card-warn', { hasText: '套思维链开头' }).count(), 0);
+  await page.evaluate(() => window.__presetAtelier.open('preset', 'cot'));
+  assert.equal(await page.locator('#cw-root .cw-cot .cw-note-warn', { hasText: '套思维链开头' }).count(), 0);
   await page.evaluate(() => {
     const m = window.__mock.presets[0];
     m.prompts.push({ identifier: 'cot-nsfw', name: '开nsfw思考，关其他思考', content: '<ECoT>\n# 确认身份\n- 本轮如何写', role: 'system' });
@@ -87,8 +88,8 @@ try {
     Object.assign(window.__mock.live, structuredClone(m));
     window.__presetAtelier.open('preset'); window.__presetAtelier.open('preset', 'cot');
   });
-  await page.locator('.pa-cot .cw-card-warn', { hasText: '同时开着 2 套思维链开头' }).waitFor();
-  assert.match(await page.locator('.pa-cot .cw-card-warn', { hasText: '套思维链开头' }).innerText(), /思维链主体.*开nsfw思考，关其他思考/s);
+  await page.locator('#cw-root .cw-cot .cw-note-warn', { hasText: '同时开着 2 套思维链开头' }).waitFor();
+  assert.match(await page.locator('#cw-root .cw-cot .cw-note-warn', { hasText: '套思维链开头' }).innerText(), /思维链主体.*开nsfw思考，关其他思考/s);
   ok('同时开着两套思维链开头时提醒');
   // 读取方不是思维链、但开着（如格式条目的部件清单），片段内容照样会发出，不算没读
   await page.evaluate(() => {
@@ -96,9 +97,9 @@ try {
     m.prompts.push({ identifier: 'fmt', name: '📌 格式强调', content: '部件：{{getvar::content}}({{getvar::草稿检查小CoT}})', role: 'system' });
     m.prompt_order[0].order.push({ identifier: 'fmt', enabled: true });
     Object.assign(window.__mock.live, structuredClone(m));
-    window.__presetAtelier.open('preset'); window.__presetAtelier.open('preset', 'cot');
+    window.__presetAtelier.open('preset'); window.__presetAtelier.open('preset', 'vars');
   });
-  await page.waitForFunction(() => ![...document.querySelectorAll('.pa-dead')].some((x) => x.textContent.includes('草稿检查小CoT')));
+  await page.waitForFunction(() => ![...document.querySelectorAll('#cw-root .cw-vars .cw-dead')].some((x) => x.textContent.includes('草稿检查小CoT')));
   ok('片段变量由开启的非思维链条目读取时不再报「思维链没读」');
   assert.deepEqual(errors, []);
 } finally {

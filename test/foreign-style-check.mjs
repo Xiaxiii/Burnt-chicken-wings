@@ -18,20 +18,23 @@ try {
   await page.addStyleTag({ content: FOREIGN });
   await page.evaluate(() => window.__presetAtelier.open());
   
-  const q = page.locator('#cw-root .pa-findrow .cw-input');
+  const q = page.locator('#cw-root .cw-page[data-page=preset] .cw-search input');
   await q.waitFor();
   const look = (loc) => loc.evaluate((x) => { const s = getComputedStyle(x); return { radius: s.borderTopLeftRadius, margin: s.marginBottom, type: x.type, mode: x.inputMode, hint: x.enterKeyHint }; });
   const a = await look(q);
-  assert.notEqual(a.radius, '0px', '搜索框保持圆角');
   assert.equal(a.margin, '0px', '搜索框下面不多出一截');
   assert.equal(a.mode, 'search'); assert.equal(a.hint, 'search');
-  assert.notEqual(await q.evaluate((x) => getComputedStyle(x).backgroundColor), 'rgb(255, 255, 255)', '搜索框底色是配色里的');
-  const wrap = (sel) => page.locator(sel).evaluate((x) => { const s = getComputedStyle(x); return [s.backgroundColor, s.paddingBottom, s.borderTopWidth]; });
-  assert.deepEqual(await wrap('#cw-root .pa-findrow'), ['rgba(0, 0, 0, 0)', '0px', '0px'], '外面那层没有外来的底色、下边距');
+  assert.equal(await q.evaluate((x) => getComputedStyle(x).backgroundColor), 'rgba(0, 0, 0, 0)', '输入框本身透明，底色在外框上');
+  // 3.0 起外框才是看得见的搜索框：圆角、配色里的底色，不吃外来的下边距和灰底
+  const box = (sel) => page.locator(sel).first().evaluate((x) => { const s = getComputedStyle(x); return { radius: s.borderTopLeftRadius, bg: s.backgroundColor, pad: s.paddingBottom }; });
+  const w = await box('#cw-root .cw-page[data-page=preset] .cw-search');
+  assert.notEqual(w.radius, '0px', '搜索框保持圆角');
+  assert.notEqual(w.bg, 'rgb(244, 244, 244)', '外框不是外来的灰底');
+  assert.equal(w.pad, '0px', '外框没有外来的下边距');
   ok('整理页搜索框不受别处按类型、类名、搜索键改的样式影响，键盘照样是搜索键');
 
   // 选预设的列表、选择模型的搜索框
-  await page.click('#cw-root .pa-toolbar');
+  await page.locator('#cw-root .cw-scope:visible').first().click();
   const nq = page.locator('.cw-dlg .cw-chooser-top .cw-input');
   await nq.waitFor();
   const n = await look(nq);
@@ -43,18 +46,18 @@ try {
   await page.click('#cw-root .cw-layer > .cw-scrim:not(.cw-out):last-child .cw-dlg .cw-dlg-x'); await page.waitForTimeout(200);
   await page.evaluate(() => {
     document.body.insertAdjacentHTML('beforeend', '<select id="model_custom_select"><option value="m1">m1</option><option value="m2">m2</option></select><input id="custom_model_id">');
-    window.__presetAtelier.open('more', 'schemes');
+    window.__presetAtelier.open('conn');
   });
   await page.click('#cw-root [data-act=livemodel]');
-  const mq = page.locator('.cw-dlg .pa-mfind .cw-input');
+  const mq = page.locator('.cw-dlg .cw-mpick-find .cw-search input');
   await mq.waitFor();
-  const m = await look(mq);
-  assert.notEqual(m.radius, '0px'); assert.equal(m.margin, '0px');
-  assert.deepEqual(await wrap('.cw-dlg .pa-mfind'), ['rgba(0, 0, 0, 0)', '0px', '0px']);
+  assert.equal((await look(mq)).margin, '0px');
+  const mw = await box('.cw-dlg .cw-mpick-find .cw-search');
+  assert.notEqual(mw.radius, '0px'); assert.equal(mw.pad, '0px');
   await page.click('#cw-root .cw-layer > .cw-scrim:not(.cw-out):last-child .cw-dlg .cw-dlg-x'); await page.waitForTimeout(200);
   ok('选预设、选择模型的搜索框同样不受影响');
 
-  await page.evaluate(() => window.__presetAtelier.open('more'));
+  await page.evaluate(() => window.__presetAtelier.open('conn'));
   await page.click('#cw-root [data-act=new]');
   const key = page.locator('.cw-dlg [data-f=key]').first();
   await key.waitFor();

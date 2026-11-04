@@ -92,7 +92,7 @@ await choose(page, ".cw-src-pick .cw-pick-btn", T); await page.waitForTimeout(20
 await choose(page, ".cw-dst-pick .cw-pick-btn", "众生相-v1.9"); await page.waitForTimeout(300);
 await page.click('[data-st="srcmenu"]'); await page.waitForTimeout(200);
 await page.click(".cw-menu-item >> text=搬到新版…"); await page.waitForTimeout(500);
-const mig = await page.$$eval(".cw-dlg .pa-mig .pa-crow", (xs) => xs.map((x) => `${x.querySelector("input").checked ? "☑" : "☐"} ${x.textContent.replace(/\s+/g, " ").trim()}`));
+const mig = await page.$$eval(".cw-dlg .pa-mig .cw-crow", (xs) => xs.map((x) => `${x.querySelector("input").checked ? "☑" : "☐"} ${x.textContent.replace(/\s+/g, " ").trim()}`));
 console.log(mig.join("\n"));
 assert.ok(mig.some((x) => x.startsWith("☑ 示例条目") && x.includes("缝合记录") && x.includes("「正文规则」组之后")), "有记录的条目已勾选，位置对应");
 await page.screenshot({ path: S + "w-4-migrate.png" });

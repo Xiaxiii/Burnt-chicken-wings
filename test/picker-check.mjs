@@ -21,10 +21,6 @@ await page.fill(".cw-chooser-top .cw-input", first);
 const after = await page.$$eval(".cw-choice", (x) => x.length);
 assert.ok(after >= 1 && after <= before, "搜索能筛选");
 await page.click(".cw-dlg-x"); await page.waitForTimeout(250);
-// 来源类型这种几个固定选项的，不带搜索
-await page.click('[data-st="srctype"]'); await page.waitForSelector(".cw-choice");
-assert.equal(await page.$(".cw-chooser-top .cw-input"), null, "来源类型不带搜索");
-await page.click(".cw-dlg-x"); await page.waitForTimeout(250);
 assert.deepEqual(errs, []);
 console.log("选择列表检查全部通过");
 await browser.close();

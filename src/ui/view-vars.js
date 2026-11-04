@@ -69,7 +69,7 @@ function mountVarsView(box, { tools, goEntries }) {
         <p class="cw-hint">按「${d.name}」的列表顺序检查先读后写、清空后读取和未读即覆盖。只做检查，不移动条目、不执行宏；酒馆可能重排提示词，脚本、条件、深度插入、对象/数组键和其他扩展变量需另行核对。</p>
         ${report.issues.length ? html`<div class="cw-stack">${report.issues.map((i) => html`<div class="cw-card"><b>${i.scope === "global" ? "全局" : "聊天"}变量「${i.name}」</b><p class="cw-hint">${i.text}</p><small class="cw-dim">${i.ids.map(nm).join(" → ")}</small></div>`)}</div>` : ""}
         ${report.unknown.length ? fold(`未推演的条目（${report.unknown.length}）`, String(html`<ul class="cw-bullets">${report.unknown.map((i) => html`<li>「${nm(i.id)}」：${i.reasons.join("；")}</li>`)}</ul>`)) : ""}
-        ${fold(`可见变量操作顺序（${report.events.length}）`, String(html`<ol class="cw-list">${report.events.map((e) => html`<li>「${nm(e.id)}」：${e.op} · ${e.scope === "global" ? "全局" : "聊天"}变量「${e.name}」</li>`)}</ol>`))}
+        ${fold(`可见变量操作顺序（${report.events.length}）`, String(html`<ol class="cw-bullets">${report.events.map((e) => html`<li>「${nm(e.id)}」：${e.op} · ${e.scope === "global" ? "全局" : "聊天"}变量「${e.name}」</li>`)}</ol>`))}
       </section>
       <section class="cw-sec"><div class="cw-sec-h"><h3>当前状态</h3><span class="cw-gap"></span>${btn("读取当前变量状态", { act: "vars-snapshot", size: "sm" })}</div>
         <p class="cw-hint">只显示变量名、是否为空及类型，不保存正文。只能读取酒馆正在用的预设。</p>

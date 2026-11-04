@@ -59,20 +59,22 @@ try {
     }, [scope, [...BAD]]);
     assert.deepEqual(bad, [], `${label}：有元素被铺上外来底色`);
   };
-  const LIST = "#cw-root .cw-layer > .cw-scrim:not(.cw-out) :is(.cw-mpick-list, .cw-chooser-list, .pa-pick)";
+  const LIST = "#cw-root .cw-layer :is(.cw-mpick-list, .cw-chooser-list, .cw-pop)";
   const hoverAll = async (label) => {
     for (const sel of [".cw-krow", ".cw-kname", ".cw-kchip", ".cw-kmore", ".cw-msec-h", "[data-catmenu]", ".cw-choice", ".cw-choice", ".cw-menu-item"]) {
       // 只在最上层的窗口里取（下面那层被遮罩挡着）
-      const el = page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out)").last().locator(sel).first();
+      // 弹出的小菜单（.cw-pop-scrim）开着时只取菜单里的
+      const top = (await page.locator("#cw-root .cw-layer > .cw-pop-scrim").count()) ? page.locator("#cw-root .cw-layer > .cw-pop-scrim").last() : page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out)").last();
+      const el = top.locator(sel).first();
       if (!await el.count() || !await el.isVisible()) continue;
       await el.hover();
       await sweep(LIST, `${label} · 悬停 ${sel}`);
     }
   };
-  const view = async (v) => { await page.click(`#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-mpick-top .cw-seg [data-v=${v}]`); await page.waitForTimeout(120); };
-  const search = async (q) => { await page.fill("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-mfind .cw-input", q); await page.waitForTimeout(150); };
+  const view = async (v) => { await page.click(`#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-mpick-top .cw-seg [data-view=${v}]`); await page.waitForTimeout(120); };
+  const search = async (q) => { await page.fill("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-mpick-find input", q); await page.waitForTimeout(150); };
   const openPicker = async (siteName) => {
-    await page.locator("#cw-root [data-r="sites"] .cw-site", { hasText: siteName }).locator("[data-act=edit]").first().click();
+    await page.locator("#cw-root [data-r=sites] .cw-site", { hasText: siteName }).locator("[data-act=edit]").first().click();
     await page.waitForTimeout(250);
     await page.click(".cw-dlg [data-f=modelbtn]");
     await page.waitForSelector(".cw-mpick-list");
@@ -95,12 +97,12 @@ try {
   assert.notEqual(await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-kchip.on").evaluate((x) => getComputedStyle(x).backgroundColor), "rgba(0, 0, 0, 0)", "选中的分组标签是实心的");
   await search("不存在的模型名");
   await sweep(LIST, "多密钥 · 搜索：使用「…」");
-  await page.click("#cw-root .cw-layer > .cw-scrim:not(.cw-out) [data-act="selmode"]");
+  await page.click("#cw-root .cw-layer > .cw-scrim:not(.cw-out) [data-act=selmode]");
   await page.waitForTimeout(120);
   await search("");
   await sweep(LIST, "多密钥 · 多选");
   await hoverAll("多密钥 · 多选");
-  await page.click("#cw-root .cw-layer > .cw-scrim:not(.cw-out) [data-act="selmode"]");
+  await page.click("#cw-root .cw-layer > .cw-scrim:not(.cw-out) [data-act=selmode]");
   await view("group");
   await search("zzz");
   await sweep(LIST, "多密钥 · 按分组 · 没有匹配");
@@ -137,7 +139,7 @@ try {
   await hoverAll("导出站点的选项");
   await closeTop();
   await page.evaluate(() => window.__presetAtelier.open("preset"));
-  await page.click("#cw-root .pa-toolbar");
+  await page.locator("#cw-root .cw-scope:visible").first().click();
   await page.waitForSelector(".cw-dlg .cw-choice");
   await sweep(LIST, "选预设");
   await hoverAll("选预设");

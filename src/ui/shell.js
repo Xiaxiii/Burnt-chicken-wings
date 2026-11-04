@@ -185,7 +185,7 @@ function pageOf(tab, sub) {
     if (m === "health" || m === "look" || m === "clean") return [m];
     return ["more"];
   }
-  return [tab];
+  return [tab, sub];
 }
 function show(page, view) {
   if (!pages[page]) page = "preset";
