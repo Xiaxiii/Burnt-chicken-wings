@@ -4,6 +4,7 @@
 // 先构建并在仓库根目录运行 8765 静态服务。
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { replyPage, replySave, replyCancel } from './helpers.mjs';
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
 const KEY = 'presetAtelier:reply-format';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
@@ -68,27 +69,27 @@ try {
   ok('生成结束后自动修正，不自动提醒');
 
   // 「格式」窗口：显示已自动修正；「下一轮提醒一次」按修正前的问题写，只用一次；可撤销自动修正
-  await page.evaluate(() => window.__presetAtelier.open('cot'));
-  await page.click('[data-reply-format]');
-  await page.locator('.pa-sheet [data-r=autofix]').waitFor();
-  assert.equal(await page.locator('.pa-sheet [data-r=autofix]').isChecked(), true);
-  assert.equal(await page.locator('.pa-sheet [data-r=enabled]').count(), 0, '没有「下一轮提醒 AI」勾选框');
-  await page.click('.pa-sheet [data-r=latest]');
+  await page.evaluate(() => window.__presetAtelier.open('reply'));
+  await replyPage(page);
+  await page.locator('#cw-root [data-act=rp-autofix]').waitFor();
+  assert.equal(await page.locator('#cw-root [data-act=rp-autofix]').isChecked(), true);
+  assert.equal(await page.locator('#cw-root [data-r=enabled]').count(), 0, '没有「下一轮提醒 AI」勾选框');
+  await page.click('#cw-root [data-act=rp-latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
-  await page.locator('.pa-sheet [data-r=remind]').waitFor();
-  const text = await page.locator('.pa-sheet [data-r=remind-card] pre').textContent();
+  await page.locator('#cw-root [data-act=rp-remind]').waitFor();
+  const text = await page.locator('#cw-root [data-r=remind-card] pre').textContent();
   assert.match(text, /正文标签外不要写任何分析/, '按修正前的问题写');
-  await page.click('.pa-sheet [data-r=remind]');
-  await page.locator('.pa-sheet [data-r=unremind]').waitFor();
+  await page.click('#cw-root [data-act=rp-remind]');
+  await page.locator('#cw-root [data-act=rp-unremind]').waitFor();
   assert.equal(await nextTurn(), text, '下一次生成加入一次');
   assert.equal(await nextTurn(), '', '只用一次');
   ok('点「下一轮提醒一次」后，下一次生成按修正前的问题提醒一次');
-  await page.click('.pa-sheet [data-r=latest]');
+  await page.click('#cw-root [data-act=rp-latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
-  await page.locator('.pa-sheet [data-r=undo-auto]').click();
-  await page.locator('.pa-sheet', { hasText: '已撤销自动修正' }).waitFor();
+  await page.locator('#cw-root [data-act=rp-undo-auto]').click();
+  await page.locator('#cw-root .cw-page[data-page=reply]', { hasText: '已撤销自动修正' }).waitFor();
   assert.equal((await chat()).mes, LEAK, '撤销后恢复原文');
-  await page.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '取消' }).click();
+  await replyCancel(page);
   ok('可在「格式」窗口撤销自动修正');
 
   // 手动停止、续写、末尾只缺结束标签（可能被截断）：都不自动改

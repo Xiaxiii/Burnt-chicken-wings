@@ -104,9 +104,12 @@ function mountReplyPage(page) {
     if (fieldError(e.field, e.message)) {
       const input = $("rules").querySelector(`[data-f="${e.field}"]`);
       input.scrollIntoView({ block: "center" });
-      input.focus({ preventScroll: true });
+      // 触屏点按钮时，浏览器在 click 之后才把焦点给按钮：下一轮再把焦点放回出错的框
+      setTimeout(() => input.focus({ preventScroll: true }), 0);
     } else target.innerHTML = String(html`<p class="cw-warn-text">${e.message}</p>`);
   };
+  // 按下「启用检查」时不让输入框先失焦：失焦会先显示报错、把按钮挤下去，这一下就点空了
+  $("rules").addEventListener("mousedown", (e) => { if (e.target.closest('[data-act="rp-enable"]')) e.preventDefault(); });
   $("rules").addEventListener("input", (e) => { if (e.target.dataset?.f) fieldError(e.target.dataset.f, ""); });
   $("rules").addEventListener("change", (e) => {
     const key = e.target.dataset?.f;
@@ -118,7 +121,8 @@ function mountReplyPage(page) {
     const next = { ...cfg(), ...rules };
     if (!rules.thinkingTag) next.thinkingTag = "";
     saveCfg(next);
-    toast("已保存格式规则", "success");
+    // 改动即保存：标题旁写一句「已保存」，不弹提示
+    $("rules-state").textContent = `已保存 ${new Date().toTimeString().slice(0, 5)}`;
     renderSwitches();
     showStatus().catch(() => {});
   });
@@ -128,7 +132,7 @@ function mountReplyPage(page) {
     const on = !!c.bodyTag;
     const row = (act, label, sub, checked, disabled = false) => html`<label class="cw-setrow${disabled ? " is-disabled" : ""}"><span><b>${label}</b>${sub ? html`<small>${sub}</small>` : ""}</span>${switchHtml({ act, on: checked, disabled, label })}</label>`;
     $("switches").innerHTML = String(html`
-      ${row("rp-notice", "发现格式问题时提示我", on ? "提示只给你看，不发给 AI。点提示查看问题，再决定是否提醒下一轮" : "先在上方启用检查", on && c.notice !== false, !on)}
+      ${row("rp-notice", "发现格式问题时提示我", on ? "提示只给你看，不发给 AI。点提示查看问题，再决定是否提醒下一轮" : "启用检查后生效", c.notice !== false, !on)}
       ${row("rp-autofix", "发现问题时，自动修正这条回复", "补齐、移动标签，去掉多包的一层，改回写错名字的块；改了会提示，可在本页撤销", on && !!c.autoFix, !on)}
       ${row("rp-statusfix", "状态栏写坏时自动改回", "正文和思考区不动，可撤销", statusFixOn())}
       ${row("rp-statusremind", "状态栏掉了时，下一轮自动提醒一次", "只点名这张卡的状态栏标签；用完即清，换聊天作废", statusRemindOn())}

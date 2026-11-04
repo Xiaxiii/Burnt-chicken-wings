@@ -2,6 +2,7 @@
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/reply-misnamed-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { replyPage, replySave, replyCancel } from './helpers.mjs';
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
@@ -52,20 +53,20 @@ try {
     const c = window.SillyTavern.getContext();
     c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), replyGuard: { [NAME]: { bodyTag: 'content', requiredTags: ['lxs_status'] } } };
     c.chat = [{ is_user: false, mes: '开场白' }, { is_user: true, mes: '继续' }, { is_user: false, mes: wrong }, { is_user: true, mes: '再来' }, { is_user: false, mes: wrong, swipe_id: 0, swipes: [wrong], extra: { reasoning: '' } }];
-    window.__presetAtelier.open('cot');
+    window.__presetAtelier.open('reply');
   }, { preset, NAME, wrong });
-  await page.click('[data-reply-format]');
-  await page.click('[data-r=latest]');
+  await replyPage(page);
+  await page.click('[data-act=rp-latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
   const result = page.locator('[data-r=result]');
   const text = await result.innerText();
   assert.match(text, /<状态栏> 预设没有用到，多半是写错了名字的 <lxs_status>/);
-  const reminder = await page.locator('[data-r=result] .pa-card', { hasText: '下一轮提醒' }).locator('pre').textContent();
+  const reminder = await page.locator('[data-r=result]').locator('[data-r=remind-card] pre, details:has(summary:has-text("下一轮提醒预览")) pre').first().textContent();
   assert.match(reminder, /上一轮的 <lxs_status> 标签名写错了：请用 <lxs_status>…<\/lxs_status>/);
   assert.doesNotMatch(reminder, /状态栏|author_note/, '提醒不复述写错的名字，只点名出问题的标签');
   ok('检查点名写错名的 <状态栏>；提醒只写改回 <lxs_status>，不复述 <状态栏>');
-  await page.click('[data-r=fix]');
-  await page.locator('[data-r=undo-fix]').waitFor();
+  await page.click('[data-act=rp-fix]');
+  await page.locator('[data-act=rp-undo-fix]').waitFor();
   const fixed = await page.evaluate(() => window.SillyTavern.getContext().chat[4].mes);
   assert.equal(fixed, wrong.replace('<状态栏>', '<lxs_status>').replace('</状态栏>', '</lxs_status>'));
   assert.match(await result.innerText(), /未发现配置范围内的格式问题/);

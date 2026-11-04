@@ -3,6 +3,7 @@
 // 先构建并在仓库根目录运行 8765 静态服务。
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { replyPage, replySave, replyCancel } from './helpers.mjs';
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
 const KEY = 'presetAtelier:reply-format';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
@@ -74,20 +75,19 @@ try {
   const prompt = () => page.evaluate((key) => window.__prompts[key] || '', KEY);
   const toasts = () => page.evaluate(() => window.__toasts.splice(0).map((t) => t.m));
   const openDialog = async () => {
-    await page.evaluate(() => window.__presetAtelier.open('cot'));
-    await page.click('[data-reply-format]');
-    await page.waitForFunction(() => { const b = document.querySelector('.pa-sheet [data-r=status-body]'); return b && !b.textContent.includes('正在读取'); });
-    return (await page.locator('.pa-sheet [data-r=status-body]').innerText()).replace(/\s+/g, ' ').trim();
+    await page.evaluate(() => window.__presetAtelier.open('reply'));
+    await replyPage(page);
+    await page.waitForFunction(() => { const b = document.querySelector('#cw-root [data-r=status-body]'); return b && !b.textContent.includes('正在读取'); });
+    return (await page.locator('#cw-root [data-r=status-body]').innerText()).replace(/\s+/g, ' ').trim();
   };
   const closeDialog = async () => {
-    await page.getByRole('dialog', { name: '正文格式检查' }).locator('.pa-sheet-actions .pa-btn', { hasText: '取消' }).click();
-    await page.waitForFunction(() => !document.querySelector('.pa-sheet'));
+    await replyCancel(page);
   };
-  const pick = (text) => page.locator('.pa-sheet .pa-pick-item', { hasText: text }).first().click();
+  const pick = (text) => page.locator('#cw-root .cw-layer .cw-menu-item', { hasText: text }).first().click();
 
   // 1) 东宫：自动认出 <lxs_status>（不是读者段评）；掉了时提示，下一轮提醒一次，只点名 <lxs_status>
   assert.equal(await openDialog(), '<lxs_status> 世界书「东宫书」条目「状态栏」 · 自动识别 更改');
-  assert.match(await page.locator('.pa-sheet [data-r=status-card] b').first().innerText(), /角色卡「东宫」的状态栏/);
+  assert.match(await page.locator('#cw-root [data-r=status-title]').innerText(), /「东宫」的状态栏/);
   await closeDialog();
   await turn('<content>\n正文。\n</content>');
   assert.deepEqual(await toasts(), ['上一条回复：缺少完整的 <lxs_status>…</lxs_status> 标签。下一轮将提醒用 <lxs_status>。点此查看']);
@@ -125,10 +125,10 @@ try {
   assert.equal(await prompt(), '', '认不准时不提醒');
   await toasts();
   await openDialog();
-  await page.click('.pa-sheet [data-r=status-pick]');
+  await page.click('#cw-root [data-act=rp-status-pick]');
   await pick('<面板B>');
-  await page.waitForFunction(() => document.querySelector('.pa-sheet [data-r=status-body]')?.textContent.includes('已选定'));
-  assert.equal((await page.locator('.pa-sheet [data-r=status-body]').innerText()).replace(/\s+/g, ' ').trim(), '<面板B> 世界书「杂卡书」条目「格式二」 · 已选定 更改');
+  await page.waitForFunction(() => document.querySelector('#cw-root [data-r=status-body]')?.textContent.includes('已选定'));
+  assert.equal((await page.locator('#cw-root [data-r=status-body]').innerText()).replace(/\s+/g, ' ').trim(), '<面板B> 世界书「杂卡书」条目「格式二」 · 已选定 更改');
   await closeDialog();
   await turn('<content>\n正文。\n</content>');
   await before();
@@ -137,29 +137,29 @@ try {
 
   // 4) 从世界书条目里选、手动填写、不检查、改回自动识别
   await openDialog();
-  await page.click('.pa-sheet [data-r=status-pick]');
+  await page.click('#cw-root [data-act=rp-status-pick]');
   await pick('从世界书条目里选');
   await pick('世界书「杂卡书」条目「格式一」');
   await pick('<面板A>');
-  await page.waitForFunction(() => document.querySelector('.pa-sheet [data-r=status-body]')?.textContent.includes('面板A'));
-  await page.click('.pa-sheet [data-r=status-pick]');
+  await page.waitForFunction(() => document.querySelector('#cw-root [data-r=status-body]')?.textContent.includes('面板A'));
+  await page.click('#cw-root [data-act=rp-status-pick]');
   await pick('手动填写标签名');
-  await page.locator('.pa-sheet').last().locator('input.pa-input').fill('<StatusBlock>');
-  await page.locator('.pa-sheet').last().locator('.pa-btn-primary').click();
-  await page.waitForFunction(() => document.querySelector('.pa-sheet [data-r=status-body]')?.textContent.includes('StatusBlock'));
-  assert.equal((await page.locator('.pa-sheet [data-r=status-body]').innerText()).replace(/\s+/g, ' ').trim(), '<StatusBlock> 手动填写 · 已选定 更改');
-  await page.click('.pa-sheet [data-r=status-pick]');
+  await page.locator('#cw-root .cw-layer .cw-dlg input.cw-input').last().fill('<StatusBlock>');
+  await page.locator('#cw-root .cw-layer .cw-dlg .cw-btn-primary').last().click();
+  await page.waitForFunction(() => document.querySelector('#cw-root [data-r=status-body]')?.textContent.includes('StatusBlock'));
+  assert.equal((await page.locator('#cw-root [data-r=status-body]').innerText()).replace(/\s+/g, ' ').trim(), '<StatusBlock> 手动填写 · 已选定 更改');
+  await page.click('#cw-root [data-act=rp-status-pick]');
   await pick('这张卡没有状态栏');
-  await page.waitForFunction(() => document.querySelector('.pa-sheet [data-r=status-body]')?.textContent.includes('不检查状态栏'));
+  await page.waitForFunction(() => document.querySelector('#cw-root [data-r=status-body]')?.textContent.includes('不检查状态栏'));
   await closeDialog();
   await turn('<content>\n正文。\n</content>');
   await before();
   assert.equal(await prompt(), '', '不检查状态栏的卡不提醒');
   await toasts();
   await openDialog();
-  await page.click('.pa-sheet [data-r=status-pick]');
+  await page.click('#cw-root [data-act=rp-status-pick]');
   await pick('改回自动识别');
-  await page.waitForFunction(() => document.querySelector('.pa-sheet [data-r=status-body]')?.textContent.includes('认不准'));
+  await page.waitForFunction(() => document.querySelector('#cw-root [data-r=status-body]')?.textContent.includes('认不准'));
   await closeDialog();
   const saved = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.statusBars);
   assert.deepEqual(Object.keys(saved), [], '改回自动识别后不留记录');
@@ -168,7 +168,7 @@ try {
   // 5) 关掉自动提醒：照常提示，不提醒 AI
   await card(0, 'c1');
   await openDialog();
-  await page.locator('.pa-sheet [data-r=status-remind]').uncheck();
+  await page.locator('#cw-root [data-act=rp-statusremind]').uncheck({ force: true });
   await closeDialog();
   await toasts();
   await turn('<content>\n正文。\n</content>');
@@ -179,10 +179,10 @@ try {
 
   // 6) 检查窗口：这张卡的状态栏一起查
   await openDialog();
-  await page.click('.pa-sheet [data-r=latest]');
+  await page.click('#cw-root [data-act=rp-latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
-  assert.match(await page.locator('.pa-sheet [data-r=result]').innerText(), /缺少完整的 <lxs_status>…<\/lxs_status> 标签/);
-  assert.match(await page.locator('.pa-sheet [data-r=remind-card] pre').textContent(), /<lxs_status>…<\/lxs_status>/);
+  assert.match(await page.locator('#cw-root [data-r=result]').innerText(), /缺少完整的 <lxs_status>…<\/lxs_status> 标签/);
+  assert.match(await page.locator('#cw-root [data-r=remind-card] pre').textContent(), /<lxs_status>…<\/lxs_status>/);
   await closeDialog();
   ok('检查窗口把这张卡的状态栏一起查，「下一轮提醒一次」点名 <lxs_status>');
 
@@ -192,7 +192,7 @@ try {
   const last = () => page.evaluate(() => window.SillyTavern.getContext().chat.at(-1).mes);
   await turn(DUP);
   assert.equal(await last(), GOOD);
-  assert.ok((await toasts()).includes('已自动修正这条回复：删去另写的一份状态栏（<状态栏>…</状态栏>）。可在「思维链 → 格式」里撤销'));
+  assert.ok((await toasts()).includes('已自动修正这条回复：删去另写的一份状态栏（<状态栏>…</状态栏>）。可在「回复」页撤销'));
   await turn('<content>\n正文。\n</content>\n<状态栏>\n<时>巳时</时>\n<地>望仙台</地>\n</状态栏>');
   assert.equal(await last(), GOOD);
   assert.ok((await toasts()).some((m) => /^已自动修正这条回复：把 <状态栏>…<\/状态栏> 改名为 <lxs_status>…<\/lxs_status>/.test(m)));
@@ -200,26 +200,26 @@ try {
 
   // 关掉自动改回：只提示；检查窗口列出问题和 <状态栏> 的出处，「修正这条回复」删去那一份，前面的回复一并修正
   await openDialog();
-  await page.locator('.pa-sheet [data-r=status-fix]').uncheck();
+  await page.locator('#cw-root [data-act=rp-statusfix]').uncheck({ force: true });
   await closeDialog();
   await toasts();
   await page.evaluate((dup) => {
     window.SillyTavern.getContext().chat = [{ is_user: false, mes: '<content>开场。</content>' }, { is_user: true, mes: '甲' }, { is_user: false, mes: dup }, { is_user: true, mes: '乙' }, { is_user: false, mes: dup, swipe_id: 0, swipes: [dup] }];
   }, DUP);
   await openDialog();
-  await page.click('.pa-sheet [data-r=latest]');
+  await page.click('#cw-root [data-act=rp-latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
-  const res = page.locator('.pa-sheet [data-r=result]');
+  const res = page.locator('#cw-root [data-r=result]');
   assert.match(await res.innerText(), /状态栏写了两份：<lxs_status> 之外还有一份 <状态栏>/);
-  assert.match(await page.locator('.pa-sheet [data-r=origins]').innerText(), /<状态栏>：聊天里前面 1 条 AI 回复/);
-  assert.match(await page.locator('.pa-sheet [data-r=remind-card] pre').textContent(), /状态栏只输出一份 <lxs_status>…<\/lxs_status>，不要另写一份/);
-  assert.match(await page.locator('.pa-sheet [data-r=earlier-card]').innerText(), /前面还有 1 条回复有同样的问题（状态栏写了两份/);
-  await page.click('.pa-sheet [data-r=fix]');
-  await page.locator('.pa-sheet [data-r=undo-fix]').waitFor();
-  await page.click('.pa-sheet [data-r=fix-earlier]');
-  await page.locator('.pa-sheet [data-r=undo-earlier]').waitFor();
+  assert.match(await page.locator('#cw-root [data-r=origins]').innerText(), /<状态栏>：聊天里前面 1 条 AI 回复/);
+  assert.match(await page.locator('#cw-root [data-r=remind-card] pre').textContent(), /状态栏只输出一份 <lxs_status>…<\/lxs_status>，不要另写一份/);
+  assert.match(await page.locator('#cw-root [data-r=earlier-card]').innerText(), /前面还有 1 条回复有同样的问题（状态栏写了两份/);
+  await page.click('#cw-root [data-act=rp-fix]');
+  await page.locator('#cw-root [data-act=rp-undo-fix]').waitFor();
+  await page.click('#cw-root [data-act=rp-fix-earlier]');
+  await page.locator('#cw-root [data-act=rp-undo-earlier]').waitFor();
   assert.deepEqual(await page.evaluate(() => window.SillyTavern.getContext().chat.filter((m) => !m.is_user).map((m) => m.mes)), ['<content>开场。</content>', GOOD, GOOD]);
-  await page.locator('.pa-sheet [data-r=status-fix]').check();
+  await page.locator('#cw-root [data-act=rp-statusfix]').check({ force: true });
   await closeDialog();
   ok('关掉自动改回时只提示；检查窗口列出 <状态栏> 出处，可修正这条和前面的回复');
   assert.deepEqual(errors, []);

@@ -87,3 +87,22 @@ export const catchToasts = (page) => page.evaluate(() => {
 export const toasts = (page) => page.evaluate(() => window.__toasts || []);
 // 再加一个预设（复制最后一个）
 export const addPreset = (page, name, data = null) => page.evaluate(([n, d]) => { const m = window.__mock; m.names.push(n); m.presets.push(d || structuredClone(m.presets[m.presets.length - 1])); }, [name, data]);
+// 「回复」页：打开并展开「检查粘贴的文字」
+export async function replyPage(page) {
+  // 面板已打开时只切页（重新打开会把当前预设换回酒馆正在用的）
+  const shown = await page.evaluate(() => { const r = document.getElementById("cw-root"); return !!r && !r.hidden; });
+  if (shown) await page.locator('#cw-root [data-nav="reply"]:visible').first().click();
+  else await page.evaluate(() => window.__presetAtelier.open("reply"));
+  await page.locator("#cw-root [data-act=rp-latest]").waitFor({ state: "visible" });
+  await page.evaluate(() => document.querySelectorAll("#cw-root .cw-reply-paste").forEach((d) => { d.open = true; }));
+  await page.waitForTimeout(150);
+}
+// 保存规则：没启用时点「按这些标签启用检查」，已启用时提交各输入框（改动即保存）
+export async function replySave(page) {
+  const en = page.locator("#cw-root [data-act=rp-enable]");
+  if (await en.count()) await en.click();
+  else await page.evaluate(() => document.querySelectorAll("#cw-root [data-r=rules] [data-f]").forEach((x) => x.dispatchEvent(new Event("change", { bubbles: true }))));
+  await page.waitForTimeout(250);
+}
+// 放弃没保存的输入：重新打开回复页，表单按已保存的规则重画
+export const replyCancel = (page) => replyPage(page);

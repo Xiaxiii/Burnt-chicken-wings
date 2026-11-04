@@ -2,6 +2,7 @@
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/reply-tag-input-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { replyPage, replySave, replyCancel } from './helpers.mjs';
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
@@ -11,10 +12,10 @@ try {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
   await page.waitForFunction(() => window.__presetAtelier?.open);
-  await page.evaluate(() => window.__presetAtelier.open('cot'));
-  await page.click('[data-reply-format]');
-  const required = page.locator('.pa-sheet [data-r="required"]');
-  const err = page.locator('.pa-sheet [data-err="required"]');
+  await page.evaluate(() => window.__presetAtelier.open('reply'));
+  await replyPage(page);
+  const required = page.locator('#cw-root [data-f="required"]');
+  const err = page.locator('#cw-root [data-err="required"]');
   await required.waitFor();
 
   // 填错：离开输入框就在框下面报错，框标红
@@ -32,19 +33,19 @@ try {
   ok('改动时清掉报错');
 
   // 点保存：报错在框下面、滚到框那里，不写在窗口底部
-  await page.locator('.pa-sheet [data-r="sample"]').scrollIntoViewIfNeeded();
-  await page.click('.pa-sheet-actions .pa-btn-primary');
+  await page.locator('#cw-root [data-r="sample"]').scrollIntoViewIfNeeded();
+  await replySave(page);
   await err.waitFor();
-  assert.equal(await page.locator('.pa-sheet [data-r="result"]').textContent(), '', '底部结果区不放这条报错');
-  assert.equal(await page.evaluate(() => document.activeElement?.dataset?.r), 'required', '光标回到出错的框');
+  assert.equal(await page.locator('#cw-root [data-r="result"]').textContent(), '', '底部结果区不放这条报错');
+  assert.equal(await page.evaluate(() => document.activeElement?.dataset?.f), 'required', '光标回到出错的框');
   const box = await required.boundingBox();
   assert.ok(box && box.y > 0 && box.y < 844, '出错的框滚进了屏幕');
   ok('保存时报错在框下面，并滚到这个框');
 
   // 零宽字符、全角、尖括号、输入法的「——」：清理后保存
   await required.fill('lxs​_status、<状态栏>，ｍｅｍｏ；mood——bar');
-  await page.click('.pa-sheet-actions .pa-btn-primary');
-  await page.locator('.pa-sheet').waitFor({ state: 'detached' });
+  await replySave(page);
+  await page.waitForTimeout(200);
   const saved = await page.evaluate(() => Object.values(window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard || {})[0]?.requiredTags);
   assert.deepEqual(saved, ['lxs_status', '状态栏', 'memo', 'mood_bar']);
   ok('看不见的字符、全角、尖括号和「——」清理后照常保存');
