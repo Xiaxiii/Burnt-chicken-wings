@@ -5,6 +5,7 @@
  "maintenance/compat.js",
  "maintenance/card.js",
  "core/model.js",
+ "core/balance.js",
  "core/regex.js",
  "ui/state.js",
  "core/macros.js",

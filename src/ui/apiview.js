@@ -619,6 +619,40 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   let dragging = false;
   // 2.5.0 ⋯ 在卡片里原地展开详情，不再弹窗
   const liveOpen = () => foldGet("live", "detail");
+  // 2.6.19 余额：正在查的（按 balanceId），本次打开面板是否已自动查过当前连接
+  const balBusy = new Set();
+  let balAuto = false;
+  // 当前连接要查余额的站点：存成站点的按站点和分组记，没存的按类型和网址记
+  const liveBalTarget = (live, active, ak, same) => same
+    ? { site: keyView(active, ak.id), id: balanceId(active, ak) }
+    : live.source ? { site: { id: "live", name: "当前连接", source: live.source, url: live.url || "", secretId: live.secretId }, id: `live:${live.source}:${live.url || ""}` } : null;
+  async function queryBalance(site, id) {
+    if (balBusy.has(id)) return;
+    balBusy.add(id);
+    render();
+    try {
+      balanceSet(id, await fetchBalance(site));
+    } catch (e) {
+      balanceSet(id, { ok: false, text: "没查到", why: e.message, at: Date.now() });
+    } finally {
+      balBusy.delete(id);
+      saveSettings();
+      render();
+    }
+  }
+  const balLine = (t) => {
+    if (!t || balancePlan(t.site).none) return "";
+    const b = balanceGet(t.id);
+    const again = `<button class="pa-icon-btn pa-bal-again" data-a="balance" type="button" aria-label="重新查余额" title="重新查余额">${ICON.refresh}</button>`;
+    if (balBusy.has(t.id)) return '<p class="pa-live-bal"><span class="pa-hint">正在查余额…</span></p>';
+    if (!b) return '<p class="pa-live-bal"><button class="pa-link" data-a="balance" type="button">查余额</button></p>';
+    if (!b.ok) return `<p class="pa-live-bal bad"${b.why ? ` title="${esc(b.why)}"` : ""}><span>余额</span><small>${esc(b.text)} · ${balanceAgo(b.at)}</small>${again}</p>`;
+    return `<p class="pa-live-bal"><span>余额</span><b>${esc(b.text)}</b><small>${esc([b.sub, balanceAgo(b.at)].filter(Boolean).join(" · "))}</small>${again}</p>`;
+  };
+  const balShort = (x, k) => {
+    const b = balanceGet(balanceId(x, k));
+    return b?.ok ? `余额 ${b.text}` : "";
+  };
   // 酒馆实际在用的模型（测试用的就是它）
   const usingModel = (live = liveConnection()) => {
     const c = ctx();
@@ -665,16 +699,24 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
             <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
+            ${balLine(liveBalTarget(live, active, ak, sameSite))}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         ${liveOpen() ? liveDetails(live, active) : ""}
         </article>`;
+    // 2.6.19 打开面板时，当前连接的余额超过 10 分钟没查过就查一次
+    if (!balAuto) {
+      balAuto = true;
+      const t = liveBalTarget(live, active, ak, sameSite);
+      const b = t && balanceGet(t.id);
+      if (t && !balancePlan(t.site).none && (!b || Date.now() - b.at > 600000)) setTimeout(() => queryBalance(t.site, t.id), 0);
+    }
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
     const siteRow = (x, i) => {
       const used = usedBy(x.id);
       const on = x.id === s.activeSiteId;
       if (editing) return editRow(x, i, on, used);
       if (siteMulti(x)) return multiRow(x, on, used);
-      const info = [x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
+      const info = [x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), balShort(x, x), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       return `<div class="pa-sgroup pa-sitecard pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
             <div class="pa-srow-main pa-site-name" data-a="edit" title="查看、编辑"><b>${esc(x.name)}</b><small class="pa-site-model">${esc(info)}</small></div>
             ${on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
@@ -683,10 +725,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const multiRow = (x, on, used) => {
       const open = foldGet("sites", x.id);
       const k = siteKey(x);
-      const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
+      const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", x.source === "custom" ? "" : shortLabel(x.source), on ? balShort(x, k) : "", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       const lines = open ? `<div class="pa-klines">${x.keys.map((y) => {
         const cur = on && y.id === k.id;
-        return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}" data-a="edit"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc(y.model || "未选模型")}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
+        return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}" data-a="edit"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc([y.model || "未选模型", balShort(x, y)].filter(Boolean).join(" · "))}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
       }).join("")}</div>` : "";
       // 和单密钥站点一样：点「切换」切换，点右边「N 组」展开、收起，点其他地方打开编辑窗口
       return `<div class="pa-sgroup pa-sitecard pa-site pa-site-multi${on ? " pa-srow-on" : ""}${open ? " open" : ""}" data-id="${esc(x.id)}">
@@ -716,7 +758,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const fileIn = (cls, label) => `<label class="${cls} pa-file" role="button" tabindex="0" title="从 JSON 文件导入站点和密钥">${label}<input type="file" accept=".json,application/json,text/plain" data-import-sites hidden></label>`;
     const headBtns = editing
       ? `${fileIn("pa-swpill pa-edit-pill pa-ico-pill", `${ICON.fileIn}<span>导入</span>`)}<button class="pa-swpill pa-edit-pill pa-ico-pill" data-a="exportsites" type="button" title="把站点和密钥存成 JSON 文件">${ICON.fileOut}<span>导出</span></button><button class="pa-swpill pa-done-pill" data-a="sitesdone" type="button">完成</button>`
-      : `${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：排序、删除、导入导出" title="编辑：排序、删除、导入导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
+      : `${n ? `<button class="pa-head-ico" data-a="balanceall" type="button" aria-label="查全部站点的余额" title="查全部站点的余额">${ICON.wallet}</button>` : ""}${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：排序、删除、导入导出" title="编辑：排序、删除、导入导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
     if (!dragging) sitesBox.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">站点${n ? whyBtn("sites") : ""}</h3><div class="pa-head-btns${editing ? " pa-head-editing" : ""}">${headBtns}</div></div>
         ${n ? `${whyNote("sites", editing ? "按住左边 ≡ 拖动排序，点垃圾桶删除。导出的站点文件可在重装、换设备后导入。" : "点站点名修改详情。点铅笔可排序、删除，导入或导出站点文件。")}<div class="pa-site-list${editing ? " pa-site-editing" : ""}">${sites().map(siteRow).join("")}</div>` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
@@ -1495,6 +1537,31 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       if (a === "livemodel" || target?.id === settings().activeSiteId) setLiveModel(m);
       saveSettings();
       toast(`模型已切换为 ${m}`, "success");
+      return render();
+    }
+    if (a === "balance") {
+      const live = liveConnection();
+      const active = sites().find((x) => x.id === settings().activeSiteId);
+      const same = isSame(active, live);
+      const t = liveBalTarget(live, active, same ? siteKey(active) : null, same);
+      if (t) await queryBalance(t.site, t.id);
+      return;
+    }
+    // 2.6.19 逐个查全部站点（多密钥站点逐个分组）的余额；官方接口不提供的跳过
+    if (a === "balanceall") {
+      if (btn) { btn.disabled = true; btn.classList.add("pa-spin"); }
+      let ok = 0, bad = 0, skip = 0;
+      for (const x of [...sites()]) {
+        for (const k of siteMulti(x) ? x.keys : [x]) {
+          const target = keyView(x, k.id);
+          if (balancePlan(target).none) { skip++; continue; }
+          await queryBalance(target, balanceId(x, k));
+          if (balanceGet(balanceId(x, k))?.ok) ok++;
+          else bad++;
+        }
+      }
+      if (btn) { btn.disabled = false; btn.classList.remove("pa-spin"); }
+      toast([`已查 ${ok} 个余额`, bad && `${bad} 个没查到`, skip && `${skip} 个官方接口不提供`].filter(Boolean).join("，"), bad ? "warning" : "success");
       return render();
     }
     if (a === "livefetch") {

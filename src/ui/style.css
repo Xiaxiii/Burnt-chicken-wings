@@ -815,6 +815,13 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-whyrow > p { margin: 0; }
 #pa-root .pa-field > span .pa-why, #pa-root .pa-h .pa-why { margin-left: 2px; font-weight: 400; vertical-align: -.15em; padding-top: 0; padding-bottom: 0; }
 #pa-root .pa-whyrow-check { margin-top: 6px; }
+#pa-root .pa-live-bal { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 6px 0 0; font-size: .85em; line-height: 1.4; }
+#pa-root .pa-live-bal > span:first-child { color: var(--pa-dim); }
+#pa-root .pa-live-bal b { font-variant-numeric: tabular-nums; }
+#pa-root .pa-live-bal small { color: var(--pa-dim); min-width: 0; overflow-wrap: anywhere; }
+#pa-root .pa-live-bal.bad small { color: var(--pa-warn); }
+#pa-root .pa-live-bal .pa-bal-again { width: 26px; height: 26px; margin-left: auto; }
+#pa-root .pa-live-bal .pa-bal-again svg { width: 14px; height: 14px; }
 #pa-root .pa-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0; }
 #pa-root .pa-status-row > div { min-width: 0; }
 #pa-root .pa-status-row .pa-p, #pa-root .pa-status-row .pa-hint { margin: 2px 0 0; }

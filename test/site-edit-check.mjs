@@ -30,7 +30,7 @@ try {
   await open(page);
   const head = page.locator("#pa-root .pa-plan-sites .pa-head-btns");
   assert.deepEqual(await head.locator("button").evaluateAll((x) => x.map((b) => [b.dataset.a, b.getAttribute("aria-label"), b.textContent.trim()])),
-    [["sitesedit", "编辑站点：排序、删除、导入导出", ""], ["new", "添加站点", ""]], "平时只有铅笔、＋ 两个图标按钮，各有名称");
+    [["balanceall", "查全部站点的余额", ""], ["sitesedit", "编辑站点：排序、删除、导入导出", ""], ["new", "添加站点", ""]], "平时是钱包、铅笔、＋ 三个图标按钮，各有名称");
   assert.equal(await page.locator("#pa-root [data-import-sites]").count(), 0, "平时不显示导入");
   assert.equal(await page.locator("#pa-root .pa-kline").count(), 2, "丙站的分组平时展开着");
   ok("标题右边：铅笔、＋ 两个图标");
@@ -107,6 +107,9 @@ try {
   const tp = await ctx.newPage();
   await open(tp);
   await tp.click("[data-a=sitesedit]");
+  // 2.6.19 当前连接多了余额一行，第五个站点落到滚动区下面：先把站点列表滚进来
+  await tp.locator("#pa-root .pa-site-list").evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await tp.waitForTimeout(100);
   const cdp = await ctx.newCDPSession(tp);
   const tb = await tp.locator("#pa-root .pa-site-edit .pa-site-grip").nth(4).boundingBox();
   const tstep = (await tp.locator("#pa-root .pa-site-edit").nth(4).boundingBox()).y - (await tp.locator("#pa-root .pa-site-edit").nth(3).boundingBox()).y;

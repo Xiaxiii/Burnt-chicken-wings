@@ -667,6 +667,53 @@ async function withSiteKey(site, fn) {
     }
   }
 }
+// 2.6.19 用站点自己的密钥问余额（接口见 balancePlan）。浏览器里有密钥全文（本浏览器留的副本）时放进请求头，
+// 不动酒馆在用的密钥；没有时自定义站点按密钥库编号用（旧版酒馆不认编号，临时换成这个密钥再换回）。
+// 上游出错时酒馆只回 { error: true }，分不出原因，统一算没查到
+async function fetchBalance(site) {
+  const plan = balancePlan(site);
+  const at = Date.now();
+  if (plan.none) return { ok: false, none: true, text: plan.none, at };
+  let key = site.localKey || site.legacyKey ? getLocalKey(site) : null;
+  if (!key && site.secretId) key = (await revealSecret(site.source, site.secretId)).value || null;
+  if (!key && (site.source !== "custom" || !site.secretId)) return { ok: false, text: "看不到密钥", why: "这个浏览器里没有这个密钥，酒馆也不给看：在站点编辑里重新填一次密钥后可查", at };
+  const ask = async (url) => {
+    const body = { chat_completion_source: "custom", custom_url: `${url}#` };
+    if (key) body.custom_include_headers = JSON.stringify({ Authorization: `Bearer ${key}` });
+    else Object.assign(body, { secret_id: site.secretId, custom_include_headers: mods.openai?.oai_settings?.custom_include_headers });
+    const r = await fetch(stUrl("api/backends/chat-completions/status"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
+      body: JSON.stringify(body),
+      cache: "no-cache"
+    });
+    if (!r.ok) return null;
+    const d = await r.json().catch(() => null);
+    return d && typeof d === "object" && !d.error ? d : null;
+  };
+  // 中转站要额度和用量两样；别的站点一个接口问到就停
+  const run = async () => {
+    const out = [];
+    for (const url of plan.urls) {
+      out.push(await ask(url));
+      if (plan.kind !== "relay" && out.at(-1)) break;
+      if (plan.kind === "relay" && !out[0]) break;
+    }
+    return out;
+  };
+  const data = key ? await run() : await withSiteKey(site, run);
+  return { ...balanceRead(plan, data), at };
+}
+// 余额记在设置里（不含密钥），按站点和分组：重新打开面板也能看到上次查的结果
+function balanceId(site, k = siteKey(site)) {
+  return siteMulti(site) && k ? `${site.id}:${k.id}` : site.id;
+}
+function balanceGet(id) {
+  return settings().balances?.[id] || null;
+}
+function balanceSet(id, value) {
+  settings().balances = { ...(settings().balances || {}), [id]: value };
+}
 async function waitOnline(ms) {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {

@@ -546,6 +546,7 @@ console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);
 require("./reply-core.cjs");
 require("./reply-runtime.cjs");
 require("./statusbar-core.cjs");
+require("./balance-core.cjs");
 require("./variable-safety.cjs");
 require("./variable-flow.cjs");
 require("./semantic-review.cjs");
