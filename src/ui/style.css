@@ -195,7 +195,7 @@ html.cw-open body { overflow: hidden; }
 #cw-root .cw-ok-text { color: var(--cw-ok); }
 #cw-root .cw-dim { color: var(--cw-muted); }
 #cw-root .cw-pre { margin: 6px 0 0; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); line-height: 1.55; background: var(--cw-input); border-radius: var(--cw-r-s); max-height: 50vh; overflow: auto; }
-#cw-root .cw-list { margin: 4px 0; padding-left: 1.25em; display: grid; gap: 4px; }
+#cw-root .cw-bullets { margin: 4px 0; padding-left: 1.25em; display: grid; gap: 4px; }
 #cw-root .cw-empty { display: grid; justify-items: center; gap: 10px; padding: 36px 16px; color: var(--cw-muted); text-align: center; }
 
 /* ---------- 按钮 ---------- */
@@ -803,3 +803,19 @@ html.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }
 #cw-root .cw-rx-tools { display: grid; gap: 8px; }
 #cw-root .cw-rx-picks { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #cw-root .cw-rx-rule .cw-check span { display: grid; gap: 1px; }
+/* ---------- 回复 ---------- */
+#cw-root .cw-reply > [data-r="for"]:not(:empty) { margin-top: 8px; }
+#cw-root .cw-sec > .cw-warn-text { margin: 8px 0 0; font-size: var(--cw-fs-s); }
+#cw-root .cw-reply-paste .cw-field { margin-top: 6px; }
+#cw-root .cw-form { display: grid; gap: 14px; }
+#cw-root .cw-status-row { display: flex; align-items: center; gap: 12px; }
+#cw-root .cw-status-row > :first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+#cw-root .cw-status-row .cw-p { margin: 0; }
+#cw-root .cw-status-tag { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 1.05em; font-weight: 600; }
+#cw-root .cw-reply-sample { min-height: 6.5em; resize: vertical; }
+#cw-root .cw-reply-result { display: grid; gap: 8px; margin-top: 10px; }
+#cw-root .cw-reply-result:empty { display: none; }
+#cw-root .cw-reply-result .cw-card + .cw-card { margin-top: 0; }
+#cw-root .cw-issues { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+#cw-root .cw-issues > li { padding: 8px 12px; border-left: 2px solid var(--cw-warn); background: var(--cw-surface); border-radius: 0 var(--cw-r-s) var(--cw-r-s) 0; }
+#cw-root .cw-reply .cw-sec > .cw-fold { margin-top: 10px; }

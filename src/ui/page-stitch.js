@@ -785,8 +785,8 @@ function mountStitchPage(page) {
           ${fold("更多选项和两边写法的分析", String(html`
             <label class="cw-check"><input type="checkbox" data-g="inj"${settings().followTargetInjection ? raw(" checked") : ""}><span>按目标写法缝合时，角色和插入位置与目标一致</span></label>
             <label class="cw-check"><input type="checkbox" data-g="from"${settings().nameWithSource ? raw(" checked") : ""}><span>条目名称后加「（来自来源预设）」</span></label>
-            ${tgtProf.lines.length ? html`<h4>目标预设怎样让条目生效</h4><ul class="cw-list">${tgtProf.lines.map((l) => html`<li>${l}</li>`)}</ul>` : ""}
-            ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? html`<h4>来源「${sd.name}」怎样让条目生效</h4><ul class="cw-list">${pr.lines.map((l) => html`<li>${l}</li>`)}</ul>` : "")}`))}
+            ${tgtProf.lines.length ? html`<h4>目标预设怎样让条目生效</h4><ul class="cw-bullets">${tgtProf.lines.map((l) => html`<li>${l}</li>`)}</ul>` : ""}
+            ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? html`<h4>来源「${sd.name}」怎样让条目生效</h4><ul class="cw-bullets">${pr.lines.map((l) => html`<li>${l}</li>`)}</ul>` : "")}`))}
         </div>
         <div class="cw-items"></div>
       </div>`);
@@ -866,7 +866,7 @@ function mountStitchPage(page) {
       const card = (value, title, sub, content, notes = []) => html`<label class="cw-mode${mode === value ? " on" : ""}">
             <span class="cw-mode-head"><input type="radio" name="cw-mode-${i}" data-c="mode" value="${value}"${mode === value ? raw(" checked") : ""}><b>${title}</b><small>${sub}</small></span>
             <pre class="cw-snip">${stitchSnip(content)}</pre>
-            ${notes.length && mode === value ? html`<ul class="cw-list">${notes.map((n) => html`<li>${n}</li>`)}</ul>` : ""}</label>`;
+            ${notes.length && mode === value ? html`<ul class="cw-bullets">${notes.map((n) => html`<li>${n}</li>`)}</ul>` : ""}</label>`;
       const modes = same && !planSlot ? card("raw", "原样缝合", "两边写法相同，无需调整", rawContent) : html`
         ${card("raw", "原样缝合", "不调整写法", rawContent)}
         ${card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["正文不变，位置和角色与目标一致"]), ...planFix.warnings.map((w) => "注意：" + w)])}
@@ -881,9 +881,9 @@ function mountStitchPage(page) {
           <div class="cw-item-body"${it.open ? "" : raw(" hidden")}>
             <label class="cw-field"><span>条目名称</span><input class="cw-input" data-c="name" value="${nameOf(it)}"></label>
             ${single ? "" : html`<small class="cw-dim">位置：${placeText(d, it.pos.marker)}</small>`}
-            ${it.desc ? fold(`在「${it.src.from || ""}」中的作用`, String(html`<ul class="cw-list">${it.desc.lines.map((l) => html`<li>${l}</li>`)}${it.desc.cot ? html`<li>${it.desc.cot.text}</li>` : ""}</ul>`)) : html`<small class="cw-dim">来自 ${it.src.from || ""}</small>`}
+            ${it.desc ? fold(`在「${it.src.from || ""}」中的作用`, String(html`<ul class="cw-bullets">${it.desc.lines.map((l) => html`<li>${l}</li>`)}${it.desc.cot ? html`<li>${it.desc.cot.text}</li>` : ""}</ul>`)) : html`<small class="cw-dim">来自 ${it.src.from || ""}</small>`}
             <div class="cw-modes" role="radiogroup">${modes}</div>
-            ${warns.length ? html`<ul class="cw-list cw-warns">${warns.map((w) => html`<li class="cw-warn-text">${w}</li>`)}</ul>` : ""}
+            ${warns.length ? html`<ul class="cw-bullets cw-warns">${warns.map((w) => html`<li class="cw-warn-text">${w}</li>`)}</ul>` : ""}
             ${hookBlock(it)}
             ${showAdv ? html`<details class="cw-fold cw-adv"${it.choice.adv ? raw(" open") : ""}><summary>${iconHtml("chev")}<span>高级</span></summary><div class="cw-fold-body cw-form-row">
                 <label class="cw-field"><span>标题或标签中的名称</span><input class="cw-input" data-c="label" value="${planFix.label}"></label>
@@ -1132,7 +1132,7 @@ function mountStitchPage(page) {
       if (!it.wb.constant && !it.wb.keys.trim()) warns.push("按关键词触发但没有填写关键词，条目不会生效");
       const card = (value, title, sub, content) => html`<label class="cw-mode${mode === value ? " on" : ""}">
             <span class="cw-mode-head"><input type="radio" name="cw-wmode-${i}" data-c="mode" value="${value}"${mode === value ? raw(" checked") : ""}><b>${title}</b><small>${sub}</small></span>
-            <pre class="cw-snip">${stitchSnip(content)}</pre>${mode === value && value === "fix" && plan.changes.length ? html`<ul class="cw-list">${plan.changes.map((n) => html`<li>${n}</li>`)}</ul>` : ""}</label>`;
+            <pre class="cw-snip">${stitchSnip(content)}</pre>${mode === value && value === "fix" && plan.changes.length ? html`<ul class="cw-bullets">${plan.changes.map((n) => html`<li>${n}</li>`)}</ul>` : ""}</label>`;
       const w = it.wb;
       return html`<article class="cw-item${it.open ? " open" : ""}" data-i="${i}">
         <header class="cw-item-head" data-c="toggle"><span class="cw-item-name">${it.name ?? it.src.name}</span>
@@ -1141,7 +1141,7 @@ function mountStitchPage(page) {
           <label class="cw-field"><span>条目名称</span><input class="cw-input" data-c="name" value="${it.name ?? it.src.name}"></label>
           <small class="cw-dim">来自 ${it.src.from || ""}${w.from ? "，沿用原世界书中的触发和插入设置" : ""}</small>
           <div class="cw-modes" role="radiogroup">${same ? card("raw", "原样缝合", "两边写法相同，无需调整", rawText) : html`${card("raw", "原样缝合", "不调整写法", rawText)}${card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, plan.content)}`}</div>
-          ${warns.length ? html`<ul class="cw-list cw-warns">${warns.map((x) => html`<li class="cw-warn-text">${x}</li>`)}</ul>` : ""}
+          ${warns.length ? html`<ul class="cw-bullets cw-warns">${warns.map((x) => html`<li class="cw-warn-text">${x}</li>`)}</ul>` : ""}
           <div class="cw-form-row">
             <label class="cw-field"><span>触发</span><select class="cw-select" data-c="constant"><option value="1"${w.constant ? raw(" selected") : ""}>常驻（一直生效）</option><option value="0"${w.constant ? "" : raw(" selected")}>按关键词触发</option></select></label>
             ${w.constant ? "" : html`<label class="cw-field"><span>关键词（逗号分隔）</span><input class="cw-input" data-c="keys" value="${w.keys}"></label>`}

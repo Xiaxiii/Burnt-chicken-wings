@@ -68,14 +68,14 @@ function mountVarsView(box, { tools, goEntries }) {
       <section class="cw-sec"><div class="cw-sec-h"><h3>读写顺序</h3><small>${report.issues.length} 项风险 · ${report.unknown.length} 条需运行时核对</small></div>
         <p class="cw-hint">按「${d.name}」的列表顺序检查先读后写、清空后读取和未读即覆盖。只做检查，不移动条目、不执行宏；酒馆可能重排提示词，脚本、条件、深度插入、对象/数组键和其他扩展变量需另行核对。</p>
         ${report.issues.length ? html`<div class="cw-stack">${report.issues.map((i) => html`<div class="cw-card"><b>${i.scope === "global" ? "全局" : "聊天"}变量「${i.name}」</b><p class="cw-hint">${i.text}</p><small class="cw-dim">${i.ids.map(nm).join(" → ")}</small></div>`)}</div>` : ""}
-        ${report.unknown.length ? fold(`未推演的条目（${report.unknown.length}）`, String(html`<ul class="cw-list">${report.unknown.map((i) => html`<li>「${nm(i.id)}」：${i.reasons.join("；")}</li>`)}</ul>`)) : ""}
+        ${report.unknown.length ? fold(`未推演的条目（${report.unknown.length}）`, String(html`<ul class="cw-bullets">${report.unknown.map((i) => html`<li>「${nm(i.id)}」：${i.reasons.join("；")}</li>`)}</ul>`)) : ""}
         ${fold(`可见变量操作顺序（${report.events.length}）`, String(html`<ol class="cw-list">${report.events.map((e) => html`<li>「${nm(e.id)}」：${e.op} · ${e.scope === "global" ? "全局" : "聊天"}变量「${e.name}」</li>`)}</ol>`))}
       </section>
       <section class="cw-sec"><div class="cw-sec-h"><h3>当前状态</h3><span class="cw-gap"></span>${btn("读取当前变量状态", { act: "vars-snapshot", size: "sm" })}</div>
         <p class="cw-hint">只显示变量名、是否为空及类型，不保存正文。只能读取酒馆正在用的预设。</p>
         ${raw(stateHtml)}
         <label class="cw-setrow"><span><b>记录生成前后变量变化</b><small>只保留在本页内存中，默认关闭；不是每一次宏调用的执行追踪</small></span>${switchHtml({ act: "vars-watch", on: !!settings().variableWatch, label: "记录生成前后变量变化" })}</label>
-        ${record && d.name === currentPresetName() ? fold(`最近一次生成前后变化（${record.changes?.length || 0}，${record.phase}）`, String(html`<ul class="cw-list">${(record.changes || []).length ? record.changes.map((x) => html`<li>${x.scope === "global" ? "全局" : "聊天"}变量「${x.name}」：${x.kind}${x.empty === true ? "，当前为空" : ""}</li>`) : html`<li>未发现状态变化</li>`}</ul>`), { open: true }) : ""}
+        ${record && d.name === currentPresetName() ? fold(`最近一次生成前后变化（${record.changes?.length || 0}，${record.phase}）`, String(html`<ul class="cw-bullets">${(record.changes || []).length ? record.changes.map((x) => html`<li>${x.scope === "global" ? "全局" : "聊天"}变量「${x.name}」：${x.kind}${x.empty === true ? "，当前为空" : ""}</li>`) : html`<li>未发现状态变化</li>`}</ul>`), { open: true }) : ""}
       </section>`);
   }
   box.parentElement.addEventListener("click", async (e) => {
@@ -149,8 +149,8 @@ async function repairAllVariables(d, manual = {}) {
   const nm = (id) => work.prompt(id)?.name || id;
   const can = plans.length || normalized.length;
   const body = html`<div class="cw-form">
-    ${normalized.length ? html`<section><h4>整理外层包裹（${normalized.length}）</h4><ul class="cw-list">${normalized.map((x) => html`<li>「${nm(x.id)}」去掉没人读取的外层 {{setvar::${x.outer.name}}}，保留里面的写入</li>`)}</ul></section>` : ""}
-    ${byAnchor.size ? html`<section><h4>新增读取条目（${byAnchor.size}）</h4><ul class="cw-list">${[...byAnchor].map(([last, list]) => html`<li>在「${nm(last)}」之后新增「变量读取 · ${list.map((p) => p.name).join("、")}」，正文：<code>${list.map((p) => p.macro).join(" ")}</code></li>`)}</ul></section>` : ""}
+    ${normalized.length ? html`<section><h4>整理外层包裹（${normalized.length}）</h4><ul class="cw-bullets">${normalized.map((x) => html`<li>「${nm(x.id)}」去掉没人读取的外层 {{setvar::${x.outer.name}}}，保留里面的写入</li>`)}</ul></section>` : ""}
+    ${byAnchor.size ? html`<section><h4>新增读取条目（${byAnchor.size}）</h4><ul class="cw-bullets">${[...byAnchor].map(([last, list]) => html`<li>在「${nm(last)}」之后新增「变量读取 · ${list.map((p) => p.name).join("、")}」，正文：<code>${list.map((p) => p.macro).join(" ")}</code></li>`)}</ul></section>` : ""}
     ${skipped.length ? html`<section><h4>不自动修改，需人工核对（${skipped.length}）</h4>${skipped.map((x) => html`<div class="cw-card"><b>${x.key}</b><p class="cw-hint">${x.reason}</p></div>`)}</section>` : ""}
     <p class="cw-hint">仅补缺失的读取、整理可确认的多余包裹。计数、思维链片段、脚本/条件和执行顺序需人工核对。修改后可撤销。</p></div>`;
   const ok = await dialog({ title: "修复变量问题", body, size: "lg", noFocus: true, actions: can ? [{ label: "取消", value: false }, { label: "修改", kind: "primary", value: true }] : [{ label: "知道了", kind: "primary", value: false }] });
@@ -200,7 +200,7 @@ async function cotReadDialog(d, key, manual = {}) {
 async function renameWritesDialog(d, from, to) {
   const plan = renameWritesPlan(d, from, to);
   const a = from.replace(/^全局:/, ""), b = to.replace(/^全局:/, "");
-  const ok = await dialog({ size: "sm", title: "统一变量名", body: html`<p class="cw-p">将写入宏中的「${a}」改为读取用的「${b}」：</p><ul class="cw-list">${plan.edits.map((x) => html`<li>「${d.prompt(x.id)?.name || x.id}」${x.count} 处</li>`)}</ul><p class="cw-hint">只改 setvar、addvar、incvar、decvar 中的变量名，可撤销。</p>`, actions: [{ label: "取消", value: false }, { label: "改名", kind: "primary", value: true }] });
+  const ok = await dialog({ size: "sm", title: "统一变量名", body: html`<p class="cw-p">将写入宏中的「${a}」改为读取用的「${b}」：</p><ul class="cw-bullets">${plan.edits.map((x) => html`<li>「${d.prompt(x.id)?.name || x.id}」${x.count} 处</li>`)}</ul><p class="cw-hint">只改 setvar、addvar、incvar、decvar 中的变量名，可撤销。</p>`, actions: [{ label: "取消", value: false }, { label: "改名", kind: "primary", value: true }] });
   if (!ok) return;
   const now = renameWritesPlan(d, from, to);
   mutate(d, `统一变量名：${b}`, (x) => { for (const e of now.edits) x.prompt(e.id).content = e.content; });

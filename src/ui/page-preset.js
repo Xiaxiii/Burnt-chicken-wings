@@ -542,7 +542,7 @@ function mountEntriesView(box) {
           <label class="cw-field"><span>归入分区</span><select class="cw-select" data-grouping-target="${i}"><option value="choose"${target === "choose" ? raw(" selected") : ""}>请选择目标</option><option value="new"${target === "new" ? raw(" selected") : ""}>＋ 新建分组</option>${d.groups.groups.map((group) => html`<option value="group:${group.id}"${target === `group:${group.id}` ? raw(" selected") : ""}>${group.name}</option>`)}</select></label>
           <label class="cw-field" data-grouping-namebox="${i}"${target === "new" ? "" : raw(" hidden")}><span>新分组名称</span><input class="cw-input" data-grouping-name="${i}" value="${g.name}" maxlength="120"></label>
         </div>
-        ${fold(`查看 ${g.ids.length} 条成员`, String(html`<ul class="cw-list">${g.ids.map((id) => html`<li>${d.prompt(id)?.name || id}</li>`)}</ul>`))}</div>`;
+        ${fold(`查看 ${g.ids.length} 条成员`, String(html`<ul class="cw-bullets">${g.ids.map((id) => html`<li>${d.prompt(id)?.name || id}</li>`)}</ul>`))}</div>`;
     };
     const body = el(html`<div class="cw-form">
       <p class="cw-hint">识别分区标题、明确分类前缀和组内共用变量，可移入已有分区，也可新建。先核对目标与完整顺序；移入已有分区时会收拢该分区的分散成员，应用后可撤销。</p>
