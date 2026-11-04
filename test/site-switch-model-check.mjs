@@ -28,12 +28,12 @@ await page.evaluate(() => {
     ],
     activeSiteId: "a"
   };
-  window.__presetAtelier.open("more", "schemes");
+  window.__presetAtelier.open("conn");
 });
 await page.waitForTimeout(500);
 
 // 1) 切到 B：B 没记模型，A 的模型不在 B 的列表里 → 清空（酒馆连上后自己选新列表的第一个）
-await page.locator(".pa-plan-sites .pa-site", { hasText: "B站" }).locator("[data-a=use]").click();
+await page.locator("[data-r=sites] .cw-site", { hasText: "B站" }).locator("[data-act=use]").click();
 await page.waitForTimeout(1500);
 assert.equal(await page.evaluate(() => window.__mock.live.custom_model), "", "上一个站点的模型不带过去");
 ok("切到没记模型的站点，不沿用上一个站点的模型");
@@ -43,11 +43,11 @@ await page.evaluate(() => {
   $("#model_custom_select").html('<option value="">None</option><option value="[B]m1">[B]m1</option><option value="[B]m2">[B]m2</option>');
   $("#custom_model_id").val("[A]old-model").trigger("input");
 });
-await page.evaluate(() => window.__presetAtelier.open("more", "schemes")); await page.waitForTimeout(300);
-await page.click('[data-a="livemodel"]'); await page.waitForTimeout(300);
-const items = await page.locator(".pa-sheet .pa-mpick-item").allTextContents();
+await page.evaluate(() => window.__presetAtelier.open("conn")); await page.waitForTimeout(300);
+await page.click('[data-act="livemodel"]'); await page.waitForTimeout(300);
+const items = await page.locator(".cw-dlg .cw-choice").allTextContents();
 assert.ok(items.length >= 2 && !items.some((t) => t.includes("[A]old-model")), items.join("|"));
-assert.match(await page.locator(".pa-sheet .pa-mcur-miss").textContent(), /不在此站点的列表中/);
+assert.match(await page.locator(".cw-dlg .cw-mpick-top .cw-hint").textContent(), /不在此站点的列表中/);
 ok("选择模型不混入不在列表里的当前模型");
 
 assert.deepEqual(errs, []);

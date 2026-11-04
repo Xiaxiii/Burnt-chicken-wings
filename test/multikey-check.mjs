@@ -35,78 +35,78 @@ try {
     window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
     (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.push({ id: "old", value: "old", active: true });
     window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [], activeSiteId: null };
-    window.__presetAtelier.open("more", "schemes");
+    window.__presetAtelier.open("conn");
   });
   await page.waitForTimeout(400);
 
   // 1) 添加站点：只有一个密钥时就一个框；一次粘贴两行拆成两行，出现名称框、拖动柄和删除
-  await page.click("[data-a=new]"); await page.waitForTimeout(200);
-  assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), 1);
-  assert.equal(await page.locator(".pa-sheet [data-f=keyname]").count(), 0, "一个密钥时没有名称框");
-  await page.fill(".pa-sheet [data-f=name]", "某中转 Gemini");
-  await page.fill(".pa-sheet [data-f=url]", "https://relay.example/v1");
-  await page.locator(".pa-sheet [data-f=key]").evaluate((box) => {
+  await page.click("[data-act=new]"); await page.waitForTimeout(200);
+  assert.equal(await page.locator(".cw-dlg .cw-keyrow").count(), 1);
+  assert.equal(await page.locator(".cw-dlg [data-f=keyname]").count(), 0, "一个密钥时没有名称框");
+  await page.fill(".cw-dlg [data-f=name]", "某中转 Gemini");
+  await page.fill(".cw-dlg [data-f=url]", "https://relay.example/v1");
+  await page.locator(".cw-dlg [data-f=key]").evaluate((box) => {
     const dt = new DataTransfer();
     dt.setData("text/plain", "sk-aaaaaaaaaaaa\nsk-bbbbbbbbbbbb\n");
     box.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
   });
   await page.waitForTimeout(100);
-  assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), 2, "粘贴两行拆成两个密钥");
-  assert.equal(await page.locator(".pa-sheet [data-f=keyname]").count(), 2, "两个以上时出现名称框");
-  assert.equal(await page.locator(".pa-sheet .pa-key-grip").count(), 2);
-  assert.deepEqual(await page.locator(".pa-sheet [data-f=keyname]").evaluateAll((x) => x.map((y) => y.placeholder)), ["密钥 1", "密钥 2"]);
-  await page.locator(".pa-sheet [data-f=keyname]").first().fill("按次");
-  await page.locator(".pa-sheet [data-f=keyname]").nth(1).fill("按量");
+  assert.equal(await page.locator(".cw-dlg .cw-keyrow").count(), 2, "粘贴两行拆成两个密钥");
+  assert.equal(await page.locator(".cw-dlg [data-f=keyname]").count(), 2, "两个以上时出现名称框");
+  assert.equal(await page.locator(".cw-dlg .cw-key-grip").count(), 2);
+  assert.deepEqual(await page.locator(".cw-dlg [data-f=keyname]").evaluateAll((x) => x.map((y) => y.placeholder)), ["密钥 1", "密钥 2"]);
+  await page.locator(".cw-dlg [data-f=keyname]").first().fill("按次");
+  await page.locator(".cw-dlg [data-f=keyname]").nth(1).fill("按量");
   // ＋ 再加一行，再删掉
-  await page.click(".pa-sheet [data-f=keyadd]");
-  assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), 3);
-  await page.locator(".pa-sheet .pa-keyrow").nth(2).locator("[data-f=keydel]").click();
-  assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), 2);
-  assert.equal(await page.locator(".pa-sheet [data-f=keyname]").first().inputValue(), "按次", "加、删行时填好的名称不丢");
+  await page.click(".cw-dlg [data-act=keyadd]");
+  assert.equal(await page.locator(".cw-dlg .cw-keyrow").count(), 3);
+  await page.locator(".cw-dlg .cw-keyrow").nth(2).locator("[data-f=keydel]").click();
+  assert.equal(await page.locator(".cw-dlg .cw-keyrow").count(), 2);
+  assert.equal(await page.locator(".cw-dlg [data-f=keyname]").first().inputValue(), "按次", "加、删行时填好的名称不丢");
   // 眼睛：显示刚填的密钥，再点隐藏
-  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click();
-  assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").getAttribute("type"), "text");
-  assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").inputValue(), "sk-aaaaaaaaaaaa", "显示时文字不丢");
-  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keyeye]").click();
-  assert.equal(await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=key]").getAttribute("type"), "password");
+  await page.locator(".cw-dlg .cw-keyrow").first().locator("[data-f=keyeye]").click();
+  assert.equal(await page.locator(".cw-dlg .cw-keyrow").first().locator("[data-f=key]").getAttribute("type"), "text");
+  assert.equal(await page.locator(".cw-dlg .cw-keyrow").first().locator("[data-f=key]").inputValue(), "sk-aaaaaaaaaaaa", "显示时文字不丢");
+  await page.locator(".cw-dlg .cw-keyrow").first().locator("[data-f=keyeye]").click();
+  assert.equal(await page.locator(".cw-dlg .cw-keyrow").first().locator("[data-f=key]").getAttribute("type"), "password");
   ok("粘贴多行拆开；＋ 加一行；一个密钥时没有名称框；眼睛显示、隐藏密钥");
 
   // 2.6.13 不触发粘贴的插入（手机输入法剪贴板：换行在单行框里变成空格）也拆开；回车新开一行；逐字打的空格不拆
   {
-    const keyVals = () => page.locator(".pa-sheet [data-f=key]").evaluateAll((x) => x.map((y) => y.value));
-    const before = await page.locator(".pa-sheet .pa-keyrow").count();
-    await page.click(".pa-sheet [data-f=keyadd]");
-    const last = page.locator(".pa-sheet [data-f=key]").last();
+    const keyVals = () => page.locator(".cw-dlg [data-f=key]").evaluateAll((x) => x.map((y) => y.value));
+    const before = await page.locator(".cw-dlg .cw-keyrow").count();
+    await page.click(".cw-dlg [data-act=keyadd]");
+    const last = page.locator(".cw-dlg [data-f=key]").last();
     await last.focus();
     await page.keyboard.insertText("sk-cccc3333\nsk-dddd4444");
     assert.deepEqual((await keyVals()).slice(before), ["sk-cccc3333", "sk-dddd4444"], "输入法一次插入两个密钥：拆成两行");
     assert.equal(await page.evaluate(() => document.activeElement.value), "sk-dddd4444", "焦点落在最后一个");
     await page.keyboard.press("Enter");
-    assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), before + 3, "回车新开一行");
+    assert.equal(await page.locator(".cw-dlg .cw-keyrow").count(), before + 3, "回车新开一行");
     assert.equal(await page.evaluate(() => document.activeElement.dataset.f), "key", "焦点到新的一行");
     await page.keyboard.press("Enter");
-    assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), before + 3, "空的一行按回车不再加");
+    assert.equal(await page.locator(".cw-dlg .cw-keyrow").count(), before + 3, "空的一行按回车不再加");
     await page.keyboard.type("Bearer sk-eeee5555");
     assert.equal((await keyVals()).at(-1), "Bearer sk-eeee5555", "逐字打的空格不拆");
     // 收回这几行，后面的步骤只用前两个密钥
-    for (let n = 0; n < 3; n++) await page.locator(".pa-sheet .pa-keyrow").last().locator("[data-f=keydel]").click();
-    assert.equal(await page.locator(".pa-sheet .pa-keyrow").count(), before);
+    for (let n = 0; n < 3; n++) await page.locator(".cw-dlg .cw-keyrow").last().locator("[data-f=keydel]").click();
+    assert.equal(await page.locator(".cw-dlg .cw-keyrow").count(), before);
     await page.evaluate(() => { window.__toasts = []; });
     ok("输入法剪贴板插入多个密钥也拆开；回车新开一行接着填；逐字打的空格不拆");
   }
 
   // 2) 获取模型列表：每个密钥各拉一次，行尾显示数量；选择框按模型列，标出分组
-  await page.click(".pa-sheet [data-f=fetch]");
-  await page.locator(".pa-kpick").waitFor();
-  assert.deepEqual(await page.locator(".pa-sheet .pa-key-cnt").allInnerTexts(), ["✓ 2", "✓ 4"]);
-  assert.equal(await page.locator(".pa-kview button.on").innerText(), "按模型", "默认按模型");
-  const row = page.locator(".pa-krow", { hasText: "gemini-2.5-pro" });
-  assert.deepEqual(await row.locator(".pa-kchip").allTextContents(), ["按次", "按量"]);
-  assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-flash-lite" }).locator(".pa-kchip").allTextContents(), ["按量"]);
-  await row.locator(".pa-kchip", { hasText: "按量" }).click(); await page.waitForTimeout(300);
-  assert.match(await page.locator(".pa-sheet [data-f=modelbtn]").innerText(), /gemini-2\.5-pro[\s\S]*按量/);
+  await page.click(".cw-dlg [data-act=fetch]");
+  await page.locator(".cw-mpick-list").waitFor();
+  assert.deepEqual(await page.locator(".cw-dlg .cw-pill-ok").allInnerTexts(), ["2 个模型", "4 个模型"]);
+  assert.equal(await page.locator(".cw-mpick-top .cw-seg button.on").innerText(), "按模型", "默认按模型");
+  const row = page.locator(".cw-krow", { hasText: "gemini-2.5-pro" });
+  assert.deepEqual(await row.locator(".cw-kchip").allTextContents(), ["按次", "按量"]);
+  assert.deepEqual(await page.locator(".cw-krow", { hasText: "gemini-2.5-flash-lite" }).locator(".cw-kchip").allTextContents(), ["按量"]);
+  await row.locator(".cw-kchip", { hasText: "按量" }).click(); await page.waitForTimeout(300);
+  assert.match(await page.locator(".cw-dlg [data-f=modelbtn]").innerText(), /gemini-2\.5-pro[\s\S]*按量/);
   assert.equal(await vault(), "old*,aaa,bbb", "拉模型时用过的密钥切回原来在用的");
-  await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
+  await page.locator(".cw-dlg-foot .cw-btn-primary").last().click(); await page.waitForTimeout(300);
   let site = (await S()).sites[0];
   assert.equal(site.keys.length, 2);
   assert.deepEqual(site.keys.map((k) => k.name), ["按次", "按量"]);
@@ -117,34 +117,34 @@ try {
   ok("各拉一次模型；按模型列出、点标签选分组；保存为多密钥站点");
 
   // 3) 站点列表：小三角点开，每个分组一行，各有「切换」
-  const card = page.locator(".pa-plan-sites .pa-site-multi");
-  assert.equal(await card.locator(".pa-kline").count(), 0, "默认折起");
-  assert.equal((await card.locator(".pa-fold-pill").textContent()).trim(), "2 组 ▸");
+  const card = page.locator("[data-r=sites] .cw-site.is-multi");
+  assert.equal(await card.locator(".cw-site-key").count(), 0, "默认折起");
+  assert.equal((await card.locator("[data-act=sitefold]").textContent()).trim(), "2 组");
   // 点名字打开编辑窗口（和单密钥站点一样），点「2 组」展开
-  await card.locator(".pa-site-mhead b").click();
-  await page.locator(".pa-sheet").waitFor();
-  await page.click(".pa-sheet-actions >> text=取消"); await page.waitForTimeout(300);
-  await card.locator(".pa-fold-pill").click();
-  assert.equal((await card.locator(".pa-fold-pill").textContent()).trim(), "2 组 ▾");
-  assert.equal(await card.locator(".pa-kline").count(), 2);
-  await card.locator(".pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
+  await card.locator(".cw-site-head b").click();
+  await page.locator(".cw-dlg").waitFor();
+  await page.click(".cw-dlg-foot >> text=取消"); await page.waitForTimeout(300);
+  await card.locator("[data-act=sitefold]").click();
+  assert.equal((await card.locator("[data-act=sitefold]").textContent()).trim(), "2 组");
+  assert.equal(await card.locator(".cw-site-key").count(), 2);
+  await card.locator(".cw-site-key", { hasText: "按次" }).locator("[data-act=use]").click();
   await page.waitForFunction(() => window.__toasts.some((t) => /已连接/.test(t)), null, { timeout: 20000 });
   site = (await S()).sites[0];
   assert.equal((await S()).activeSiteId, site.id);
   assert.equal(site.keyId, site.keys[0].id);
   assert.equal(await vault(), "old,aaa*,bbb", "切到按次的密钥");
-  assert.match(await page.locator(".pa-plan-sites .pa-site-multi .pa-kline", { hasText: "按次" }).innerText(), /使用中/);
-  assert.match(await page.locator(".pa-live .pa-model-key").innerText(), /按次/, "当前连接的模型框跟着分组名");
+  assert.match(await page.locator("[data-r=sites] .cw-site.is-multi .cw-site-key", { hasText: "按次" }).innerText(), /使用中/);
+  assert.match(await page.locator(".cw-live .cw-modelbtn .cw-pill").innerText(), /按次/, "当前连接的模型框跟着分组名");
   ok("列表里点开分组直接切换");
 
   // 4) 当前连接点 ▾：按分组看，只展开第一段；选按量的模型就换密钥重新连接
-  await page.click("[data-a=livemodel]");
-  await page.locator(".pa-kpick").waitFor();
-  await page.locator(".pa-kview [data-v=group]").click();
-  assert.equal(await page.locator(".pa-ksec").count(), 2);
-  assert.deepEqual(await page.locator(".pa-ksec").evaluateAll((x) => x.map((y) => y.getAttribute("aria-expanded"))), ["true", "false"], "只展开第一段");
-  await page.locator(".pa-ksec", { hasText: "按量" }).click();
-  await page.locator(".pa-mpick-item[data-k]", { hasText: "gemini-2.5-flash-lite" }).click();
+  await page.click("[data-act=livemodel]");
+  await page.locator(".cw-mpick-list").waitFor();
+  await page.locator(".cw-mpick-top .cw-seg [data-view=group]").click();
+  assert.equal(await page.locator(".cw-msec-h").count(), 2);
+  assert.deepEqual(await page.locator(".cw-msec-h").evaluateAll((x) => x.map((y) => y.getAttribute("aria-expanded"))), ["true", "false"], "只展开第一段");
+  await page.locator(".cw-msec-h", { hasText: "按量" }).click();
+  await page.locator(".cw-choice[data-k]", { hasText: "gemini-2.5-flash-lite" }).click();
   await page.waitForFunction(() => window.__toasts.some((t) => /已连接.*按量/.test(t)), null, { timeout: 20000 });
   site = (await S()).sites[0];
   assert.equal(site.keyId, site.keys[1].id);
@@ -159,28 +159,28 @@ try {
     c.ChatCompletionService = { presetToGeneratePayload: async (a, b, o) => o };
   });
   await page.route("**/api/backends/chat-completions/generate", (r) => r.fulfill({ status: 429, json: { error: { message: "insufficient quota" } } }));
-  await page.click(".pa-live [data-a=testmodel]");
-  await page.waitForFunction(() => document.querySelector(".pa-live .pa-live-res")?.textContent === "按量 · 429 额度不足", null, { timeout: 10000 });
+  await page.click(".cw-live [data-act=testmodel]");
+  await page.waitForFunction(() => document.querySelector(".cw-live .cw-test")?.textContent === "按量 · 429 额度不足", null, { timeout: 10000 });
   ok("测试消息失败时点名分组");
 
   // 5) 方案记下分组
   await page.click("[data-s=new]"); await page.waitForTimeout(300);
-  await page.fill(".pa-sheet [data-f=name]", "按量方案");
-  await page.selectOption(".pa-sheet [data-f=api]", "__live");
-  await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
+  await page.fill(".cw-dlg [data-f=name]", "按量方案");
+  await page.selectOption(".cw-dlg [data-f=api]", "__live");
+  await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(400);
   const sc = (await S()).schemes.find((x) => x.name === "按量方案");
   assert.equal(sc.conn.siteId, site.id);
   assert.equal(sc.conn.keyId, site.keys[1].id, "方案记下用的分组");
   ok("方案记下站点、分组和模型");
   // 换回按次，再套用方案：连回方案记的按量分组
-  await page.locator(".pa-plan-sites .pa-site-multi .pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
+  await page.locator("[data-r=sites] .cw-site.is-multi .cw-site-key", { hasText: "按次" }).locator("[data-act=use]").click();
   await page.waitForTimeout(2500);
   assert.equal(await vault(), "old,aaa*,bbb");
-  await page.locator(".pa-srow", { hasText: "按量方案" }).locator("[data-a=apply]").click(); await page.waitForTimeout(2500);
+  await page.locator(".cw-scheme", { hasText: "按量方案" }).locator("[data-act=apply]").click(); await page.waitForTimeout(2500);
   assert.equal(await vault(), "old,aaa,bbb*", "套用方案连回它记的分组");
   ok("套用方案连回它记的分组");
   // 拖动 ⋮⋮ 调顺序
-  await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
+  await page.locator("[data-r=sites] .cw-site.is-multi .cw-site-head b").click(); await page.waitForTimeout(200);
   // 看已保存的密钥：保存时本浏览器留了一份，直接用它；没有这份时问酒馆，不让看就在这一行下面说明
   const copyOf = (id) => page.evaluate((sid) => Object.entries(localStorage).find(([k]) => k.startsWith("presetAtelier:keycopy:") && k.endsWith(":" + sid))?.[1] || null, id);
   const firstSid = (await S()).sites[0].keys[0].secretId;
@@ -188,7 +188,7 @@ try {
   assert.ok(kept, "保存密钥时本浏览器留了一份");
   let reveal = { status: 403, json: { error: "forbidden" } };
   await page.route("**/api/secrets/find", (r) => r.fulfill(reveal));
-  const row1 = () => page.locator(".pa-sheet .pa-keyrow").first();
+  const row1 = () => page.locator(".cw-dlg .cw-keyrow").first();
   const kbox = row1().locator("[data-f=key]");
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
   assert.equal(await kbox.inputValue(), kept, "有留底时不问酒馆，直接填进框里");
@@ -199,24 +199,24 @@ try {
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(100);
   // 没有留底（更新前存的）：关掉重开编辑窗口，酒馆拒绝时说明，允许时显示并留底
   await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("presetAtelier:keycopy:")) localStorage.removeItem(k); });
-  await page.locator(".pa-sheet .pa-sheet-x").last().click(); await page.waitForTimeout(300);
-  await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
+  await page.locator(".cw-dlg .cw-dlg-x").last().click(); await page.waitForTimeout(300);
+  await page.locator("[data-r=sites] .cw-site.is-multi .cw-site-head b").click(); await page.waitForTimeout(200);
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
-  assert.match(await page.locator(".pa-sheet .pa-key-note").textContent(), /重新粘贴一次[\s\S]*allowKeysExposure/);
+  assert.match(await page.locator(".cw-dlg .cw-key-note").textContent(), /重新粘贴一次[\s\S]*allowKeysExposure/);
   reveal = { status: 200, json: { value: "sk-aaaaaaaaaaaa" } };
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
   assert.equal(await kbox.inputValue(), "sk-aaaaaaaaaaaa");
   assert.equal(await copyOf(firstSid), "sk-aaaaaaaaaaaa", "酒馆给了全文后也留一份");
   // 框里显示着没改的密钥，保存时不再存一遍
   const vaultBefore = await vault();
-  const grips = page.locator(".pa-sheet .pa-key-grip");
+  const grips = page.locator(".cw-dlg .cw-key-grip");
   const g2 = await grips.nth(1).boundingBox();
   const g1 = await grips.nth(0).boundingBox();
   await grips.nth(1).dispatchEvent("pointerdown", { pointerId: 1, clientX: g2.x + 5, clientY: g2.y + 5, bubbles: true });
   await grips.nth(1).dispatchEvent("pointermove", { pointerId: 1, clientX: g1.x + 5, clientY: g1.y - 4, bubbles: true });
   await grips.nth(0).dispatchEvent("pointerup", { pointerId: 1, bubbles: true });
-  assert.deepEqual(await page.locator(".pa-sheet [data-f=keyname]").evaluateAll((x) => x.map((y) => y.value)), ["按量", "按次"], "拖动后按量排到上面");
-  await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
+  assert.deepEqual(await page.locator(".cw-dlg [data-f=keyname]").evaluateAll((x) => x.map((y) => y.value)), ["按量", "按次"], "拖动后按量排到上面");
+  await page.locator(".cw-dlg-foot .cw-btn-primary").last().click(); await page.waitForTimeout(300);
   assert.deepEqual((await S()).sites[0].keys.map((k) => k.name), ["按量", "按次"]);
   assert.equal(await vault(), vaultBefore, "显示着的密钥没改，保存时密钥库不变");
   // 换回原顺序，后面的检查照旧
@@ -224,7 +224,7 @@ try {
   ok("拖动调顺序");
   // 酒馆密钥库里删掉的密钥，下次读取密钥库时本浏览器的留底跟着删；还在的不动
   await page.evaluate(() => { const any = Object.keys(localStorage).find((k) => k.startsWith("presetAtelier:keycopy:")); localStorage.setItem(any.replace(/[^:]+$/, "gone-id"), "sk-gone"); });
-  await page.locator(".pa-plan-sites .pa-site-multi .pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
+  await page.locator("[data-r=sites] .cw-site.is-multi .cw-site-key", { hasText: "按次" }).locator("[data-act=use]").click();
   await page.waitForTimeout(2500);
   assert.equal(await page.evaluate(() => Object.keys(localStorage).some((k) => k.endsWith(":gone-id"))), false, "密钥库里没有的密钥不留底");
   assert.equal(await copyOf(firstSid), "sk-aaaaaaaaaaaa", "还在的密钥留底不动");
@@ -236,33 +236,33 @@ try {
     s.keys.push({ id: "k3", name: "特价", secretId: null, keyMask: "", model: "", models: ["gemini-2.5-pro"] }, { id: "k4", name: "", secretId: null, keyMask: "", model: "", models: ["gemini-2.5-pro"] });
     s.modelView = "model";
   });
-  await page.click("[data-a=livemodel]");
-  await page.locator(".pa-kpick").waitFor();
-  const pro = page.locator(".pa-krow", { hasText: "gemini-2.5-pro" });
-  assert.equal(await pro.locator(".pa-kchip").count(), 1);
-  assert.equal(await pro.locator(".pa-kmore").textContent(), "+3");
-  await pro.locator(".pa-kmore").click();
-  assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-pro" }).locator(".pa-kchip").allTextContents(), ["按次", "按量", "特价", "密钥 4"], "没填名称的叫「密钥 N」");
-  await page.locator(".pa-sheet-x").last().click();
+  await page.click("[data-act=livemodel]");
+  await page.locator(".cw-mpick-list").waitFor();
+  const pro = page.locator(".cw-krow", { hasText: "gemini-2.5-pro" });
+  assert.equal(await pro.locator(".cw-kchip").count(), 1);
+  assert.equal(await pro.locator(".cw-kmore").textContent(), "+3");
+  await pro.locator(".cw-kmore").click();
+  assert.deepEqual(await page.locator(".cw-krow", { hasText: "gemini-2.5-pro" }).locator(".cw-kchip").allTextContents(), ["按次", "按量", "特价", "密钥 4"], "没填名称的叫「密钥 N」");
+  await page.locator(".cw-dlg-x").last().click();
   // 多密钥站点：按模型、按分类、按分组
-  await page.click("[data-a=livemodel]");
-  await page.locator(".pa-kpick").waitFor();
-  assert.deepEqual(await page.locator(".pa-kview button").allTextContents(), ["按模型", "按分类", "按分组"]);
-  await page.locator(".pa-sheet-x").last().click();
+  await page.click("[data-act=livemodel]");
+  await page.locator(".cw-mpick-list").waitFor();
+  assert.deepEqual(await page.locator(".cw-mpick-top .cw-seg button").allTextContents(), ["按模型", "按分类", "按分组"]);
+  await page.locator(".cw-dlg-x").last().click();
   ok("标签超过 2 个收成「+N」，点开全部");
 
   // 7) 编辑删到只剩一个密钥：写回站点上，和单密钥站点一样
   await page.evaluate(() => { const s = window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0]; s.keys.splice(2); });
-  await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
-  await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keydel]").click();
-  assert.equal(await page.locator(".pa-sheet [data-f=keyname]").count(), 0);
-  await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
+  await page.locator("[data-r=sites] .cw-site.is-multi .cw-site-head b").click(); await page.waitForTimeout(200);
+  await page.locator(".cw-dlg .cw-keyrow").first().locator("[data-f=keydel]").click();
+  assert.equal(await page.locator(".cw-dlg [data-f=keyname]").count(), 0);
+  await page.locator(".cw-dlg-foot .cw-btn-primary").last().click(); await page.waitForTimeout(300);
   site = (await S()).sites[0];
   assert.equal(site.keys, undefined);
   assert.ok(site.secretId, "密钥记回站点上");
   assert.equal(site.model, "gemini-2.5-flash-lite");
-  assert.equal(await page.locator(".pa-plan-sites .pa-site-multi").count(), 0);
-  assert.equal(await page.locator(".pa-plan-sites .pa-site [data-a=use], .pa-plan-sites .pa-site .pa-chip").count() > 0, true);
+  assert.equal(await page.locator("[data-r=sites] .cw-site.is-multi").count(), 0);
+  assert.equal(await page.locator("[data-r=sites] .cw-site [data-act=use], [data-r=sites] .cw-site .cw-pill").count() > 0, true);
   ok("只剩一个密钥时写回站点上");
   assert.deepEqual(errs, []);
 } finally {

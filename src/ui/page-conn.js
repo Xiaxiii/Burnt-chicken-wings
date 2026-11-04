@@ -271,7 +271,7 @@ function mountConnPage(page) {
           <span class="cw-gap"></span>${ibtn("more", "连接详情", { act: "livemore", attrs: `aria-expanded="${String(open)}"`, cls: open ? "on" : "" })}</header>
         ${sub ? html`<div class="cw-live-url" title="${sub}">${sub}</div>` : ""}
         <div class="cw-live-model">${modelBtn(live.model, { act: "livemodel", arrow: liveModelList(live).length > 0 || !!ak && siteMulti(active), key: ak && siteMulti(active) ? keyName(active, ak) : "" })}
-          ${live.source === "custom" ? ibtn("refresh", "拉取模型列表", { act: "livefetch" }) : ""}${ibtn("bolt", "发送测试消息，看选中的模型能不能用", { act: "testmodel" })}</div>
+          ${live.source === "custom" ? ibtn("refresh", "拉取模型列表", { act: "livefetch" }) : ""}${ibtn("bolt", "发送测试消息", { act: "testmodel" })}</div>
         ${testOk ? html`<p class="cw-test ${liveTest.ok ? "is-ok" : "is-bad"}"${liveTest.raw ? raw(` title="${esc(liveTest.raw)}" data-act="testraw" role="button" tabindex="0"`) : ""}>${iconHtml(liveTest.ok ? "ok" : "warn")}<span>${liveTest.text}</span></p>` : ""}
         ${balLine(liveBalTarget(live, active, ak, sameSite))}
         ${modelDiff ? html`<p class="cw-hint">站点记的是「${ak.model}」，切换预设后会换回它。<button type="button" class="cw-link" data-act="keepmodel">改记为当前模型</button></p>` : ""}
