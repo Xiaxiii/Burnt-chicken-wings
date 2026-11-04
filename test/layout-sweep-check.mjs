@@ -1,6 +1,7 @@
 // 各种屏幕尺寸下，各页面和常用弹窗没有内容超出屏幕、没有横向滚动（320 小屏、标准手机、手机横屏、iPad 竖屏、电脑）。
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/layout-sweep-check.mjs
 import assert from 'node:assert/strict';
+import "./choose.mjs";
 import { chromium } from 'playwright';
 const src = (await import('node:fs')).readFileSync('test/cot-fragment-check.mjs', 'utf8');
 const cotPreset = eval('(() => {' + src.slice(src.indexOf("const p = ("), src.indexOf("const stored")) + '; return preset; })()');

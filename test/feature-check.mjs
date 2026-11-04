@@ -77,7 +77,7 @@ ok("已选清单逐条去掉；新建分组在目标列表里");
 
 // 4) 缝进世界书后可以撤销
 await chooseDstType(page, "world"); await page.waitForTimeout(400);
-await choose(page, ".cw-pane-dst .cw-list", "示例世界书"); await page.waitForTimeout(400);
+await choose(page, ".cw-dst-pick .cw-pick-btn", "示例世界书"); await page.waitForTimeout(400);
 const wbCount = () => page.evaluate(async () => Object.keys((await import("/test/site/scripts/world-info.js")).loadWorldInfo ? (await (await import("/test/site/scripts/world-info.js")).loadWorldInfo("示例世界书")).entries : {}).length);
 const n0 = await wbCount();
 await page.locator(".cw-pane-dst .cw-list .cw-row").first().click(); await page.waitForTimeout(150);

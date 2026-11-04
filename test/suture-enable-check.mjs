@@ -79,7 +79,7 @@ try {
   for (const scenario of ['all-off', 'all-on', 'one-on']) {
     const page = await boot();
     await selectFour(page);
-    await page.locator('.cw-pane-dst .cw-list .cw-group').first().locator('.cw-gname').click();
+    await page.locator('.cw-pane-dst .cw-list .cw-group').first().locator('.cw-gname > span').click();
     await page.click('[data-act=st-go]');
     await page.waitForSelector('.cw-review .cw-item');
     await count(page, 2);
@@ -128,7 +128,7 @@ try {
     const page = await boot();
     await selectFour(page);
     await chooseDstType(page, 'world');
-    await choose(page, '.cw-pane-dst .cw-list', '示例世界书');
+    await choose(page, '.cw-dst-pick .cw-pick-btn', '示例世界书');
     const before = await page.evaluate(() => structuredClone(window.__wiStore['示例世界书']));
     await page.locator('.cw-pane-dst .cw-list [data-act=top]').click();
     await page.click('[data-act=st-go]');

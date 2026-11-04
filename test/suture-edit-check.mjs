@@ -2,6 +2,7 @@
 // 来源预设、目标预设存回预设，世界书写回世界书，已选的条目跟着更新；点取消不改动
 import { chromium } from "playwright";
 import assert from "node:assert";
+import "./choose.mjs";
 const S = new URL("./shots/", import.meta.url).pathname;
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const ok = (m) => console.log("✓", m);
@@ -27,66 +28,65 @@ for (const [label, opt] of sizes) {
   await row.locator(".cw-row-name").click(); await page.waitForTimeout(200);
   assert.match(await page.locator(".cw-picked-n").innerText(), /已选 1 条/);
   await row.locator("[data-act=edit]").click(); await page.waitForTimeout(350);
-  assert.equal(await page.locator(".cw-dlg-head b").innerText(), "编辑条目");
-  assert.match(await page.locator(".cw-dlg .pa-edit-where").innerText(), /写入预设/);
+  assert.ok(await page.locator("#cw-root .cw-detail").isVisible(), "打开条目编辑");
+  assert.match(await page.locator("#cw-root .cw-detail .cw-hint").first().innerText(), /写入预设/);
   if (touch) assert.equal(await focused(), false, "打开时不弹键盘");
   await page.screenshot({ path: S + `se-${label}-1-open.png` });
   // 展开正文：触屏上也不顺手弹键盘
-  await page.click(".cw-dlg [data-act=wide]"); await page.waitForTimeout(200);
-  if (touch) assert.equal(await focused(), false, "展开时不弹键盘");
-  assert.ok(await page.locator(".cw-dlg .pa-edit-where").isHidden(), "展开后只留正文");
-  await page.click(".cw-dlg [data-act=wide]"); await page.waitForTimeout(200);
+  if (await page.locator("#cw-root .cw-detail [data-act=wide]").isVisible()) {
+    await page.click("#cw-root .cw-detail [data-act=wide]"); await page.waitForTimeout(200);
+    await page.click("#cw-root .cw-detail [data-act=wide]"); await page.waitForTimeout(200);
+  }
   // 点了正文才能打字
-  if (touch) await page.tap(".cw-dlg [data-f=content]"); else await page.click(".cw-dlg [data-f=content]");
+  if (touch) await page.tap("#cw-root .cw-detail [data-f=content]"); else await page.click("#cw-root .cw-detail [data-f=content]");
   assert.equal(await focused(), true, "点正文后可以输入");
-  await page.fill(".cw-dlg [data-f=name]", "缝合页改过的名称");
-  await page.fill(".cw-dlg [data-f=content]", "缝合页改过的正文");
-  await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(400);
-  assert.equal(await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out)").count(), 0);
+  await page.fill("#cw-root .cw-detail [data-f=name]", "缝合页改过的名称");
+  await page.fill("#cw-root .cw-detail [data-f=content]", "缝合页改过的正文");
+  await page.click("#cw-root .cw-detail-foot .cw-btn-primary"); await page.waitForTimeout(400);
+  assert.equal(await page.locator("#cw-root .cw-detail").count(), 0);
   assert.match(await page.locator(".cw-pane-src .cw-list").innerText(), /缝合页改过的名称/, "来源列表显示新名称");
   await page.click("[data-act=st-picked]"); await page.waitForTimeout(300);
-  assert.match(await page.locator(".cw-dlg .pa-pick").innerText(), /缝合页改过的名称/, "已选的条目跟着更新");
+  assert.match(await page.locator(".cw-dlg").innerText(), /缝合页改过的名称/, "已选的条目跟着更新");
   await page.click(".cw-dlg-x"); await page.waitForTimeout(250);
   const srow = page.locator(".cw-pane-src .cw-list .cw-row").filter({ hasText: "缝合页改过的名称" }).first();
   await srow.locator("[data-act=edit]").click(); await page.waitForTimeout(300);
-  assert.equal(await page.inputValue(".cw-dlg [data-f=content]"), "缝合页改过的正文", "正文已存进预设");
+  assert.equal(await page.inputValue("#cw-root .cw-detail [data-f=content]"), "缝合页改过的正文", "正文已存进预设");
   // 取消不改动
-  await page.fill(".cw-dlg [data-f=content]", "不该保存");
-  await page.click(".cw-dlg-foot .cw-btn:not(.cw-btn-primary)"); await page.waitForTimeout(300);
+  await page.fill("#cw-root .cw-detail [data-f=content]", "不该保存");
+  await page.click("#cw-root .cw-detail-foot .cw-btn:not(.cw-btn-primary)"); await page.waitForTimeout(300);
   await srow.locator("[data-act=edit]").click(); await page.waitForTimeout(300);
-  assert.equal(await page.inputValue(".cw-dlg [data-f=content]"), "缝合页改过的正文", "点取消不改动");
-  await page.click(".cw-dlg-x"); await page.waitForTimeout(250);
+  assert.equal(await page.inputValue("#cw-root .cw-detail [data-f=content]"), "缝合页改过的正文", "点取消不改动");
+  await page.locator("#cw-root .cw-detail [data-act=detail-close]:visible").first().click(); await page.waitForTimeout(250);
   ok(`${label}：来源预设可改，打开不弹键盘，已选跟着更新，取消不改`);
 
   // 目标预设
   const drow = page.locator(".cw-pane-dst .cw-list .cw-row:not(.is-sep)").filter({ has: page.locator("[data-act=edit]") }).first();
   if (await drow.count()) {
     await drow.locator("[data-act=edit]").click(); await page.waitForTimeout(300);
-    assert.equal(await page.locator(".cw-dlg-head b").innerText(), "编辑条目");
+    assert.ok(await page.locator("#cw-root .cw-detail").isVisible(), "打开条目编辑");
     if (touch) assert.equal(await focused(), false);
-    await page.click(".cw-dlg-x"); await page.waitForTimeout(250);
+    await page.locator("#cw-root .cw-detail [data-act=detail-close]:visible").first().click(); await page.waitForTimeout(250);
     ok(`${label}：目标预设同样可改`);
   }
 
   // 来源世界书：只改正文，名称（备注）不动
-  await page.click("[data-st=srctype]"); await page.waitForTimeout(250);
-  await page.locator('.cw-dlg .cw-choice[data-v="world"]').click(); await page.waitForTimeout(400);
-  await page.click(".cw-src-pick .cw-pick-btn .cw-src-pick .cw-pick-btn"); await page.waitForTimeout(250);
+  await page.locator('#cw-root .cw-pane-src [data-srctype="world"]').click(); await page.waitForTimeout(400);
+  await page.click(".cw-src-pick .cw-pick-btn"); await page.waitForTimeout(250);
   await page.locator(".cw-dlg .cw-choice", { hasText: "示例世界书" }).click(); await page.waitForTimeout(500);
   const wrow = page.locator(".cw-pane-src .cw-list .cw-row", { hasText: "示例条目" });
   await wrow.locator(".cw-row-name").click(); await page.waitForTimeout(200);
   await wrow.locator("[data-act=edit]").click(); await page.waitForTimeout(300);
-  assert.match(await page.locator(".cw-dlg .pa-edit-where").innerText(), /写入世界书「示例世界书」/);
-  assert.equal(await page.locator(".cw-dlg [data-f=role]").count(), 0, "世界书条目只有名称和正文");
+  assert.match(await page.locator("#cw-root .cw-detail .cw-hint").first().innerText(), /写入世界书「示例世界书」/);
+  assert.equal(await page.locator("#cw-root .cw-detail [data-f=role]").count(), 0, "世界书条目只有名称和正文");
   if (touch) assert.equal(await focused(), false);
-  await page.fill(".cw-dlg [data-f=content]", `世界书改过（${label}）`);
-  await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(500);
+  await page.fill("#cw-root .cw-detail [data-f=content]", `世界书改过（${label}）`);
+  await page.click("#cw-root .cw-detail-foot .cw-btn-primary"); await page.waitForTimeout(500);
   const e1 = await page.evaluate(() => globalThis.__wiStore["示例世界书"].entries[1]);
   assert.equal(e1.content, `世界书改过（${label}）`, "写回世界书");
   assert.equal(e1.comment, "示例条目", "没改名称就不动备注");
   await wrow.locator("[data-act=edit]").click(); await page.waitForTimeout(300);
-  assert.equal(await page.inputValue(".cw-dlg [data-f=content]"), `世界书改过（${label}）`, "重新读到新内容");
-  await page.click(".cw-dlg-x"); await page.waitForTimeout(250);
+  assert.equal(await page.inputValue("#cw-root .cw-detail [data-f=content]"), `世界书改过（${label}）`, "重新读到新内容");
+  await page.locator("#cw-root .cw-detail [data-act=detail-close]:visible").first().click(); await page.waitForTimeout(250);
   ok(`${label}：世界书条目可改并写回`);
 
   assert.deepEqual(errs, []);

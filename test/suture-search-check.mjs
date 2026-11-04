@@ -1,6 +1,7 @@
 // 缝合页 🔍：点放大镜弹出输入框，边打边在「从」「到」列表里筛出来（和整理页一样）；搜的词记着，「✕ 清除」恢复
 import { chromium } from "playwright";
 import assert from "node:assert";
+import "./choose.mjs";
 const S = new URL("./shots/", import.meta.url).pathname;
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
@@ -20,31 +21,24 @@ const name = (await page.evaluate(() => {
 }));
 const kw = kwOf(name);
 const before = await page.locator(".cw-pane-src .cw-list .cw-row").count();
+// 3.0：搜索框就在「从」「到」两栏顶上，边打边筛，点一下就能打字
 await page.click("[data-q=src]"); await page.waitForTimeout(250);
-assert.equal(await page.evaluate(() => document.activeElement?.classList.contains("pa-ss-q")), true, "弹出就能打字");
-await page.fill(".cw-dlg .pa-ss-q", kw); await page.waitForTimeout(400);
+assert.equal(await page.evaluate(() => document.activeElement?.dataset?.q === "src"), true, "点了就能打字");
+await page.fill("[data-q=src]", kw); await page.waitForTimeout(400);
 assert.match(await page.locator(".cw-pane-src .cw-list .cw-qsum").innerText(), /匹配/, "边打边在列表里筛");
-await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(300);
 const rows = page.locator(".cw-pane-src .cw-list .cw-row");
 assert.ok(await rows.count() >= 1 && (await rows.count()) !== before);
-assert.match(await page.locator(".cw-pane-src .cw-list .pa-qbar").innerText(), new RegExp(kw));
-assert.ok(await page.locator("[data-q=src]").evaluate((x) => x.classList.contains("on")), "放大镜标出正在搜");
+assert.ok(await page.locator('.cw-search[data-side="src"]').evaluate((x) => x.classList.contains("has-q")), "搜索框标出正在搜");
 await rows.first().click(); await page.waitForTimeout(200);
 assert.match(await page.locator(".cw-picked-n").innerText(), /已选 1 条/, "筛出来的条目直接点选");
 await page.screenshot({ path: S + "ss-1-src.png" });
 ok("来源：列表里直接筛出来，点了就选");
-
-// 再点放大镜：词还在
-await page.click("[data-q=src]"); await page.waitForTimeout(250);
-assert.equal(await page.inputValue(".cw-dlg .pa-ss-q"), kw);
-await page.click(".cw-dlg-x"); await page.waitForTimeout(300);
+assert.equal(await page.inputValue("[data-q=src]"), kw);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sutureQuery.qSrc), kw);
 ok("搜的词记着");
 
 // 目标：同样筛出来，点一条定缝合位置
-await page.click("[data-q=dst]"); await page.waitForTimeout(250);
-await page.fill(".cw-dlg .pa-ss-q", kw); await page.waitForTimeout(400);
-await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(300);
+await page.fill("[data-q=dst]", kw); await page.waitForTimeout(400);
 const drow = page.locator(".cw-pane-dst .cw-list .cw-row").first();
 const dn = (await drow.locator(".cw-row-name").innerText()).trim();
 await drow.click(); await page.waitForTimeout(300);
@@ -53,8 +47,8 @@ await page.screenshot({ path: S + "ss-2-dst.png" });
 ok("目标：列表里筛出来，点一条定缝合位置");
 
 // 清除：恢复全部
-await page.click(".cw-pane-src .cw-list [data-act=qclear]"); await page.waitForTimeout(300);
-assert.equal(await page.locator(".cw-pane-src .cw-list .pa-qbar").count(), 0);
+await page.click("[data-act=qclear-src]"); await page.waitForTimeout(300);
+assert.equal(await page.locator(".cw-pane-src .cw-list .cw-qsum").count(), 0);
 assert.equal(await page.locator(".cw-pane-src .cw-list .cw-row").count(), before, "清除后恢复原样");
 ok("✕ 清除后恢复全部");
 

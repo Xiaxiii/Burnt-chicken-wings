@@ -2,6 +2,7 @@
 // 展开、收起的状态照旧，不会全部变成展开。先构建并在仓库根目录运行 8765 静态服务。
 import { chromium } from "playwright";
 import assert from "node:assert";
+import "./choose.mjs";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const errs = [];
@@ -10,7 +11,7 @@ await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
 await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = {}; window.__presetAtelier.open("stitch"); });
 await page.waitForTimeout(400);
-const fold = (side) => page.evaluate((side) => [...document.querySelectorAll(`.pa-${side}-list .cw-group`)].map((g) => (g.classList.contains("pa-collapsed") ? "-" : "+") + g.querySelector(".cw-gname")?.textContent.trim()).join(" "), side);
+const fold = (side) => page.evaluate((side) => [...document.querySelectorAll(`.cw-pane-${side} .cw-list .cw-group`)].map((g) => (g.classList.contains("is-col") ? "-" : "+") + g.querySelector(".cw-gname")?.textContent.trim()).join(" "), side);
 // 换掉所有分组编号（模拟没有编号的分组被重新读取），并让草稿重新读取
 const regenIds = () => page.evaluate(() => {
   const m = window.__mock;
@@ -66,7 +67,7 @@ await page2.goto("http://127.0.0.1:8765/test/site/index.html");
 await page2.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
 await page2.evaluate((saved) => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { sutureFold: saved }; window.__presetAtelier.open("stitch"); }, await store());
 await page2.waitForTimeout(500);
-const fold2 = (side) => page2.evaluate((side) => [...document.querySelectorAll(`.pa-${side}-list .cw-group`)].map((g) => (g.classList.contains("pa-collapsed") ? "-" : "+") + g.querySelector(".cw-gname")?.textContent.trim()).join(" "), side);
+const fold2 = (side) => page2.evaluate((side) => [...document.querySelectorAll(`.cw-pane-${side} .cw-list .cw-group`)].map((g) => (g.classList.contains("is-col") ? "-" : "+") + g.querySelector(".cw-gname")?.textContent.trim()).join(" "), side);
 assert.equal(await fold2("dst"), dstNow, "重新加载后目标栏与最后一次相同");
 assert.equal(await fold2("src"), srcNow, "重新加载后来源栏与最后一次相同");
 console.log("✓ 折叠状态存进设置：缝合后展开的组合上后保持合上，重新加载后与最后一次相同");
