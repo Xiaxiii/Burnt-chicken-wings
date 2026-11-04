@@ -727,3 +727,79 @@ html.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }
 #cw-root.cw-has-bg :is(.cw-bar, .cw-detail) { background: color-mix(in srgb, var(--cw-bg) 86%, transparent); }
 #cw-root.cw-has-bg { --cw-surface: color-mix(in srgb, var(--cw-bg) 58%, transparent); --cw-raised: color-mix(in srgb, var(--cw-bg) 80%, transparent); }
 
+
+/* ---------- 缝合页 ---------- */
+#cw-root .cw-col-wide { max-width: none; }
+#cw-root .cw-mobile-flex { display: none; }
+#cw-root .cw-stitch { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, var(--cw-split, 1fr)) 9px minmax(0, var(--cw-split-r, 1fr)); padding: 0 12px 0 20px; }
+#cw-root .cw-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+#cw-root .cw-pane-head { flex: none; display: grid; gap: 8px; padding: 2px 0 10px; }
+#cw-root .cw-pane-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#cw-root .cw-pane-ft { font-size: var(--cw-fs-l); color: var(--cw-accent); width: 1.4em; flex: none; }
+#cw-root .cw-src-pick, #cw-root .cw-dst-pick { flex: 1 1 55%; min-width: 0; display: flex; }
+#cw-root .cw-src-pick > *, #cw-root .cw-dst-pick > * { width: 100%; }
+#cw-root .cw-search-sm { flex: 1 1 45%; }
+#cw-root .cw-pane-list { padding: 0 6px 20px 0; }
+#cw-root .cw-pane-list > .cw-col { max-width: none; }
+#cw-root .cw-divider { position: relative; cursor: col-resize; display: flex; justify-content: center; touch-action: none; }
+#cw-root .cw-divider::before { content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px; border-left: 1px solid var(--cw-rule); }
+#cw-root .cw-divider span { position: relative; align-self: center; width: 5px; height: 44px; border-radius: 5px; background: var(--cw-line); transition: background-color .16s var(--cw-ease); }
+#cw-root .cw-divider.is-dragging span, #cw-root .cw-divider:focus-visible span { background: var(--cw-accent); }
+@media (hover: hover) { #cw-root .cw-divider:hover span { background: var(--cw-accent); } }
+#cw-root .cw-pane-dst { padding-left: 8px; }
+#cw-root .cw-slot-new { margin-bottom: 8px; }
+#cw-root .cw-stitchbar .cw-where { max-width: 52vw; }
+#cw-root .cw-picked-n { font-weight: 600; padding: 0; text-align: left; }
+#cw-root .cw-paste textarea { min-height: 200px; }
+@media (max-width: 959px) {
+    #cw-root .cw-mobile-flex { display: flex; }
+    #cw-root .cw-stitch { grid-template-columns: minmax(0, 1fr); padding: 0 12px; }
+    #cw-root .cw-divider { display: none; }
+    #cw-root .cw-stitch[data-show="src"] .cw-pane-dst, #cw-root .cw-stitch[data-show="dst"] .cw-pane-src { display: none; }
+    #cw-root .cw-pane-dst { padding-left: 0; }
+    #cw-root .cw-pane-row { flex-wrap: wrap; }
+    #cw-root .cw-src-pick, #cw-root .cw-dst-pick, #cw-root .cw-search-sm { flex: 1 1 100%; }
+    #cw-root .cw-pagehead .cw-btn span { display: none; }
+    #cw-root .cw-pagehead .cw-btn { padding: 0 10px; }
+}
+#cw-root .cw-picked { display: grid; gap: 2px; margin: 0 -6px; }
+#cw-root .cw-picked-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; }
+#cw-root .cw-picked-row > span { flex: 1 1 auto; min-width: 0; display: grid; }
+#cw-root .cw-picked-row small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }
+/* 缝合预览 */
+#cw-root .cw-review { display: grid; gap: 12px; }
+#cw-root .cw-review-head { display: grid; gap: 10px; }
+#cw-root .cw-review-where { display: grid; gap: 2px; }
+#cw-root .cw-review-where small { color: var(--cw-muted); font-size: var(--cw-fs-s); }
+#cw-root .cw-enable { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#cw-root .cw-enable [data-enable-count] { font-weight: 500; }
+#cw-root .cw-enable + .cw-hint { margin-top: -6px; }
+#cw-root .cw-hookbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--cw-rule); }
+#cw-root .cw-hookbar .cw-gap { flex: 1 1 auto; }
+#cw-root .cw-items { display: grid; gap: 8px; }
+#cw-root .cw-item { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); }
+#cw-root .cw-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px 8px 14px; cursor: pointer; }
+#cw-root .cw-item-head > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transition: transform .16s var(--cw-ease); }
+#cw-root .cw-item.open .cw-item-head > .cw-ico { transform: rotate(90deg); }
+#cw-root .cw-item-name { flex: 1 1 12em; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+#cw-root .cw-item-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+#cw-root .cw-item-on { font-size: var(--cw-fs-s); align-items: center; }
+#cw-root .cw-item-on input { margin-top: 0; }
+#cw-root .cw-item-body { display: grid; gap: 12px; padding: 4px 14px 14px; border-top: 1px solid var(--cw-rule); padding-top: 12px; }
+#cw-root .cw-modes { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+#cw-root .cw-mode { display: grid; gap: 6px; align-content: start; padding: 10px 12px; border: 1px solid var(--cw-line); border-radius: var(--cw-r); cursor: pointer; background: var(--cw-bg); }
+#cw-root .cw-mode.on { border: 2px solid var(--cw-accent); padding: 9px 11px; background: var(--cw-accent-soft); }
+#cw-root .cw-mode-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 8px; align-items: center; }
+#cw-root .cw-mode-head input { accent-color: var(--cw-accent); margin: 0; }
+#cw-root .cw-mode-head small { grid-column: 2; color: var(--cw-muted); font-size: var(--cw-fs-xs); }
+#cw-root .cw-snip { margin: 0; padding: 6px 8px; border-radius: var(--cw-r-s); background: var(--cw-input); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-xs); line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--cw-muted); }
+#cw-root .cw-hook { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-raised); }
+#cw-root .cw-hook .cw-check span { display: grid; gap: 2px; }
+#cw-root .cw-hook .cw-pill { margin-left: 6px; }
+#cw-root .cw-warns { margin: 0; }
+#cw-root .cw-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+#cw-root .cw-body-edit textarea { min-height: 200px; }
+/* 正则缝合 */
+#cw-root .cw-rx-tools { display: grid; gap: 8px; }
+#cw-root .cw-rx-picks { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#cw-root .cw-rx-rule .cw-check span { display: grid; gap: 1px; }

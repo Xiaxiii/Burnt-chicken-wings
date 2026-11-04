@@ -10033,13 +10033,1518 @@ async function repairVariableDialog(d, key, manual = {}) {
 }
 
 // src/ui/page-stitch.js
-function mountStitchPage(page) { page.innerHTML = '<div class="cw-body"><div class="cw-col"><p class="cw-hint">建设中</p></div></div>'; return { render() {} }; }
-
-// src/ui/dlg-stitch.js
-// 建设中
+// 「缝合」页：从（预设 / 世界书 / 文件 / 粘贴）选条目，到（当前预设 / 世界书）选位置，预览后缝入。
+// 宽屏左右两栏（中间可拖动调宽），窄屏「从 / 到」切换。缝合正则、搬到新版在页头。
+var repainting = false;
+function repaint(node, markup) {
+  repainting = true;
+  try { if (node.isConnected) node.outerHTML = String(markup); } finally { repainting = false; }
+}
+// 本次缝后开启：计数、总开关（部分开启时滑块居中）、按来源
+function stitchEnableTools() {
+  return html`<div class="cw-enable" data-enable-tools role="group" aria-label="本次缝合的开启状态">
+    <span data-enable-count aria-live="polite"></span>
+    <label class="cw-switch" title="打开全部开启，关闭全部关闭；仍可逐条调整"><input type="checkbox" data-enable-toggle aria-label="本次缝后全部开启"><i></i></label>
+    <button type="button" class="cw-link" data-enable-source title="每条恢复成来源里的开关状态">按来源</button></div>
+    <p class="cw-hint">默认与来源一致：来源里开着的缝后开启，关着的缝后关闭。</p>`;
+}
+function bindStitchEnableTools(body, items) {
+  const tools = body.querySelector("[data-enable-tools]");
+  const toggle = tools.querySelector("[data-enable-toggle]");
+  const refresh = () => {
+    const count = items.filter((it) => it.enabled).length;
+    tools.querySelector("[data-enable-count]").textContent = `${count && count < items.length ? "部分开启" : "缝后开启"}：${count} / ${items.length}`;
+    toggle.checked = count === items.length;
+    toggle.indeterminate = count > 0 && count < items.length;
+  };
+  toggle.addEventListener("change", () => {
+    const on = toggle.checked;
+    for (const it of items) it.enabled = on;
+    body.querySelectorAll('.cw-items [data-c="on"]').forEach((input) => { input.checked = on; });
+    refresh();
+  });
+  body.addEventListener("change", (e) => { if (e.target.matches('.cw-items [data-c="on"]')) refresh(); });
+  tools.querySelector("[data-enable-source]").addEventListener("click", () => {
+    for (const it of items) it.enabled = it.srcEnabled !== false;
+    body.querySelectorAll('.cw-items [data-c="on"]').forEach((input) => {
+      const it = items[Number(input.closest(".cw-item")?.dataset.i)];
+      if (it) input.checked = it.enabled;
+    });
+    refresh();
+  });
+  refresh();
+}
+// 正文缩略：开头两行 + 结尾两行
+function stitchSnip(text) {
+  const lines = String(text || "").split("\n").filter((l) => l.trim() && !/^\s*(-{3,}|\*{3,}|={3,})\s*$/.test(l));
+  const cut = (l) => (l = l.trim(), l.length > 46 ? l.slice(0, 46) + "…" : l);
+  return (lines.length <= 5 ? lines.map(cut) : [...lines.slice(0, 2).map(cut), "⋯", ...lines.slice(-2).map(cut)]).join("\n");
+}
+var SRC_TYPES = [["preset", "预设"], ["world", "世界书"], ["file", "文件"], ["paste", "粘贴"]];
+var DST_TYPES = [["preset", "预设"], ["world", "世界书"]];
+function mountStitchPage(page) {
+  const st = {
+    srcType: "preset", srcPreset: null, srcWorld: null,
+    fileDraft: null, fileKind: null, fileWorld: null,
+    picked: new Map(), // key -> {name, content, prompt, from, srcDraft, srcId, raw}
+    fold: new Map(),
+    dstFor: null, marker: null, newName: null, pasteN: 0,
+    worldCache: new Map(),
+    dstType: "preset", dstWorld: null, wbDraft: null, wbMarker: null,
+    pane: "src", srcBody: false, dstBody: false, highlight: null, lastWb: null
+  };
+  page.innerHTML = String(html`
+    <header class="cw-pagehead"><div class="cw-col cw-col-wide">
+      <span class="cw-mobile-flex">${segHtml([["src", "从"], ["dst", "到"]], "src", { attr: "data-pane", label: "从或到" })}</span>
+      <span class="cw-gap"></span>
+      ${btn("缝合正则", { act: "st-regex", icon: "regex" })}
+      ${btn("搬到新版", { act: "st-migrate", icon: "move", title: "来源选旧版、目标选新版，将旧版中缝入的条目按原位置搬到新版" })}
+    </div></header>
+    <div class="cw-stitch" data-show="src">
+      <section class="cw-pane cw-pane-src" aria-label="从">
+        <div class="cw-pane-head">
+          <div class="cw-pane-row"><b class="cw-pane-ft">从</b>${segHtml(SRC_TYPES, "preset", { attr: "data-srctype", size: "sm", label: "来源类型" })}</div>
+          <div class="cw-pane-row"><span class="cw-src-pick"></span><label class="cw-search cw-search-sm" data-side="src">${iconHtml("search")}<input type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组、标签" aria-label="搜索来源条目" data-q="src">${ibtn("close", "清空搜索", { act: "qclear-src", cls: "cw-search-x" })}</label></div>
+        </div>
+        <div class="cw-body cw-pane-list" data-list="src"></div>
+      </section>
+      <div class="cw-divider" role="separator" tabindex="0" aria-label="拖动调整两栏宽度" title="拖动调整宽度"><span></span></div>
+      <section class="cw-pane cw-pane-dst" aria-label="到">
+        <div class="cw-pane-head">
+          <div class="cw-pane-row"><b class="cw-pane-ft">到</b>${segHtml(DST_TYPES, "preset", { attr: "data-dsttype", size: "sm", label: "目标类型" })}</div>
+          <div class="cw-pane-row"><span class="cw-dst-pick"></span><label class="cw-search cw-search-sm" data-side="dst">${iconHtml("search")}<input type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组、标签" aria-label="搜索目标条目" data-q="dst">${ibtn("close", "清空搜索", { act: "qclear-dst", cls: "cw-search-x" })}</label></div>
+        </div>
+        <div class="cw-body cw-pane-list" data-list="dst"></div>
+      </section>
+    </div>
+    <div class="cw-bar cw-stitchbar"><div class="cw-col cw-col-wide">
+      <div class="cw-bar-info"><button type="button" class="cw-link cw-picked-n" data-act="st-picked">未选条目</button><small class="cw-where">未选位置</small></div>
+      <div class="cw-bar-acts">${btn("撤销", { act: "st-wbundo", attrs: "hidden" })}${btn("清空", { act: "st-clear", title: "清空已选的条目和缝合位置" })}${btn("预览", { act: "st-go", kind: "primary", disabled: true })}</div>
+    </div></div>
+    <div class="cw-bar cw-ngbar" hidden><div class="cw-col cw-col-wide"><div class="cw-bar-info"><b class="cw-ng-n"></b><small>点组名或条目，新分组放在它后面</small></div>${btn("取消", { act: "st-ngcancel" })}</div></div>`);
+  const stitchEl = page.querySelector(".cw-stitch");
+  const srcList = page.querySelector('[data-list="src"]');
+  const dstList = page.querySelector('[data-list="dst"]');
+  const bar = page.querySelector(".cw-stitchbar");
+  const ngbar = page.querySelector(".cw-ngbar");
+  const target = () => getDraft(focusPreset());
+  // ---- 宽屏两栏可以拖动调宽，记住比例（sutureSplit，15–85）
+  const divider = page.querySelector(".cw-divider");
+  const applySplit = (v) => {
+    const r = Math.min(85, Math.max(15, Number(v) || 50));
+    stitchEl.style.setProperty("--cw-split", r + "fr");
+    stitchEl.style.setProperty("--cw-split-r", 100 - r + "fr");
+    return r;
+  };
+  applySplit(settings().sutureSplit ?? 50);
+  divider.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    divider.setPointerCapture(e.pointerId);
+    divider.classList.add("is-dragging");
+    const rect = stitchEl.getBoundingClientRect();
+    let last = null;
+    const move = (ev) => { last = applySplit((ev.clientX - rect.left) / rect.width * 100); };
+    const up = () => {
+      divider.classList.remove("is-dragging");
+      divider.removeEventListener("pointermove", move);
+      divider.removeEventListener("pointerup", up);
+      divider.removeEventListener("pointercancel", up);
+      if (last != null) { settings().sutureSplit = Math.round(last); saveSettings(); }
+    };
+    divider.addEventListener("pointermove", move);
+    divider.addEventListener("pointerup", up);
+    divider.addEventListener("pointercancel", up);
+  });
+  divider.addEventListener("keydown", (e) => {
+    const k = { ArrowLeft: -5, ArrowRight: 5 }[e.key];
+    if (!k) return;
+    e.preventDefault();
+    settings().sutureSplit = applySplit((settings().sutureSplit ?? 50) + k);
+    saveSettings();
+  });
+  // ---- 窄屏：「从 / 到」切换
+  function setPane(p) {
+    st.pane = p;
+    stitchEl.dataset.show = p;
+    page.querySelectorAll("[data-pane]").forEach((b) => { if (b.tagName === "BUTTON") { b.classList.toggle("on", b.dataset.pane === p); b.setAttribute("aria-selected", String(b.dataset.pane === p)); } });
+  }
+  function paintPaneSeg() {
+    const n = st.picked.size;
+    const src = page.querySelector('[data-pane="src"]');
+    const dst = page.querySelector('[data-pane="dst"]');
+    if (src) src.textContent = n ? `从 · 已选 ${n}` : "从";
+    if (dst) dst.textContent = (st.dstType === "world" ? st.wbMarker : st.marker) ? "到 · 已选位置" : "到";
+  }
+  // ---- 来源
+  const regexSource = () => st.srcType === "file" && st.fileKind === "regex";
+  const fileName = () => st.fileKind === "world" ? st.fileWorld?.name : st.fileDraft?.name;
+  function paintTypeSeg(attr, cur) {
+    page.querySelectorAll(`[${attr}]`).forEach((b) => { b.classList.toggle("on", b.getAttribute(attr) === cur); b.setAttribute("aria-selected", String(b.getAttribute(attr) === cur)); });
+  }
+  function renderSrcPick() {
+    paintTypeSeg("data-srctype", st.srcType);
+    const slot = page.querySelector(".cw-src-pick");
+    page.querySelector('[data-side="src"]').hidden = st.srcType === "paste" || regexSource();
+    if (st.srcType === "preset") {
+      const names = listPresets();
+      if (!st.srcPreset || !names.includes(st.srcPreset)) st.srcPreset = names.find((n) => n !== focusPreset()) || names[0];
+      slot.innerHTML = String(html`<button type="button" class="cw-pick-btn" data-act="src-pick" title="${st.srcPreset || ""}"><span>${st.srcPreset || "请选择"}</span>${st.srcPreset === currentPresetName() ? html`<small>使用中</small>` : ""}${iconHtml("chevDown")}</button>`);
+    } else if (st.srcType === "world") {
+      const names = listWorldbooks();
+      if (!st.srcWorld || !names.includes(st.srcWorld)) st.srcWorld = names[0] || null;
+      slot.innerHTML = String(names.length ? html`<button type="button" class="cw-pick-btn" data-act="src-pick" title="${st.srcWorld}"><span>${st.srcWorld}</span>${iconHtml("chevDown")}</button>` : html`<span class="cw-hint">没有世界书</span>`);
+    } else if (st.srcType === "file") {
+      slot.innerHTML = String(fileBtn(fileName() || "选择文件…", { icon: "folder", attr: "data-src-file" }));
+    } else slot.innerHTML = String(html`<span class="cw-hint">粘贴一段文字作为条目</span>`);
+  }
+  // 文件来源认三种：聊天补全预设（prompts）、世界书（entries，含角色卡内嵌的 character_book）、正则（单条、多条或 regex_scripts）
+  const isRegexScript = (x) => !!x && typeof x === "object" && typeof x.findRegex === "string";
+  function readSourceFile(name, data) {
+    if (Array.isArray(data?.prompts) && (data.prompts.length || !data.extensions?.regex_scripts?.length)) return { fileKind: "preset", fileDraft: new Draft(name, data), fileWorld: null };
+    const book = data?.entries ?? data?.character_book?.entries ?? data?.data?.character_book?.entries;
+    if (book && typeof book === "object") {
+      const items = worldItems(`wf:${name}`, Object.values(book));
+      if (items.length) return { fileKind: "world", fileDraft: null, fileWorld: { name, items } };
+    }
+    const scripts = isRegexScript(data) ? [data] : Array.isArray(data) && data.length && data.every(isRegexScript) ? data
+      : Array.isArray(data?.regex_scripts) ? data.regex_scripts : Array.isArray(data?.extensions?.regex_scripts) ? data.extensions.regex_scripts : null;
+    if (scripts?.length) return { fileKind: "regex", fileDraft: new Draft(name, { prompts: [], extensions: { regex_scripts: scripts } }), fileWorld: null };
+    throw new Error("无法识别。支持聊天补全预设、世界书、正则文件");
+  }
+  function regexSourceDraft() {
+    if (st.srcType === "file") return st.fileKind === "world" ? null : st.fileDraft;
+    return st.srcType === "preset" && st.srcPreset ? getDraft(st.srcPreset) : null;
+  }
+  // 分组折叠按「分组名 + 同名第几个」记；记的是展开的组（sutureFold，最多 40 个预设）
+  function foldKeys(d) {
+    const seen = new Map(), out = new Map();
+    for (const g of d.groups.groups) {
+      const n = seen.get(g.name) || 0;
+      seen.set(g.name, n + 1);
+      out.set(g.id, `${g.name}\u0001${n}`);
+    }
+    return out;
+  }
+  const collapsedFrom = (d, open) => {
+    const keys = foldKeys(d);
+    return new Set(d.groups.groups.filter((g) => !open.has(keys.get(g.id))).map((g) => g.id));
+  };
+  function foldStore() {
+    const s = settings();
+    if (!s.sutureFold || typeof s.sutureFold !== "object" || Array.isArray(s.sutureFold)) s.sutureFold = {};
+    return s.sutureFold;
+  }
+  function openSetFor(key) {
+    if (!st.fold.has(key)) st.fold.set(key, new Set(Array.isArray(foldStore()[key]) ? foldStore()[key] : []));
+    return st.fold.get(key);
+  }
+  function toggleOpen(d, key, gid, on) {
+    const k = foldKeys(d).get(gid);
+    if (!k) return;
+    const open = openSetFor(key);
+    if (on ?? !open.has(k)) open.add(k);
+    else open.delete(k);
+    const store = foldStore();
+    delete store[key];
+    if (open.size) store[key] = [...open];
+    const keys = Object.keys(store);
+    for (const x of keys.slice(0, Math.max(0, keys.length - 40))) delete store[x];
+    saveSettings();
+  }
+  // ---- 搜索：两侧各一个输入框，词存进设置（sutureQuery），关掉面板后仍按它筛
+  const qStore = () => {
+    if (!settings().sutureQuery || typeof settings().sutureQuery !== "object") settings().sutureQuery = {};
+    return settings().sutureQuery;
+  };
+  const qKey = (side) => side === "src" ? (st.srcType === "world" ? "qSrcWb" : "qSrc") : (st.dstType === "world" ? "qDstWb" : "qDst");
+  const qOf = (side) => String(qStore()[qKey(side)] || "").trim();
+  function paintQ(side) {
+    const input = page.querySelector(`[data-q="${side}"]`);
+    if (document.activeElement !== input) input.value = qOf(side);
+    input.closest(".cw-search").classList.toggle("has-q", !!input.value);
+  }
+  function setQuery(side, v) {
+    qStore()[qKey(side)] = v;
+    if (!v) st[side === "src" ? "srcBody" : "dstBody"] = false;
+    side === "src" ? renderSrc() : renderDst();
+  }
+  for (const side of ["src", "dst"]) {
+    const input = page.querySelector(`[data-q="${side}"]`);
+    onSearchInput(input, () => { setQuery(side, input.value.trim()); input.closest(".cw-search").classList.toggle("has-q", !!input.value); });
+    input.addEventListener("change", () => saveSettings());
+  }
+  // 世界书条目列表（酒馆里的世界书和世界书文件共用）
+  function renderWorldRows(items, from) {
+    srcList.dataset.kind = "world";
+    srcList._items = items;
+    srcList._from = from;
+    const wq = qOf("src").toLowerCase();
+    const shown = wq ? items.filter((it) => String(it.name).toLowerCase().includes(wq) || String(it.content || "").toLowerCase().includes(wq)) : items;
+    srcList.innerHTML = String(html`<div class="cw-col">${wq ? html`<div class="cw-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : ""}<div class="cw-list">${shown.length ? shown.map((it) => html`<div class="cw-row${st.picked.has(it.id) ? " is-sel" : ""}${it.enabled ? "" : " is-off"}" data-wid="${it.id}" tabindex="0" data-key-click><span class="cw-row-sel" aria-hidden="true"></span><span class="cw-row-main"><span class="cw-row-name">${raw(markText(it.name, wq))}</span></span>${ibtn("edit", "查看或编辑", { act: "edit", cls: "cw-row-edit" })}</div>`) : empty(wq ? "没有匹配的条目" : "没有条目")}</div></div>`);
+  }
+  async function renderSrc() {
+    paintQ("src");
+    if (regexSource()) return renderRegexSrc();
+    const keyOf = (id) => `${st.srcType}:${st.srcType === "preset" ? st.srcPreset : st.srcType === "file" ? st.fileDraft?.name : ""}:${id}`;
+    if (st.srcType === "preset" || st.srcType === "file" && st.fileKind !== "world") {
+      let d;
+      try {
+        d = st.srcType === "preset" ? st.srcPreset ? getDraft(st.srcPreset) : null : st.fileDraft;
+      } catch (e) {
+        srcList.innerHTML = `<div class="cw-col">${empty(e.message)}</div>`;
+        return;
+      }
+      if (!d) {
+        srcList.innerHTML = `<div class="cw-col">${empty(st.srcType === "file" ? "选择一个预设、世界书或正则文件" : "没有预设")}</div>`;
+        return renderBar();
+      }
+      st.srcFoldKey = `src:${st.srcType}:${d.name}`;
+      st.srcCollapsed = collapsedFrom(d, openSetFor(st.srcFoldKey));
+      const sel = new Set(d.order.map((o) => o.identifier).filter((id) => st.picked.has(keyOf(id))));
+      srcList.innerHTML = `<div class="cw-col"><div class="cw-list">${renderEntryList(d, { mode: "source", selected: sel, collapsed: st.srcCollapsed, query: qOf("src"), searchBody: st.srcBody })}</div></div>`;
+      srcList.dataset.kind = "draft";
+      srcList._draft = d;
+      srcList._keyOf = keyOf;
+    } else if (st.srcType === "file" && st.fileKind === "world") {
+      renderWorldRows(st.fileWorld.items, `世界书文件 ${st.fileWorld.name}`);
+    } else if (st.srcType === "world") {
+      if (!st.srcWorld) {
+        srcList.innerHTML = `<div class="cw-col">${empty("没有世界书")}</div>`;
+        return renderBar();
+      }
+      // 记下发请求时选的是哪本：网慢时用户可能已经换了别的书
+      const wname = st.srcWorld;
+      let items = st.worldCache.get(wname);
+      if (!items) {
+        srcList.innerHTML = `<div class="cw-col">${empty("读取中…")}</div>`;
+        try {
+          items = await readWorldbook(wname);
+          st.worldCache.set(wname, items);
+        } catch (e) {
+          if (st.srcType === "world" && st.srcWorld === wname) srcList.innerHTML = `<div class="cw-col">${empty("读取失败：" + e.message)}</div>`;
+          return;
+        }
+        if (st.srcType !== "world" || st.srcWorld !== wname) return;
+      }
+      renderWorldRows(items, `世界书 ${wname}`);
+    } else {
+      srcList.dataset.kind = "paste";
+      const pasted = [...st.picked.entries()].filter(([k]) => k.startsWith("paste:"));
+      srcList.innerHTML = String(html`<div class="cw-col"><div class="cw-form cw-paste">
+          <label class="cw-field"><span>条目名称</span><input class="cw-input" data-p="name" placeholder="不填则叫「粘贴条目 N」"></label>
+          <label class="cw-field"><span>条目正文</span><textarea class="cw-input" data-p="content" placeholder="变量写法会按目标预设自动调整"></textarea></label>
+          <div>${btn("加入", { act: "paste-add", icon: "plus" })}</div>
+          ${pasted.length ? html`<p class="cw-hint">已加入：${pasted.map(([, v]) => v.name).join("、")}</p>` : ""}</div></div>`);
+    }
+    renderBar();
+  }
+  function renderRegexSrc() {
+    let d = null, n = 0;
+    try {
+      d = regexSourceDraft();
+      n = d ? presetRegexList(d).length : 0;
+    } catch (e) {
+      srcList.innerHTML = `<div class="cw-col">${empty(e.message)}</div>`;
+      return;
+    }
+    srcList.dataset.kind = "regex";
+    let to = "";
+    try { to = st.dstType === "preset" ? target().name : ""; } catch {}
+    srcList.innerHTML = String(html`<div class="cw-col"><div class="cw-card"><b>「${d.name}」中有 ${n} 条正则</b>
+      <p class="cw-hint">${n ? to ? `缝入目标预设「${to}」，可逐条选择。` : "正则只能缝入预设，请将目标切换为「预设」。" : "文件中没有正则。"}</p>
+      ${n && to ? html`<div class="cw-card-acts">${btn("选择正则…", { act: "st-regex", kind: "primary" })}</div>` : ""}</div></div>`);
+    renderBar();
+  }
+  // 「查看」可以直接改：已安装预设存回预设（可撤销），文件只改读入的内容，世界书写回世界书（写前备份）。已选的条目跟着更新
+  function syncPicked(test, patch, rawPatch) {
+    for (const v of st.picked.values()) {
+      if (!test(v)) continue;
+      Object.assign(v, patch);
+      if (v.raw && rawPatch) Object.assign(v.raw, rawPatch);
+    }
+  }
+  async function editPresetEntry(d, id) {
+    const p = d.prompt(id);
+    if (!p) return;
+    const file = d === st.fileDraft;
+    const r = await editEntrySheet(p, { marker: d.isMarker(id), title: p.name || "编辑条目", hint: file ? "只改这次读入的文件内容，不会写回文件。" : `保存后写入预设「${d.name}」，可撤销。` });
+    if (!r) return;
+    let dd = d;
+    if (!file) {
+      try { dd = getDraft(d.name); } catch (e) { return toast(e.message, "error"); }
+    }
+    const cur = dd.prompt(id);
+    if (!cur) return toast("条目已不存在，未保存", "warning");
+    const next = entryChanges(cur, r);
+    if (!next) return;
+    if (file) Object.assign(cur, next);
+    else mutate(dd, "编辑条目", (x) => Object.assign(x.prompt(id), next));
+    syncPicked((v) => v.srcId === id && v.from === dd.name, { name: cur.name, content: cur.content, prompt: cur, srcDraft: dd });
+    renderSrc();
+    toast("已保存", "success");
+  }
+  async function editFileWorldEntry(it) {
+    const r = await editEntrySheet({ name: it.name, content: it.content }, { promptOnly: true, title: it.name, hint: "只改这次读入的文件内容，不会写回文件。" });
+    if (!r || r.name === it.name && r.content === it.content) return;
+    Object.assign(it, { name: r.name, content: r.content });
+    Object.assign(it.raw, { comment: r.name, content: r.content });
+    const v = st.picked.get(it.id);
+    if (v) Object.assign(v, { name: r.name, content: r.content });
+    renderSrc();
+    toast("已保存", "success");
+  }
+  async function editWorldEntry(wname, uidv, name, content) {
+    const r = await editEntrySheet({ name, content }, { promptOnly: true, title: name, hint: `保存后写入世界书「${wname}」。` });
+    if (!r || r.name === name && r.content === content) return;
+    const fields = { content: r.content };
+    if (r.name !== name) fields.comment = r.name;
+    try {
+      await backupPut(`世界书：${wname}`, await mods.wi.loadWorldInfo(wname), "编辑前");
+    } catch (e) {
+      if (!await confirmBox("备份失败", `编辑前备份世界书「${wname}」没有成功（${e.message}）。仍要保存吗？`, "仍要保存")) return;
+    }
+    try {
+      await updateWorldEntry(wname, uidv, fields);
+    } catch (e) {
+      return toast("保存失败：" + e.message, "error");
+    }
+    syncPicked((v) => v.raw && String(v.raw.uid) === String(uidv) && v.from === `世界书 ${wname}`, { name: r.name, content: r.content }, fields);
+    st.worldCache.delete(wname);
+    toast("已保存", "success");
+    if (st.srcType === "world" && st.srcWorld === wname) renderSrc();
+    if (st.dstType === "world" && st.dstWorld === wname) {
+      try { await loadWbDraft(true); } catch {}
+      renderDst();
+    }
+  }
+  srcList.addEventListener("click", async (e) => {
+    if (e.target.closest('[data-act="qbody"]')) { st.srcBody = !st.srcBody; return renderSrc(); }
+    const kind = srcList.dataset.kind;
+    if (kind === "paste") {
+      if (e.target.closest('[data-act="paste-add"]')) {
+        const name = srcList.querySelector("[data-p=name]").value.trim() || `粘贴条目 ${st.pasteN + 1}`;
+        const content = srcList.querySelector("[data-p=content]").value;
+        if (!content.trim()) return toast("正文为空");
+        st.picked.set(`paste:${++st.pasteN}`, { name, content, prompt: null, from: "粘贴" });
+        renderSrc();
+      }
+      return;
+    }
+    if (kind === "regex") return;
+    const editBtn = e.target.closest('[data-act="edit"]');
+    if (kind === "world") {
+      const r = e.target.closest("[data-wid]");
+      if (!r) return;
+      const it = srcList._items.find((x) => x.id === r.dataset.wid);
+      if (editBtn) return st.srcType === "file" ? editFileWorldEntry(it) : editWorldEntry(st.srcWorld, it.uid, it.name, it.content);
+      st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: srcList._from, raw: it.raw });
+      return renderSrc();
+    }
+    const d = srcList._draft;
+    if (!d) return;
+    const head = e.target.closest(".cw-ghead");
+    if (head) {
+      const gid = head.dataset.gid;
+      if (e.target.closest('[data-act="gselect"]')) {
+        const ids = d.order.filter((o) => d.groupOf(o.identifier) === gid).map((o) => o.identifier).filter((x) => !d.isMarker(x));
+        const all = ids.every((x) => st.picked.has(srcList._keyOf(x)));
+        for (const x of ids) {
+          const k2 = srcList._keyOf(x);
+          if (all) st.picked.delete(k2);
+          else {
+            const p2 = d.prompt(x);
+            st.picked.set(k2, { name: p2.name, content: p2.content, prompt: p2, from: d.name, srcDraft: d, srcId: x });
+          }
+        }
+      } else toggleOpen(d, st.srcFoldKey, gid);
+      return renderSrc();
+    }
+    const row = e.target.closest(".cw-row");
+    if (!row) return;
+    const id = row.dataset.id;
+    const p = d.prompt(id);
+    if (editBtn) return editPresetEntry(d, id);
+    if (d.isMarker(id)) return toast("系统位置条目不能缝合");
+    const k = srcList._keyOf(id);
+    st.picked.has(k) ? st.picked.delete(k) : st.picked.set(k, { name: p.name, content: p.content, prompt: p, from: d.name, srcDraft: d, srcId: id });
+    renderSrc();
+  });
+  // ---- 目标
+  // 世界书目标：把条目包装成一个只读的「预设」，列表、选位置都沿用预设那一套（没有分组）
+  async function loadWbDraft(force = false) {
+    const names = listWorldbooks();
+    if (!st.dstWorld || !names.includes(st.dstWorld)) st.dstWorld = names[0] || null;
+    if (!st.dstWorld) { st.wbDraft = null; return; }
+    if (!force && st.wbDraft?.name === st.dstWorld) return;
+    const wname = st.dstWorld;
+    const data = await mods.wi.loadWorldInfo(wname);
+    if (st.dstWorld !== wname) return;
+    const list = wiSorted(data);
+    const prompts = list.map((e) => ({ identifier: `wb${e.uid}`, name: e.comment || (e.key || []).join(",") || `条目${e.uid}`, content: e.content || "", role: "system", system_prompt: false, marker: false, injection_position: 0 }));
+    const dd = new Draft(wname, { prompts, prompt_order: [{ character_id: 100001, order: list.map((e) => ({ identifier: `wb${e.uid}`, enabled: !e.disable })) }] });
+    dd.wb = Object.fromEntries(list.map((e) => [`wb${e.uid}`, e]));
+    if (st.wbDraft?.name !== wname) st.wbMarker = null;
+    st.wbDraft = dd;
+    st.wbMarker = fixPlace(dd, st.wbMarker);
+  }
+  function renderDstPick() {
+    paintTypeSeg("data-dsttype", st.dstType);
+    const slot = page.querySelector(".cw-dst-pick");
+    if (st.dstType === "world") {
+      slot.innerHTML = String(st.dstWorld || listWorldbooks().length ? html`<button type="button" class="cw-pick-btn" data-act="dst-pick" title="${st.dstWorld || ""}"><span>${st.dstWorld || "请选择"}</span>${iconHtml("chevDown")}</button>` : html`<span class="cw-hint">没有世界书</span>`);
+    } else {
+      const name = focusPreset();
+      slot.innerHTML = String(html`<button type="button" class="cw-pick-btn" data-act="dst-pick" title="${name}"><span>${name}</span>${name === currentPresetName() ? html`<small>使用中</small>` : ""}${iconHtml("chevDown")}</button>`);
+    }
+  }
+  async function renderDstWorld() {
+    try {
+      await loadWbDraft();
+    } catch (e) {
+      dstList.innerHTML = `<div class="cw-col">${empty("读取失败：" + e.message)}</div>`;
+      return;
+    }
+    renderDstPick();
+    const d = st.wbDraft;
+    if (!d) {
+      dstList.innerHTML = `<div class="cw-col">${empty("没有世界书")}</div>`;
+      return renderBar();
+    }
+    const top = dstList.scrollTop;
+    dstList.innerHTML = `<div class="cw-col"><div class="cw-list is-placing">${renderEntryList(d, { mode: "target", place: true, inside: false, collapsed: new Set(), marker: st.wbMarker, markLabel: "缝合位置", highlight: st.highlight || void 0, query: qOf("dst"), searchBody: st.dstBody })}</div></div>`;
+    bar.hidden = false;
+    ngbar.hidden = true;
+    dstList.scrollTop = top;
+    renderBar();
+  }
+  function renderDst() {
+    paintQ("dst");
+    if (st.dstType === "world") return renderDstWorld();
+    renderDstPick();
+    let d;
+    try {
+      d = target();
+    } catch (e) {
+      dstList.innerHTML = `<div class="cw-col">${empty(e.message)}</div>`;
+      return;
+    }
+    if (st.dstFor !== d.name) {
+      st.dstFor = d.name;
+      st.marker = null;
+    }
+    // 位置指向的条目/分组已经不在了就清掉
+    st.marker = fixPlace(d, st.marker);
+    st.dstFoldKey = `dst:${d.name}`;
+    st.dstCollapsed = collapsedFrom(d, openSetFor(st.dstFoldKey));
+    const top = dstList.scrollTop;
+    dstList.innerHTML = String(html`<div class="cw-col">${st.newName || qOf("dst") ? "" : html`<button type="button" class="cw-slot cw-slot-new" data-act="st-newgroup">${iconHtml("plus")}<span>新建分组…</span></button>`}<div class="cw-list is-placing">${raw(renderEntryList(d, { mode: "target", place: true, inside: !st.newName, collapsed: st.dstCollapsed, marker: st.newName ? null : st.marker, markLabel: "缝合位置", highlight: st.highlight || void 0, query: qOf("dst"), searchBody: st.dstBody }))}</div></div>`);
+    bar.hidden = !!st.newName;
+    ngbar.hidden = !st.newName;
+    ngbar.querySelector(".cw-ng-n").textContent = st.newName ? `新分组「${st.newName}」放在哪里` : "";
+    dstList.scrollTop = top;
+    renderBar();
+  }
+  dstList.addEventListener("click", (e) => {
+    if (e.target.closest('[data-act="qbody"]')) { st.dstBody = !st.dstBody; return renderDst(); }
+    if (e.target.closest('[data-act="st-newgroup"]')) return;
+    if (st.dstType === "world") {
+      const d2 = st.wbDraft;
+      if (!d2) return;
+      if (e.target.closest('[data-act="edit"]')) {
+        const id = e.target.closest(".cw-row").dataset.id;
+        const p = d2.prompt(id);
+        return editWorldEntry(d2.name, d2.wb[id].uid, p.name, p.content);
+      }
+      const m2 = placeFromClick(d2, e, false);
+      if (!m2) return;
+      st.wbMarker = m2;
+      return renderDst();
+    }
+    const d = target();
+    const act = e.target.closest("[data-act]")?.dataset.act;
+    if (act === "edit") return editPresetEntry(d, e.target.closest(".cw-row").dataset.id);
+    const head = e.target.closest(".cw-ghead");
+    if (head && act === "fold") {
+      toggleOpen(d, st.dstFoldKey, head.dataset.gid);
+      return renderDst();
+    }
+    const m = placeFromClick(d, e, !st.newName);
+    if (!m) return;
+    if (st.newName) {
+      // 新建空白分组：放好以后，缝合位置就定在这个新组里
+      const p = placeOf(d, m);
+      let gid = null;
+      mutate(d, `新建分组「${st.newName}」`, (x) => { gid = x.createEmptyGroup(st.newName, p.where.index === 0 ? "" : p.where.after); });
+      toast(`已新建分组「${st.newName}」`, "success");
+      st.newName = null;
+      toggleOpen(d, st.dstFoldKey, gid, true);
+      st.marker = { at: "gstart", gid };
+      renderDst();
+      dstList.querySelector(`.cw-group[data-gid="${CSS.escape(gid)}"]`)?.scrollIntoView({ block: "center" });
+      return;
+    }
+    st.marker = m;
+    renderDst();
+  });
+  function renderBar() {
+    const n = st.picked.size;
+    let d = null;
+    try { d = st.dstType === "world" ? st.wbDraft : target(); } catch {}
+    const m = st.dstType === "world" ? st.wbMarker : st.marker;
+    const pn = bar.querySelector(".cw-picked-n");
+    pn.textContent = n ? `已选 ${n} 条` : "未选条目";
+    pn.disabled = !n;
+    bar.querySelector(".cw-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」里点条目选位置" : "在「到」里点组名或条目选位置";
+    bar.querySelector('[data-act="st-go"]').disabled = !(n && m);
+    bar.querySelector('[data-act="st-clear"]').disabled = !(n || m);
+    const undo = bar.querySelector('[data-act="st-wbundo"]');
+    undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
+    if (!undo.hidden) undo.querySelector("span").textContent = `撤销刚缝的 ${st.lastWb.uids.length} 条`;
+    paintPaneSeg();
+  }
+  async function regexSuture() {
+    if (st.dstType !== "preset") return toast("正则只能缝入预设，请将目标切换为「预设」");
+    try {
+      let source = regexSourceDraft();
+      if (!source) {
+        const v = await pickName({ title: "缝合哪个预设的正则", current: st.srcPreset, items: listPresets().map((n) => ({ value: n, sub: n === focusPreset() ? "目标" : "" })) });
+        if (!v) return;
+        source = getDraft(v);
+      }
+      if (source === target()) return toast("来源和目标是同一个预设，请先在「从」里选另一个预设");
+      await presetRegexDialog(source, target());
+      if (regexSource()) renderSrc();
+    } catch (err) { toast("正则缝合失败：" + err.message, "error"); }
+  }
+  page.addEventListener("change", async (e) => {
+    if (!e.target.matches("input[data-src-file]")) return;
+    const f = e.target.files[0];
+    if (!f) return;
+    e.target.value = "";
+    try {
+      const data = JSON.parse((await f.text()).replace(/^﻿/, ""));
+      const got = readSourceFile(f.name.replace(/\.json$/i, ""), data);
+      Object.assign(st, got);
+      renderSrcPick();
+      renderSrc();
+      if (st.fileKind === "regex") regexSuture();
+    } catch (err) {
+      toast("无法读取文件：" + err.message, "error");
+    }
+  });
+  bindFileKeys(page);
+  page.addEventListener("click", async (e) => {
+    const typeBtn = e.target.closest("[data-srctype], [data-dsttype], [data-pane]");
+    if (typeBtn && typeBtn.tagName === "BUTTON") {
+      if (typeBtn.dataset.pane) return setPane(typeBtn.dataset.pane);
+      if (typeBtn.dataset.srctype && typeBtn.dataset.srctype !== st.srcType) {
+        st.srcType = typeBtn.dataset.srctype;
+        renderSrcPick();
+        return renderSrc();
+      }
+      if (typeBtn.dataset.dsttype && typeBtn.dataset.dsttype !== st.dstType) {
+        st.dstType = typeBtn.dataset.dsttype;
+        st.newName = null;
+        renderSrcPick();
+        return renderDst();
+      }
+      return;
+    }
+    const a = e.target.closest("[data-act]")?.dataset.act;
+    if (!a) return;
+    if (a === "qclear-src" || a === "qclear-dst") {
+      const side = a.slice(7);
+      page.querySelector(`[data-q="${side}"]`).value = "";
+      setQuery(side, "");
+      saveSettings();
+      return;
+    }
+    if (a === "src-pick") {
+      if (st.srcType === "preset") {
+        const using = currentPresetName();
+        const v = await pickName({ title: "从哪个预设", current: st.srcPreset, items: listPresets().map((n) => ({ value: n, sub: n === using ? "使用中" : n === focusPreset() ? "目标" : "" })) });
+        if (!v || v === st.srcPreset) return;
+        st.srcPreset = v;
+      } else if (st.srcType === "world") {
+        const v = await pickName({ title: "从哪本世界书", current: st.srcWorld, items: listWorldbooks().map((n) => ({ value: n })) });
+        if (!v) return;
+        st.srcWorld = v;
+        st.worldCache.delete(v); // 每次选择都重新读，酒馆里改过的内容才能看到
+      }
+      renderSrcPick();
+      return renderSrc();
+    }
+    if (a === "dst-pick") {
+      if (st.dstType === "world") {
+        const v = await pickName({ title: "到哪本世界书", current: st.dstWorld, items: listWorldbooks().map((n) => ({ value: n })) });
+        if (!v || v === st.dstWorld) return;
+        st.dstWorld = v;
+        st.wbMarker = null;
+        return renderDst();
+      }
+      await pickScope();
+      return;
+    }
+    if (a === "st-clear") {
+      st.picked.clear();
+      st.marker = null;
+      st.wbMarker = null;
+      renderSrc();
+      return renderDst();
+    }
+    if (a === "st-go") return st.dstType === "world" ? reviewWorld() : review();
+    if (a === "st-regex") return regexSuture();
+    if (a === "st-migrate") {
+      if (st.srcType !== "preset" || st.dstType !== "preset") return toast("请把「从」和「到」都切到预设：从选旧版，到选新版");
+      return migrate();
+    }
+    if (a === "st-picked") return pickedSheet();
+    if (a === "st-wbundo") return undoWorld();
+    if (a === "st-newgroup") {
+      const n = await promptBox("新分组名称", "", "例如：文风", { hint: "起名后，点组名或条目，新分组放在它后面；缝合位置随即定在新分组里。" });
+      if (!n) return;
+      st.newName = n;
+      return renderDst();
+    }
+    if (a === "st-ngcancel") {
+      st.newName = null;
+      return renderDst();
+    }
+  });
+  // 已选条目清单：跨预设、世界书、粘贴选的都在这里，可以单独去掉
+  async function pickedSheet() {
+    if (!st.picked.size) return;
+    const body = el('<div class="cw-picked"></div>');
+    const paint = () => {
+      const rows = [...st.picked.entries()];
+      body.innerHTML = String(rows.length ? html`${rows.map(([k, v]) => html`<div class="cw-picked-row"><span><b>${v.name || "（无名）"}</b><small>${v.from || ""}</small></span>${btn("去掉", { size: "sm", attrs: `data-k="${esc(k)}"` })}</div>`)}` : html`<p class="cw-hint">没有已选的条目</p>`);
+    };
+    paint();
+    body.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-k]");
+      if (!b) return;
+      st.picked.delete(b.dataset.k);
+      paint();
+      renderSrc();
+    });
+    await dialog({ title: "已选的条目", body, actions: [{ label: "完成", kind: "primary", value: true }] });
+    renderSrc();
+  }
+  // 这条材料所在的来源分组是不是整组都选了（系统位置条目不算）
+  function wholeGroupOf(src) {
+    const sd = src.srcDraft;
+    if (!sd || !src.srcId) return null;
+    const g = sd.groupOf(src.srcId);
+    if (!g) return null;
+    const picked = new Set([...st.picked.values()].filter((v) => v.srcDraft?.name === sd.name).map((v) => v.srcId));
+    const mem = sd.order.map((o) => o.identifier).filter((x) => sd.groupOf(x) === g && !sd.isMarker(x));
+    return mem.length && mem.every((x) => picked.has(x)) ? { key: `${sd.name}|${g}`, name: sd.group(g)?.name || "分组" } : null;
+  }
+  // ---- 缝合预览（目标是预设）。spec（搬到新版用）：{ entries: [{ src, marker, hook, enabled }] }，每条可以有自己的位置
+  async function review(spec = null) {
+    const d = target();
+    let entries;
+    if (spec) entries = spec.entries.map((e) => ({ ...e, marker: fixPlace(d, e.marker) || { at: "top" } }));
+    else {
+      const marker = fixPlace(d, st.marker);
+      if (!marker) return renderDst();
+      entries = [...st.picked.values()].map((src) => ({ src, marker }));
+    }
+    if (!entries.length) return;
+    const tgtProf = profilePreset(d);
+    const posCache = new Map();
+    const posOf = (marker) => {
+      const k = JSON.stringify(marker);
+      if (!posCache.has(k)) {
+        const pw = placeOf(d, marker);
+        posCache.set(k, { key: k, marker, where: pw.where, gid: pw.gid, t: inferTarget(d, pw.where, pw.gid), tgtWr: wrappersAt(d, tgtProf, insertionIndex(d, pw.where)) });
+      }
+      return posCache.get(k);
+    };
+    const srcProfs = new Map();
+    const items = entries.map(({ src, marker, hook, enabled }) => {
+      let desc = null;
+      if (src.srcDraft && src.srcId) {
+        try {
+          if (!srcProfs.has(src.srcDraft)) srcProfs.set(src.srcDraft, profilePreset(src.srcDraft));
+          desc = describeEntry(src.srcDraft, src.srcId, srcProfs.get(src.srcDraft));
+        } catch (e) {
+          console.warn("[焦香鸡翅] 来源分析失败", e);
+        }
+      }
+      // 缝后开关默认与来源条目一致（看条目自身开关，不看分组总开关）
+      const from = enabled ?? (src.srcDraft && src.srcId ? src.srcDraft.order.find((o) => o.identifier === src.srcId)?.enabled !== false : true);
+      return { src: { ...src, sections: desc?.inside || [] }, desc, choice: hook ? { hook: true } : {}, autoHook: !!spec && !hook, manual: null, enabled: from, srcEnabled: from, srcGroup: spec ? null : wholeGroupOf(src), pos: posOf(marker) };
+    });
+    // 缝来的格式条目要靠来源预设的显示正则美化；目标没有对应正则时提醒，缝完可一起缝正则
+    const regexDeps = new Map();
+    for (const it of items) {
+      const sd = it.src.srcDraft;
+      if (!sd || sd === d) continue;
+      it.regexDeps = presetRegexFormatDeps(sd, d, [it.src.content])[0];
+      if (!it.regexDeps.length) continue;
+      if (!regexDeps.has(sd)) regexDeps.set(sd, new Set());
+      it.regexDeps.forEach((x) => regexDeps.get(sd).add(x.index));
+    }
+    const single = posCache.size === 1;
+    const P0 = items[0].pos;
+    const { gid, t } = P0;
+    const marker = P0.marker;
+    const tgtWr = P0.tgtWr;
+    // 整组选中的来源分组：成员排在一起（在第一次出现的位置），缝到组外时可以保持成组
+    const groupKeys = [];
+    for (const it of items) if (it.srcGroup && !groupKeys.some((g) => g.key === it.srcGroup.key)) groupKeys.push(it.srcGroup);
+    items.splice(0, items.length, ...items.reduce((acc, it) => {
+      if (!it.srcGroup) acc.push(it);
+      else if (!acc.some((x) => x.srcGroup?.key === it.srcGroup.key)) acc.push(...items.filter((x) => x.srcGroup?.key === it.srcGroup.key));
+      return acc;
+    }, []));
+    const grpDefault = groupKeys.length ? "keep" : "none";
+    const grpRow = gid || !single || spec ? "" : html`<div class="cw-form-row">
+        <label class="cw-field"><span>分组</span><select class="cw-select" data-g="grp">
+          ${groupKeys.length ? html`<option value="keep">保留原分组（${groupKeys.map((g) => g.name).join("、")}）</option>` : ""}
+          <option value="none"${grpDefault === "none" ? raw(" selected") : ""}>不分组</option>
+          <option value="new">放入新分组</option></select></label>
+        <label class="cw-field" data-g="gnamebox" hidden><span>新分组名称</span><input class="cw-input" data-g="gname" placeholder="新分组名称"></label></div>`;
+    const fromLabel = (it) => {
+      const f = String(it.src.from || "").replace(/^世界书\s*/, "");
+      return f && f !== "粘贴" ? f : "";
+    };
+    const nameOf = (it) => it.customName ?? (settings().nameWithSource && fromLabel(it) ? `${it.src.name}（来自${fromLabel(it)}）` : it.src.name);
+    const body = el(html`<div class="cw-review">
+        <div class="cw-card cw-review-head">
+          ${single ? html`<div class="cw-review-where"><b>位置：${placeText(d, marker)}</b><small>附近条目的写法：${t.summary}${tgtWr.length ? `。位于 <${tgtWr.join("> / <")}> 之内` : ""}</small></div>${grpRow}` : html`<div class="cw-review-where"><b>缝到 ${posCache.size} 个位置</b><small>按各条目在来源中的位置，分别放在目标中对应条目之后。每条的位置见条目详情。</small></div>`}
+          ${stitchEnableTools()}
+          <div class="cw-hookbar"><span class="cw-hookbar-n"></span><span class="cw-gap"></span>${btn("全部接入", { size: "sm", attrs: 'data-g="hook-all"' })}${btn("推荐接入", { size: "sm", attrs: 'data-g="hook-rec"' })}${btn("全部不接入", { size: "sm", attrs: 'data-g="hook-none"' })}</div>
+          <p class="cw-hint">接入思维链：让模型思考时专门想一下这条。每接入一条，思考就多一个问题，默认不接入。</p>
+          ${fold("更多选项和两边写法的分析", String(html`
+            <label class="cw-check"><input type="checkbox" data-g="inj"${settings().followTargetInjection ? raw(" checked") : ""}><span>按目标写法缝合时，角色和插入位置与目标一致</span></label>
+            <label class="cw-check"><input type="checkbox" data-g="from"${settings().nameWithSource ? raw(" checked") : ""}><span>条目名称后加「（来自来源预设）」</span></label>
+            ${tgtProf.lines.length ? html`<h4>目标预设怎样让条目生效</h4><ul class="cw-list">${tgtProf.lines.map((l) => html`<li>${l}</li>`)}</ul>` : ""}
+            ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? html`<h4>来源「${sd.name}」怎样让条目生效</h4><ul class="cw-list">${pr.lines.map((l) => html`<li>${l}</li>`)}</ul>` : "")}`))}
+        </div>
+        <div class="cw-items"></div>
+      </div>`);
+    const box = body.querySelector(".cw-items");
+    const initName = (() => {
+      const id = findInitEntry(d);
+      return id ? d.prompt(id)?.name : null;
+    })();
+    const hookBlock = (it) => {
+      const h = it.hook;
+      if (h.status !== "hook") return html`<div class="cw-hook is-${h.status}"><small><b>思维链：</b>${h.text}</small></div>`;
+      const cotName = d.prompt(h.cotId)?.name || "";
+      const more = (h.cotIds || []).length > 1 ? `（共 ${h.cotIds.length} 个思维链版本）` : "";
+      let detail = "";
+      if (it.hookOn && h.mode === "text") {
+        detail = html`<label class="cw-field"><span>在「${cotName}」中添加一行${more}</span><input class="cw-input" data-c="hq" value="${h.question}"></label>
+            <small class="cw-dim">${h.needle ? `添加在提到 ${h.needle} 的一行之后` : "添加在思维链末尾"}。条目正文不变。</small>`;
+      } else if (it.hookOn && (h.mode === "append" || h.mode === "slot")) {
+        detail = html`<label class="cw-field"><span>${h.mode === "slot" ? "登记的问句" : "追加的内容"}</span><input class="cw-input" data-c="hq" value="${h.question}"></label>
+            <small class="cw-dim">条目末尾添加 {{${h.mode === "slot" ? "setvar" : "addvar"}::${h.varName}::…}}。「${cotName}」已读取「${h.varName}」，思维链不变。</small>`;
+      } else if (it.hookOn) {
+        detail = html`<div class="cw-form-row"><label class="cw-field"><span>问句变量</span><input class="cw-input" data-c="hv" value="${h.varName}"></label>
+            <label class="cw-field"><span>思维链中的问句</span><input class="cw-input" data-c="hq" value="${h.question}"></label></div>
+            ${h.clash ? html`<p class="cw-warn-text">目标中已有变量「${h.varName}」，同名会互相覆盖，请更换名称</p>` : ""}
+            <small class="cw-dim">条目末尾添加 {{setvar::${h.varName}::…}}；${initName ? `「${initName}」中添加一行清空` : "未找到初始化条目，不添加清空"}；「${cotName}」${more}中${h.anchorVar ? `在 {{getvar::${h.anchorVar}}} 之后` : ""}添加 {{getvar::${h.varName}}}。</small>`;
+      }
+      return html`<div class="cw-hook">
+            <label class="cw-check"><input type="checkbox" data-c="hook"${it.hookOn ? raw(" checked") : ""}><span><b>接入思维链</b>${h.on ? pill("推荐", "accent") : ""}<small>${h.text}${it.hookOn || h.on ? "" : "。" + (h.offHint || "")}</small></span></label>
+            ${(h.warns || []).map((w) => html`<p class="cw-warn-text">${w}</p>`)}${detail}</div>`;
+    };
+    const renderItem = (it, i, analysis = null) => {
+      const { t: tt, where, gid: g2, tgtWr: wr } = it.pos;
+      const src = { ...it.src, name: it.src.name };
+      const base = { ...it.choice };
+      delete base.shape;
+      const planFix = planItem(src, tt, base);
+      const planSlot = tt.slot && !planFix.slotAllowed ? planItem(src, tt, { ...base, shape: tt.slot.shape }) : null;
+      const rawContent = String(it.src.content || "");
+      const same = planFix.content.trim() === rawContent.trim();
+      let mode = it.choice.mode || (same ? "raw" : "fix");
+      if (mode === "slot" && !planSlot) mode = "fix";
+      it.mode = mode;
+      const chosen = mode === "raw" ? { content: rawContent, label: planFix.label, want: { shape: "plain" }, slotAllowed: false } : mode === "slot" ? planSlot : planFix;
+      it.plan = chosen;
+      const taken = new Set(items.filter((o) => o !== it && o.hookOn && o.hook?.varName).map((o) => o.hook.varName));
+      const srcCot = it.desc?.cot ? ["var", "chain", "mention"].includes(it.desc.cot.level) : null;
+      const collectors = chosen.want?.shape === "wrap" && chosen.want.varName === tt.varName ? tt.readerIds.filter((r) => !isCotEntry(d, r)) : [];
+      try {
+        it.hook = planHook(d, where, g2, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null, analysis });
+      } catch (e) {
+        console.warn("[焦香鸡翅] 思维链检查失败", e);
+        it.hook = { status: "skip", on: false, text: "思维链检查出错，已跳过" };
+      }
+      // 搬到新版：没有缝合记录的条目，原预设的思维链读取过它就默认接入
+      if (it.autoHook && it.choice.hook === void 0) it.choice.hook = !!it.hook.on;
+      it.hookOn = it.hook.status === "hook" && !!it.choice.hook;
+      it.finalContent = it.hookOn ? contentWithHook(chosen.content, it.hook) : chosen.content;
+      const warns = [];
+      const sp = it.src.prompt;
+      if (sp?.injection_position === 1) warns.push(`来源中此条目插入聊天记录（深度 ${sp.injection_depth ?? 4}）。原样缝合时保留；按目标写法缝合时${settings().followTargetInjection ? "改为普通位置" : "同样保留"}`);
+      if ((sp?.injection_trigger || []).length) warns.push("来源中此条目只在特定生成类型下发送，此设置一并保留");
+      const rw = it.src.raw;
+      if (rw && !rw.constant && (rw.key || []).length) warns.push(`在世界书中按关键词触发（${rw.key.slice(0, 4).join("、")}${rw.key.length > 4 ? "等" : ""}），缝进预设后会一直生效`);
+      if (hasScript(it.src.content || "")) warns.push("含脚本（如 EJS），需要安装相应插件才能生效");
+      if (hasConditional(it.src.content || "")) warns.push("含 {{if}} 条件，条件中的变量需在目标中存在");
+      for (const dep of it.regexDeps || []) warns.push(`这条要求输出 ${dep.mark}，来源预设靠正则「${dep.name}」显示成美化，目标预设没有对应正则，缝入后只显示原文。确认缝合后可一起缝入`);
+      for (const k of it.desc?.needsVars || []) {
+        const nm2 = k.replace(/^全局:/, "");
+        const has = d.preset.prompts.some((p) => listVarMacros(p.content || "").some((m) => m.name === nm2 && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)));
+        if (!has) warns.push(`读取变量「${nm2}」，目标中没有条目写入此变量，该部分将为空`);
+      }
+      for (const w of it.desc?.inside || []) {
+        const tw = tgtProf.wrappers.find((x) => x.name === w);
+        if (!tw || wr.includes(w)) continue;
+        warns.push(`来源中此条目位于 ${tw.label} 之内。目标的 ${tw.label} 在「${d.prompt(tw.openId)?.name}」与「${d.prompt(tw.closeId)?.name}」之间，当前位置不在其中`);
+      }
+      const card = (value, title, sub, content, notes = []) => html`<label class="cw-mode${mode === value ? " on" : ""}">
+            <span class="cw-mode-head"><input type="radio" name="cw-mode-${i}" data-c="mode" value="${value}"${mode === value ? raw(" checked") : ""}><b>${title}</b><small>${sub}</small></span>
+            <pre class="cw-snip">${stitchSnip(content)}</pre>
+            ${notes.length && mode === value ? html`<ul class="cw-list">${notes.map((n) => html`<li>${n}</li>`)}</ul>` : ""}</label>`;
+      const modes = same && !planSlot ? card("raw", "原样缝合", "两边写法相同，无需调整", rawContent) : html`
+        ${card("raw", "原样缝合", "不调整写法", rawContent)}
+        ${card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, planFix.content, [...(planFix.changes.length ? planFix.changes : ["正文不变，位置和角色与目标一致"]), ...planFix.warnings.map((w) => "注意：" + w)])}
+        ${planSlot ? card("slot", `按目标写法缝合，并加入多选一「${tt.slot.varName}」`, "开启后，同类中已开启的一条会被替换", planSlot.content, planSlot.changes) : ""}`;
+      const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || tt.headerTpl || tt.tagTpl || tt.ownTag);
+      const modeLabel = { raw: "原样", fix: "按目标写法", slot: "加入多选一" }[mode];
+      const hookLabel = it.hook.status !== "hook" ? "" : it.hookOn ? pill("接入思维链", "accent") : it.hook.on ? pill("推荐接入", "line") : "";
+      return html`<article class="cw-item${it.open ? " open" : ""}" data-i="${i}">
+          <header class="cw-item-head" data-c="toggle"><span class="cw-item-name">${nameOf(it)}</span>
+            <span class="cw-item-meta"><label class="cw-check cw-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on"${it.enabled ? raw(" checked") : ""}><span>缝后开启</span></label>${pill(modeLabel, "muted")}${hookLabel}${warns.length ? pill(`提醒 ${warns.length}`, "warn") : ""}</span>
+            ${iconHtml("chev")}</header>
+          <div class="cw-item-body"${it.open ? "" : raw(" hidden")}>
+            <label class="cw-field"><span>条目名称</span><input class="cw-input" data-c="name" value="${nameOf(it)}"></label>
+            ${single ? "" : html`<small class="cw-dim">位置：${placeText(d, it.pos.marker)}</small>`}
+            ${it.desc ? fold(`在「${it.src.from || ""}」中的作用`, String(html`<ul class="cw-list">${it.desc.lines.map((l) => html`<li>${l}</li>`)}${it.desc.cot ? html`<li>${it.desc.cot.text}</li>` : ""}</ul>`)) : html`<small class="cw-dim">来自 ${it.src.from || ""}</small>`}
+            <div class="cw-modes" role="radiogroup">${modes}</div>
+            ${warns.length ? html`<ul class="cw-list cw-warns">${warns.map((w) => html`<li class="cw-warn-text">${w}</li>`)}</ul>` : ""}
+            ${hookBlock(it)}
+            ${showAdv ? html`<details class="cw-fold cw-adv"${it.choice.adv ? raw(" open") : ""}><summary>${iconHtml("chev")}<span>高级</span></summary><div class="cw-fold-body cw-form-row">
+                <label class="cw-field"><span>标题或标签中的名称</span><input class="cw-input" data-c="label" value="${planFix.label}"></label>
+                ${chosen.want?.varName && (chosen.want.shape === "wrap" || chosen.want.shape === "tagname") ? html`<label class="cw-field"><span>变量</span><input class="cw-input" data-c="var" value="${chosen.want.varName}"></label>
+                <label class="cw-field"><span>写入方式</span><select class="cw-select" data-c="op"><option value="add"${chosen.want.op !== "set" ? raw(" selected") : ""}>可叠加（开启几条就拼几条，addvar）</option><option value="set"${chosen.want.op === "set" ? raw(" selected") : ""}>多选一（只有最后一条开着的生效，setvar）</option></select></label>` : ""}
+                ${planFix.sourceShape.extras?.length ? html`<label class="cw-check"><input type="checkbox" data-c="extras"${it.choice.keepExtras ? raw(" checked") : ""}><span>保留来源中的 ${planFix.sourceShape.extras.length} 个附加宏</span></label>` : ""}
+              </div></details>` : ""}
+            <details class="cw-fold cw-body-edit"${it.bodyOpen ? raw(" open") : ""}><summary>${iconHtml("chev")}<span>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</span></summary><div class="cw-fold-body">
+              <textarea class="cw-input" data-c="content" spellcheck="false">${it.manual ?? it.finalContent}</textarea>
+              ${it.manual != null ? html`<button type="button" class="cw-link" data-c="reset">撤销手动修改，按上方选项重新生成</button>` : ""}</div></details>
+          </div></article>`;
+    };
+    const rerender = (art, it) => {
+      const i = Number(art.dataset.i);
+      it.bodyOpen = art.querySelector(".cw-body-edit")?.open || void 0;
+      it.choice.adv = art.querySelector(".cw-adv")?.open || void 0;
+      repaint(art, d.withReadIndex(() => renderItem(it, i)));
+    };
+    const renderItems = (analysis = null) => d.withReadIndex(() => {
+      const current = analysis || analyze(d);
+      return items.map((it, i) => String(renderItem(it, i, current))).join("");
+    });
+    box.innerHTML = renderItems(tgtProf.a);
+    const hookable = () => items.filter((it) => it.hook?.status === "hook");
+    // 缝后关着的条目不推荐接入：思维链会去想一条没开的内容
+    const recommended = () => hookable().filter((it) => it.hook.on && it.enabled);
+    const paintHookBar = () => {
+      const hb = body.querySelector(".cw-hookbar");
+      const n = hookable().length, rec = recommended().length;
+      hb.hidden = !n;
+      hb.nextElementSibling.hidden = !n;
+      hb.querySelector('[data-g="hook-rec"] span').textContent = `推荐接入（${rec}）`;
+      hb.querySelector(".cw-hookbar-n").textContent = `思维链：已接入 ${items.filter((it) => it.hookOn).length} / ${n}`;
+      let warn = body.querySelector(".cw-hookbar-warn");
+      if (!warn) { warn = document.createElement("p"); warn.className = "cw-warn-text cw-hookbar-warn"; hb.after(warn); }
+      warn.hidden = rec <= 10;
+      warn.textContent = rec > 10 ? `推荐的 ${rec} 条在来源中已被思维链读取。全部接入将增加 ${rec} 个思考问题，思考变长、易爆思维链。整套缝合时，只接入需重点落实的几条。` : "";
+    };
+    paintHookBar();
+    body.querySelector(".cw-hookbar").addEventListener("click", (e) => {
+      const g = e.target.closest("[data-g]")?.dataset.g;
+      if (!g) return;
+      for (const it of hookable()) {
+        it.choice.hook = g === "hook-all" ? true : g === "hook-rec" ? !!it.hook.on && it.enabled : false;
+        it.manual = null;
+      }
+      box.innerHTML = renderItems();
+      paintHookBar();
+    });
+    bindStitchEnableTools(body, items);
+    body.addEventListener("change", (e) => { if (e.target.matches('[data-enable-toggle], .cw-items [data-c="on"]')) paintHookBar(); });
+    body.querySelector("[data-enable-source]")?.addEventListener("click", () => paintHookBar());
+    const grpSel = body.querySelector('[data-g="grp"]');
+    const grpName = body.querySelector('[data-g="gname"]');
+    grpSel?.addEventListener("change", () => {
+      body.querySelector('[data-g="gnamebox"]').hidden = grpSel.value !== "new";
+      if (grpSel.value === "new") grpName.focus();
+    });
+    body.querySelector('[data-g="from"]').addEventListener("change", (e) => {
+      settings().nameWithSource = e.target.checked;
+      saveSettings();
+      box.querySelectorAll(".cw-item").forEach((art) => {
+        const it = items[Number(art.dataset.i)];
+        if (it.customName != null) return;
+        const inp = art.querySelector('[data-c="name"]');
+        if (inp) inp.value = nameOf(it);
+        art.querySelector(".cw-item-name").textContent = nameOf(it);
+      });
+    });
+    box.addEventListener("change", (e) => {
+      const art = e.target.closest(".cw-item");
+      // 重画时，正在编辑的输入框被移走会再触发一次 change（失焦），忽略这一次
+      if (!art || !art.isConnected || repainting) return;
+      const it = items[Number(art.dataset.i)];
+      const c2 = e.target.dataset.c;
+      if (c2 === "on") return void (it.enabled = e.target.checked);
+      if (c2 === "name") {
+        it.customName = e.target.value;
+        art.querySelector(".cw-item-name").textContent = e.target.value;
+        return;
+      }
+      if (c2 === "content") return void (it.manual = e.target.value);
+      if (c2 === "mode") it.choice.mode = e.target.value;
+      if (c2 === "var") it.choice.varName = e.target.value.trim();
+      if (c2 === "op") it.choice.op = e.target.value;
+      if (c2 === "label") it.choice.label = e.target.value;
+      if (c2 === "extras") it.choice.keepExtras = e.target.checked;
+      if (c2 === "hook") it.choice.hook = e.target.checked;
+      if (c2 === "hv") it.choice.hookVar = e.target.value.replace(/[{}:：\s]/g, "");
+      if (c2 === "hq") it.choice.hookQ = e.target.value.trim() || void 0;
+      it.manual = null;
+      rerender(art, it);
+      paintHookBar();
+    });
+    box.addEventListener("click", (e) => {
+      const head = e.target.closest('[data-c="toggle"]');
+      if (head && !e.target.closest("input, .cw-item-on")) {
+        const art = head.closest(".cw-item");
+        const it = items[Number(art.dataset.i)];
+        it.open = !it.open;
+        return rerender(art, it);
+      }
+      if (e.target.dataset.c !== "reset") return;
+      const art = e.target.closest(".cw-item");
+      const it = items[Number(art.dataset.i)];
+      it.manual = null;
+      rerender(art, it);
+      paintHookBar();
+    });
+    const ok = await dialog({ title: spec?.title || `缝合 ${items.length} 条到「${d.name}」`, body, size: "full", noFocus: true, actions: [{ label: "取消", value: null }, {
+      label: "确认缝合", kind: "primary",
+      validate: () => {
+        if (grpSel?.value === "new" && !grpName.value.trim()) {
+          grpName.focus();
+          toast("请填写新分组名称");
+          return false;
+        }
+        return true;
+      },
+      value: (w) => ({ inj: w.querySelector('[data-g="inj"]').checked, grp: grpSel?.value || "none", gname: grpName?.value.trim() || "" })
+    }] });
+    if (!ok) return;
+    settings().followTargetInjection = ok.inj;
+    saveSettings();
+    let newIds = [];
+    const inits = [], hooked = [];
+    const hookedIdx = new Set();
+    mutate(d, spec ? "搬到新版" : `缝合 ${items.length} 条`, (x) => {
+      const build = (it) => {
+        const t2 = it.pos.t;
+        const content = it.manual ?? it.finalContent ?? it.plan.content;
+        const prompt = buildPrompt(x, it.src, { content }, t2, { keepSourceInjection: it.mode === "raw" || !ok.inj });
+        prompt.name = nameOf(it);
+        const v = it.plan.want;
+        if ((v.shape === "wrap" || v.shape === "tagname") && v.varName && v.varName !== t2.varName) {
+          const initId = t2.initId || findInitEntry(x);
+          if (initId && ensureInit(x, v.varName, initId)) inits.push(v.varName);
+        }
+        return { prompt, enabled: it.enabled };
+      };
+      // 同一位置的条目一起插入，保持原来的先后顺序
+      const byPos = new Map();
+      items.forEach((it, i) => (byPos.get(it.pos.key) || byPos.set(it.pos.key, []).get(it.pos.key)).push(i));
+      newIds = new Array(items.length);
+      for (const [k, idxs] of byPos) {
+        const P = posCache.get(k);
+        const ids = x.insertPrompts(idxs.map((i) => build(items[i])), P.where, P.gid);
+        idxs.forEach((i, j) => { newIds[i] = ids[j]; });
+      }
+      if (!gid && ok.grp === "new") x.createGroup(ok.gname, newIds);
+      if (!gid && ok.grp === "keep") {
+        for (const g of groupKeys) {
+          const mem = newIds.filter((_, i) => items[i].srcGroup?.key === g.key);
+          if (mem.length) x.createGroup(g.name, mem);
+        }
+      }
+      // 挂进思维链：同一个位置挂好几条时，按缝合顺序一条接一条往下排
+      const chain = new Map();
+      items.forEach((it, i) => {
+        if (!it.hookOn || it.hook?.status !== "hook") return;
+        const h = { ...it.hook };
+        const content = x.prompt(newIds[i])?.content || "";
+        if (h.mode !== "text" && !content.includes(`var::${h.varName}::`)) return; // 手动改正文时删掉了问句，就不挂
+        if (h.mode === "text") h.line = h.prefix + String(h.question || "").replace(/\n+/g, " ");
+        const key = `${h.cotId}|${h.mode === "text" ? h.needle || "" : h.anchorVar || ""}`;
+        if (chain.has(key)) {
+          if (h.mode === "text") h.needle = chain.get(key);
+          else h.anchorVar = chain.get(key);
+        }
+        const r = applyHook(x, h);
+        if (r.ok) {
+          chain.set(key, h.mode === "text" ? h.line.trim() : h.varName);
+          hooked.push(`${nameOf(it)} → ${r.cotName}`);
+          hookedIdx.add(i);
+        }
+      });
+      // 记下哪些条目是缝进来的（是否接入思维链），预设更新后「搬到新版」靠它找回；不记来源名
+      const ext = x.preset.extensions || (x.preset.extensions = {});
+      const rec = ext.presetAtelier && typeof ext.presetAtelier === "object" ? ext.presetAtelier : (ext.presetAtelier = {});
+      const live = new Set(x.order.map((o) => o.identifier));
+      rec.stitched = (Array.isArray(rec.stitched) ? rec.stitched : []).filter((r) => live.has(r.id));
+      items.forEach((it, i) => rec.stitched.push({ id: newIds[i], at: Date.now(), ...(hookedIdx.has(i) ? { cot: 1 } : {}) }));
+      for (const r of rec.stitched) delete r.from;
+    });
+    if (!spec) st.picked.clear();
+    // 下次接着往后缝：落在新分组里就放在这组后面，否则接在最后一条后面
+    const lastNew = newIds[newIds.length - 1];
+    st.marker = !gid && d.groupOf(lastNew) ? fixPlace(d, { at: "block", id: lastNew }) : { at: "row", id: lastNew };
+    toast(`已缝合 ${newIds.length} 条${hooked.length ? `，${hooked.length} 条接入思维链` : ""}${inits.length ? `，初始化条目已添加变量 ${inits.join("、")}` : ""}`, "success");
+    for (const [sd, set] of regexDeps) {
+      const names = [...set].map((i) => presetRegexList(sd)[i]?.scriptName || "未命名正则");
+      const go = await dialog({ size: "sm", title: "一起缝显示正则？", body: html`<p class="cw-p">刚缝入的条目要求特定输出格式，来源「${sd.name}」用正则「${names.join("」「")}」将其显示为美化。目标预设缺少对应正则，不缝入则聊天中只显示原文。</p><p class="cw-hint">下一步打开正则缝合，已预选这几条。</p>`, actions: [{ label: "以后再说", value: false }, { label: "去缝正则", kind: "primary", value: true }] });
+      if (go) {
+        try { await presetRegexDialog(sd, d, { preselect: [...set] }); } catch (err) { toast("正则缝合失败：" + err.message, "error"); }
+      }
+    }
+    if (gid) toggleOpen(d, `dst:${d.name}`, gid, true);
+    st.highlight = new Set(newIds);
+    setPane("dst");
+    renderSrc();
+    renderDst();
+    dstList.querySelector(".cw-flash")?.scrollIntoView({ block: "center" });
+    setTimeout(() => { st.highlight = null; }, 1500);
+  }
+  // ---- 缝进世界书：没有思维链和分组；每条可设触发方式、插入位置、深度、顺序
+  async function reviewWorld() {
+    try {
+      await loadWbDraft(true);
+    } catch (e) {
+      return toast("读取世界书失败：" + e.message, "error");
+    }
+    const d = st.wbDraft;
+    const marker = d && fixPlace(d, st.wbMarker);
+    if (!marker) return renderDst();
+    const { where } = placeOf(d, marker);
+    const t = inferTarget(d, where, null);
+    const afterId = marker.at === "top" ? null : marker.id;
+    const firstId = d.order[0]?.identifier;
+    const anchor = d.wb[afterId || firstId] || null;
+    const roleNum = (r) => ({ system: 0, user: 1, assistant: 2 })[r] ?? 0;
+    const base = { position: anchor?.position ?? 0, depth: anchor?.depth ?? 4, role: anchor?.role ?? 0, order: anchor?.order ?? 100 };
+    // 预设和本世界书里写入过的变量（读取没人写的变量时提醒）
+    const written = new Set();
+    const addW = (txt) => listVarMacros(txt || "").forEach((m) => { if ((m.op === "set" || m.op === "add") && !isBlankValue(m.value)) written.add(m.name); });
+    Object.values(d.wb).forEach((e) => addW(e.content));
+    try { getDraft(focusPreset()).preset.prompts.forEach((x) => addW(x.content)); } catch {}
+    const items = [...st.picked.values()].map((src) => {
+      const rw = src.raw;
+      const sp = src.prompt;
+      const wb = rw ? { constant: !!rw.constant, keys: (rw.key || []).join(", "), position: rw.position ?? 0, depth: rw.depth ?? 4, role: rw.role ?? 0, order: rw.order ?? 100, from: true }
+        : { constant: true, keys: "", ...base, ...(sp?.injection_position === 1 ? { position: 4, depth: sp.injection_depth ?? 4, role: roleNum(sp.role) } : {}) };
+      const from = rw ? !rw.disable : src.srcDraft && src.srcId ? src.srcDraft.order.find((o) => o.identifier === src.srcId)?.enabled !== false : true;
+      return { src: { ...src, sections: [] }, wb, choice: {}, manual: null, enabled: from, srcEnabled: from, open: false };
+    });
+    const posName = (v) => WI_POS.find(([k]) => k === Number(v))?.[1] || "角色定义之前";
+    const renderItem = (it, i) => {
+      const rawText = String(it.src.content || "");
+      const plan = planItem({ ...it.src }, t, it.choice);
+      const same = plan.content.trim() === rawText.trim();
+      const mode = same ? "raw" : it.choice.mode || "fix";
+      it.content = mode === "raw" ? rawText : plan.content;
+      const warns = [];
+      for (const m of listVarMacros(it.content)) if (m.op === "get" && !written.has(m.name)) warns.push(`读取变量「${m.name}」，世界书和当前预设中都没有条目写入此变量，该部分将为空`);
+      if (hasScript(rawText)) warns.push("含脚本（如 EJS），需要安装相应插件才能生效");
+      if (hasConditional(rawText)) warns.push("含 {{if}} 条件，条件中的变量需存在");
+      if (!it.wb.constant && !it.wb.keys.trim()) warns.push("按关键词触发但没有填写关键词，条目不会生效");
+      const card = (value, title, sub, content) => html`<label class="cw-mode${mode === value ? " on" : ""}">
+            <span class="cw-mode-head"><input type="radio" name="cw-wmode-${i}" data-c="mode" value="${value}"${mode === value ? raw(" checked") : ""}><b>${title}</b><small>${sub}</small></span>
+            <pre class="cw-snip">${stitchSnip(content)}</pre>${mode === value && value === "fix" && plan.changes.length ? html`<ul class="cw-list">${plan.changes.map((n) => html`<li>${n}</li>`)}</ul>` : ""}</label>`;
+      const w = it.wb;
+      return html`<article class="cw-item${it.open ? " open" : ""}" data-i="${i}">
+        <header class="cw-item-head" data-c="toggle"><span class="cw-item-name">${it.name ?? it.src.name}</span>
+          <span class="cw-item-meta"><label class="cw-check cw-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on"${it.enabled ? raw(" checked") : ""}><span>缝后开启</span></label>${pill(w.constant ? "常驻" : "关键词", "muted")}${pill(`${posName(w.position)}${Number(w.position) === 4 ? ` ${w.depth}` : ""}`, "muted")}${warns.length ? pill(`提醒 ${warns.length}`, "warn") : ""}</span>${iconHtml("chev")}</header>
+        <div class="cw-item-body"${it.open ? "" : raw(" hidden")}>
+          <label class="cw-field"><span>条目名称</span><input class="cw-input" data-c="name" value="${it.name ?? it.src.name}"></label>
+          <small class="cw-dim">来自 ${it.src.from || ""}${w.from ? "，沿用原世界书中的触发和插入设置" : ""}</small>
+          <div class="cw-modes" role="radiogroup">${same ? card("raw", "原样缝合", "两边写法相同，无需调整", rawText) : html`${card("raw", "原样缝合", "不调整写法", rawText)}${card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, plan.content)}`}</div>
+          ${warns.length ? html`<ul class="cw-list cw-warns">${warns.map((x) => html`<li class="cw-warn-text">${x}</li>`)}</ul>` : ""}
+          <div class="cw-form-row">
+            <label class="cw-field"><span>触发</span><select class="cw-select" data-c="constant"><option value="1"${w.constant ? raw(" selected") : ""}>常驻（一直生效）</option><option value="0"${w.constant ? "" : raw(" selected")}>按关键词触发</option></select></label>
+            ${w.constant ? "" : html`<label class="cw-field"><span>关键词（逗号分隔）</span><input class="cw-input" data-c="keys" value="${w.keys}"></label>`}
+            <label class="cw-field"><span>插入位置</span><select class="cw-select" data-c="position">${WI_POS.map(([k, l]) => html`<option value="${k}"${Number(w.position) === k ? raw(" selected") : ""}>${l}</option>`)}</select></label>
+            ${Number(w.position) === 4 ? html`<label class="cw-field"><span>深度</span><input class="cw-input" type="number" min="0" data-c="depth" value="${w.depth}"></label>
+            <label class="cw-field"><span>角色</span><select class="cw-select" data-c="role">${[[0, "系统"], [1, "用户"], [2, "AI"]].map(([k, l]) => html`<option value="${k}"${Number(w.role) === k ? raw(" selected") : ""}>${l}</option>`)}</select></label>` : ""}
+            <label class="cw-field"><span>顺序</span><input class="cw-input" type="number" data-c="order" value="${w.order}"></label>
+          </div>
+          <details class="cw-fold cw-body-edit"${it.bodyOpen ? raw(" open") : ""}><summary>${iconHtml("chev")}<span>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</span></summary><div class="cw-fold-body">
+            <textarea class="cw-input" data-c="content" spellcheck="false">${it.manual ?? it.content}</textarea></div></details>
+        </div></article>`;
+    };
+    const body = el(html`<div class="cw-review">
+        <div class="cw-card cw-review-head"><div class="cw-review-where"><b>位置：世界书「${d.name}」，${placeText(d, marker)}</b>
+          <small>位置决定条目在世界书编辑器中的排列。实际发送顺序由每条的「插入位置」和「顺序」决定，默认与${anchor ? `「${d.prompt(afterId || firstId)?.name || ""}」` : "世界书默认值"}相同。预设条目缝入后默认「常驻」，与在预设中一样一直生效。</small></div>${stitchEnableTools()}</div>
+        <div class="cw-items"></div></div>`);
+    const box = body.querySelector(".cw-items");
+    box.innerHTML = items.map((it, i) => String(renderItem(it, i))).join("");
+    bindStitchEnableTools(body, items);
+    box.addEventListener("change", (e) => {
+      const art = e.target.closest(".cw-item");
+      if (!art || !art.isConnected || repainting) return;
+      const it = items[Number(art.dataset.i)];
+      const c2 = e.target.dataset.c, v = e.target.value;
+      if (c2 === "on") return void (it.enabled = e.target.checked);
+      if (c2 === "name") return void (it.name = v, art.querySelector(".cw-item-name").textContent = v);
+      if (c2 === "content") return void (it.manual = v);
+      if (c2 === "keys") it.wb.keys = v;
+      if (c2 === "mode") { it.choice.mode = v; it.manual = null; }
+      if (c2 === "constant") it.wb.constant = v === "1";
+      if (c2 === "position") it.wb.position = Number(v);
+      if (c2 === "depth") it.wb.depth = Math.max(0, Number(v) || 0);
+      if (c2 === "role") it.wb.role = Number(v);
+      if (c2 === "order") it.wb.order = Number(v) || 0;
+      it.bodyOpen = art.querySelector(".cw-body-edit")?.open || void 0;
+      repaint(art, renderItem(it, Number(art.dataset.i)));
+    });
+    box.addEventListener("click", (e) => {
+      const head = e.target.closest('[data-c="toggle"]');
+      if (!head || e.target.closest("input, .cw-item-on")) return;
+      const art = head.closest(".cw-item");
+      const it = items[Number(art.dataset.i)];
+      it.open = !it.open;
+      repaint(art, renderItem(it, Number(art.dataset.i)));
+    });
+    const ok = await dialog({ title: `缝合 ${items.length} 条到世界书「${d.name}」`, body, size: "full", noFocus: true, actions: [{ label: "取消", value: null }, { label: "确认缝合", kind: "primary", value: true }] });
+    if (!ok) return;
+    const fields = items.map((it) => {
+      const w = it.wb;
+      const rw = it.src.raw ? structuredClone(it.src.raw) : {};
+      delete rw.uid;
+      delete rw.displayIndex;
+      return { ...rw, comment: it.name ?? it.src.name, content: it.manual ?? it.content, constant: w.constant, key: w.constant && !w.keys.trim() ? rw.key || [] : w.keys.split(/[,，]/).map((x) => x.trim()).filter(Boolean), position: w.position, depth: w.depth, role: w.role, order: w.order, disable: !it.enabled };
+    });
+    // 写之前备份整本世界书（存在本浏览器，「备份」页可见）
+    try {
+      await backupPut(`世界书：${d.name}`, await mods.wi.loadWorldInfo(d.name), "缝合前");
+    } catch (e) {
+      if (!await confirmBox("备份失败", `缝合前备份世界书「${d.name}」没有成功（${e.message}）。仍可在缝合后用底栏的「撤销」删掉刚缝进去的条目。继续缝合吗？`, "继续缝合")) return;
+    }
+    try {
+      const uids = await writeWorldEntries(d.name, fields, afterId ? d.wb[afterId]?.uid : null);
+      st.lastWb = { name: d.name, uids };
+      st.worldCache.delete(d.name);
+      st.picked.clear();
+      await loadWbDraft(true);
+      st.wbMarker = { at: "row", id: `wb${uids[uids.length - 1]}` };
+      st.highlight = new Set(uids.map((u) => `wb${u}`));
+      toast(`已缝合 ${uids.length} 条到世界书「${d.name}」`, "success");
+      setPane("dst");
+      renderSrc();
+      await renderDst();
+      dstList.querySelector(".cw-flash")?.scrollIntoView({ block: "center" });
+      setTimeout(() => { st.highlight = null; }, 1500);
+    } catch (e) {
+      toast("写入世界书失败：" + e.message, "error");
+    }
+  }
+  // 世界书不在撤销记录里：单独记下刚缝进去的条目，可以删回去
+  async function undoWorld() {
+    const last = st.lastWb;
+    if (!last) return;
+    if (!await confirmBox("撤销缝合", `从世界书「${last.name}」删掉刚缝进去的 ${last.uids.length} 条？`, "删除", true)) return;
+    try {
+      const data = await mods.wi.loadWorldInfo(last.name);
+      const gone = new Set(last.uids.map(String));
+      for (const k of Object.keys(data.entries || {})) if (gone.has(String(data.entries[k].uid))) delete data.entries[k];
+      wiSorted(data).forEach((e, i) => { e.displayIndex = i; });
+      await mods.wi.saveWorldInfo(last.name, data, true);
+      try { mods.wi.reloadEditor?.(last.name); } catch {}
+      st.lastWb = null;
+      st.worldCache.delete(last.name);
+      st.wbMarker = null;
+      await loadWbDraft(true);
+      toast("已撤销", "success");
+      renderDst();
+    } catch (e) {
+      toast("撤销失败：" + e.message, "error");
+    }
+  }
+  // ---- 搬到新版：从＝旧版，到＝新版。把旧版里缝进去的条目按原位置搬过去
+  async function migrate() {
+    if (st.srcType !== "preset" || !st.srcPreset) return;
+    const neu = target();
+    if (st.srcPreset === neu.name) return toast("来源和目标是同一个预设。请在「从」里选旧版，「到」是新版");
+    const old = getDraft(st.srcPreset);
+    const rec = new Map((old.preset.extensions?.presetAtelier?.stitched || []).map((r) => [r.id, r]));
+    const norm = (x) => String(x || "").replace(/\s+/g, "");
+    const newIds = new Set(neu.order.map((o) => o.identifier));
+    const newContent = new Set(neu.preset.prompts.map((p) => norm(p.content)).filter(Boolean));
+    const newByName = new Map(neu.preset.prompts.map((p) => [p.name, p.identifier]));
+    const order = old.order.map((o) => o.identifier);
+    const inNew = (id) => newIds.has(id) && !rec.has(id) ? id : (() => {
+      const nm = old.prompt(id)?.name;
+      const hit = nm && newByName.get(nm);
+      return hit && !rec.has(id) ? hit : null;
+    })();
+    const cands = [];
+    order.forEach((id, i) => {
+      if (old.isMarker(id)) return;
+      const p = old.prompt(id);
+      if (!p) return;
+      const recorded = rec.has(id);
+      if (newContent.has(norm(p.content)) && norm(p.content)) return;
+      if (!recorded && (newIds.has(id) || newByName.has(p.name))) return;
+      // 位置：往前找最近一个新版里也有的条目，放在它后面
+      let anchor = null;
+      for (let j = i - 1; j >= 0 && !anchor; j--) anchor = inNew(order[j]);
+      const og = old.groupOf(id), ag = anchor ? neu.groupOf(anchor) : null;
+      const sameGroup = og && anchor && old.group(og)?.name === neu.group(ag)?.name;
+      const marker = !anchor ? { at: "top" } : ag && !sameGroup ? { at: "block", id: anchor } : { at: "row", id: anchor };
+      cands.push({ id, p, recorded, marker, on: recorded, hook: !!rec.get(id)?.cot });
+    });
+    if (!cands.length) return toast(`「${old.name}」中没有找到需要搬到「${neu.name}」的条目`);
+    const body = el(html`<div class="cw-form">
+      <p class="cw-p">从「${old.name}」搬到「${neu.name}」。有缝合记录的条目已勾选；没有记录、但新版中没有的条目未勾选，可能是后来添加的，也可能是作者在新版中删除的，需自行核对。</p>
+      <div class="cw-checklist">${cands.map((c, i) => html`<label class="cw-check cw-checkrow"><input type="checkbox" data-i="${i}"${c.on ? raw(" checked") : ""}><span><b>${c.p.name || c.id}</b><span class="cw-tags">${c.recorded ? pill("缝合记录", "accent") : pill("新版中没有", "muted")}${c.hook ? pill("原先接入思维链", "line") : ""}${pill(placeText(neu, fixPlace(neu, c.marker) || { at: "top" }), "line")}</span></span></label>`)}</div>
+      <p class="cw-hint">下一步打开缝合预览，可逐条检查写法和思维链。早于 1.6.0 缝合的条目没有记录，只能按「新版中没有」找出。</p></div>`);
+    body.addEventListener("change", (e) => {
+      const i = e.target.dataset.i;
+      if (i != null) cands[Number(i)].on = e.target.checked;
+    });
+    const ok = await dialog({ title: `搬到新版：找到 ${cands.length} 条`, body, size: "lg", noFocus: true, actions: [{ label: "取消", value: null }, { label: "下一步：预览", kind: "primary", value: true }] });
+    if (!ok) return;
+    const pick = cands.filter((c) => c.on);
+    if (!pick.length) return toast("没有勾选条目");
+    await review({
+      title: `搬 ${pick.length} 条到「${neu.name}」`,
+      // 开关沿用旧版里的状态
+      entries: pick.map((c) => ({ src: { name: c.p.name, content: c.p.content, prompt: c.p, from: old.name, srcDraft: old, srcId: c.id }, marker: c.marker, hook: c.hook || void 0, enabled: old.order.find((o) => o.identifier === c.id)?.enabled !== false }))
+    });
+  }
+  const off = onDraftChange((name, kind) => {
+    if (kind !== "status" && name === focusPreset() && draftViewVisible(page) && st.dstType === "preset") renderDst();
+  });
+  cleanups.push(off);
+  return {
+    render() {
+      setPane(st.pane);
+      renderSrcPick();
+      renderSrc();
+      renderDst();
+    }
+  };
+}
 
 // src/ui/dlg-regex.js
-// 建设中
+// 缝合预设正则：逐条选择，处理同名或同 ID 冲突，预览新增、替换、跳过和最终顺序。查找表达式和替换内容始终作为文本展示
+async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
+  let sourceRules;
+  try { sourceRules = presetRegexList(sourceDraft); }
+  catch (error) { toast("无法预览预设正则：" + error.message, "error"); return false; }
+  if (!sourceRules.length) {
+    toast("这个来源预设没有随预设保存的正则");
+    return false;
+  }
+  const sourceSig = presetRegexRulesSnapshot(sourceDraft);
+  const targetSig = presetRegexRulesSnapshot(targetDraft);
+  const targetGroupSig = presetRegexGroupSnapshot(targetDraft);
+  const sourceManaged = drafts.get(sourceDraft.name) === sourceDraft;
+  const targetManaged = drafts.get(targetDraft.name) === targetDraft;
+  const targetFocus = focusPreset();
+  const selected = new Set();
+  const choices = new Map();
+  const names = sourceRules.map((rule) => presetRegexRuleName(rule));
+  const searchText = sourceRules.map((rule, i) => `${names[i]}\n${typeof rule?.id === "string" ? rule.id : ""}\n${typeof rule?.findRegex === "string" ? rule.findRegex : ""}`.toLowerCase());
+  sourceRules.forEach((rule, i) => { if (rule?.markdownOnly && !rule?.promptOnly) selected.add(i); });
+  // 从缝合预览跳过来时，只预选缝来的格式条目需要的那几条
+  if (Array.isArray(options.preselect) && options.preselect.length) {
+    selected.clear();
+    options.preselect.filter((i) => Number.isInteger(i) && sourceRules[i]).forEach((i) => selected.add(i));
+  }
+  let plan = null, basePlan = null, planError = "", query = "", stale = false, wrap = null;
+  let groupName = sourceDraft.name;
+  const activationText = () => {
+    const state = presetRegexActivationInfo(targetDraft.name);
+    if (state.extensionDisabled) return `正则功能已全局停用，当前不会生效。请在酒馆开启正则功能${state.allowed ? "" : "，再到「正则」面板允许目标预设"}；此处保留现有启用状态。`;
+    if (!state.allowed) return "目标预设尚未允许使用内置正则。缝入后请到酒馆「正则」面板允许该预设，才能生效；此处保留现有启用状态。";
+    return `目标预设已允许使用内置正则，保留现有启用状态。${state.current ? "保存后" : "切换到该预设后"}，由酒馆按各条规则的开关和作用范围处理。`;
+  };
+  const body = el(html`<div class="cw-form cw-regex">
+    <div class="cw-card">
+      <div class="cw-card-h"><b>从「${sourceDraft.name}」缝入「${targetDraft.name}」</b><span class="cw-gap"></span>${tipBtn()}</div>
+      ${tipNote(`<p>默认只选仅用于显示美化的正则，保留每条规则原来的开关、作用位置和其他设置。新规则按来源顺序放到目标末尾；明确替换的规则保留目标位置。</p><p>分组保存在目标预设中，由柏宝箱的正则分组面板显示；酒馆原生正则面板仍按平铺列表显示。</p><p>状态栏仍需配套提示词或世界书输出相应的标签和格式，正则才能匹配并显示美化。搬运正则后，请同时核对这些配套内容。</p>`)}
+      <label class="cw-field"><span>缝入分组（同名组继续使用）</span><input class="cw-input" data-rx-group-name type="text" value="${groupName}" aria-label="缝入正则的分组名称"></label>
+      <p class="cw-hint" data-rx-activation>${activationText()}</p>
+      <p class="cw-warn-text" data-rx-stale hidden>来源或目标已变化，请关闭后重新预览。</p></div>
+    <div class="cw-rx-tools"><label class="cw-search">${iconHtml("search")}<input data-rx-search type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索名称、ID 或查找表达式" aria-label="搜索来源正则"></label>
+      <span class="cw-rx-picks">${btn("仅选显示美化", { size: "sm", attrs: 'data-rx-pick="display"' })}${btn("全选", { size: "sm", attrs: 'data-rx-pick="all"' })}${btn("清空", { size: "sm", attrs: 'data-rx-pick="none"' })}<span class="cw-dim" data-rx-count aria-live="polite"></span></span></div>
+    <div data-rx-source></div>
+    <div class="cw-card" data-rx-plan aria-live="polite"></div>
+    <details class="cw-fold" data-rx-order><summary>${iconHtml("chev")}<span>缝合后的正则顺序 <span data-rx-order-count></span></span></summary><div class="cw-fold-body"><ol class="cw-orderlist" data-rx-final-order></ol></div></details>
+  </div>`);
+  const staleReason = () => {
+    try {
+      if (sourceManaged && drafts.get(sourceDraft.name) !== sourceDraft) return true;
+      if (targetManaged && drafts.get(targetDraft.name) !== targetDraft) return true;
+      if (focusPreset() !== targetFocus) return true;
+      return sourceSig !== presetRegexRulesSnapshot(sourceDraft) || targetSig !== presetRegexRulesSnapshot(targetDraft) || targetGroupSig !== presetRegexGroupSnapshot(targetDraft);
+    } catch {
+      return true;
+    }
+  };
+  const confirmBtn = () => wrap?.querySelector(".cw-dlg-foot .cw-btn-primary");
+  const markStale = () => {
+    stale = true;
+    body.querySelector("[data-rx-stale]").hidden = false;
+    if (confirmBtn()) confirmBtn().disabled = true;
+  };
+  const makePlan = (indices) => planPresetRegexTransfer(sourceDraft, targetDraft, { selectedIndices: indices, conflictChoices: Object.fromEntries(choices), groupName });
+  try {
+    basePlan = makePlan(sourceRules.map((_, i) => i));
+  } catch (error) {
+    toast("无法预览预设正则：" + error.message, "error");
+    return false;
+  }
+  const rowInfo = (index) => basePlan.rows.find((row) => row.sourceIndex === index);
+  const placeName = (v) => ({ 0: "旧版显示", 1: "用户输入", 2: "AI 输出", 3: "快捷命令", 5: "世界书", 6: "推理" }[v] || `位置 ${v}`);
+  const ruleMarkup = (rule, i) => {
+    const info = rowInfo(i);
+    const disabled = !rule || typeof rule !== "object" || Array.isArray(rule) || info?.invalid;
+    const conflicts = info?.conflicts || [];
+    return html`<article class="cw-card cw-rx-rule" data-rx-index="${i}">
+      <label class="cw-check"><input type="checkbox" data-rx-select="${i}"${selected.has(i) ? raw(" checked") : ""}${disabled ? raw(" disabled") : ""}><span><b>${names[i]}</b><small>${presetRegexRuleScope(rule)} · 来源${rule?.disabled ? "关闭" : "开启"}${Array.isArray(rule?.placement) ? ` · 作用位置 ${rule.placement.filter(Number.isInteger).map(placeName).join("、")}` : ""}</small></span></label>
+      ${info?.duplicate ? html`<p class="cw-hint">目标已有相同规则，将自动跳过。</p>` : ""}
+      ${disabled ? html`<p class="cw-warn-text">规则数据不完整，不能搬运。</p>` : ""}
+      ${conflicts.length && !info?.duplicate ? html`<div class="cw-form-row"><label class="cw-field"><span>冲突处理</span><select class="cw-select" data-rx-conflict="${i}" aria-label="${names[i]}的冲突处理"><option value="keep">保留两份</option><option value="skip">跳过来源规则</option><option value="replace">替换目标规则</option></select></label>
+        ${conflicts.length > 1 ? html`<label class="cw-field" data-rx-replace-row="${i}" hidden><span>替换哪条</span><select class="cw-select" data-rx-replace="${i}" aria-label="${names[i]}要替换的目标"><option value="">请选择目标规则</option>${conflicts.map((r) => html`<option value="${r.index}">第 ${r.index + 1} 条：${presetRegexRuleName({ scriptName: r.name })}</option>`)}</select></label>` : ""}</div>
+        <small class="cw-warn-text">与目标中的 ${conflicts.map((r) => `第 ${r.index + 1} 条「${presetRegexRuleName({ scriptName: r.name })}」`).join("、")} 同名或同 ID，但内容不同。</small>` : ""}
+      <details class="cw-fold" data-rx-details="${i}"><summary>${iconHtml("chev")}<span>查看查找与替换内容</span></summary><div class="cw-fold-body" data-rx-code></div></details>
+    </article>`;
+  };
+  const displayIndices = sourceRules.map((rule, i) => rule?.markdownOnly && !rule?.promptOnly ? i : -1).filter((i) => i >= 0);
+  const otherIndices = sourceRules.map((_, i) => i).filter((i) => !displayIndices.includes(i));
+  body.querySelector("[data-rx-source]").innerHTML = String(html`
+    <section data-rx-section="display"><h4>显示美化（${displayIndices.length}）</h4><div class="cw-stack">${displayIndices.length ? displayIndices.map((i) => ruleMarkup(sourceRules[i], i)) : html`<p class="cw-hint">来源没有仅显示美化的规则，可在下面手动选择。</p>`}</div></section>
+    ${otherIndices.length ? html`<section data-rx-section="other"><h4>其他规则（${otherIndices.length}）</h4><p class="cw-hint">这些规则也可能改变发送给模型的内容，请核对后选择。</p><div class="cw-stack">${otherIndices.map((i) => ruleMarkup(sourceRules[i], i))}</div></section>` : ""}`);
+  body.querySelectorAll("[data-rx-select]:disabled").forEach((input) => {
+    selected.delete(Number(input.dataset.rxSelect));
+    input.checked = false;
+  });
+  const paintOrder = () => {
+    const order = body.querySelector("[data-rx-order]");
+    const list = body.querySelector("[data-rx-final-order]");
+    if (!order.open) { list.replaceChildren(); return; }
+    list.innerHTML = String(html`${(plan?.rules || []).map((rule) => html`<li><b>${presetRegexRuleName(rule)}</b><small>${rule?.disabled ? "关闭" : "开启"} · ${presetRegexRuleScope(rule)}</small></li>`)}`);
+  };
+  const refreshPlan = () => {
+    if (staleReason()) markStale();
+    planError = "";
+    try { plan = makePlan([...selected]); }
+    catch (error) { plan = null; planError = error.message; }
+    body.querySelector("[data-rx-count]").textContent = `已选 ${selected.size} / ${sourceRules.length}`;
+    const stats = plan?.stats;
+    body.querySelector("[data-rx-plan]").innerHTML = String(planError ? html`<p class="cw-warn-text">${planError}</p>` : html`<b>本次预览</b><p>新增 ${stats.added} 条 · 替换 ${stats.replaced} 条 · 跳过 ${stats.skipped} 条</p><p data-rx-group-preview>${plan.group ? `${plan.group.reused ? "加入已有分组" : "新建分组"}「${plan.group.name}」：${plan.group.memberIds.length} 条` : "没有可缝入的正则，不创建分组"}</p><small class="cw-dim">目标原有顺序保留，新规则按来源顺序追加；不会更改提示词条目或全局正则。</small>`);
+    body.querySelector("[data-rx-order-count]").textContent = `（${plan?.rules?.length || 0} 条）`;
+    if (confirmBtn()) confirmBtn().disabled = stale || !plan || !(stats.added || stats.replaced);
+    paintOrder();
+  };
+  onSearchInput(body.querySelector("[data-rx-search]"), (value) => {
+    query = value.trim().toLowerCase();
+    body.querySelectorAll("[data-rx-index]").forEach((row) => { row.hidden = !searchText[Number(row.dataset.rxIndex)].includes(query); });
+  }, 80);
+  body.querySelector("[data-rx-group-name]").addEventListener("input", (event) => {
+    groupName = event.target.value.trim();
+    refreshPlan();
+  });
+  body.addEventListener("click", (event) => {
+    const pick = event.target.closest("[data-rx-pick]")?.dataset.rxPick;
+    if (!pick) return;
+    selected.clear();
+    if (pick === "display") displayIndices.forEach((i) => selected.add(i));
+    if (pick === "all") sourceRules.forEach((_, i) => selected.add(i));
+    body.querySelectorAll("[data-rx-select]").forEach((input) => {
+      if (input.disabled) selected.delete(Number(input.dataset.rxSelect));
+      input.checked = selected.has(Number(input.dataset.rxSelect));
+    });
+    refreshPlan();
+  });
+  body.addEventListener("change", (event) => {
+    const sel = event.target.dataset.rxSelect;
+    if (sel != null) {
+      if (event.target.checked) selected.add(Number(sel));
+      else selected.delete(Number(sel));
+      refreshPlan();
+    }
+    const conflict = event.target.dataset.rxConflict;
+    if (conflict != null) {
+      const targetRow = body.querySelector(`[data-rx-replace-row="${conflict}"]`);
+      if (targetRow) targetRow.hidden = event.target.value !== "replace";
+      const targetValue = targetRow?.querySelector("select").value;
+      choices.set(Number(conflict), event.target.value === "replace" && targetRow ? { action: "replace", ...(targetValue !== "" ? { targetIndex: Number(targetValue) } : {}) } : event.target.value);
+      refreshPlan();
+    }
+    const replacement = event.target.dataset.rxReplace;
+    if (replacement != null) {
+      const targetValue = event.target.value;
+      choices.set(Number(replacement), { action: "replace", ...(targetValue !== "" ? { targetIndex: Number(targetValue) } : {}) });
+      refreshPlan();
+    }
+  });
+  body.addEventListener("toggle", (event) => {
+    const details = event.target;
+    if (details.matches("[data-rx-order]")) return paintOrder();
+    if (!details.matches("[data-rx-details]") || !details.open || details.dataset.loaded) return;
+    const rule = sourceRules[Number(details.dataset.rxDetails)];
+    details.querySelector("[data-rx-code]").innerHTML = String(html`<p class="cw-hint">查找表达式</p><pre class="cw-pre">${typeof rule?.findRegex === "string" ? rule.findRegex : "（查找表达式格式无效）"}</pre><p class="cw-hint">替换文本 / HTML</p><pre class="cw-pre">${typeof rule?.replaceString === "string" ? rule.replaceString : "（替换文本格式无效）"}</pre>`);
+    details.dataset.loaded = "1";
+  }, true);
+  refreshPlan();
+  const accepted = await dialog({
+    title: "缝合预设正则", body, size: "lg", noFocus: true,
+    actions: [{ label: "取消", value: false }, {
+      label: "确认缝合正则", kind: "primary", value: true,
+      validate: () => {
+        if (staleReason()) { markStale(); toast("来源或目标已变化，请重新预览", "error"); return false; }
+        if (!plan || planError || !(plan.stats.added || plan.stats.replaced)) return false;
+        try { validatePresetRegexTransfer(targetDraft, plan, sourceDraft); }
+        catch (error) { markStale(); toast(error.message, "error"); return false; }
+        return true;
+      }
+    }],
+    onMount: (mounted) => {
+      wrap = mounted;
+      body.querySelector("[data-rx-activation]").textContent = activationText();
+      options.onMount?.(mounted, body);
+      if (confirmBtn()) confirmBtn().disabled = stale || !plan || !(plan.stats.added || plan.stats.replaced);
+      const off = onDraftChange((name, kind) => {
+        body.querySelector("[data-rx-activation]").textContent = activationText();
+        if ((name === sourceDraft.name || name === targetDraft.name || kind === "focus") && staleReason()) markStale();
+      });
+      mounted.addEventListener("cw-closed", off, { once: true });
+    }
+  });
+  if (!accepted) return false;
+  if (staleReason()) { toast("来源或目标已变化，请重新预览", "error"); return false; }
+  try {
+    validatePresetRegexTransfer(targetDraft, plan, sourceDraft);
+    mutate(targetDraft, "缝合预设正则", (draft) => applyPresetRegexTransfer(draft, plan, sourceDraft));
+    toast(`已缝入分组「${plan.group.name}」：新增 ${plan.stats.added} 条，替换 ${plan.stats.replaced} 条，可撤销`, "success");
+    try { await options.afterApply?.(targetDraft, plan, body); }
+    catch (error) { toast("正则已缝合，酒馆列表刷新失败，请重新打开正则面板：" + error.message, "error"); }
+    return true;
+  } catch (error) {
+    toast("未能缝合预设正则：" + error.message, "error");
+    return false;
+  }
+}
 
 // src/ui/page-reply.js
 function mountReplyPage(page) { page.innerHTML = '<div class="cw-body"><div class="cw-col"><p class="cw-hint">建设中</p></div></div>'; return { render() {} }; }
@@ -10070,7 +11575,7 @@ function mountLookPage(page) { page.innerHTML = '<div class="cw-body"><div class
 function addSettingsEntry() {}
 
 // src/ui/style.css
-var style_default = "/* 焦香鸡翅 3.0 样式。全部选择器限定在 #cw-root（面板）、#cw-settings（扩展页设置框）、#cw-ball（悬浮球）之内。\n   颜色只用变量：跟随酒馆时由主题引擎（app/theme.js）按对比度计算，内置配色在本文件末尾给定。 */\n\n#cw-root {\n    /* 颜色 */\n    --cw-bg: var(--SmartThemeBlurTintColor, #1d1b20);\n    --cw-text: var(--SmartThemeBodyColor, #e8e3da);\n    --cw-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, .16));\n    --cw-accent: var(--SmartThemeQuoteColor, #e0a24a);\n    --cw-muted: rgba(128, 128, 128, .95);\n    --cw-surface: rgba(127, 127, 127, .07);\n    --cw-raised: rgba(127, 127, 127, .14);\n    --cw-accent-soft: rgba(224, 162, 74, .16);\n    --cw-rule: rgba(127, 127, 127, .14);\n    --cw-input: rgba(0, 0, 0, .18);\n    --cw-warn: #e0784a;\n    --cw-ok: #6fb38a;\n    --cw-on-accent: #1b1712;\n    --cw-control: rgba(127, 127, 127, .6);\n    --cw-scrim: rgba(10, 10, 14, .42);\n    --cw-shadow: 0 12px 36px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .12);\n    /* 尺寸 */\n    --cw-fs-xs: .8em; --cw-fs-s: .9em; --cw-fs-l: 1.15em; --cw-fs-xl: 1.4em;\n    --cw-r-s: 6px; --cw-r: 10px; --cw-r-l: 16px;\n    --cw-h-s: 28px; --cw-h: 36px; --cw-h-l: 44px;\n    --cw-row: 40px;\n    --cw-side: 224px;\n    --cw-detail: 400px;\n    --cw-ease: cubic-bezier(.23, 1, .32, 1);\n    --cw-drawer: cubic-bezier(.32, .72, 0, 1);\n    --cw-base: var(--mainFontSize, 15px);\n    position: fixed; inset: 0; z-index: 10010;\n    width: 100%; height: 100vh; height: 100dvh; height: var(--cw-vh, 100dvh);\n    margin: 0; padding: 0;\n    color: var(--cw-text);\n    font-size: calc(var(--cw-base) * var(--cw-k, 1));\n    line-height: 1.5;\n    text-shadow: none;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #cw-root {\n        --cw-muted: color-mix(in srgb, var(--cw-text) 62%, transparent);\n        --cw-surface: color-mix(in srgb, var(--cw-text) 5%, transparent);\n        --cw-raised: color-mix(in srgb, var(--cw-text) 10%, transparent);\n        --cw-rule: color-mix(in srgb, var(--cw-line) 60%, transparent);\n        --cw-accent-soft: color-mix(in srgb, var(--cw-accent) 16%, transparent);\n    }\n}\n#cw-root[data-fs=\"s\"] { --cw-k: .9; }\n#cw-root[data-fs=\"l\"] { --cw-k: 1.12; }\n@media (pointer: coarse) { #cw-root { --cw-row: 44px; } }\n@media (max-width: 959px) { #cw-root { --cw-base: min(var(--mainFontSize, 15px), 15px); } }\n#cw-root[hidden] { display: none; }\nhtml.cw-open body { overflow: hidden; }\n#cw-root *, #cw-root *::before, #cw-root *::after { box-sizing: border-box; }\n#cw-root :where(b, strong, p, span, label, small, em, details, summary, li, h1, h2, h3, h4) { color: inherit; }\n#cw-root :where(h1, h2, h3, h4, p, ul, ol, dl, figure) { margin: 0; }\n#cw-root :where(button, input, select, textarea) { font: inherit; color: inherit; }\n#cw-root [hidden] { display: none !important; }\n#cw-root .cw-ico { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#cw-root .cw-stitch { stroke-dasharray: 2.4 2.2; }\n#cw-root ::selection { background: var(--cw-accent-soft); }\n#cw-root :focus-visible { outline: 2px solid var(--cw-accent); outline-offset: 1px; }\n#cw-root mark { background: color-mix(in srgb, var(--cw-accent) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }\n#cw-root code { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: .92em; background: var(--cw-raised); padding: 0 4px; border-radius: 4px; }\n#cw-root .cw-num { font-variant-numeric: tabular-nums; }\n\n/* ---------- 外壳 ---------- */\n#cw-root .cw-app {\n    position: absolute; inset: 0; overflow: hidden;\n    display: grid; grid-template-columns: var(--cw-side) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);\n    background: var(--cw-bg);\n}\n#cw-root .cw-side {\n    display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto;\n    padding: calc(14px + var(--cw-sat, env(safe-area-inset-top))) 10px calc(12px + var(--cw-sab, env(safe-area-inset-bottom))) calc(10px + env(safe-area-inset-left));\n    border-right: 1px solid var(--cw-rule);\n    background: color-mix(in srgb, var(--cw-text) 2.5%, transparent);\n}\n#cw-root .cw-brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; white-space: nowrap; min-width: 0; }\n#cw-root .cw-brand .cw-logo { display: inline-flex; color: var(--cw-accent); }\n#cw-root .cw-brand .cw-logo .cw-ico { width: 22px; height: 22px; }\n#cw-root .cw-brand b { font-size: var(--cw-fs-l); overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-brand small { color: var(--cw-muted); font-size: var(--cw-fs-xs); align-self: flex-end; margin-bottom: .2em; }\n#cw-root .cw-scope {\n    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 6px;\n    width: 100%; margin: 0 0 14px; padding: 7px 10px; text-align: left; cursor: pointer;\n    border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface);\n}\n#cw-root .cw-scope small { grid-column: 1 / -1; color: var(--cw-muted); font-size: var(--cw-fs-xs); line-height: 1.3; }\n#cw-root .cw-scope span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }\n#cw-root .cw-scope .cw-using { font-weight: 400; color: var(--cw-accent); font-size: var(--cw-fs-xs); margin-left: 4px; }\n#cw-root .cw-scope .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; }\n#cw-root .cw-nav { display: grid; gap: 2px; }\n#cw-root .cw-nav + .cw-nav { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-nav button {\n    display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px;\n    border: 0; border-radius: 8px; background: none; cursor: pointer; color: var(--cw-muted); text-align: left;\n}\n#cw-root .cw-nav button[aria-current=\"page\"] { background: var(--cw-raised); color: var(--cw-text); font-weight: 600; }\n#cw-root .cw-nav button[aria-current=\"page\"] .cw-ico { color: var(--cw-accent); }\n@media (hover: hover) { #cw-root .cw-nav button:hover { color: var(--cw-text); } }\n#cw-root .cw-side-foot { margin-top: auto; padding: 10px 10px 0; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n\n#cw-root .cw-main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }\n#cw-root .cw-top {\n    display: flex; align-items: center; gap: 10px; min-height: 52px;\n    padding: calc(6px + var(--cw-sat, 0px)) calc(12px + env(safe-area-inset-right)) 6px 20px;\n    border-bottom: 1px solid var(--cw-rule);\n}\n#cw-root .cw-top-title { font-size: var(--cw-fs-l); font-weight: 600; white-space: nowrap; }\n#cw-root .cw-top .cw-mobile-only { display: none; }\n#cw-root .cw-top-gap { flex: 1 1 auto; }\n#cw-root .cw-save { display: flex; align-items: center; gap: 6px; min-width: 0; }\n#cw-root .cw-save-text { font-size: var(--cw-fs-s); color: var(--cw-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-save-text.bad { color: var(--cw-warn); }\n#cw-root .cw-save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cw-ok); flex: none; }\n#cw-root .cw-save-dot.busy { background: var(--cw-accent); animation: cw-pulse 1s ease-in-out infinite; }\n#cw-root .cw-save-dot.bad { background: var(--cw-warn); }\n@keyframes cw-pulse { 50% { opacity: .3; } }\n#cw-root .cw-stage { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; position: relative; }\n#cw-root .cw-stage.cw-has-detail { grid-template-columns: minmax(0, 1fr) var(--cw-detail); }\n#cw-root .cw-pages { position: relative; min-height: 0; min-width: 0; }\n#cw-root .cw-page { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }\n#cw-root .cw-tabbar { display: none; }\n#cw-root .cw-layer { position: absolute; inset: 0; pointer-events: none; z-index: 30; }\n#cw-root .cw-layer > * { pointer-events: auto; }\n\n/* 窄屏：顶栏 + 底部页签 */\n@media (max-width: 959px) {\n    #cw-root .cw-app { grid-template-columns: minmax(0, 1fr); }\n    #cw-root .cw-side { display: none; }\n    #cw-root .cw-top { padding-left: calc(10px + env(safe-area-inset-left)); gap: 6px; min-height: 48px; }\n    #cw-root .cw-top .cw-mobile-only { display: flex; }\n    #cw-root .cw-top .cw-desk-only { display: none; }\n    #cw-root .cw-top .cw-logo { color: var(--cw-accent); display: inline-flex; }\n    #cw-root .cw-top .cw-logo .cw-ico { width: 22px; height: 22px; }\n    #cw-root .cw-top .cw-scope { margin: 0; width: auto; min-width: 0; flex: 1 1 auto; max-width: 62%; padding: 4px 9px; display: flex; gap: 4px; }\n    #cw-root .cw-top .cw-scope small { display: none; }\n    #cw-root .cw-top .cw-top-gap { flex: 0 1 auto; }\n    #cw-root .cw-save-text { max-width: 28vw; }\n    #cw-root .cw-tabbar {\n        display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));\n        border-top: 1px solid var(--cw-rule);\n        padding: 0 env(safe-area-inset-right) var(--cw-sab, env(safe-area-inset-bottom)) env(safe-area-inset-left);\n        background: color-mix(in srgb, var(--cw-text) 2.5%, transparent);\n    }\n    #cw-root .cw-tabbar button {\n        display: grid; justify-items: center; gap: 2px; padding: 7px 0 6px; border: 0; background: none; cursor: pointer;\n        color: var(--cw-muted); font-size: var(--cw-fs-xs);\n    }\n    #cw-root .cw-tabbar .cw-ico { width: 22px; height: 22px; }\n    #cw-root .cw-tabbar button[aria-current=\"page\"] { color: var(--cw-text); font-weight: 600; }\n    #cw-root .cw-tabbar button[aria-current=\"page\"] .cw-ico { color: var(--cw-accent); }\n    #cw-root .cw-stage.cw-has-detail { grid-template-columns: minmax(0, 1fr); }\n}\n\n/* ---------- 页面骨架 ---------- */\n#cw-root .cw-pagehead {\n    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;\n    padding: 12px 20px 10px; border-bottom: 1px solid transparent;\n}\n#cw-root .cw-pagehead .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px 20px 28px; }\n/* 正文列：宽屏上限 880px，居中 */\n#cw-root .cw-col { width: 100%; max-width: 880px; margin-inline: auto; }\n#cw-root .cw-pagehead > .cw-col, #cw-root .cw-bar > .cw-col { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n@media (max-width: 959px) {\n    #cw-root .cw-pagehead { padding: 10px 12px 8px; }\n    #cw-root .cw-body { padding: 2px 12px 24px; }\n}\n#cw-root .cw-bar {\n    flex: none; padding: 10px 20px calc(10px + var(--cw-safe-bottom, 0px));\n    border-top: 1px solid var(--cw-rule); background: var(--cw-bg);\n    box-shadow: 0 -6px 18px rgba(0, 0, 0, .06);\n}\n@media (max-width: 959px) { #cw-root .cw-bar { padding: 8px 12px; } }\n#cw-root .cw-bar-info { display: grid; min-width: 0; margin-right: auto; }\n#cw-root .cw-bar-info b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-bar-info small { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-bar-acts { display: flex; gap: 6px; flex-wrap: wrap; }\n#cw-root .cw-sec { margin-top: 22px; }\n#cw-root .cw-sec:first-child { margin-top: 8px; }\n#cw-root .cw-sec-h { display: flex; align-items: center; gap: 8px; min-height: 32px; margin-bottom: 8px; }\n#cw-root .cw-sec-h h2, #cw-root .cw-sec-h h3 { font-size: 1em; font-weight: 600; }\n#cw-root .cw-sec-h .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-sec-h small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n\n/* ---------- 文字 ---------- */\n#cw-root .cw-p { margin: 0 0 8px; }\n#cw-root .cw-hint { color: var(--cw-muted); font-size: var(--cw-fs-s); margin: 4px 0; }\n#cw-root .cw-pad { padding: 12px; }\n#cw-root .cw-warn-text { color: var(--cw-warn); }\n#cw-root .cw-ok-text { color: var(--cw-ok); }\n#cw-root .cw-dim { color: var(--cw-muted); }\n#cw-root .cw-pre { margin: 6px 0 0; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); line-height: 1.55; background: var(--cw-input); border-radius: var(--cw-r-s); max-height: 50vh; overflow: auto; }\n#cw-root .cw-list { margin: 4px 0; padding-left: 1.25em; display: grid; gap: 4px; }\n#cw-root .cw-empty { display: grid; justify-items: center; gap: 10px; padding: 36px 16px; color: var(--cw-muted); text-align: center; }\n\n/* ---------- 按钮 ---------- */\n#cw-root .cw-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: var(--cw-h); padding: 0 14px; border: 1px solid var(--cw-line); border-radius: 8px;\n    background: var(--cw-surface); cursor: pointer; white-space: nowrap; font-weight: 500; text-decoration: none;\n    -webkit-tap-highlight-color: transparent; transition: transform .12s var(--cw-ease);\n}\n#cw-root .cw-btn .cw-ico { width: 1.05em; height: 1.05em; }\n#cw-root .cw-btn:not(:disabled):active, #cw-root .cw-ibtn:not(:disabled):active, #cw-root .cw-seg button:active { transform: scale(.97); }\n#cw-root .cw-btn:disabled { opacity: .45; cursor: default; }\n#cw-root .cw-btn-primary { background: var(--cw-accent); border-color: var(--cw-accent); color: var(--cw-on-accent); font-weight: 600; }\n#cw-root .cw-btn-primary:disabled { opacity: 1; background: transparent; border-color: var(--cw-line); color: var(--cw-muted); }\n#cw-root .cw-btn-danger { color: var(--cw-warn); border-color: color-mix(in srgb, var(--cw-warn) 55%, transparent); background: transparent; }\n#cw-root .cw-btn-ghost { border-color: transparent; background: transparent; }\n#cw-root .cw-btn-quiet { border-color: transparent; background: transparent; color: var(--cw-accent); padding: 0 6px; min-height: var(--cw-h-s); }\n#cw-root .cw-btn-sm { min-height: var(--cw-h-s); padding: 0 10px; font-size: var(--cw-fs-s); border-radius: var(--cw-r-s); }\n#cw-root .cw-btn.on { border-color: var(--cw-accent); color: var(--cw-accent); }\n@media (hover: hover) {\n    #cw-root .cw-btn:not(:disabled):not(.cw-btn-primary):hover { background: var(--cw-raised); }\n    #cw-root .cw-btn-quiet:not(:disabled):hover { background: var(--cw-accent-soft) !important; }\n}\n#cw-root .cw-ibtn {\n    display: inline-flex; align-items: center; justify-content: center; flex: none;\n    width: var(--cw-h); height: var(--cw-h); padding: 0; border: 0; border-radius: 8px; background: none; cursor: pointer;\n    color: var(--cw-muted); -webkit-tap-highlight-color: transparent; transition: transform .12s var(--cw-ease);\n}\n#cw-root .cw-ibtn .cw-ico { width: 20px; height: 20px; }\n#cw-root .cw-ibtn[aria-pressed=\"true\"], #cw-root .cw-ibtn.on { color: var(--cw-accent); background: var(--cw-accent-soft); }\n#cw-root .cw-ibtn:disabled { opacity: .4; cursor: default; }\n@media (hover: hover) { #cw-root .cw-ibtn:not(:disabled):hover { background: var(--cw-raised); color: var(--cw-text); } }\n#cw-root .cw-ibtn.cw-busy .cw-ico { animation: cw-pulse .9s ease-in-out infinite; }\n#cw-root .cw-ibtn.cw-spin .cw-ico, #cw-root .cw-btn.cw-spin .cw-ico { animation: cw-spin .8s linear infinite; }\n@keyframes cw-spin { to { transform: rotate(360deg); } }\n#cw-root .cw-link { border: 0; background: none; padding: 2px 4px; color: var(--cw-accent); cursor: pointer; font: inherit; text-decoration: none; border-radius: 4px; }\n@media (hover: hover) { #cw-root .cw-link:hover { text-decoration: underline; text-underline-offset: 3px; } }\n#cw-root .cw-link:disabled { color: var(--cw-muted); cursor: default; text-decoration: none; }\n\n/* ---------- 表单 ---------- */\n#cw-root .cw-input, #cw-root .cw-select {\n    width: 100%; min-height: var(--cw-h); padding: 6px 10px;\n    border: 1px solid var(--cw-line) !important; border-radius: 8px !important;\n    background: var(--cw-input) !important; background-image: none !important; box-shadow: none !important;\n    color: var(--cw-text) !important; -webkit-text-fill-color: var(--cw-text) !important; caret-color: var(--cw-text);\n    font-size: 1em; margin: 0 !important; -webkit-appearance: none; appearance: none;\n}\n#cw-root .cw-input::placeholder { color: var(--cw-muted) !important; -webkit-text-fill-color: var(--cw-muted) !important; opacity: 1; }\n#cw-root textarea.cw-input { min-height: 120px; resize: vertical; line-height: 1.55; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); white-space: pre-wrap; }\n#cw-root .cw-input:focus, #cw-root .cw-select:focus { outline: 2px solid var(--cw-accent); outline-offset: -1px; }\n#cw-root .cw-input[aria-invalid=\"true\"] { border-color: var(--cw-warn) !important; }\n#cw-root .cw-select { padding-right: 30px; background-image: linear-gradient(45deg, transparent 50%, var(--cw-muted) 50%), linear-gradient(135deg, var(--cw-muted) 50%, transparent 50%) !important; background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52% !important; background-size: 5px 5px, 5px 5px !important; background-repeat: no-repeat !important; }\n#cw-root .cw-select option { background: var(--cw-bg); color: var(--cw-text); }\n@supports (-webkit-touch-callout: none) { #cw-root .cw-input, #cw-root .cw-select { font-size: max(16px, 1em); } }\n#cw-root .cw-field { display: grid; gap: 5px; }\n#cw-root .cw-field > span:first-child, #cw-root .cw-label { color: var(--cw-muted); font-size: var(--cw-fs-s); display: flex; align-items: center; gap: 6px; }\n#cw-root .cw-field-err { color: var(--cw-warn); font-size: var(--cw-fs-s); }\n#cw-root .cw-form { display: grid; gap: 14px; }\n#cw-root .cw-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }\n#cw-root .cw-check { display: inline-flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.45; }\n#cw-root .cw-check input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; accent-color: var(--cw-accent); }\n#cw-root .cw-check small { display: block; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-inline-input { min-height: 30px; padding: 2px 8px; }\n#cw-root .cw-pick-btn {\n    display: inline-flex; align-items: center; gap: 6px; min-height: var(--cw-h); min-width: 0; max-width: 100%;\n    padding: 0 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-input); cursor: pointer; text-align: left;\n}\n#cw-root .cw-pick-btn > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-pick-btn .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; margin-left: auto; }\n#cw-root .cw-pick-btn small { color: var(--cw-accent); font-size: var(--cw-fs-xs); white-space: nowrap; }\n\n/* 开关：36×20；部分开启时滑块居中 */\n#cw-root .cw-switch { position: relative; display: inline-block; width: 36px; height: 20px; flex: none; cursor: pointer; }\n#cw-root .cw-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }\n#cw-root .cw-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--cw-raised); border: 1px solid var(--cw-control); pointer-events: none; transition: background-color .16s var(--cw-ease), border-color .16s var(--cw-ease); }\n#cw-root .cw-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--cw-text); opacity: .6; transition: transform .16s var(--cw-ease), opacity .16s var(--cw-ease); }\n#cw-root .cw-switch input:checked + i { background: var(--cw-accent); border-color: var(--cw-accent); }\n#cw-root .cw-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: var(--cw-on-accent); }\n#cw-root .cw-switch input:indeterminate + i, #cw-root .cw-switch input[data-mixed=\"1\"] + i { background: var(--cw-raised); border-color: var(--cw-accent); }\n#cw-root .cw-switch input:indeterminate + i::after, #cw-root .cw-switch input[data-mixed=\"1\"] + i::after { transform: translateX(8px); opacity: 1; background: var(--cw-accent); }\n#cw-root .cw-switch input:focus-visible + i { outline: 2px solid var(--cw-accent); outline-offset: 2px; }\n#cw-root .cw-switch input:disabled + i { opacity: .45; }\n#cw-root .cw-switch-s { width: 30px; height: 17px; }\n#cw-root .cw-switch-s i::after { width: 11px; height: 11px; }\n#cw-root .cw-switch-s input:checked + i { background: transparent; border: 1.5px solid var(--cw-accent); }\n#cw-root .cw-switch-s input:checked + i::after { transform: translateX(13px); background: var(--cw-accent); }\n#cw-root .cw-switch-s input[data-mixed=\"1\"] + i::after { transform: translateX(6.5px); }\n\n/* 分段控件、下划线页签 */\n#cw-root .cw-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--cw-raised); max-width: 100%; overflow-x: auto; scrollbar-width: none; }\n#cw-root .cw-seg::-webkit-scrollbar { display: none; }\n#cw-root .cw-seg button { flex: none; border: 0; background: none; padding: 0 12px; min-height: 30px; border-radius: 7px; cursor: pointer; color: var(--cw-muted); white-space: nowrap; transition: transform .12s var(--cw-ease); }\n#cw-root .cw-seg button.on { background: var(--cw-bg); color: var(--cw-text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 0 0 1px var(--cw-rule); }\n#cw-root .cw-seg-sm button { min-height: 26px; padding: 0 10px; font-size: var(--cw-fs-s); }\n#cw-root .cw-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--cw-rule); overflow-x: auto; scrollbar-width: none; }\n#cw-root .cw-tabs::-webkit-scrollbar { display: none; }\n#cw-root .cw-tabs button { flex: none; border: 0; background: none; padding: 8px 10px; margin-bottom: -1px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--cw-muted); white-space: nowrap; }\n#cw-root .cw-tabs button.on { color: var(--cw-text); font-weight: 600; border-bottom-color: var(--cw-accent); }\n\n/* ---------- 卡片、胶囊、提示 ---------- */\n#cw-root .cw-card { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); padding: 12px 14px; }\n#cw-root .cw-card + .cw-card { margin-top: 8px; }\n#cw-root .cw-card-h { display: flex; align-items: center; gap: 8px; }\n#cw-root .cw-card-h b { flex: 0 1 auto; min-width: 0; }\n#cw-root .cw-card-h .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-card-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }\n#cw-root .cw-card-warn { border-color: color-mix(in srgb, var(--cw-warn) 50%, var(--cw-line)); }\n#cw-root .cw-note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-surface); border: 1px solid var(--cw-line); }\n#cw-root .cw-note > .cw-ico { margin-top: .15em; color: var(--cw-muted); }\n#cw-root .cw-note-warn { border-color: color-mix(in srgb, var(--cw-warn) 45%, var(--cw-line)); }\n#cw-root .cw-note-warn > .cw-ico { color: var(--cw-warn); }\n#cw-root .cw-note-ok > .cw-ico { color: var(--cw-ok); }\n#cw-root .cw-note > div { min-width: 0; flex: 1 1 auto; }\n#cw-root .cw-pill { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 0 8px; min-height: 20px; border-radius: 999px; font-size: var(--cw-fs-xs); line-height: 1.6; white-space: nowrap; max-width: 14em; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-pill .cw-ico { width: 1em; height: 1em; }\n#cw-root .cw-pill-muted { background: var(--cw-raised); color: var(--cw-muted); }\n#cw-root .cw-pill-line { border: 1px solid var(--cw-line); color: var(--cw-muted); }\n#cw-root .cw-pill-accent { background: var(--cw-accent-soft); color: var(--cw-accent); }\n#cw-root .cw-pill-ok { background: color-mix(in srgb, var(--cw-ok) 16%, transparent); color: var(--cw-ok); }\n#cw-root .cw-pill-warn { background: color-mix(in srgb, var(--cw-warn) 16%, transparent); color: var(--cw-warn); }\n#cw-root .cw-tipbtn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; border: 0; background: none; color: var(--cw-muted); cursor: pointer; border-radius: 50%; padding: 0; }\n#cw-root .cw-tipbtn .cw-ico { width: 17px; height: 17px; }\n#cw-root .cw-tipbtn[aria-expanded=\"true\"] { color: var(--cw-accent); }\n#cw-root .cw-tipnote { margin: 4px 0 10px; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-surface); color: var(--cw-muted); font-size: var(--cw-fs-s); display: grid; gap: 6px; }\n#cw-root .cw-fold { border-radius: var(--cw-r); }\n#cw-root .cw-fold > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; padding: 6px 0; color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-fold > summary::-webkit-details-marker { display: none; }\n#cw-root .cw-fold > summary > .cw-ico { width: 1em; height: 1em; transition: transform .16s var(--cw-ease); }\n#cw-root .cw-fold[open] > summary > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-fold-body { padding: 4px 0 6px; }\n#cw-root .cw-meter { display: block; height: 6px; border-radius: 999px; background: var(--cw-raised); overflow: hidden; min-width: 40px; }\n#cw-root .cw-meter b { display: block; height: 100%; background: var(--cw-accent); border-radius: 999px; opacity: .8; }\n#cw-root .cw-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; font-size: var(--cw-fs-s); }\n#cw-root .cw-kv dt, #cw-root .cw-kv > span { color: var(--cw-muted); }\n#cw-root .cw-kv dd { margin: 0; overflow-wrap: anywhere; }\n#cw-root .cw-stats { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); border: 1px solid var(--cw-line); border-radius: var(--cw-r); overflow: hidden; background: var(--cw-surface); }\n#cw-root .cw-stats > * { display: grid; gap: 1px; padding: 9px 6px 8px; text-align: center; border: 0; border-left: 1px solid var(--cw-rule); background: none; color: inherit; font: inherit; }\n#cw-root .cw-stats > :first-child { border-left: 0; }\n#cw-root .cw-stats b { font-size: var(--cw-fs-xl); line-height: 1.2; font-variant-numeric: tabular-nums; font-weight: 600; }\n#cw-root .cw-stats span { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; }\n#cw-root .cw-stats button { cursor: pointer; box-shadow: inset 0 -2px 0 transparent; }\n#cw-root .cw-stats button.on { box-shadow: inset 0 -2px 0 var(--cw-accent); }\n#cw-root .cw-stats button.on span { color: var(--cw-text); }\n\n/* ---------- 弹窗 ---------- */\n#cw-root .cw-scrim { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--cw-scrim); animation: cw-fade .16s var(--cw-ease); }\n#cw-root .cw-scrim.cw-out { opacity: 0; transition: opacity .15s var(--cw-ease); }\n#cw-root .cw-dlg {\n    position: relative; display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: min(86%, 900px);\n    border: 1px solid var(--cw-line); border-radius: var(--cw-r-l); background: var(--cw-bg); box-shadow: var(--cw-shadow);\n    animation: cw-pop .16s var(--cw-ease); outline: none;\n}\n#cw-root .cw-dlg[data-size=\"sm\"] { max-width: 420px; }\n#cw-root .cw-dlg[data-size=\"lg\"] { max-width: 820px; }\n#cw-root .cw-dlg[data-size=\"full\"] { max-width: 1100px; height: 92%; max-height: none; }\n#cw-root .cw-dlg[data-size=\"tall\"] { height: min(80%, 720px); }\n#cw-root .cw-dlg-head { display: flex; align-items: flex-start; gap: 8px; padding: 14px 10px 10px 18px; border-bottom: 1px solid var(--cw-rule); }\n#cw-root .cw-dlg-title { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; padding-top: 5px; }\n#cw-root .cw-dlg-title b { font-size: 1.05em; overflow-wrap: anywhere; }\n#cw-root .cw-dlg-title small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 18px 16px; }\n#cw-root .cw-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 10px 18px calc(12px + var(--cw-sab, 0px)); border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-dlg[data-size=\"sm\"] .cw-dlg-foot { border-top: 0; padding-top: 0; }\n@keyframes cw-fade { from { opacity: 0; } }\n@keyframes cw-pop { from { opacity: 0; transform: scale(.98); } }\n@keyframes cw-up { from { transform: translateY(100%); } }\n@media (max-width: 959px) {\n    #cw-root .cw-scrim { align-items: flex-end; padding: 0; }\n    #cw-root .cw-dlg { max-width: none; max-height: calc(var(--cw-vh, 100dvh) - var(--cw-sat, 0px) - 24px); border-radius: var(--cw-r-l) var(--cw-r-l) 0 0; border-bottom: 0; animation: cw-up .24s var(--cw-drawer); }\n    #cw-root .cw-dlg[data-size=\"full\"], #cw-root .cw-dlg[data-size=\"tall\"] { height: calc(var(--cw-vh, 100dvh) - var(--cw-sat, 0px) - 24px); }\n    #cw-root .cw-scrim[data-size=\"sm\"] { align-items: center; padding: 20px; }\n    #cw-root .cw-scrim[data-size=\"sm\"] .cw-dlg { border-radius: var(--cw-r-l); border-bottom: 1px solid var(--cw-line); animation: cw-pop .16s var(--cw-ease); }\n    #cw-root .cw-dlg-head { padding-left: 16px; }\n    #cw-root .cw-dlg-body { padding: 12px 16px 14px; }\n    #cw-root .cw-dlg-foot { padding-left: 16px; padding-right: 16px; }\n    #cw-root .cw-dlg-foot .cw-btn { flex: 1 1 auto; }\n}\n\n/* 贴着按钮的菜单 */\n#cw-root .cw-pop-scrim { position: absolute; inset: 0; }\n#cw-root .cw-pop-scrim.cw-out .cw-pop { opacity: 0; transform: scale(.97); transition: opacity .12s var(--cw-ease), transform .12s var(--cw-ease); }\n#cw-root .cw-pop { position: absolute; overflow-y: auto; padding: 5px; border: 1px solid var(--cw-line); border-radius: 12px; background: var(--cw-bg); box-shadow: var(--cw-shadow); animation: cw-menu .14s var(--cw-ease); outline: none; }\n@keyframes cw-menu { from { opacity: 0; transform: scale(.96); } }\n#cw-root .cw-menu-title { padding: 6px 10px 4px; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-menu-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; min-height: 38px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }\n#cw-root .cw-menu-item small { grid-column: 1; color: var(--cw-muted); font-size: var(--cw-fs-xs); line-height: 1.4; }\n#cw-root .cw-menu-item .cw-ico { grid-row: 1 / span 2; grid-column: 2; color: var(--cw-accent); }\n#cw-root .cw-menu-item.cw-danger { color: var(--cw-warn); }\n#cw-root .cw-menu-item:disabled { opacity: .45; cursor: default; }\n@media (hover: hover) { #cw-root .cw-menu-item:not(:disabled):hover, #cw-root .cw-choice:hover { background: var(--cw-raised); } }\n#cw-root .cw-menu-item:focus-visible { outline-offset: -2px; }\n#cw-root .cw-menu-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }\n#cw-root .cw-menu-sep { border: 0; border-top: 1px solid var(--cw-rule); margin: 4px 6px; }\n#cw-root .cw-menu-flat { display: grid; gap: 2px; margin: 0 -6px; }\n#cw-root .cw-chooser { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }\n#cw-root .cw-chooser-top { display: flex; gap: 8px; flex: none; }\n#cw-root .cw-chooser-list { display: grid; gap: 1px; align-content: start; overflow-y: auto; min-height: 0; margin: 0 -6px; }\n#cw-root .cw-dlg[data-size=\"tall\"] .cw-dlg-body { display: flex; flex-direction: column; }\n#cw-root .cw-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }\n#cw-root .cw-choice > span { overflow-wrap: anywhere; }\n#cw-root .cw-choice small { grid-column: 1; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-choice .cw-ico { grid-row: 1 / span 2; grid-column: 2; color: var(--cw-accent); }\n#cw-root .cw-choice.on { background: var(--cw-accent-soft); }\n\n/* 详情栏（宽屏在右侧，窄屏整屏推入） */\n#cw-root .cw-detail { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--cw-rule); background: var(--cw-bg); }\n#cw-root .cw-detail-head { display: flex; align-items: center; gap: 6px; padding: 10px 8px 10px 16px; border-bottom: 1px solid var(--cw-rule); min-height: 52px; }\n#cw-root .cw-detail-head b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-detail-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 16px; }\n#cw-root .cw-detail-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--cw-rule); }\n@media (max-width: 959px) {\n    #cw-root .cw-detail { position: absolute; inset: 0; z-index: 20; border-left: 0; animation: cw-in-right .24s var(--cw-drawer); }\n    #cw-root .cw-detail-head { padding-left: 4px; }\n    #cw-root .cw-detail-foot .cw-btn { flex: 1 1 auto; }\n}\n@keyframes cw-in-right { from { transform: translateX(100%); } }\n\n@media (prefers-reduced-motion: reduce) {\n    #cw-root *, #cw-root *::before, #cw-root *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }\n}\n\n/* 换聊天时的预设、模型提示（酒馆的 toastr，在面板之外） */\n#toast-container > .toast.cw-chat-toast { width: auto; min-width: 0; max-width: min(300px, calc(100vw - 32px)); padding: 7px 12px 7px 38px; background-position: 11px center; background-size: 18px; font-size: 13px; line-height: 1.35; }\n#toast-container > .toast.cw-chat-toast .toast-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#toast-container > .toast.cw-chat-toast .toast-message { white-space: pre-line; overflow-wrap: anywhere; opacity: .85; }\n\n/* 悬浮球（在面板之外，跟随酒馆主题） */\n#cw-ball { position: fixed; z-index: 10005; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(28,26,30,.92)); color: var(--SmartThemeQuoteColor, #e0a24a); box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 18px; cursor: pointer; opacity: .88; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }\n#cw-ball.cw-ball-drag { will-change: transform; opacity: 1; }\n@media (hover: hover) { #cw-ball:hover { opacity: 1; } }\nhtml.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }\n\n/* ---------- 预设页：工具行、选位置条 ---------- */\n#cw-root .cw-view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }\n#cw-root .cw-viewtools { display: flex; gap: 6px; align-items: center; }\n#cw-root .cw-toolrow { flex: none; padding: 0 20px 10px; }\n#cw-root .cw-toolrow > .cw-col { display: flex; gap: 8px; align-items: center; }\n@media (max-width: 959px) { #cw-root .cw-toolrow { padding: 0 12px 8px; } #cw-root .cw-toolrow .cw-btn span { display: none; } #cw-root .cw-toolrow .cw-btn { padding: 0 10px; } }\n#cw-root .cw-search { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: var(--cw-h); padding: 0 4px 0 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-input); cursor: text; }\n#cw-root .cw-search > .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; }\n#cw-root .cw-search input { flex: 1 1 auto; min-width: 0; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; padding: 6px 0; color: var(--cw-text); -webkit-text-fill-color: var(--cw-text); margin: 0; -webkit-appearance: none; appearance: none; }\n#cw-root .cw-search input::placeholder { color: var(--cw-muted); -webkit-text-fill-color: var(--cw-muted); }\n#cw-root .cw-search:focus-within { outline: 2px solid var(--cw-accent); outline-offset: -1px; }\n#cw-root .cw-search-x { width: 28px; height: 28px; visibility: hidden; }\n#cw-root .cw-search.has-q .cw-search-x { visibility: visible; }\n#cw-root .cw-placebar { flex: none; padding: 8px 20px; background: var(--cw-accent-soft); border-block: 1px solid color-mix(in srgb, var(--cw-accent) 30%, transparent); }\n#cw-root .cw-placebar > .cw-col { display: flex; align-items: center; gap: 8px; }\n#cw-root .cw-placebar-info { display: grid; min-width: 0; margin-right: auto; }\n#cw-root .cw-placebar-info small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-place-steps { display: flex; gap: 2px; align-items: center; }\n@media (max-width: 959px) { #cw-root .cw-placebar { padding: 8px 12px; } }\n\n/* ---------- 条目列表 ---------- */\n#cw-root .cw-listwrap { position: relative; }\n#cw-root .cw-banners { display: grid; gap: 8px; }\n#cw-root .cw-banners:not(:empty) { margin: 2px 0 10px; }\n#cw-root .cw-list { display: grid; gap: 4px; }\n#cw-root .cw-qsum { padding: 4px 2px 8px; color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-loose, #cw-root .cw-gbody { content-visibility: auto; contain-intrinsic-height: auto calc(var(--n, 1) * (var(--cw-row) + 2px) + 8px); }\n#cw-root .cw-row {\n    position: relative; display: flex; align-items: center; gap: 8px;\n    min-height: var(--cw-row); padding: 2px 4px 2px 10px; border-radius: 8px; cursor: pointer;\n    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;\n}\n@media (hover: hover) { #cw-root .cw-row:hover { background: var(--cw-surface); } }\n#cw-root .cw-row-sel { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--cw-control); transition: background-color .12s var(--cw-ease), border-color .12s var(--cw-ease); }\n#cw-root .cw-row.is-sel { background: var(--cw-accent-soft); }\n#cw-root .cw-row.is-sel .cw-row-sel, #cw-root .cw-gsel[aria-pressed=\"true\"] .cw-row-sel { border-color: var(--cw-accent); background: var(--cw-accent) var(--cw-check) center / 12px no-repeat; }\n#cw-root .cw-row.is-editing { box-shadow: inset 2px 0 0 var(--cw-accent); background: var(--cw-surface); }\n#cw-root .cw-row-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-row-hit { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-row.is-off .cw-row-name { color: var(--cw-muted); }\n#cw-root .cw-row.is-sep .cw-row-name { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-row-tags { display: inline-flex; gap: 4px; flex: none; max-width: 38%; overflow: hidden; }\n#cw-root .cw-row-edit { width: 32px; height: 32px; opacity: .7; }\n@media (hover: hover) { #cw-root .cw-row-edit { opacity: 0; } #cw-root .cw-row:hover .cw-row-edit, #cw-root .cw-row:focus-within .cw-row-edit { opacity: 1; } }\n#cw-root .cw-handle { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: calc(var(--cw-row) - 6px); flex: none; color: var(--cw-muted); cursor: grab; touch-action: none; border-radius: 8px; }\n#cw-root .cw-handle:active { cursor: grabbing; background: var(--cw-raised); }\n#cw-root .cw-row.is-dragging, #cw-root .cw-group.is-dragging { opacity: .35; }\n#cw-root .cw-row.cw-flash { animation: cw-flash 1.4s var(--cw-ease); }\n@keyframes cw-flash { 0%, 30% { background: var(--cw-accent-soft); box-shadow: inset 2px 0 0 var(--cw-accent); } 100% { background: transparent; box-shadow: none; } }\n/* 分组：左边一道缝线 */\n#cw-root .cw-group { position: relative; padding-left: 12px; }\n#cw-root .cw-group::before { content: \"\"; position: absolute; left: 3px; top: 8px; bottom: 8px; border-left: 2px dashed var(--cw-accent); opacity: .7; }\n#cw-root .cw-group.is-off { opacity: .62; }\n#cw-root .cw-group.is-off::before { border-left-color: var(--cw-muted); }\n#cw-root .cw-group.is-sel > .cw-ghead { background: var(--cw-accent-soft); }\n#cw-root .cw-ghead { display: flex; align-items: center; gap: 6px; min-height: var(--cw-row); padding: 2px 4px 2px 6px; border-radius: 8px; border-bottom: 1px solid var(--cw-rule); cursor: pointer; user-select: none; -webkit-user-select: none; }\n#cw-root .cw-gsel { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; flex: none; }\n#cw-root .cw-gname { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; cursor: pointer; text-align: left; font-weight: 600; }\n#cw-root .cw-gname > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-gname em { font-style: normal; font-weight: 400; color: var(--cw-warn); font-size: var(--cw-fs-xs); white-space: nowrap; }\n#cw-root .cw-gname > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transform: rotate(90deg); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-group.is-col .cw-gname > .cw-ico { transform: none; }\n#cw-root .cw-gcount { color: var(--cw-muted); font-size: var(--cw-fs-s); white-space: nowrap; margin-right: 2px; }\n#cw-root .cw-gbody { padding: 2px 0 6px; }\n#cw-root .cw-group.is-col .cw-gbody { display: none; }\n#cw-root .cw-gempty { color: var(--cw-muted); font-size: var(--cw-fs-s); padding: 6px 10px; }\n#cw-root .cw-group.is-empty .cw-ghead { border-bottom-style: dashed; }\n/* 选位置 */\n#cw-root .cw-slot { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; padding: 0 10px; margin: 2px 0; border: 1px dashed var(--cw-line); border-radius: 8px; background: transparent; color: var(--cw-muted); cursor: pointer; text-align: left; font-size: var(--cw-fs-s); }\n#cw-root .cw-slot .cw-ico { width: 1em; height: 1em; }\n@media (hover: hover) { #cw-root .cw-slot:hover { color: var(--cw-accent); border-color: var(--cw-accent); } }\n#cw-root .cw-insert { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; padding: 3px 10px; border-radius: 6px; background: var(--cw-accent); color: var(--cw-on-accent); font-size: var(--cw-fs-s); font-weight: 600; }\n#cw-root .cw-insert .cw-ico { width: 1em; height: 1em; }\n#cw-root .cw-row.is-at { background: var(--cw-accent-soft); box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-group.has-at > .cw-ghead { box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-group.after-at { box-shadow: 0 0 0 1.5px var(--cw-accent); border-radius: 8px; }\n#cw-root .is-placing .cw-row { cursor: copy; }\n#cw-root .is-placing .cw-row:not(.is-sel) { box-shadow: inset 0 -1px 0 var(--cw-rule); }\n@media (hover: hover) { #cw-root .is-placing .cw-row:not(.is-sel):hover { box-shadow: inset 0 -2px 0 var(--cw-accent); } }\n/* 拖动 */\n#cw-root .cw-ghost { position: absolute; left: 0; top: 0; z-index: 25; pointer-events: none; display: flex; align-items: center; gap: 8px; max-width: min(360px, calc(100% - 24px)); padding: 8px 12px; border-radius: 10px; background: var(--cw-accent); color: var(--cw-on-accent); font-weight: 600; box-shadow: var(--cw-shadow); }\n#cw-root .cw-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-dropline { position: absolute; left: 14px; right: 14px; top: 0; height: 0; border-top: 3px solid var(--cw-accent); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n/* 详情栏加宽 */\n#cw-root .cw-stage.cw-has-detail.cw-detail-wide { grid-template-columns: minmax(0, 1fr) min(760px, 62%); }\n#cw-root .cw-entryform { height: 100%; grid-template-rows: auto; }\n#cw-root .cw-field-grow { flex: 1 1 auto; }\n#cw-root .cw-entry-text { min-height: 46vh !important; }\n#cw-root .cw-field .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-field small.cw-dim { font-size: var(--cw-fs-xs); margin-left: 6px; }\n@media (max-width: 959px) { #cw-root .cw-desk-tool { display: none; } }\n\n/* ---------- 通用堆叠、清单 ---------- */\n#cw-root .cw-stack { display: grid; gap: 8px; }\n#cw-root .cw-stack > .cw-card + .cw-card { margin-top: 0; }\n#cw-root .cw-checklist { display: grid; gap: 2px; }\n#cw-root .cw-checkrow { padding: 8px 10px; border-radius: 8px; width: 100%; }\n@media (hover: hover) { #cw-root .cw-checkrow:hover { background: var(--cw-surface); } }\n#cw-root .cw-orderlist { margin: 0; padding-left: 2.2em; display: grid; gap: 4px; font-size: var(--cw-fs-s); }\n#cw-root .cw-orderlist small { display: block; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-sug { display: grid; gap: 8px; }\n#cw-root .cw-rank-edit { display: grid; gap: 4px; }\n#cw-root .cw-rankrow { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-surface); }\n#cw-root .cw-rankrow b { flex: 1 1 auto; min-width: 0; font-weight: 500; }\n#cw-root .cw-setrow { display: flex; align-items: center; gap: 12px; min-height: var(--cw-h-l); padding: 8px 2px; border-top: 1px solid var(--cw-rule); cursor: pointer; }\n#cw-root .cw-setrow:first-child { border-top: 0; }\n#cw-root .cw-setrow > span:first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }\n#cw-root .cw-setrow small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-setrow b { font-weight: 500; }\n#cw-root .cw-setrow.is-disabled { cursor: default; }\n#cw-root .cw-setrow.is-disabled b { color: var(--cw-muted); }\n#cw-root .cw-setlist { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); padding: 0 12px; }\n#cw-root h4 { font-size: var(--cw-fs-s); color: var(--cw-muted); font-weight: 500; margin: 8px 0 4px; }\n\n/* ---------- 思维链、变量 ---------- */\n#cw-root .cw-verdict { display: flex; align-items: center; gap: 8px; margin: 6px 0; }\n#cw-root .cw-verdict-main { flex: 1 1 auto; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }\n#cw-root .cw-verdict-main span { color: var(--cw-muted); }\n#cw-root .cw-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }\n#cw-root .cw-legend li { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; align-items: start; }\n#cw-root .cw-note-btn { width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; margin: 8px 0; }\n#cw-root .cw-note-btn > .cw-ico:last-child { align-self: center; color: var(--cw-muted); }\n#cw-root .cw-cotcard > summary, #cw-root .cw-dead > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }\n#cw-root .cw-cotcard > summary::-webkit-details-marker, #cw-root .cw-dead > summary::-webkit-details-marker { display: none; }\n#cw-root .cw-cotcard > summary small { color: var(--cw-muted); font-size: var(--cw-fs-s); flex: 1 1 auto; }\n#cw-root .cw-cotcard > summary > .cw-ico, #cw-root .cw-dead > summary > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-cotcard[open] > summary > .cw-ico, #cw-root .cw-dead[open] > summary > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-cotcard[open] > summary, #cw-root .cw-dead[open] > summary { margin-bottom: 8px; }\n#cw-root .cw-reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }\n#cw-root .cw-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }\n#cw-root .cw-sup { font-size: var(--cw-fs-s); padding: 0 6px; border-radius: 5px; background: var(--cw-raised); }\n#cw-root .cw-stats-filter { margin: 10px 0 4px; }\n#cw-root .cw-covgroup h4 { margin: 14px 0 4px; }\n#cw-root .cw-cov { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 2px; border-bottom: 1px solid var(--cw-rule); }\n#cw-root .cw-cov-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-cov-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow-wrap: anywhere; }\n#cw-root .cw-cov .cw-pill { min-width: 5.2em; justify-content: center; }\n#cw-root .cw-dead-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-dead-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n\n/* ---------- 内置配色（3.0 沿用 2.x 的色值与画面） ---------- */\n#cw-root[data-theme=\"mist\"] { --cw-bg: #f6f2e2; --cw-text: #2f3a46; --cw-accent: #4f74a3; --cw-line: #d3d9c6; --cw-input: rgba(255,255,255,.78); --cw-warn: #b25a3c; --cw-ok: #4f7d55; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.46); --cw-raised: rgba(255,255,255,.66); --cw-accent-soft: rgba(79,116,163,.18); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"bean\"] { --cw-bg: #f7ece9; --cw-text: #45343f; --cw-accent: #b0607e; --cw-line: #e3d1d8; --cw-input: rgba(255,255,255,.78); --cw-warn: #b4513e; --cw-ok: #5b8466; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(176,96,126,.16); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"oat\"] { --cw-bg: #f6e6e3; --cw-text: #4a3438; --cw-accent: #b5566a; --cw-line: #e6cfcf; --cw-input: rgba(255,255,255,.78); --cw-warn: #b4472e; --cw-ok: #5b7d4f; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"sage\"] { --cw-bg: #f7efe8; --cw-text: #2c3a58; --cw-accent: #5a6e9e; --cw-line: #e1d6d8; --cw-input: rgba(255,255,255,.78); --cw-warn: #b0604a; --cw-ok: #4f7d55; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(90,110,158,.16); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"goose\"] { --cw-bg: #f9f1e4; --cw-text: #3d4540; --cw-accent: #5f7f68; --cw-line: #e3ddd0; --cw-input: rgba(255,255,255,.76); --cw-warn: #b0604a; --cw-ok: #5f7f68; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.46); --cw-raised: rgba(255,255,255,.66); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"taro\"] { --cw-bg: #f6eef6; --cw-text: #4a4160; --cw-accent: #7b6fa3; --cw-line: #e3d9ea; --cw-input: rgba(255,255,255,.76); --cw-warn: #b0566a; --cw-ok: #5b7d6a; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.42); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(156,145,184,.2); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"dusk\"] { --cw-bg: #fbf1e6; --cw-text: #1f4a55; --cw-accent: #026d81; --cw-line: #ead9cc; --cw-input: rgba(255,255,255,.76); --cw-warn: #c4503f; --cw-ok: #3f7d5c; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.42); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(2,109,129,.14); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"bud\"] { --cw-bg: #f5f2ee; --cw-text: #2f423d; --cw-accent: #4f6c66; --cw-line: #dcd8d0; --cw-input: rgba(255,255,255,.52); --cw-warn: #b8533f; --cw-ok: #3f7a5c; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.30); --cw-raised: rgba(255,255,255,.48); --cw-accent-soft: rgba(101,127,120,.15); --cw-glow: rgba(101,127,120,.40); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"colony\"] { --cw-bg: #eff3f4; --cw-text: #303f47; --cw-accent: #536b78; --cw-line: #d4dde0; --cw-input: rgba(255,255,255,.52); --cw-warn: #ad5d48; --cw-ok: #46765d; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.30); --cw-raised: rgba(255,255,255,.48); --cw-accent-soft: rgba(102,125,135,.15); --cw-glow: rgba(102,125,135,.40); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"night\"] { --cw-bg: #262a30; --cw-text: #e4e1dc; --cw-accent: #a9bfae; --cw-line: #41474f; --cw-input: #1e2126; --cw-warn: #e09a82; --cw-ok: #9fc8a8; --cw-on-accent: #1f2421; --cw-surface: rgba(255,255,255,.03); --cw-raised: rgba(255,255,255,.05); --cw-accent-soft: rgba(169,191,174,.10); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root { --cw-paint-bean:\n        var(--cw-canvas),\n        radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),\n        radial-gradient(ellipse 55% 28% at 84% 86%, rgba(244, 178, 150, .46), transparent 70%),\n        radial-gradient(ellipse 48% 24% at 46% 72%, rgba(190, 170, 226, .42), transparent 72%),\n        radial-gradient(ellipse 70% 20% at 72% 36%, rgba(206, 190, 226, .50), transparent 70%),\n        radial-gradient(ellipse 50% 18% at 18% 40%, rgba(214, 198, 228, .46), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 56%, rgba(246, 212, 192, .40), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),\n        linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%); }\n#cw-root { --cw-paint-mist:\n        var(--cw-canvas),\n        radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),\n        radial-gradient(ellipse 45% 16% at 12% 10%, rgba(104, 148, 138, .36), transparent 70%),\n        radial-gradient(ellipse 55% 26% at 30% 54%, rgba(246, 230, 146, .52), transparent 70%),\n        radial-gradient(ellipse 46% 24% at 78% 64%, rgba(212, 226, 164, .56), transparent 70%),\n        radial-gradient(ellipse 28% 14% at 70% 40%, rgba(240, 176, 186, .42), transparent 70%),\n        radial-gradient(ellipse 34% 16% at 22% 86%, rgba(198, 188, 236, .42), transparent 70%),\n        radial-gradient(ellipse 30% 14% at 86% 90%, rgba(244, 196, 160, .40), transparent 70%),\n        linear-gradient(180deg, #e2eaec 0%, #f6f1db 26%, #f3eecd 60%, #e2e9cf 100%); }\n#cw-root { --cw-paint-oat:\n        var(--cw-canvas),\n        radial-gradient(ellipse 50% 22% at 30% 56%, rgba(236, 140, 165, .48), transparent 70%),\n        radial-gradient(ellipse 45% 20% at 74% 46%, rgba(240, 160, 182, .44), transparent 70%),\n        radial-gradient(ellipse 26% 12% at 30% 72%, rgba(214, 80, 82, .24), transparent 70%),\n        radial-gradient(ellipse 22% 10% at 64% 66%, rgba(220, 96, 110, .22), transparent 70%),\n        radial-gradient(ellipse 24% 12% at 84% 50%, rgba(240, 200, 92, .32), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 58% 36%, rgba(206, 172, 220, .30), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 100%, rgba(140, 158, 108, .40), transparent 72%),\n        linear-gradient(180deg, #f6e4e1 0%, #f4dad9 34%, #f0d4d5 60%, #e2dfca 86%, #d3d8b8 100%); }\n#cw-root { --cw-paint-sage:\n        var(--cw-canvas),\n        radial-gradient(ellipse 46% 26% at 6% 6%, rgba(118, 132, 190, .52), transparent 70%),\n        radial-gradient(ellipse 36% 26% at 16% 34%, rgba(158, 142, 170, .42), transparent 70%),\n        radial-gradient(ellipse 50% 24% at 10% 86%, rgba(108, 124, 182, .48), transparent 70%),\n        radial-gradient(ellipse 34% 8% at 36% 80%, rgba(255, 255, 255, .70), transparent 70%),\n        radial-gradient(ellipse 36% 22% at 92% 16%, rgba(212, 158, 138, .45), transparent 70%),\n        radial-gradient(ellipse 40% 28% at 92% 66%, rgba(240, 184, 120, .48), transparent 70%),\n        radial-gradient(ellipse 60% 26% at 76% 100%, rgba(236, 168, 112, .55), transparent 72%),\n        radial-gradient(ellipse 48% 30% at 52% 46%, rgba(255, 249, 242, .80), transparent 72%),\n        linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%); }\n#cw-root { --cw-paint-goose:\n        var(--cw-canvas),\n        radial-gradient(ellipse 45% 30% at 6% 8%, rgba(251, 222, 208, .95), transparent 70%),\n        radial-gradient(ellipse 40% 34% at 18% 52%, rgba(240, 222, 198, .85), transparent 70%),\n        radial-gradient(ellipse 50% 40% at 88% 46%, rgba(209, 229, 217, .95), transparent 72%),\n        radial-gradient(ellipse 40% 26% at 82% 92%, rgba(189, 205, 176, .75), transparent 70%),\n        radial-gradient(ellipse 30% 20% at 12% 92%, rgba(189, 205, 176, .55), transparent 70%),\n        linear-gradient(120deg, #f9f1e4 0%, #f9f1e4 40%, #e8efe4 100%); }\n#cw-root { --cw-paint-taro:\n        var(--cw-canvas),\n        radial-gradient(ellipse 52% 30% at 4% 4%, rgba(156, 145, 184, .50), transparent 70%),\n        radial-gradient(ellipse 44% 26% at 92% 10%, rgba(232, 196, 222, .62), transparent 70%),\n        radial-gradient(ellipse 40% 30% at 20% 46%, rgba(217, 211, 234, .85), transparent 72%),\n        radial-gradient(ellipse 36% 22% at 78% 42%, rgba(205, 189, 219, .62), transparent 70%),\n        radial-gradient(ellipse 30% 10% at 56% 64%, rgba(255, 255, 255, .72), transparent 70%),\n        radial-gradient(ellipse 56% 30% at 90% 94%, rgba(156, 145, 184, .46), transparent 72%),\n        radial-gradient(ellipse 44% 24% at 14% 92%, rgba(240, 206, 228, .66), transparent 70%),\n        radial-gradient(ellipse 60% 34% at 50% 30%, rgba(250, 244, 250, .80), transparent 72%),\n        linear-gradient(160deg, #e9e2f1 0%, #f5e8f3 40%, #efe4f2 70%, #ddd5ea 100%); }\n#cw-root { --cw-paint-dusk:\n        var(--cw-canvas),\n        radial-gradient(ellipse 70% 26% at 20% 0%, rgba(2, 109, 129, .34), transparent 72%),\n        radial-gradient(ellipse 46% 20% at 88% 8%, rgba(60, 140, 160, .26), transparent 70%),\n        radial-gradient(ellipse 60% 24% at 76% 38%, rgba(248, 112, 120, .30), transparent 72%),\n        radial-gradient(ellipse 48% 22% at 14% 52%, rgba(248, 140, 140, .26), transparent 70%),\n        radial-gradient(ellipse 70% 22% at 50% 72%, rgba(252, 152, 4, .22), transparent 72%),\n        radial-gradient(ellipse 50% 20% at 88% 86%, rgba(249, 186, 50, .32), transparent 70%),\n        radial-gradient(ellipse 60% 22% at 18% 96%, rgba(249, 186, 50, .26), transparent 72%),\n        radial-gradient(ellipse 54% 26% at 46% 50%, rgba(255, 250, 240, .70), transparent 72%),\n        linear-gradient(175deg, #e2eef0 0%, #f8e7e3 34%, #fde6d2 64%, #f8edc8 100%); }\n#cw-root { --cw-canvas: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); }\n#cw-root {\n    /* 芽体 F9EEE8 F0C9B8 C5E1C5 A9D5D1 657F78：顶部深藻灰绿薄雾 → 生命青 → 一点嫩绿 → 浅珊瑚 → 珊瑚奶白 */\n    --cw-paint-bud:\n        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(101,127,120,.28), rgba(101,127,120,.10) 45%, transparent 75%),\n        radial-gradient(ellipse 58% 24% at 84% 16%, rgba(169,213,209,.84), rgba(169,213,209,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 46% 20% at 8% 32%, rgba(169,213,209,.66), rgba(169,213,209,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 34% 14% at 70% 47%, rgba(197,225,197,.56), rgba(197,225,197,.20) 45%, transparent 72%),\n        radial-gradient(ellipse 60% 24% at 74% 80%, rgba(240,201,184,.84), rgba(240,201,184,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 48% 20% at 10% 92%, rgba(240,201,184,.66), rgba(240,201,184,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 40% 8% at 40% 38%, rgba(255,255,255,.90), transparent 70%),\n        radial-gradient(ellipse 36% 7% at 58% 64%, rgba(255,255,255,.80), transparent 70%),\n        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(255,252,250,.70), transparent 72%),\n        linear-gradient(180deg, #e3eeec 0%, #ebf6f4 24%, #f6f8f2 50%, #fcede6 78%, #fcf4f0 100%);\n    /* 圆圆的芽体，边缘晕开，透过玻璃卡片像光斑 */\n    --cw-cells-bud:\n        radial-gradient(circle at 18% 24%, rgba(169,213,209,.85), rgba(169,213,209,.40) 22px, rgba(169,213,209,0) 50px),\n        radial-gradient(circle at 80% 36%, rgba(240,201,184,.85), rgba(240,201,184,.40) 16px, rgba(240,201,184,0) 40px),\n        radial-gradient(circle at 62% 56%, rgba(169,213,209,.80), rgba(169,213,209,.38) 26px, rgba(169,213,209,0) 58px),\n        radial-gradient(circle at 24% 70%, rgba(240,201,184,.85), rgba(240,201,184,.40) 20px, rgba(240,201,184,0) 46px),\n        radial-gradient(circle at 86% 86%, rgba(197,225,197,.80), rgba(197,225,197,.38) 18px, rgba(197,225,197,0) 42px),\n        radial-gradient(circle at 44% 92%, rgba(169,213,209,.72), rgba(169,213,209,.32) 14px, rgba(169,213,209,0) 34px);\n    /* 菌落 EEF5F0 C7D8D0 B8D4E7 D8D0E6 667D87：顶部标本灰蓝薄雾 → 菌落淡紫 → 冰雾蓝 → 菌落灰绿 → 冷雾白 */\n    --cw-paint-colony:\n        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(102,125,135,.28), rgba(102,125,135,.10) 45%, transparent 75%),\n        radial-gradient(ellipse 56% 24% at 16% 18%, rgba(216,208,230,.86), rgba(216,208,230,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 44% 18% at 90% 26%, rgba(216,208,230,.64), rgba(216,208,230,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 58% 24% at 76% 48%, rgba(184,212,231,.84), rgba(184,212,231,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 44% 20% at 8% 56%, rgba(184,212,231,.64), rgba(184,212,231,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 60% 24% at 28% 82%, rgba(199,216,208,.86), rgba(199,216,208,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 46% 20% at 88% 92%, rgba(199,216,208,.66), rgba(199,216,208,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 40% 8% at 58% 37%, rgba(255,255,255,.90), transparent 70%),\n        radial-gradient(ellipse 36% 7% at 38% 66%, rgba(255,255,255,.80), transparent 70%),\n        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(250,253,252,.70), transparent 72%),\n        linear-gradient(180deg, #e5eaed 0%, #f0eef6 20%, #ebf3f9 48%, #edf4f0 76%, #f4f9f6 100%);\n    /* 大小不一的圆形菌落，像培养皿里的光斑 */\n    --cw-cells-colony:\n        radial-gradient(circle at 76% 20%, rgba(216,208,230,.85), rgba(216,208,230,.40) 24px, rgba(216,208,230,0) 54px),\n        radial-gradient(circle at 20% 40%, rgba(184,212,231,.85), rgba(184,212,231,.40) 18px, rgba(184,212,231,0) 44px),\n        radial-gradient(circle at 30% 44%, rgba(184,212,231,.75), rgba(184,212,231,.30) 7px, rgba(184,212,231,0) 18px),\n        radial-gradient(circle at 70% 62%, rgba(199,216,208,.85), rgba(199,216,208,.40) 26px, rgba(199,216,208,0) 58px),\n        radial-gradient(circle at 16% 80%, rgba(216,208,230,.80), rgba(216,208,230,.38) 16px, rgba(216,208,230,0) 40px),\n        radial-gradient(circle at 60% 90%, rgba(184,212,231,.80), rgba(184,212,231,.38) 20px, rgba(184,212,231,0) 46px),\n        radial-gradient(circle at 68% 86%, rgba(184,212,231,.70), rgba(184,212,231,.30) 6px, rgba(184,212,231,0) 16px);\n}\n\n/* 画面配色：整块底和弹窗铺画，配色卡上同一幅画缩小 */\n#cw-root[data-theme=\"bean\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-bean { background: var(--cw-paint-bean); }\n#cw-root[data-theme=\"mist\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-mist { background: var(--cw-paint-mist); }\n#cw-root[data-theme=\"oat\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-oat { background: var(--cw-paint-oat); }\n#cw-root[data-theme=\"sage\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-sage { background: var(--cw-paint-sage); }\n#cw-root[data-theme=\"goose\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-goose { background: var(--cw-paint-goose); }\n#cw-root[data-theme=\"taro\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-taro { background: var(--cw-paint-taro); }\n#cw-root[data-theme=\"dusk\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-dusk { background: var(--cw-paint-dusk); }\n#cw-root[data-theme=\"bud\"]:not(.cw-has-bg) .cw-app { background: var(--cw-canvas), var(--cw-cells-bud), var(--cw-paint-bud); }\n#cw-root[data-theme=\"bud\"]:not(.cw-has-bg) :is(.cw-dlg, .cw-pop), #cw-root .cw-paint-bud { background: var(--cw-canvas), var(--cw-paint-bud); }\n#cw-root[data-theme=\"colony\"]:not(.cw-has-bg) .cw-app { background: var(--cw-canvas), var(--cw-cells-colony), var(--cw-paint-colony); }\n#cw-root[data-theme=\"colony\"]:not(.cw-has-bg) :is(.cw-dlg, .cw-pop), #cw-root .cw-paint-colony { background: var(--cw-canvas), var(--cw-paint-colony); }\n#cw-root.cw-painted:not(.cw-has-bg) :is(.cw-dlg, .cw-pop) { background-color: var(--cw-bg); }\n#cw-root.cw-painted :is(.cw-side, .cw-tabbar) { background: rgba(255, 255, 255, .3); }\n#cw-root.cw-painted .cw-detail, #cw-root.cw-painted .cw-bar { background: rgba(255, 255, 255, .62); }\n#cw-root.cw-painted .cw-seg button.on { background: rgba(255, 255, 255, .85); }\n#cw-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .cw-scrim { background: rgba(60, 60, 70, .28); }\n/* 毛玻璃（芽体、菌落）：只给不随列表滚动的导航栏、顶栏、页签栏做实时模糊；卡片用半透明渐变和边缘高光 */\n#cw-root.cw-glass :is(.cw-side, .cw-top, .cw-tabbar) { background: rgba(255, 255, 255, .24); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }\n#cw-root.cw-glass .cw-card, #cw-root.cw-glass .cw-note, #cw-root.cw-glass .cw-stats { background-image: linear-gradient(150deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, 0) 62%); border-color: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), inset 0 1px 0 rgba(255, 255, 255, .85); }\n#cw-root.cw-glass :is(.cw-input, .cw-select, .cw-search, .cw-pick-btn) { border-color: rgba(255, 255, 255, .7) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8) !important; }\n/* 跟随酒馆、深色底：卡片、按下改为固定的淡层 */\n#cw-root[data-theme=\"follow\"].cw-dark:not(.cw-has-bg) { --cw-surface: rgba(255, 255, 255, .035); --cw-raised: rgba(255, 255, 255, .07); }\n@supports (color: color-mix(in srgb, red 50%, blue)) { #cw-root[data-theme=\"follow\"].cw-dark:not(.cw-has-bg) { --cw-accent-soft: color-mix(in srgb, var(--cw-accent) 14%, transparent); } }\n/* 自定义背景图：图上盖一层配色底色（遮罩），面板各层半透明 */\n#cw-root.cw-has-bg .cw-app { background: linear-gradient(var(--cw-bg-veil), var(--cw-bg-veil)), var(--cw-bg-img) center / cover no-repeat var(--cw-bg); }\n#cw-root.cw-has-bg :is(.cw-side, .cw-tabbar, .cw-top) { background: color-mix(in srgb, var(--cw-bg) 55%, transparent); }\n#cw-root.cw-has-bg :is(.cw-bar, .cw-detail) { background: color-mix(in srgb, var(--cw-bg) 86%, transparent); }\n#cw-root.cw-has-bg { --cw-surface: color-mix(in srgb, var(--cw-bg) 58%, transparent); --cw-raised: color-mix(in srgb, var(--cw-bg) 80%, transparent); }\n\n";
+var style_default = "/* 焦香鸡翅 3.0 样式。全部选择器限定在 #cw-root（面板）、#cw-settings（扩展页设置框）、#cw-ball（悬浮球）之内。\n   颜色只用变量：跟随酒馆时由主题引擎（app/theme.js）按对比度计算，内置配色在本文件末尾给定。 */\n\n#cw-root {\n    /* 颜色 */\n    --cw-bg: var(--SmartThemeBlurTintColor, #1d1b20);\n    --cw-text: var(--SmartThemeBodyColor, #e8e3da);\n    --cw-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, .16));\n    --cw-accent: var(--SmartThemeQuoteColor, #e0a24a);\n    --cw-muted: rgba(128, 128, 128, .95);\n    --cw-surface: rgba(127, 127, 127, .07);\n    --cw-raised: rgba(127, 127, 127, .14);\n    --cw-accent-soft: rgba(224, 162, 74, .16);\n    --cw-rule: rgba(127, 127, 127, .14);\n    --cw-input: rgba(0, 0, 0, .18);\n    --cw-warn: #e0784a;\n    --cw-ok: #6fb38a;\n    --cw-on-accent: #1b1712;\n    --cw-control: rgba(127, 127, 127, .6);\n    --cw-scrim: rgba(10, 10, 14, .42);\n    --cw-shadow: 0 12px 36px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .12);\n    /* 尺寸 */\n    --cw-fs-xs: .8em; --cw-fs-s: .9em; --cw-fs-l: 1.15em; --cw-fs-xl: 1.4em;\n    --cw-r-s: 6px; --cw-r: 10px; --cw-r-l: 16px;\n    --cw-h-s: 28px; --cw-h: 36px; --cw-h-l: 44px;\n    --cw-row: 40px;\n    --cw-side: 224px;\n    --cw-detail: 400px;\n    --cw-ease: cubic-bezier(.23, 1, .32, 1);\n    --cw-drawer: cubic-bezier(.32, .72, 0, 1);\n    --cw-base: var(--mainFontSize, 15px);\n    position: fixed; inset: 0; z-index: 10010;\n    width: 100%; height: 100vh; height: 100dvh; height: var(--cw-vh, 100dvh);\n    margin: 0; padding: 0;\n    color: var(--cw-text);\n    font-size: calc(var(--cw-base) * var(--cw-k, 1));\n    line-height: 1.5;\n    text-shadow: none;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #cw-root {\n        --cw-muted: color-mix(in srgb, var(--cw-text) 62%, transparent);\n        --cw-surface: color-mix(in srgb, var(--cw-text) 5%, transparent);\n        --cw-raised: color-mix(in srgb, var(--cw-text) 10%, transparent);\n        --cw-rule: color-mix(in srgb, var(--cw-line) 60%, transparent);\n        --cw-accent-soft: color-mix(in srgb, var(--cw-accent) 16%, transparent);\n    }\n}\n#cw-root[data-fs=\"s\"] { --cw-k: .9; }\n#cw-root[data-fs=\"l\"] { --cw-k: 1.12; }\n@media (pointer: coarse) { #cw-root { --cw-row: 44px; } }\n@media (max-width: 959px) { #cw-root { --cw-base: min(var(--mainFontSize, 15px), 15px); } }\n#cw-root[hidden] { display: none; }\nhtml.cw-open body { overflow: hidden; }\n#cw-root *, #cw-root *::before, #cw-root *::after { box-sizing: border-box; }\n#cw-root :where(b, strong, p, span, label, small, em, details, summary, li, h1, h2, h3, h4) { color: inherit; }\n#cw-root :where(h1, h2, h3, h4, p, ul, ol, dl, figure) { margin: 0; }\n#cw-root :where(button, input, select, textarea) { font: inherit; color: inherit; }\n#cw-root [hidden] { display: none !important; }\n#cw-root .cw-ico { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#cw-root .cw-stitch { stroke-dasharray: 2.4 2.2; }\n#cw-root ::selection { background: var(--cw-accent-soft); }\n#cw-root :focus-visible { outline: 2px solid var(--cw-accent); outline-offset: 1px; }\n#cw-root mark { background: color-mix(in srgb, var(--cw-accent) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }\n#cw-root code { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: .92em; background: var(--cw-raised); padding: 0 4px; border-radius: 4px; }\n#cw-root .cw-num { font-variant-numeric: tabular-nums; }\n\n/* ---------- 外壳 ---------- */\n#cw-root .cw-app {\n    position: absolute; inset: 0; overflow: hidden;\n    display: grid; grid-template-columns: var(--cw-side) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);\n    background: var(--cw-bg);\n}\n#cw-root .cw-side {\n    display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto;\n    padding: calc(14px + var(--cw-sat, env(safe-area-inset-top))) 10px calc(12px + var(--cw-sab, env(safe-area-inset-bottom))) calc(10px + env(safe-area-inset-left));\n    border-right: 1px solid var(--cw-rule);\n    background: color-mix(in srgb, var(--cw-text) 2.5%, transparent);\n}\n#cw-root .cw-brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; white-space: nowrap; min-width: 0; }\n#cw-root .cw-brand .cw-logo { display: inline-flex; color: var(--cw-accent); }\n#cw-root .cw-brand .cw-logo .cw-ico { width: 22px; height: 22px; }\n#cw-root .cw-brand b { font-size: var(--cw-fs-l); overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-brand small { color: var(--cw-muted); font-size: var(--cw-fs-xs); align-self: flex-end; margin-bottom: .2em; }\n#cw-root .cw-scope {\n    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 6px;\n    width: 100%; margin: 0 0 14px; padding: 7px 10px; text-align: left; cursor: pointer;\n    border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface);\n}\n#cw-root .cw-scope small { grid-column: 1 / -1; color: var(--cw-muted); font-size: var(--cw-fs-xs); line-height: 1.3; }\n#cw-root .cw-scope span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }\n#cw-root .cw-scope .cw-using { font-weight: 400; color: var(--cw-accent); font-size: var(--cw-fs-xs); margin-left: 4px; }\n#cw-root .cw-scope .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; }\n#cw-root .cw-nav { display: grid; gap: 2px; }\n#cw-root .cw-nav + .cw-nav { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-nav button {\n    display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px;\n    border: 0; border-radius: 8px; background: none; cursor: pointer; color: var(--cw-muted); text-align: left;\n}\n#cw-root .cw-nav button[aria-current=\"page\"] { background: var(--cw-raised); color: var(--cw-text); font-weight: 600; }\n#cw-root .cw-nav button[aria-current=\"page\"] .cw-ico { color: var(--cw-accent); }\n@media (hover: hover) { #cw-root .cw-nav button:hover { color: var(--cw-text); } }\n#cw-root .cw-side-foot { margin-top: auto; padding: 10px 10px 0; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n\n#cw-root .cw-main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }\n#cw-root .cw-top {\n    display: flex; align-items: center; gap: 10px; min-height: 52px;\n    padding: calc(6px + var(--cw-sat, 0px)) calc(12px + env(safe-area-inset-right)) 6px 20px;\n    border-bottom: 1px solid var(--cw-rule);\n}\n#cw-root .cw-top-title { font-size: var(--cw-fs-l); font-weight: 600; white-space: nowrap; }\n#cw-root .cw-top .cw-mobile-only { display: none; }\n#cw-root .cw-top-gap { flex: 1 1 auto; }\n#cw-root .cw-save { display: flex; align-items: center; gap: 6px; min-width: 0; }\n#cw-root .cw-save-text { font-size: var(--cw-fs-s); color: var(--cw-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-save-text.bad { color: var(--cw-warn); }\n#cw-root .cw-save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cw-ok); flex: none; }\n#cw-root .cw-save-dot.busy { background: var(--cw-accent); animation: cw-pulse 1s ease-in-out infinite; }\n#cw-root .cw-save-dot.bad { background: var(--cw-warn); }\n@keyframes cw-pulse { 50% { opacity: .3; } }\n#cw-root .cw-stage { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; position: relative; }\n#cw-root .cw-stage.cw-has-detail { grid-template-columns: minmax(0, 1fr) var(--cw-detail); }\n#cw-root .cw-pages { position: relative; min-height: 0; min-width: 0; }\n#cw-root .cw-page { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }\n#cw-root .cw-tabbar { display: none; }\n#cw-root .cw-layer { position: absolute; inset: 0; pointer-events: none; z-index: 30; }\n#cw-root .cw-layer > * { pointer-events: auto; }\n\n/* 窄屏：顶栏 + 底部页签 */\n@media (max-width: 959px) {\n    #cw-root .cw-app { grid-template-columns: minmax(0, 1fr); }\n    #cw-root .cw-side { display: none; }\n    #cw-root .cw-top { padding-left: calc(10px + env(safe-area-inset-left)); gap: 6px; min-height: 48px; }\n    #cw-root .cw-top .cw-mobile-only { display: flex; }\n    #cw-root .cw-top .cw-desk-only { display: none; }\n    #cw-root .cw-top .cw-logo { color: var(--cw-accent); display: inline-flex; }\n    #cw-root .cw-top .cw-logo .cw-ico { width: 22px; height: 22px; }\n    #cw-root .cw-top .cw-scope { margin: 0; width: auto; min-width: 0; flex: 1 1 auto; max-width: 62%; padding: 4px 9px; display: flex; gap: 4px; }\n    #cw-root .cw-top .cw-scope small { display: none; }\n    #cw-root .cw-top .cw-top-gap { flex: 0 1 auto; }\n    #cw-root .cw-save-text { max-width: 28vw; }\n    #cw-root .cw-tabbar {\n        display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));\n        border-top: 1px solid var(--cw-rule);\n        padding: 0 env(safe-area-inset-right) var(--cw-sab, env(safe-area-inset-bottom)) env(safe-area-inset-left);\n        background: color-mix(in srgb, var(--cw-text) 2.5%, transparent);\n    }\n    #cw-root .cw-tabbar button {\n        display: grid; justify-items: center; gap: 2px; padding: 7px 0 6px; border: 0; background: none; cursor: pointer;\n        color: var(--cw-muted); font-size: var(--cw-fs-xs);\n    }\n    #cw-root .cw-tabbar .cw-ico { width: 22px; height: 22px; }\n    #cw-root .cw-tabbar button[aria-current=\"page\"] { color: var(--cw-text); font-weight: 600; }\n    #cw-root .cw-tabbar button[aria-current=\"page\"] .cw-ico { color: var(--cw-accent); }\n    #cw-root .cw-stage.cw-has-detail { grid-template-columns: minmax(0, 1fr); }\n}\n\n/* ---------- 页面骨架 ---------- */\n#cw-root .cw-pagehead {\n    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;\n    padding: 12px 20px 10px; border-bottom: 1px solid transparent;\n}\n#cw-root .cw-pagehead .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px 20px 28px; }\n/* 正文列：宽屏上限 880px，居中 */\n#cw-root .cw-col { width: 100%; max-width: 880px; margin-inline: auto; }\n#cw-root .cw-pagehead > .cw-col, #cw-root .cw-bar > .cw-col { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n@media (max-width: 959px) {\n    #cw-root .cw-pagehead { padding: 10px 12px 8px; }\n    #cw-root .cw-body { padding: 2px 12px 24px; }\n}\n#cw-root .cw-bar {\n    flex: none; padding: 10px 20px calc(10px + var(--cw-safe-bottom, 0px));\n    border-top: 1px solid var(--cw-rule); background: var(--cw-bg);\n    box-shadow: 0 -6px 18px rgba(0, 0, 0, .06);\n}\n@media (max-width: 959px) { #cw-root .cw-bar { padding: 8px 12px; } }\n#cw-root .cw-bar-info { display: grid; min-width: 0; margin-right: auto; }\n#cw-root .cw-bar-info b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-bar-info small { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-bar-acts { display: flex; gap: 6px; flex-wrap: wrap; }\n#cw-root .cw-sec { margin-top: 22px; }\n#cw-root .cw-sec:first-child { margin-top: 8px; }\n#cw-root .cw-sec-h { display: flex; align-items: center; gap: 8px; min-height: 32px; margin-bottom: 8px; }\n#cw-root .cw-sec-h h2, #cw-root .cw-sec-h h3 { font-size: 1em; font-weight: 600; }\n#cw-root .cw-sec-h .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-sec-h small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n\n/* ---------- 文字 ---------- */\n#cw-root .cw-p { margin: 0 0 8px; }\n#cw-root .cw-hint { color: var(--cw-muted); font-size: var(--cw-fs-s); margin: 4px 0; }\n#cw-root .cw-pad { padding: 12px; }\n#cw-root .cw-warn-text { color: var(--cw-warn); }\n#cw-root .cw-ok-text { color: var(--cw-ok); }\n#cw-root .cw-dim { color: var(--cw-muted); }\n#cw-root .cw-pre { margin: 6px 0 0; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); line-height: 1.55; background: var(--cw-input); border-radius: var(--cw-r-s); max-height: 50vh; overflow: auto; }\n#cw-root .cw-list { margin: 4px 0; padding-left: 1.25em; display: grid; gap: 4px; }\n#cw-root .cw-empty { display: grid; justify-items: center; gap: 10px; padding: 36px 16px; color: var(--cw-muted); text-align: center; }\n\n/* ---------- 按钮 ---------- */\n#cw-root .cw-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: var(--cw-h); padding: 0 14px; border: 1px solid var(--cw-line); border-radius: 8px;\n    background: var(--cw-surface); cursor: pointer; white-space: nowrap; font-weight: 500; text-decoration: none;\n    -webkit-tap-highlight-color: transparent; transition: transform .12s var(--cw-ease);\n}\n#cw-root .cw-btn .cw-ico { width: 1.05em; height: 1.05em; }\n#cw-root .cw-btn:not(:disabled):active, #cw-root .cw-ibtn:not(:disabled):active, #cw-root .cw-seg button:active { transform: scale(.97); }\n#cw-root .cw-btn:disabled { opacity: .45; cursor: default; }\n#cw-root .cw-btn-primary { background: var(--cw-accent); border-color: var(--cw-accent); color: var(--cw-on-accent); font-weight: 600; }\n#cw-root .cw-btn-primary:disabled { opacity: 1; background: transparent; border-color: var(--cw-line); color: var(--cw-muted); }\n#cw-root .cw-btn-danger { color: var(--cw-warn); border-color: color-mix(in srgb, var(--cw-warn) 55%, transparent); background: transparent; }\n#cw-root .cw-btn-ghost { border-color: transparent; background: transparent; }\n#cw-root .cw-btn-quiet { border-color: transparent; background: transparent; color: var(--cw-accent); padding: 0 6px; min-height: var(--cw-h-s); }\n#cw-root .cw-btn-sm { min-height: var(--cw-h-s); padding: 0 10px; font-size: var(--cw-fs-s); border-radius: var(--cw-r-s); }\n#cw-root .cw-btn.on { border-color: var(--cw-accent); color: var(--cw-accent); }\n@media (hover: hover) {\n    #cw-root .cw-btn:not(:disabled):not(.cw-btn-primary):hover { background: var(--cw-raised); }\n    #cw-root .cw-btn-quiet:not(:disabled):hover { background: var(--cw-accent-soft) !important; }\n}\n#cw-root .cw-ibtn {\n    display: inline-flex; align-items: center; justify-content: center; flex: none;\n    width: var(--cw-h); height: var(--cw-h); padding: 0; border: 0; border-radius: 8px; background: none; cursor: pointer;\n    color: var(--cw-muted); -webkit-tap-highlight-color: transparent; transition: transform .12s var(--cw-ease);\n}\n#cw-root .cw-ibtn .cw-ico { width: 20px; height: 20px; }\n#cw-root .cw-ibtn[aria-pressed=\"true\"], #cw-root .cw-ibtn.on { color: var(--cw-accent); background: var(--cw-accent-soft); }\n#cw-root .cw-ibtn:disabled { opacity: .4; cursor: default; }\n@media (hover: hover) { #cw-root .cw-ibtn:not(:disabled):hover { background: var(--cw-raised); color: var(--cw-text); } }\n#cw-root .cw-ibtn.cw-busy .cw-ico { animation: cw-pulse .9s ease-in-out infinite; }\n#cw-root .cw-ibtn.cw-spin .cw-ico, #cw-root .cw-btn.cw-spin .cw-ico { animation: cw-spin .8s linear infinite; }\n@keyframes cw-spin { to { transform: rotate(360deg); } }\n#cw-root .cw-link { border: 0; background: none; padding: 2px 4px; color: var(--cw-accent); cursor: pointer; font: inherit; text-decoration: none; border-radius: 4px; }\n@media (hover: hover) { #cw-root .cw-link:hover { text-decoration: underline; text-underline-offset: 3px; } }\n#cw-root .cw-link:disabled { color: var(--cw-muted); cursor: default; text-decoration: none; }\n\n/* ---------- 表单 ---------- */\n#cw-root .cw-input, #cw-root .cw-select {\n    width: 100%; min-height: var(--cw-h); padding: 6px 10px;\n    border: 1px solid var(--cw-line) !important; border-radius: 8px !important;\n    background: var(--cw-input) !important; background-image: none !important; box-shadow: none !important;\n    color: var(--cw-text) !important; -webkit-text-fill-color: var(--cw-text) !important; caret-color: var(--cw-text);\n    font-size: 1em; margin: 0 !important; -webkit-appearance: none; appearance: none;\n}\n#cw-root .cw-input::placeholder { color: var(--cw-muted) !important; -webkit-text-fill-color: var(--cw-muted) !important; opacity: 1; }\n#cw-root textarea.cw-input { min-height: 120px; resize: vertical; line-height: 1.55; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); white-space: pre-wrap; }\n#cw-root .cw-input:focus, #cw-root .cw-select:focus { outline: 2px solid var(--cw-accent); outline-offset: -1px; }\n#cw-root .cw-input[aria-invalid=\"true\"] { border-color: var(--cw-warn) !important; }\n#cw-root .cw-select { padding-right: 30px; background-image: linear-gradient(45deg, transparent 50%, var(--cw-muted) 50%), linear-gradient(135deg, var(--cw-muted) 50%, transparent 50%) !important; background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52% !important; background-size: 5px 5px, 5px 5px !important; background-repeat: no-repeat !important; }\n#cw-root .cw-select option { background: var(--cw-bg); color: var(--cw-text); }\n@supports (-webkit-touch-callout: none) { #cw-root .cw-input, #cw-root .cw-select { font-size: max(16px, 1em); } }\n#cw-root .cw-field { display: grid; gap: 5px; }\n#cw-root .cw-field > span:first-child, #cw-root .cw-label { color: var(--cw-muted); font-size: var(--cw-fs-s); display: flex; align-items: center; gap: 6px; }\n#cw-root .cw-field-err { color: var(--cw-warn); font-size: var(--cw-fs-s); }\n#cw-root .cw-form { display: grid; gap: 14px; }\n#cw-root .cw-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }\n#cw-root .cw-check { display: inline-flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.45; }\n#cw-root .cw-check input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; accent-color: var(--cw-accent); }\n#cw-root .cw-check small { display: block; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-inline-input { min-height: 30px; padding: 2px 8px; }\n#cw-root .cw-pick-btn {\n    display: inline-flex; align-items: center; gap: 6px; min-height: var(--cw-h); min-width: 0; max-width: 100%;\n    padding: 0 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-input); cursor: pointer; text-align: left;\n}\n#cw-root .cw-pick-btn > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-pick-btn .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; margin-left: auto; }\n#cw-root .cw-pick-btn small { color: var(--cw-accent); font-size: var(--cw-fs-xs); white-space: nowrap; }\n\n/* 开关：36×20；部分开启时滑块居中 */\n#cw-root .cw-switch { position: relative; display: inline-block; width: 36px; height: 20px; flex: none; cursor: pointer; }\n#cw-root .cw-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }\n#cw-root .cw-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--cw-raised); border: 1px solid var(--cw-control); pointer-events: none; transition: background-color .16s var(--cw-ease), border-color .16s var(--cw-ease); }\n#cw-root .cw-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--cw-text); opacity: .6; transition: transform .16s var(--cw-ease), opacity .16s var(--cw-ease); }\n#cw-root .cw-switch input:checked + i { background: var(--cw-accent); border-color: var(--cw-accent); }\n#cw-root .cw-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: var(--cw-on-accent); }\n#cw-root .cw-switch input:indeterminate + i, #cw-root .cw-switch input[data-mixed=\"1\"] + i { background: var(--cw-raised); border-color: var(--cw-accent); }\n#cw-root .cw-switch input:indeterminate + i::after, #cw-root .cw-switch input[data-mixed=\"1\"] + i::after { transform: translateX(8px); opacity: 1; background: var(--cw-accent); }\n#cw-root .cw-switch input:focus-visible + i { outline: 2px solid var(--cw-accent); outline-offset: 2px; }\n#cw-root .cw-switch input:disabled + i { opacity: .45; }\n#cw-root .cw-switch-s { width: 30px; height: 17px; }\n#cw-root .cw-switch-s i::after { width: 11px; height: 11px; }\n#cw-root .cw-switch-s input:checked + i { background: transparent; border: 1.5px solid var(--cw-accent); }\n#cw-root .cw-switch-s input:checked + i::after { transform: translateX(13px); background: var(--cw-accent); }\n#cw-root .cw-switch-s input[data-mixed=\"1\"] + i::after { transform: translateX(6.5px); }\n\n/* 分段控件、下划线页签 */\n#cw-root .cw-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--cw-raised); max-width: 100%; overflow-x: auto; scrollbar-width: none; }\n#cw-root .cw-seg::-webkit-scrollbar { display: none; }\n#cw-root .cw-seg button { flex: none; border: 0; background: none; padding: 0 12px; min-height: 30px; border-radius: 7px; cursor: pointer; color: var(--cw-muted); white-space: nowrap; transition: transform .12s var(--cw-ease); }\n#cw-root .cw-seg button.on { background: var(--cw-bg); color: var(--cw-text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 0 0 1px var(--cw-rule); }\n#cw-root .cw-seg-sm button { min-height: 26px; padding: 0 10px; font-size: var(--cw-fs-s); }\n#cw-root .cw-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--cw-rule); overflow-x: auto; scrollbar-width: none; }\n#cw-root .cw-tabs::-webkit-scrollbar { display: none; }\n#cw-root .cw-tabs button { flex: none; border: 0; background: none; padding: 8px 10px; margin-bottom: -1px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--cw-muted); white-space: nowrap; }\n#cw-root .cw-tabs button.on { color: var(--cw-text); font-weight: 600; border-bottom-color: var(--cw-accent); }\n\n/* ---------- 卡片、胶囊、提示 ---------- */\n#cw-root .cw-card { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); padding: 12px 14px; }\n#cw-root .cw-card + .cw-card { margin-top: 8px; }\n#cw-root .cw-card-h { display: flex; align-items: center; gap: 8px; }\n#cw-root .cw-card-h b { flex: 0 1 auto; min-width: 0; }\n#cw-root .cw-card-h .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-card-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }\n#cw-root .cw-card-warn { border-color: color-mix(in srgb, var(--cw-warn) 50%, var(--cw-line)); }\n#cw-root .cw-note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-surface); border: 1px solid var(--cw-line); }\n#cw-root .cw-note > .cw-ico { margin-top: .15em; color: var(--cw-muted); }\n#cw-root .cw-note-warn { border-color: color-mix(in srgb, var(--cw-warn) 45%, var(--cw-line)); }\n#cw-root .cw-note-warn > .cw-ico { color: var(--cw-warn); }\n#cw-root .cw-note-ok > .cw-ico { color: var(--cw-ok); }\n#cw-root .cw-note > div { min-width: 0; flex: 1 1 auto; }\n#cw-root .cw-pill { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 0 8px; min-height: 20px; border-radius: 999px; font-size: var(--cw-fs-xs); line-height: 1.6; white-space: nowrap; max-width: 14em; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-pill .cw-ico { width: 1em; height: 1em; }\n#cw-root .cw-pill-muted { background: var(--cw-raised); color: var(--cw-muted); }\n#cw-root .cw-pill-line { border: 1px solid var(--cw-line); color: var(--cw-muted); }\n#cw-root .cw-pill-accent { background: var(--cw-accent-soft); color: var(--cw-accent); }\n#cw-root .cw-pill-ok { background: color-mix(in srgb, var(--cw-ok) 16%, transparent); color: var(--cw-ok); }\n#cw-root .cw-pill-warn { background: color-mix(in srgb, var(--cw-warn) 16%, transparent); color: var(--cw-warn); }\n#cw-root .cw-tipbtn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; border: 0; background: none; color: var(--cw-muted); cursor: pointer; border-radius: 50%; padding: 0; }\n#cw-root .cw-tipbtn .cw-ico { width: 17px; height: 17px; }\n#cw-root .cw-tipbtn[aria-expanded=\"true\"] { color: var(--cw-accent); }\n#cw-root .cw-tipnote { margin: 4px 0 10px; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-surface); color: var(--cw-muted); font-size: var(--cw-fs-s); display: grid; gap: 6px; }\n#cw-root .cw-fold { border-radius: var(--cw-r); }\n#cw-root .cw-fold > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; padding: 6px 0; color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-fold > summary::-webkit-details-marker { display: none; }\n#cw-root .cw-fold > summary > .cw-ico { width: 1em; height: 1em; transition: transform .16s var(--cw-ease); }\n#cw-root .cw-fold[open] > summary > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-fold-body { padding: 4px 0 6px; }\n#cw-root .cw-meter { display: block; height: 6px; border-radius: 999px; background: var(--cw-raised); overflow: hidden; min-width: 40px; }\n#cw-root .cw-meter b { display: block; height: 100%; background: var(--cw-accent); border-radius: 999px; opacity: .8; }\n#cw-root .cw-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; font-size: var(--cw-fs-s); }\n#cw-root .cw-kv dt, #cw-root .cw-kv > span { color: var(--cw-muted); }\n#cw-root .cw-kv dd { margin: 0; overflow-wrap: anywhere; }\n#cw-root .cw-stats { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); border: 1px solid var(--cw-line); border-radius: var(--cw-r); overflow: hidden; background: var(--cw-surface); }\n#cw-root .cw-stats > * { display: grid; gap: 1px; padding: 9px 6px 8px; text-align: center; border: 0; border-left: 1px solid var(--cw-rule); background: none; color: inherit; font: inherit; }\n#cw-root .cw-stats > :first-child { border-left: 0; }\n#cw-root .cw-stats b { font-size: var(--cw-fs-xl); line-height: 1.2; font-variant-numeric: tabular-nums; font-weight: 600; }\n#cw-root .cw-stats span { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; }\n#cw-root .cw-stats button { cursor: pointer; box-shadow: inset 0 -2px 0 transparent; }\n#cw-root .cw-stats button.on { box-shadow: inset 0 -2px 0 var(--cw-accent); }\n#cw-root .cw-stats button.on span { color: var(--cw-text); }\n\n/* ---------- 弹窗 ---------- */\n#cw-root .cw-scrim { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--cw-scrim); animation: cw-fade .16s var(--cw-ease); }\n#cw-root .cw-scrim.cw-out { opacity: 0; transition: opacity .15s var(--cw-ease); }\n#cw-root .cw-dlg {\n    position: relative; display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: min(86%, 900px);\n    border: 1px solid var(--cw-line); border-radius: var(--cw-r-l); background: var(--cw-bg); box-shadow: var(--cw-shadow);\n    animation: cw-pop .16s var(--cw-ease); outline: none;\n}\n#cw-root .cw-dlg[data-size=\"sm\"] { max-width: 420px; }\n#cw-root .cw-dlg[data-size=\"lg\"] { max-width: 820px; }\n#cw-root .cw-dlg[data-size=\"full\"] { max-width: 1100px; height: 92%; max-height: none; }\n#cw-root .cw-dlg[data-size=\"tall\"] { height: min(80%, 720px); }\n#cw-root .cw-dlg-head { display: flex; align-items: flex-start; gap: 8px; padding: 14px 10px 10px 18px; border-bottom: 1px solid var(--cw-rule); }\n#cw-root .cw-dlg-title { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; padding-top: 5px; }\n#cw-root .cw-dlg-title b { font-size: 1.05em; overflow-wrap: anywhere; }\n#cw-root .cw-dlg-title small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 18px 16px; }\n#cw-root .cw-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 10px 18px calc(12px + var(--cw-sab, 0px)); border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-dlg[data-size=\"sm\"] .cw-dlg-foot { border-top: 0; padding-top: 0; }\n@keyframes cw-fade { from { opacity: 0; } }\n@keyframes cw-pop { from { opacity: 0; transform: scale(.98); } }\n@keyframes cw-up { from { transform: translateY(100%); } }\n@media (max-width: 959px) {\n    #cw-root .cw-scrim { align-items: flex-end; padding: 0; }\n    #cw-root .cw-dlg { max-width: none; max-height: calc(var(--cw-vh, 100dvh) - var(--cw-sat, 0px) - 24px); border-radius: var(--cw-r-l) var(--cw-r-l) 0 0; border-bottom: 0; animation: cw-up .24s var(--cw-drawer); }\n    #cw-root .cw-dlg[data-size=\"full\"], #cw-root .cw-dlg[data-size=\"tall\"] { height: calc(var(--cw-vh, 100dvh) - var(--cw-sat, 0px) - 24px); }\n    #cw-root .cw-scrim[data-size=\"sm\"] { align-items: center; padding: 20px; }\n    #cw-root .cw-scrim[data-size=\"sm\"] .cw-dlg { border-radius: var(--cw-r-l); border-bottom: 1px solid var(--cw-line); animation: cw-pop .16s var(--cw-ease); }\n    #cw-root .cw-dlg-head { padding-left: 16px; }\n    #cw-root .cw-dlg-body { padding: 12px 16px 14px; }\n    #cw-root .cw-dlg-foot { padding-left: 16px; padding-right: 16px; }\n    #cw-root .cw-dlg-foot .cw-btn { flex: 1 1 auto; }\n}\n\n/* 贴着按钮的菜单 */\n#cw-root .cw-pop-scrim { position: absolute; inset: 0; }\n#cw-root .cw-pop-scrim.cw-out .cw-pop { opacity: 0; transform: scale(.97); transition: opacity .12s var(--cw-ease), transform .12s var(--cw-ease); }\n#cw-root .cw-pop { position: absolute; overflow-y: auto; padding: 5px; border: 1px solid var(--cw-line); border-radius: 12px; background: var(--cw-bg); box-shadow: var(--cw-shadow); animation: cw-menu .14s var(--cw-ease); outline: none; }\n@keyframes cw-menu { from { opacity: 0; transform: scale(.96); } }\n#cw-root .cw-menu-title { padding: 6px 10px 4px; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-menu-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; min-height: 38px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }\n#cw-root .cw-menu-item small { grid-column: 1; color: var(--cw-muted); font-size: var(--cw-fs-xs); line-height: 1.4; }\n#cw-root .cw-menu-item .cw-ico { grid-row: 1 / span 2; grid-column: 2; color: var(--cw-accent); }\n#cw-root .cw-menu-item.cw-danger { color: var(--cw-warn); }\n#cw-root .cw-menu-item:disabled { opacity: .45; cursor: default; }\n@media (hover: hover) { #cw-root .cw-menu-item:not(:disabled):hover, #cw-root .cw-choice:hover { background: var(--cw-raised); } }\n#cw-root .cw-menu-item:focus-visible { outline-offset: -2px; }\n#cw-root .cw-menu-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }\n#cw-root .cw-menu-sep { border: 0; border-top: 1px solid var(--cw-rule); margin: 4px 6px; }\n#cw-root .cw-menu-flat { display: grid; gap: 2px; margin: 0 -6px; }\n#cw-root .cw-chooser { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }\n#cw-root .cw-chooser-top { display: flex; gap: 8px; flex: none; }\n#cw-root .cw-chooser-list { display: grid; gap: 1px; align-content: start; overflow-y: auto; min-height: 0; margin: 0 -6px; }\n#cw-root .cw-dlg[data-size=\"tall\"] .cw-dlg-body { display: flex; flex-direction: column; }\n#cw-root .cw-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }\n#cw-root .cw-choice > span { overflow-wrap: anywhere; }\n#cw-root .cw-choice small { grid-column: 1; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-choice .cw-ico { grid-row: 1 / span 2; grid-column: 2; color: var(--cw-accent); }\n#cw-root .cw-choice.on { background: var(--cw-accent-soft); }\n\n/* 详情栏（宽屏在右侧，窄屏整屏推入） */\n#cw-root .cw-detail { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--cw-rule); background: var(--cw-bg); }\n#cw-root .cw-detail-head { display: flex; align-items: center; gap: 6px; padding: 10px 8px 10px 16px; border-bottom: 1px solid var(--cw-rule); min-height: 52px; }\n#cw-root .cw-detail-head b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-detail-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 16px; }\n#cw-root .cw-detail-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--cw-rule); }\n@media (max-width: 959px) {\n    #cw-root .cw-detail { position: absolute; inset: 0; z-index: 20; border-left: 0; animation: cw-in-right .24s var(--cw-drawer); }\n    #cw-root .cw-detail-head { padding-left: 4px; }\n    #cw-root .cw-detail-foot .cw-btn { flex: 1 1 auto; }\n}\n@keyframes cw-in-right { from { transform: translateX(100%); } }\n\n@media (prefers-reduced-motion: reduce) {\n    #cw-root *, #cw-root *::before, #cw-root *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }\n}\n\n/* 换聊天时的预设、模型提示（酒馆的 toastr，在面板之外） */\n#toast-container > .toast.cw-chat-toast { width: auto; min-width: 0; max-width: min(300px, calc(100vw - 32px)); padding: 7px 12px 7px 38px; background-position: 11px center; background-size: 18px; font-size: 13px; line-height: 1.35; }\n#toast-container > .toast.cw-chat-toast .toast-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#toast-container > .toast.cw-chat-toast .toast-message { white-space: pre-line; overflow-wrap: anywhere; opacity: .85; }\n\n/* 悬浮球（在面板之外，跟随酒馆主题） */\n#cw-ball { position: fixed; z-index: 10005; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(28,26,30,.92)); color: var(--SmartThemeQuoteColor, #e0a24a); box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 18px; cursor: pointer; opacity: .88; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }\n#cw-ball.cw-ball-drag { will-change: transform; opacity: 1; }\n@media (hover: hover) { #cw-ball:hover { opacity: 1; } }\nhtml.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }\n\n/* ---------- 预设页：工具行、选位置条 ---------- */\n#cw-root .cw-view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }\n#cw-root .cw-viewtools { display: flex; gap: 6px; align-items: center; }\n#cw-root .cw-toolrow { flex: none; padding: 0 20px 10px; }\n#cw-root .cw-toolrow > .cw-col { display: flex; gap: 8px; align-items: center; }\n@media (max-width: 959px) { #cw-root .cw-toolrow { padding: 0 12px 8px; } #cw-root .cw-toolrow .cw-btn span { display: none; } #cw-root .cw-toolrow .cw-btn { padding: 0 10px; } }\n#cw-root .cw-search { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: var(--cw-h); padding: 0 4px 0 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-input); cursor: text; }\n#cw-root .cw-search > .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; }\n#cw-root .cw-search input { flex: 1 1 auto; min-width: 0; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; padding: 6px 0; color: var(--cw-text); -webkit-text-fill-color: var(--cw-text); margin: 0; -webkit-appearance: none; appearance: none; }\n#cw-root .cw-search input::placeholder { color: var(--cw-muted); -webkit-text-fill-color: var(--cw-muted); }\n#cw-root .cw-search:focus-within { outline: 2px solid var(--cw-accent); outline-offset: -1px; }\n#cw-root .cw-search-x { width: 28px; height: 28px; visibility: hidden; }\n#cw-root .cw-search.has-q .cw-search-x { visibility: visible; }\n#cw-root .cw-placebar { flex: none; padding: 8px 20px; background: var(--cw-accent-soft); border-block: 1px solid color-mix(in srgb, var(--cw-accent) 30%, transparent); }\n#cw-root .cw-placebar > .cw-col { display: flex; align-items: center; gap: 8px; }\n#cw-root .cw-placebar-info { display: grid; min-width: 0; margin-right: auto; }\n#cw-root .cw-placebar-info small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-place-steps { display: flex; gap: 2px; align-items: center; }\n@media (max-width: 959px) { #cw-root .cw-placebar { padding: 8px 12px; } }\n\n/* ---------- 条目列表 ---------- */\n#cw-root .cw-listwrap { position: relative; }\n#cw-root .cw-banners { display: grid; gap: 8px; }\n#cw-root .cw-banners:not(:empty) { margin: 2px 0 10px; }\n#cw-root .cw-list { display: grid; gap: 4px; }\n#cw-root .cw-qsum { padding: 4px 2px 8px; color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-loose, #cw-root .cw-gbody { content-visibility: auto; contain-intrinsic-height: auto calc(var(--n, 1) * (var(--cw-row) + 2px) + 8px); }\n#cw-root .cw-row {\n    position: relative; display: flex; align-items: center; gap: 8px;\n    min-height: var(--cw-row); padding: 2px 4px 2px 10px; border-radius: 8px; cursor: pointer;\n    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;\n}\n@media (hover: hover) { #cw-root .cw-row:hover { background: var(--cw-surface); } }\n#cw-root .cw-row-sel { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--cw-control); transition: background-color .12s var(--cw-ease), border-color .12s var(--cw-ease); }\n#cw-root .cw-row.is-sel { background: var(--cw-accent-soft); }\n#cw-root .cw-row.is-sel .cw-row-sel, #cw-root .cw-gsel[aria-pressed=\"true\"] .cw-row-sel { border-color: var(--cw-accent); background: var(--cw-accent) var(--cw-check) center / 12px no-repeat; }\n#cw-root .cw-row.is-editing { box-shadow: inset 2px 0 0 var(--cw-accent); background: var(--cw-surface); }\n#cw-root .cw-row-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-row-hit { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-row.is-off .cw-row-name { color: var(--cw-muted); }\n#cw-root .cw-row.is-sep .cw-row-name { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-row-tags { display: inline-flex; gap: 4px; flex: none; max-width: 38%; overflow: hidden; }\n#cw-root .cw-row-edit { width: 32px; height: 32px; opacity: .7; }\n@media (hover: hover) { #cw-root .cw-row-edit { opacity: 0; } #cw-root .cw-row:hover .cw-row-edit, #cw-root .cw-row:focus-within .cw-row-edit { opacity: 1; } }\n#cw-root .cw-handle { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: calc(var(--cw-row) - 6px); flex: none; color: var(--cw-muted); cursor: grab; touch-action: none; border-radius: 8px; }\n#cw-root .cw-handle:active { cursor: grabbing; background: var(--cw-raised); }\n#cw-root .cw-row.is-dragging, #cw-root .cw-group.is-dragging { opacity: .35; }\n#cw-root .cw-row.cw-flash { animation: cw-flash 1.4s var(--cw-ease); }\n@keyframes cw-flash { 0%, 30% { background: var(--cw-accent-soft); box-shadow: inset 2px 0 0 var(--cw-accent); } 100% { background: transparent; box-shadow: none; } }\n/* 分组：左边一道缝线 */\n#cw-root .cw-group { position: relative; padding-left: 12px; }\n#cw-root .cw-group::before { content: \"\"; position: absolute; left: 3px; top: 8px; bottom: 8px; border-left: 2px dashed var(--cw-accent); opacity: .7; }\n#cw-root .cw-group.is-off { opacity: .62; }\n#cw-root .cw-group.is-off::before { border-left-color: var(--cw-muted); }\n#cw-root .cw-group.is-sel > .cw-ghead { background: var(--cw-accent-soft); }\n#cw-root .cw-ghead { display: flex; align-items: center; gap: 6px; min-height: var(--cw-row); padding: 2px 4px 2px 6px; border-radius: 8px; border-bottom: 1px solid var(--cw-rule); cursor: pointer; user-select: none; -webkit-user-select: none; }\n#cw-root .cw-gsel { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; flex: none; }\n#cw-root .cw-gname { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; cursor: pointer; text-align: left; font-weight: 600; }\n#cw-root .cw-gname > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-gname em { font-style: normal; font-weight: 400; color: var(--cw-warn); font-size: var(--cw-fs-xs); white-space: nowrap; }\n#cw-root .cw-gname > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transform: rotate(90deg); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-group.is-col .cw-gname > .cw-ico { transform: none; }\n#cw-root .cw-gcount { color: var(--cw-muted); font-size: var(--cw-fs-s); white-space: nowrap; margin-right: 2px; }\n#cw-root .cw-gbody { padding: 2px 0 6px; }\n#cw-root .cw-group.is-col .cw-gbody { display: none; }\n#cw-root .cw-gempty { color: var(--cw-muted); font-size: var(--cw-fs-s); padding: 6px 10px; }\n#cw-root .cw-group.is-empty .cw-ghead { border-bottom-style: dashed; }\n/* 选位置 */\n#cw-root .cw-slot { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; padding: 0 10px; margin: 2px 0; border: 1px dashed var(--cw-line); border-radius: 8px; background: transparent; color: var(--cw-muted); cursor: pointer; text-align: left; font-size: var(--cw-fs-s); }\n#cw-root .cw-slot .cw-ico { width: 1em; height: 1em; }\n@media (hover: hover) { #cw-root .cw-slot:hover { color: var(--cw-accent); border-color: var(--cw-accent); } }\n#cw-root .cw-insert { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; padding: 3px 10px; border-radius: 6px; background: var(--cw-accent); color: var(--cw-on-accent); font-size: var(--cw-fs-s); font-weight: 600; }\n#cw-root .cw-insert .cw-ico { width: 1em; height: 1em; }\n#cw-root .cw-row.is-at { background: var(--cw-accent-soft); box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-group.has-at > .cw-ghead { box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-group.after-at { box-shadow: 0 0 0 1.5px var(--cw-accent); border-radius: 8px; }\n#cw-root .is-placing .cw-row { cursor: copy; }\n#cw-root .is-placing .cw-row:not(.is-sel) { box-shadow: inset 0 -1px 0 var(--cw-rule); }\n@media (hover: hover) { #cw-root .is-placing .cw-row:not(.is-sel):hover { box-shadow: inset 0 -2px 0 var(--cw-accent); } }\n/* 拖动 */\n#cw-root .cw-ghost { position: absolute; left: 0; top: 0; z-index: 25; pointer-events: none; display: flex; align-items: center; gap: 8px; max-width: min(360px, calc(100% - 24px)); padding: 8px 12px; border-radius: 10px; background: var(--cw-accent); color: var(--cw-on-accent); font-weight: 600; box-shadow: var(--cw-shadow); }\n#cw-root .cw-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-dropline { position: absolute; left: 14px; right: 14px; top: 0; height: 0; border-top: 3px solid var(--cw-accent); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n/* 详情栏加宽 */\n#cw-root .cw-stage.cw-has-detail.cw-detail-wide { grid-template-columns: minmax(0, 1fr) min(760px, 62%); }\n#cw-root .cw-entryform { height: 100%; grid-template-rows: auto; }\n#cw-root .cw-field-grow { flex: 1 1 auto; }\n#cw-root .cw-entry-text { min-height: 46vh !important; }\n#cw-root .cw-field .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-field small.cw-dim { font-size: var(--cw-fs-xs); margin-left: 6px; }\n@media (max-width: 959px) { #cw-root .cw-desk-tool { display: none; } }\n\n/* ---------- 通用堆叠、清单 ---------- */\n#cw-root .cw-stack { display: grid; gap: 8px; }\n#cw-root .cw-stack > .cw-card + .cw-card { margin-top: 0; }\n#cw-root .cw-checklist { display: grid; gap: 2px; }\n#cw-root .cw-checkrow { padding: 8px 10px; border-radius: 8px; width: 100%; }\n@media (hover: hover) { #cw-root .cw-checkrow:hover { background: var(--cw-surface); } }\n#cw-root .cw-orderlist { margin: 0; padding-left: 2.2em; display: grid; gap: 4px; font-size: var(--cw-fs-s); }\n#cw-root .cw-orderlist small { display: block; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-sug { display: grid; gap: 8px; }\n#cw-root .cw-rank-edit { display: grid; gap: 4px; }\n#cw-root .cw-rankrow { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-surface); }\n#cw-root .cw-rankrow b { flex: 1 1 auto; min-width: 0; font-weight: 500; }\n#cw-root .cw-setrow { display: flex; align-items: center; gap: 12px; min-height: var(--cw-h-l); padding: 8px 2px; border-top: 1px solid var(--cw-rule); cursor: pointer; }\n#cw-root .cw-setrow:first-child { border-top: 0; }\n#cw-root .cw-setrow > span:first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }\n#cw-root .cw-setrow small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-setrow b { font-weight: 500; }\n#cw-root .cw-setrow.is-disabled { cursor: default; }\n#cw-root .cw-setrow.is-disabled b { color: var(--cw-muted); }\n#cw-root .cw-setlist { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); padding: 0 12px; }\n#cw-root h4 { font-size: var(--cw-fs-s); color: var(--cw-muted); font-weight: 500; margin: 8px 0 4px; }\n\n/* ---------- 思维链、变量 ---------- */\n#cw-root .cw-verdict { display: flex; align-items: center; gap: 8px; margin: 6px 0; }\n#cw-root .cw-verdict-main { flex: 1 1 auto; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }\n#cw-root .cw-verdict-main span { color: var(--cw-muted); }\n#cw-root .cw-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }\n#cw-root .cw-legend li { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; align-items: start; }\n#cw-root .cw-note-btn { width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; margin: 8px 0; }\n#cw-root .cw-note-btn > .cw-ico:last-child { align-self: center; color: var(--cw-muted); }\n#cw-root .cw-cotcard > summary, #cw-root .cw-dead > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }\n#cw-root .cw-cotcard > summary::-webkit-details-marker, #cw-root .cw-dead > summary::-webkit-details-marker { display: none; }\n#cw-root .cw-cotcard > summary small { color: var(--cw-muted); font-size: var(--cw-fs-s); flex: 1 1 auto; }\n#cw-root .cw-cotcard > summary > .cw-ico, #cw-root .cw-dead > summary > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-cotcard[open] > summary > .cw-ico, #cw-root .cw-dead[open] > summary > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-cotcard[open] > summary, #cw-root .cw-dead[open] > summary { margin-bottom: 8px; }\n#cw-root .cw-reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }\n#cw-root .cw-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }\n#cw-root .cw-sup { font-size: var(--cw-fs-s); padding: 0 6px; border-radius: 5px; background: var(--cw-raised); }\n#cw-root .cw-stats-filter { margin: 10px 0 4px; }\n#cw-root .cw-covgroup h4 { margin: 14px 0 4px; }\n#cw-root .cw-cov { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 2px; border-bottom: 1px solid var(--cw-rule); }\n#cw-root .cw-cov-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-cov-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow-wrap: anywhere; }\n#cw-root .cw-cov .cw-pill { min-width: 5.2em; justify-content: center; }\n#cw-root .cw-dead-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-dead-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n\n/* ---------- 内置配色（3.0 沿用 2.x 的色值与画面） ---------- */\n#cw-root[data-theme=\"mist\"] { --cw-bg: #f6f2e2; --cw-text: #2f3a46; --cw-accent: #4f74a3; --cw-line: #d3d9c6; --cw-input: rgba(255,255,255,.78); --cw-warn: #b25a3c; --cw-ok: #4f7d55; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.46); --cw-raised: rgba(255,255,255,.66); --cw-accent-soft: rgba(79,116,163,.18); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"bean\"] { --cw-bg: #f7ece9; --cw-text: #45343f; --cw-accent: #b0607e; --cw-line: #e3d1d8; --cw-input: rgba(255,255,255,.78); --cw-warn: #b4513e; --cw-ok: #5b8466; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(176,96,126,.16); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"oat\"] { --cw-bg: #f6e6e3; --cw-text: #4a3438; --cw-accent: #b5566a; --cw-line: #e6cfcf; --cw-input: rgba(255,255,255,.78); --cw-warn: #b4472e; --cw-ok: #5b7d4f; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"sage\"] { --cw-bg: #f7efe8; --cw-text: #2c3a58; --cw-accent: #5a6e9e; --cw-line: #e1d6d8; --cw-input: rgba(255,255,255,.78); --cw-warn: #b0604a; --cw-ok: #4f7d55; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(90,110,158,.16); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"goose\"] { --cw-bg: #f9f1e4; --cw-text: #3d4540; --cw-accent: #5f7f68; --cw-line: #e3ddd0; --cw-input: rgba(255,255,255,.76); --cw-warn: #b0604a; --cw-ok: #5f7f68; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.46); --cw-raised: rgba(255,255,255,.66); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"taro\"] { --cw-bg: #f6eef6; --cw-text: #4a4160; --cw-accent: #7b6fa3; --cw-line: #e3d9ea; --cw-input: rgba(255,255,255,.76); --cw-warn: #b0566a; --cw-ok: #5b7d6a; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.42); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(156,145,184,.2); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"dusk\"] { --cw-bg: #fbf1e6; --cw-text: #1f4a55; --cw-accent: #026d81; --cw-line: #ead9cc; --cw-input: rgba(255,255,255,.76); --cw-warn: #c4503f; --cw-ok: #3f7d5c; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.42); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(2,109,129,.14); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"bud\"] { --cw-bg: #f5f2ee; --cw-text: #2f423d; --cw-accent: #4f6c66; --cw-line: #dcd8d0; --cw-input: rgba(255,255,255,.52); --cw-warn: #b8533f; --cw-ok: #3f7a5c; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.30); --cw-raised: rgba(255,255,255,.48); --cw-accent-soft: rgba(101,127,120,.15); --cw-glow: rgba(101,127,120,.40); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"colony\"] { --cw-bg: #eff3f4; --cw-text: #303f47; --cw-accent: #536b78; --cw-line: #d4dde0; --cw-input: rgba(255,255,255,.52); --cw-warn: #ad5d48; --cw-ok: #46765d; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.30); --cw-raised: rgba(255,255,255,.48); --cw-accent-soft: rgba(102,125,135,.15); --cw-glow: rgba(102,125,135,.40); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"night\"] { --cw-bg: #262a30; --cw-text: #e4e1dc; --cw-accent: #a9bfae; --cw-line: #41474f; --cw-input: #1e2126; --cw-warn: #e09a82; --cw-ok: #9fc8a8; --cw-on-accent: #1f2421; --cw-surface: rgba(255,255,255,.03); --cw-raised: rgba(255,255,255,.05); --cw-accent-soft: rgba(169,191,174,.10); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root { --cw-paint-bean:\n        var(--cw-canvas),\n        radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),\n        radial-gradient(ellipse 55% 28% at 84% 86%, rgba(244, 178, 150, .46), transparent 70%),\n        radial-gradient(ellipse 48% 24% at 46% 72%, rgba(190, 170, 226, .42), transparent 72%),\n        radial-gradient(ellipse 70% 20% at 72% 36%, rgba(206, 190, 226, .50), transparent 70%),\n        radial-gradient(ellipse 50% 18% at 18% 40%, rgba(214, 198, 228, .46), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 56%, rgba(246, 212, 192, .40), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),\n        linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%); }\n#cw-root { --cw-paint-mist:\n        var(--cw-canvas),\n        radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),\n        radial-gradient(ellipse 45% 16% at 12% 10%, rgba(104, 148, 138, .36), transparent 70%),\n        radial-gradient(ellipse 55% 26% at 30% 54%, rgba(246, 230, 146, .52), transparent 70%),\n        radial-gradient(ellipse 46% 24% at 78% 64%, rgba(212, 226, 164, .56), transparent 70%),\n        radial-gradient(ellipse 28% 14% at 70% 40%, rgba(240, 176, 186, .42), transparent 70%),\n        radial-gradient(ellipse 34% 16% at 22% 86%, rgba(198, 188, 236, .42), transparent 70%),\n        radial-gradient(ellipse 30% 14% at 86% 90%, rgba(244, 196, 160, .40), transparent 70%),\n        linear-gradient(180deg, #e2eaec 0%, #f6f1db 26%, #f3eecd 60%, #e2e9cf 100%); }\n#cw-root { --cw-paint-oat:\n        var(--cw-canvas),\n        radial-gradient(ellipse 50% 22% at 30% 56%, rgba(236, 140, 165, .48), transparent 70%),\n        radial-gradient(ellipse 45% 20% at 74% 46%, rgba(240, 160, 182, .44), transparent 70%),\n        radial-gradient(ellipse 26% 12% at 30% 72%, rgba(214, 80, 82, .24), transparent 70%),\n        radial-gradient(ellipse 22% 10% at 64% 66%, rgba(220, 96, 110, .22), transparent 70%),\n        radial-gradient(ellipse 24% 12% at 84% 50%, rgba(240, 200, 92, .32), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 58% 36%, rgba(206, 172, 220, .30), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 100%, rgba(140, 158, 108, .40), transparent 72%),\n        linear-gradient(180deg, #f6e4e1 0%, #f4dad9 34%, #f0d4d5 60%, #e2dfca 86%, #d3d8b8 100%); }\n#cw-root { --cw-paint-sage:\n        var(--cw-canvas),\n        radial-gradient(ellipse 46% 26% at 6% 6%, rgba(118, 132, 190, .52), transparent 70%),\n        radial-gradient(ellipse 36% 26% at 16% 34%, rgba(158, 142, 170, .42), transparent 70%),\n        radial-gradient(ellipse 50% 24% at 10% 86%, rgba(108, 124, 182, .48), transparent 70%),\n        radial-gradient(ellipse 34% 8% at 36% 80%, rgba(255, 255, 255, .70), transparent 70%),\n        radial-gradient(ellipse 36% 22% at 92% 16%, rgba(212, 158, 138, .45), transparent 70%),\n        radial-gradient(ellipse 40% 28% at 92% 66%, rgba(240, 184, 120, .48), transparent 70%),\n        radial-gradient(ellipse 60% 26% at 76% 100%, rgba(236, 168, 112, .55), transparent 72%),\n        radial-gradient(ellipse 48% 30% at 52% 46%, rgba(255, 249, 242, .80), transparent 72%),\n        linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%); }\n#cw-root { --cw-paint-goose:\n        var(--cw-canvas),\n        radial-gradient(ellipse 45% 30% at 6% 8%, rgba(251, 222, 208, .95), transparent 70%),\n        radial-gradient(ellipse 40% 34% at 18% 52%, rgba(240, 222, 198, .85), transparent 70%),\n        radial-gradient(ellipse 50% 40% at 88% 46%, rgba(209, 229, 217, .95), transparent 72%),\n        radial-gradient(ellipse 40% 26% at 82% 92%, rgba(189, 205, 176, .75), transparent 70%),\n        radial-gradient(ellipse 30% 20% at 12% 92%, rgba(189, 205, 176, .55), transparent 70%),\n        linear-gradient(120deg, #f9f1e4 0%, #f9f1e4 40%, #e8efe4 100%); }\n#cw-root { --cw-paint-taro:\n        var(--cw-canvas),\n        radial-gradient(ellipse 52% 30% at 4% 4%, rgba(156, 145, 184, .50), transparent 70%),\n        radial-gradient(ellipse 44% 26% at 92% 10%, rgba(232, 196, 222, .62), transparent 70%),\n        radial-gradient(ellipse 40% 30% at 20% 46%, rgba(217, 211, 234, .85), transparent 72%),\n        radial-gradient(ellipse 36% 22% at 78% 42%, rgba(205, 189, 219, .62), transparent 70%),\n        radial-gradient(ellipse 30% 10% at 56% 64%, rgba(255, 255, 255, .72), transparent 70%),\n        radial-gradient(ellipse 56% 30% at 90% 94%, rgba(156, 145, 184, .46), transparent 72%),\n        radial-gradient(ellipse 44% 24% at 14% 92%, rgba(240, 206, 228, .66), transparent 70%),\n        radial-gradient(ellipse 60% 34% at 50% 30%, rgba(250, 244, 250, .80), transparent 72%),\n        linear-gradient(160deg, #e9e2f1 0%, #f5e8f3 40%, #efe4f2 70%, #ddd5ea 100%); }\n#cw-root { --cw-paint-dusk:\n        var(--cw-canvas),\n        radial-gradient(ellipse 70% 26% at 20% 0%, rgba(2, 109, 129, .34), transparent 72%),\n        radial-gradient(ellipse 46% 20% at 88% 8%, rgba(60, 140, 160, .26), transparent 70%),\n        radial-gradient(ellipse 60% 24% at 76% 38%, rgba(248, 112, 120, .30), transparent 72%),\n        radial-gradient(ellipse 48% 22% at 14% 52%, rgba(248, 140, 140, .26), transparent 70%),\n        radial-gradient(ellipse 70% 22% at 50% 72%, rgba(252, 152, 4, .22), transparent 72%),\n        radial-gradient(ellipse 50% 20% at 88% 86%, rgba(249, 186, 50, .32), transparent 70%),\n        radial-gradient(ellipse 60% 22% at 18% 96%, rgba(249, 186, 50, .26), transparent 72%),\n        radial-gradient(ellipse 54% 26% at 46% 50%, rgba(255, 250, 240, .70), transparent 72%),\n        linear-gradient(175deg, #e2eef0 0%, #f8e7e3 34%, #fde6d2 64%, #f8edc8 100%); }\n#cw-root { --cw-canvas: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); }\n#cw-root {\n    /* 芽体 F9EEE8 F0C9B8 C5E1C5 A9D5D1 657F78：顶部深藻灰绿薄雾 → 生命青 → 一点嫩绿 → 浅珊瑚 → 珊瑚奶白 */\n    --cw-paint-bud:\n        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(101,127,120,.28), rgba(101,127,120,.10) 45%, transparent 75%),\n        radial-gradient(ellipse 58% 24% at 84% 16%, rgba(169,213,209,.84), rgba(169,213,209,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 46% 20% at 8% 32%, rgba(169,213,209,.66), rgba(169,213,209,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 34% 14% at 70% 47%, rgba(197,225,197,.56), rgba(197,225,197,.20) 45%, transparent 72%),\n        radial-gradient(ellipse 60% 24% at 74% 80%, rgba(240,201,184,.84), rgba(240,201,184,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 48% 20% at 10% 92%, rgba(240,201,184,.66), rgba(240,201,184,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 40% 8% at 40% 38%, rgba(255,255,255,.90), transparent 70%),\n        radial-gradient(ellipse 36% 7% at 58% 64%, rgba(255,255,255,.80), transparent 70%),\n        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(255,252,250,.70), transparent 72%),\n        linear-gradient(180deg, #e3eeec 0%, #ebf6f4 24%, #f6f8f2 50%, #fcede6 78%, #fcf4f0 100%);\n    /* 圆圆的芽体，边缘晕开，透过玻璃卡片像光斑 */\n    --cw-cells-bud:\n        radial-gradient(circle at 18% 24%, rgba(169,213,209,.85), rgba(169,213,209,.40) 22px, rgba(169,213,209,0) 50px),\n        radial-gradient(circle at 80% 36%, rgba(240,201,184,.85), rgba(240,201,184,.40) 16px, rgba(240,201,184,0) 40px),\n        radial-gradient(circle at 62% 56%, rgba(169,213,209,.80), rgba(169,213,209,.38) 26px, rgba(169,213,209,0) 58px),\n        radial-gradient(circle at 24% 70%, rgba(240,201,184,.85), rgba(240,201,184,.40) 20px, rgba(240,201,184,0) 46px),\n        radial-gradient(circle at 86% 86%, rgba(197,225,197,.80), rgba(197,225,197,.38) 18px, rgba(197,225,197,0) 42px),\n        radial-gradient(circle at 44% 92%, rgba(169,213,209,.72), rgba(169,213,209,.32) 14px, rgba(169,213,209,0) 34px);\n    /* 菌落 EEF5F0 C7D8D0 B8D4E7 D8D0E6 667D87：顶部标本灰蓝薄雾 → 菌落淡紫 → 冰雾蓝 → 菌落灰绿 → 冷雾白 */\n    --cw-paint-colony:\n        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(102,125,135,.28), rgba(102,125,135,.10) 45%, transparent 75%),\n        radial-gradient(ellipse 56% 24% at 16% 18%, rgba(216,208,230,.86), rgba(216,208,230,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 44% 18% at 90% 26%, rgba(216,208,230,.64), rgba(216,208,230,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 58% 24% at 76% 48%, rgba(184,212,231,.84), rgba(184,212,231,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 44% 20% at 8% 56%, rgba(184,212,231,.64), rgba(184,212,231,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 60% 24% at 28% 82%, rgba(199,216,208,.86), rgba(199,216,208,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 46% 20% at 88% 92%, rgba(199,216,208,.66), rgba(199,216,208,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 40% 8% at 58% 37%, rgba(255,255,255,.90), transparent 70%),\n        radial-gradient(ellipse 36% 7% at 38% 66%, rgba(255,255,255,.80), transparent 70%),\n        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(250,253,252,.70), transparent 72%),\n        linear-gradient(180deg, #e5eaed 0%, #f0eef6 20%, #ebf3f9 48%, #edf4f0 76%, #f4f9f6 100%);\n    /* 大小不一的圆形菌落，像培养皿里的光斑 */\n    --cw-cells-colony:\n        radial-gradient(circle at 76% 20%, rgba(216,208,230,.85), rgba(216,208,230,.40) 24px, rgba(216,208,230,0) 54px),\n        radial-gradient(circle at 20% 40%, rgba(184,212,231,.85), rgba(184,212,231,.40) 18px, rgba(184,212,231,0) 44px),\n        radial-gradient(circle at 30% 44%, rgba(184,212,231,.75), rgba(184,212,231,.30) 7px, rgba(184,212,231,0) 18px),\n        radial-gradient(circle at 70% 62%, rgba(199,216,208,.85), rgba(199,216,208,.40) 26px, rgba(199,216,208,0) 58px),\n        radial-gradient(circle at 16% 80%, rgba(216,208,230,.80), rgba(216,208,230,.38) 16px, rgba(216,208,230,0) 40px),\n        radial-gradient(circle at 60% 90%, rgba(184,212,231,.80), rgba(184,212,231,.38) 20px, rgba(184,212,231,0) 46px),\n        radial-gradient(circle at 68% 86%, rgba(184,212,231,.70), rgba(184,212,231,.30) 6px, rgba(184,212,231,0) 16px);\n}\n\n/* 画面配色：整块底和弹窗铺画，配色卡上同一幅画缩小 */\n#cw-root[data-theme=\"bean\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-bean { background: var(--cw-paint-bean); }\n#cw-root[data-theme=\"mist\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-mist { background: var(--cw-paint-mist); }\n#cw-root[data-theme=\"oat\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-oat { background: var(--cw-paint-oat); }\n#cw-root[data-theme=\"sage\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-sage { background: var(--cw-paint-sage); }\n#cw-root[data-theme=\"goose\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-goose { background: var(--cw-paint-goose); }\n#cw-root[data-theme=\"taro\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-taro { background: var(--cw-paint-taro); }\n#cw-root[data-theme=\"dusk\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-dusk { background: var(--cw-paint-dusk); }\n#cw-root[data-theme=\"bud\"]:not(.cw-has-bg) .cw-app { background: var(--cw-canvas), var(--cw-cells-bud), var(--cw-paint-bud); }\n#cw-root[data-theme=\"bud\"]:not(.cw-has-bg) :is(.cw-dlg, .cw-pop), #cw-root .cw-paint-bud { background: var(--cw-canvas), var(--cw-paint-bud); }\n#cw-root[data-theme=\"colony\"]:not(.cw-has-bg) .cw-app { background: var(--cw-canvas), var(--cw-cells-colony), var(--cw-paint-colony); }\n#cw-root[data-theme=\"colony\"]:not(.cw-has-bg) :is(.cw-dlg, .cw-pop), #cw-root .cw-paint-colony { background: var(--cw-canvas), var(--cw-paint-colony); }\n#cw-root.cw-painted:not(.cw-has-bg) :is(.cw-dlg, .cw-pop) { background-color: var(--cw-bg); }\n#cw-root.cw-painted :is(.cw-side, .cw-tabbar) { background: rgba(255, 255, 255, .3); }\n#cw-root.cw-painted .cw-detail, #cw-root.cw-painted .cw-bar { background: rgba(255, 255, 255, .62); }\n#cw-root.cw-painted .cw-seg button.on { background: rgba(255, 255, 255, .85); }\n#cw-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .cw-scrim { background: rgba(60, 60, 70, .28); }\n/* 毛玻璃（芽体、菌落）：只给不随列表滚动的导航栏、顶栏、页签栏做实时模糊；卡片用半透明渐变和边缘高光 */\n#cw-root.cw-glass :is(.cw-side, .cw-top, .cw-tabbar) { background: rgba(255, 255, 255, .24); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }\n#cw-root.cw-glass .cw-card, #cw-root.cw-glass .cw-note, #cw-root.cw-glass .cw-stats { background-image: linear-gradient(150deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, 0) 62%); border-color: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), inset 0 1px 0 rgba(255, 255, 255, .85); }\n#cw-root.cw-glass :is(.cw-input, .cw-select, .cw-search, .cw-pick-btn) { border-color: rgba(255, 255, 255, .7) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8) !important; }\n/* 跟随酒馆、深色底：卡片、按下改为固定的淡层 */\n#cw-root[data-theme=\"follow\"].cw-dark:not(.cw-has-bg) { --cw-surface: rgba(255, 255, 255, .035); --cw-raised: rgba(255, 255, 255, .07); }\n@supports (color: color-mix(in srgb, red 50%, blue)) { #cw-root[data-theme=\"follow\"].cw-dark:not(.cw-has-bg) { --cw-accent-soft: color-mix(in srgb, var(--cw-accent) 14%, transparent); } }\n/* 自定义背景图：图上盖一层配色底色（遮罩），面板各层半透明 */\n#cw-root.cw-has-bg .cw-app { background: linear-gradient(var(--cw-bg-veil), var(--cw-bg-veil)), var(--cw-bg-img) center / cover no-repeat var(--cw-bg); }\n#cw-root.cw-has-bg :is(.cw-side, .cw-tabbar, .cw-top) { background: color-mix(in srgb, var(--cw-bg) 55%, transparent); }\n#cw-root.cw-has-bg :is(.cw-bar, .cw-detail) { background: color-mix(in srgb, var(--cw-bg) 86%, transparent); }\n#cw-root.cw-has-bg { --cw-surface: color-mix(in srgb, var(--cw-bg) 58%, transparent); --cw-raised: color-mix(in srgb, var(--cw-bg) 80%, transparent); }\n\n\n/* ---------- 缝合页 ---------- */\n#cw-root .cw-col-wide { max-width: none; }\n#cw-root .cw-mobile-flex { display: none; }\n#cw-root .cw-stitch { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, var(--cw-split, 1fr)) 9px minmax(0, var(--cw-split-r, 1fr)); padding: 0 12px 0 20px; }\n#cw-root .cw-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#cw-root .cw-pane-head { flex: none; display: grid; gap: 8px; padding: 2px 0 10px; }\n#cw-root .cw-pane-row { display: flex; align-items: center; gap: 8px; min-width: 0; }\n#cw-root .cw-pane-ft { font-size: var(--cw-fs-l); color: var(--cw-accent); width: 1.4em; flex: none; }\n#cw-root .cw-src-pick, #cw-root .cw-dst-pick { flex: 1 1 55%; min-width: 0; display: flex; }\n#cw-root .cw-src-pick > *, #cw-root .cw-dst-pick > * { width: 100%; }\n#cw-root .cw-search-sm { flex: 1 1 45%; }\n#cw-root .cw-pane-list { padding: 0 6px 20px 0; }\n#cw-root .cw-pane-list > .cw-col { max-width: none; }\n#cw-root .cw-divider { position: relative; cursor: col-resize; display: flex; justify-content: center; touch-action: none; }\n#cw-root .cw-divider::before { content: \"\"; position: absolute; top: 4px; bottom: 4px; left: 4px; border-left: 1px solid var(--cw-rule); }\n#cw-root .cw-divider span { position: relative; align-self: center; width: 5px; height: 44px; border-radius: 5px; background: var(--cw-line); transition: background-color .16s var(--cw-ease); }\n#cw-root .cw-divider.is-dragging span, #cw-root .cw-divider:focus-visible span { background: var(--cw-accent); }\n@media (hover: hover) { #cw-root .cw-divider:hover span { background: var(--cw-accent); } }\n#cw-root .cw-pane-dst { padding-left: 8px; }\n#cw-root .cw-slot-new { margin-bottom: 8px; }\n#cw-root .cw-stitchbar .cw-where { max-width: 52vw; }\n#cw-root .cw-picked-n { font-weight: 600; padding: 0; text-align: left; }\n#cw-root .cw-paste textarea { min-height: 200px; }\n@media (max-width: 959px) {\n    #cw-root .cw-mobile-flex { display: flex; }\n    #cw-root .cw-stitch { grid-template-columns: minmax(0, 1fr); padding: 0 12px; }\n    #cw-root .cw-divider { display: none; }\n    #cw-root .cw-stitch[data-show=\"src\"] .cw-pane-dst, #cw-root .cw-stitch[data-show=\"dst\"] .cw-pane-src { display: none; }\n    #cw-root .cw-pane-dst { padding-left: 0; }\n    #cw-root .cw-pane-row { flex-wrap: wrap; }\n    #cw-root .cw-src-pick, #cw-root .cw-dst-pick, #cw-root .cw-search-sm { flex: 1 1 100%; }\n    #cw-root .cw-pagehead .cw-btn span { display: none; }\n    #cw-root .cw-pagehead .cw-btn { padding: 0 10px; }\n}\n#cw-root .cw-picked { display: grid; gap: 2px; margin: 0 -6px; }\n#cw-root .cw-picked-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; }\n#cw-root .cw-picked-row > span { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-picked-row small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n/* 缝合预览 */\n#cw-root .cw-review { display: grid; gap: 12px; }\n#cw-root .cw-review-head { display: grid; gap: 10px; }\n#cw-root .cw-review-where { display: grid; gap: 2px; }\n#cw-root .cw-review-where small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-enable { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n#cw-root .cw-enable [data-enable-count] { font-weight: 500; }\n#cw-root .cw-enable + .cw-hint { margin-top: -6px; }\n#cw-root .cw-hookbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-hookbar .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-items { display: grid; gap: 8px; }\n#cw-root .cw-item { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); }\n#cw-root .cw-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px 8px 14px; cursor: pointer; }\n#cw-root .cw-item-head > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-item.open .cw-item-head > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-item-name { flex: 1 1 12em; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }\n#cw-root .cw-item-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }\n#cw-root .cw-item-on { font-size: var(--cw-fs-s); align-items: center; }\n#cw-root .cw-item-on input { margin-top: 0; }\n#cw-root .cw-item-body { display: grid; gap: 12px; padding: 4px 14px 14px; border-top: 1px solid var(--cw-rule); padding-top: 12px; }\n#cw-root .cw-modes { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }\n#cw-root .cw-mode { display: grid; gap: 6px; align-content: start; padding: 10px 12px; border: 1px solid var(--cw-line); border-radius: var(--cw-r); cursor: pointer; background: var(--cw-bg); }\n#cw-root .cw-mode.on { border: 2px solid var(--cw-accent); padding: 9px 11px; background: var(--cw-accent-soft); }\n#cw-root .cw-mode-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 8px; align-items: center; }\n#cw-root .cw-mode-head input { accent-color: var(--cw-accent); margin: 0; }\n#cw-root .cw-mode-head small { grid-column: 2; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-snip { margin: 0; padding: 6px 8px; border-radius: var(--cw-r-s); background: var(--cw-input); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-xs); line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--cw-muted); }\n#cw-root .cw-hook { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-raised); }\n#cw-root .cw-hook .cw-check span { display: grid; gap: 2px; }\n#cw-root .cw-hook .cw-pill { margin-left: 6px; }\n#cw-root .cw-warns { margin: 0; }\n#cw-root .cw-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }\n#cw-root .cw-body-edit textarea { min-height: 200px; }\n/* 正则缝合 */\n#cw-root .cw-rx-tools { display: grid; gap: 8px; }\n#cw-root .cw-rx-picks { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }\n#cw-root .cw-rx-rule .cw-check span { display: grid; gap: 1px; }\n";
 
 // src/ui/shell.js
 // 外壳：宽屏左侧导航栏，窄屏顶栏加底部页签；当前预设（全局）、保存状态、详情栏；打开、关闭、返回手势。
