@@ -113,7 +113,7 @@ function btn(label, { act = "", kind = "", size = "", icon = "", attrs = "", tit
   return html`<button type="${type}" class="${cls}"${act ? raw(` data-act="${esc(act)}"`) : ""}${title ? raw(` title="${esc(title)}"`) : ""}${disabled ? raw(" disabled") : ""}${raw(attrs ? " " + attrs : "")}>${icon ? iconHtml(icon) : ""}${label ? html`<span>${label}</span>` : ""}</button>`;
 }
 function ibtn(icon, label, { act = "", attrs = "", cls = "", pressed = null } = {}) {
-  return html`<button type="button" class="cw-ibtn${cls ? " " + cls : ""}"${act ? raw(` data-act="${esc(act)}"`) : ""} aria-label="${label}" title="${label}"${pressed == null ? "" : raw(` aria-pressed="${pressed}"`)}${raw(attrs ? " " + attrs : "")}>${iconHtml(icon)}</button>`;
+  return html`<button type="button" class="cw-ibtn${cls ? " " + cls : ""}"${act ? raw(` data-act="${esc(act)}"`) : ""} aria-label="${label}" title="${label}"${pressed == null ? "" : raw(` aria-pressed="${String(pressed)}"`)}${raw(attrs ? " " + attrs : "")}>${iconHtml(icon)}</button>`;
 }
 // 开关：mixed＝部分开启（滑块居中）
 function switchHtml({ act = "", on = false, mixed = false, label = "", attrs = "", disabled = false, small = false } = {}) {
@@ -121,11 +121,11 @@ function switchHtml({ act = "", on = false, mixed = false, label = "", attrs = "
 }
 // 分段：items [[值, 文字]]
 function segHtml(items, cur, { attr = "data-seg", label = "", size = "" } = {}) {
-  return html`<div class="cw-seg${size ? " cw-seg-" + size : ""}" role="tablist"${label ? raw(` aria-label="${esc(label)}"`) : ""}>${items.map(([v, l]) => html`<button type="button" role="tab" ${raw(attr)}="${v}" aria-selected="${v === cur}" class="${v === cur ? "on" : ""}">${l}</button>`)}</div>`;
+  return html`<div class="cw-seg${size ? " cw-seg-" + size : ""}" role="tablist"${label ? raw(` aria-label="${esc(label)}"`) : ""}>${items.map(([v, l]) => html`<button type="button" role="tab" ${raw(attr)}="${v}" aria-selected="${String(v === cur)}" class="${v === cur ? "on" : ""}">${l}</button>`)}</div>`;
 }
 // 下划线页签
 function tabsHtml(items, cur, { attr = "data-tab" } = {}) {
-  return html`<div class="cw-tabs" role="tablist">${items.map(([v, l]) => html`<button type="button" role="tab" ${raw(attr)}="${v}" aria-selected="${v === cur}" class="${v === cur ? "on" : ""}">${l}</button>`)}</div>`;
+  return html`<div class="cw-tabs" role="tablist">${items.map(([v, l]) => html`<button type="button" role="tab" ${raw(attr)}="${v}" aria-selected="${String(v === cur)}" class="${v === cur ? "on" : ""}">${l}</button>`)}</div>`;
 }
 // tone：accent / ok / warn / muted / line
 const pill = (text, tone = "muted", title = "") => html`<span class="cw-pill cw-pill-${tone}"${title ? raw(` title="${esc(title)}"`) : ""}>${text}</span>`;
@@ -338,7 +338,7 @@ async function pickName({ title, items, current = null, search, extra = null } =
   const paint = () => {
     const k = (q?.value || "").trim().toLowerCase();
     const hits = items.filter((it) => !k || String(it.label ?? it.value).toLowerCase().includes(k) || String(it.sub || "").toLowerCase().includes(k));
-    box.innerHTML = String(hits.length ? html`${hits.map((it) => html`<button type="button" class="cw-choice${it.value === current ? " on" : ""}" data-v="${it.value}" role="option" aria-selected="${it.value === current}"><span>${it.label ?? it.value}</span>${it.sub ? html`<small>${it.sub}</small>` : ""}${it.value === current ? iconHtml("check") : ""}</button>`)}` : html`<p class="cw-hint cw-pad">没有匹配的</p>`);
+    box.innerHTML = String(hits.length ? html`${hits.map((it) => html`<button type="button" class="cw-choice${it.value === current ? " on" : ""}" data-v="${it.value}" role="option" aria-selected="${String(it.value === current)}"><span>${it.label ?? it.value}</span>${it.sub ? html`<small>${it.sub}</small>` : ""}${it.value === current ? iconHtml("check") : ""}</button>`)}` : html`<p class="cw-hint cw-pad">没有匹配的</p>`);
   };
   onSearchInput(q, paint, items.length > 150 ? 120 : 0);
   paint();

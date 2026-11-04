@@ -45,12 +45,12 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
   const hit = (m) => { const q = query().toLowerCase(); return !q || m.toLowerCase().includes(q); };
   const chip = (m, k) => {
     const on = m === cur && k.id === curKey;
-    return html`<button type="button" class="cw-kchip${on ? " on" : ""}" data-m="${m}" data-k="${k.id}" aria-pressed="${on}">${kname(k)}</button>`;
+    return html`<button type="button" class="cw-kchip${on ? " on" : ""}" data-m="${m}" data-k="${k.id}" aria-pressed="${String(on)}">${kname(k)}</button>`;
   };
-  const selRow = (m) => html`<button type="button" class="cw-choice cw-mrow-sel${sel.has(m) ? " is-sel" : ""}" data-sel="${m}" aria-pressed="${sel.has(m)}"><span class="cw-tick" aria-hidden="true"></span><span>${m}</span></button>`;
+  const selRow = (m) => html`<button type="button" class="cw-choice cw-mrow-sel${sel.has(m) ? " is-sel" : ""}" data-sel="${m}" aria-pressed="${String(sel.has(m))}"><span class="cw-tick" aria-hidden="true"></span><span>${m}</span></button>`;
   const plainRow = (m, k = null) => {
     const on = m === cur && (!multi || k?.id === curKey);
-    return html`<button type="button" class="cw-choice${on ? " on" : ""}" role="option" aria-selected="${on}" data-m="${m}"${k ? raw(` data-k="${esc(k.id)}"`) : ""}><span>${m}</span>${on ? iconHtml("check") : ""}</button>`;
+    return html`<button type="button" class="cw-choice${on ? " on" : ""}" role="option" aria-selected="${String(on)}" data-m="${m}"${k ? raw(` data-k="${esc(k.id)}"`) : ""}><span>${m}</span>${on ? iconHtml("check") : ""}</button>`;
   };
   const keyRow = (m) => {
     const owners = ownersOf.get(m);
@@ -69,7 +69,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     const q = query();
     return !selecting && q && !(k ? (k.models || []).includes(q) : allSet.has(q)) ? html`<button type="button" class="cw-choice cw-mrow-custom" data-m="${q}"${multi ? raw(` data-k="${esc((k || keys[0]).id)}"`) : ""}>${iconHtml("plus")}<span>使用「${q}」</span></button>` : "";
   };
-  const secHead = (id, label, n, open, sub = "", menu = "") => html`<div class="cw-msec"><button type="button" class="cw-msec-h" data-fold="${id}" aria-expanded="${open}">${iconHtml(open ? "chevDown" : "chev")}<b>${label}</b>${sub ? html`<small>${sub}</small>` : ""}<span class="cw-msec-n">${n}</span></button>${menu}</div>`;
+  const secHead = (id, label, n, open, sub = "", menu = "") => html`<div class="cw-msec"><button type="button" class="cw-msec-h" data-fold="${id}" aria-expanded="${String(open)}">${iconHtml(open ? "chevDown" : "chev")}<b>${label}</b>${sub ? html`<small>${sub}</small>` : ""}<span class="cw-msec-n">${n}</span></button>${menu}</div>`;
   const none = html`<p class="cw-hint cw-pad">没有匹配的模型，可直接输入名称</p>`;
   const paint = () => {
     body.querySelectorAll("[data-view]").forEach((b) => { b.classList.toggle("on", b.dataset.view === mode); b.setAttribute("aria-selected", b.dataset.view === mode); });

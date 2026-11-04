@@ -66,7 +66,7 @@ function mountBackupPage(page) {
         const can = !isWb && presets.has(g.name);
         const on = open.has(g.name);
         return html`<section class="cw-bkgroup${on ? " is-open" : ""}" data-name="${g.name}">
-          <button type="button" class="cw-bkgroup-h" data-act="bk-fold" aria-expanded="${on}">${iconHtml(on ? "chevDown" : "chev")}<span class="cw-bkgroup-name"><b>${isWb ? g.name.slice(WB_BACKUP_PREFIX.length) : g.name}</b>${isWb ? pill("世界书", "line") : g.name === focusPreset() ? pill("当前预设", "accent") : can ? "" : pill("预设已不在", "muted")}</span>
+          <button type="button" class="cw-bkgroup-h" data-act="bk-fold" aria-expanded="${String(on)}">${iconHtml(on ? "chevDown" : "chev")}<span class="cw-bkgroup-name"><b>${isWb ? g.name.slice(WB_BACKUP_PREFIX.length) : g.name}</b>${isWb ? pill("世界书", "line") : g.name === focusPreset() ? pill("当前预设", "accent") : can ? "" : pill("预设已不在", "muted")}</span>
             <span class="cw-bkgroup-meta">${sizeBar(g.size, max)}<em>${g.list.length} 份 · ${fmtSize(g.size)}</em></span></button>
           ${on ? html`<div class="cw-bklist">${g.list.map((b) => html`<div class="cw-bkrow" data-id="${b.id}"><div class="cw-bkrow-main"><b>${new Date(b.time).toLocaleString()}</b><small>${b.reason || ""} · ${fmtSize(jsonSize(b.data))}</small></div>
               ${can ? btn("恢复", { act: "bk-restore", size: "sm", title: "恢复后自动保存，可撤销" }) : ""}${ibtn("fileOut", "下载 JSON 文件", { act: "bk-dl" })}</div>`)}</div>` : ""}</section>`;

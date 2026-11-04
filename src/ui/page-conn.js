@@ -268,7 +268,7 @@ function mountConnPage(page) {
         <header class="cw-live-head"><span class="cw-dot${live.online ? " on" : ""}" aria-hidden="true"></span><span class="cw-live-state">${live.online ? "已连接" : "未连接"}</span>
           <b class="cw-live-name" title="${active ? active.name : shortLabel(live.source)}">${active ? active.name : shortLabel(live.source)}</b>
           ${active ? "" : html`<button type="button" class="cw-link" data-act="capture" title="保存为站点">保存为站点</button>`}
-          <span class="cw-gap"></span>${ibtn("more", "连接详情", { act: "livemore", attrs: `aria-expanded="${open}"`, cls: open ? "on" : "" })}</header>
+          <span class="cw-gap"></span>${ibtn("more", "连接详情", { act: "livemore", attrs: `aria-expanded="${String(open)}"`, cls: open ? "on" : "" })}</header>
         ${sub ? html`<div class="cw-live-url" title="${sub}">${sub}</div>` : ""}
         <div class="cw-live-model">${modelBtn(live.model, { act: "livemodel", arrow: liveModelList(live).length > 0 || !!ak && siteMulti(active), key: ak && siteMulti(active) ? keyName(active, ak) : "" })}
           ${live.source === "custom" ? ibtn("refresh", "拉取模型列表", { act: "livefetch" }) : ""}${ibtn("bolt", "发送测试消息，看选中的模型能不能用", { act: "testmodel" })}</div>
@@ -306,7 +306,7 @@ function mountConnPage(page) {
       const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", x.source === "custom" ? "" : shortLabel(x.source), on || x.manualBalance ? balShort(x, k) : "", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
       return html`<div class="cw-site is-multi${on ? " is-on" : ""}${open ? " is-open" : ""}" data-id="${x.id}">
         <div class="cw-site-head"><div class="cw-site-main" data-act="edit" role="button" tabindex="0" data-key-click title="查看、编辑"><b>${x.name}</b>${info ? html`<small>${info}</small>` : ""}</div>
-          ${on ? pill("使用中", "accent") : ""}<button type="button" class="cw-btn cw-btn-sm cw-btn-ghost cw-site-fold" data-act="sitefold" aria-expanded="${open}">${x.keys.length} 组${iconHtml(open ? "chevDown" : "chev")}</button></div>
+          ${on ? pill("使用中", "accent") : ""}<button type="button" class="cw-btn cw-btn-sm cw-btn-ghost cw-site-fold" data-act="sitefold" aria-expanded="${String(open)}">${x.keys.length} 组${iconHtml(open ? "chevDown" : "chev")}</button></div>
         ${open ? html`<div class="cw-site-keys">${x.keys.map((y) => {
           const cur = on && y.id === k.id;
           return html`<div class="cw-site-key${cur ? " is-on" : ""}" data-k="${y.id}"><div class="cw-site-main" data-act="edit" role="button" tabindex="0" data-key-click><b>${keyName(x, y)}</b><small>${[y.model || "未选模型", balShort(x, y)].filter(Boolean).join(" · ")}</small></div>${useBtn(cur)}</div>`;
@@ -413,7 +413,7 @@ function mountConnPage(page) {
       const list = groups.get(k).sort((a, b) => t(b) - t(a));
       const open = foldGet("schemes", sview() + "|" + k, k === defOpen);
       return html`<section class="cw-sgroup${open ? " is-open" : ""}" data-k="${k}">
-        <div class="cw-sghead">${picking ? html`<input type="checkbox" class="cw-tickbox" data-act="pickgroup" aria-label="选中这一组"${list.every((s) => picked.has(s.id)) ? raw(" checked") : ""}>` : ""}<button type="button" class="cw-sghead-btn" data-act="sfold" aria-expanded="${open}">${iconHtml(open ? "chevDown" : "chev")}<b>${groupName(k)}</b>${k === mineKey && k ? pill("当前", "accent") : ""}<small>${list.length} 个</small></button></div>
+        <div class="cw-sghead">${picking ? html`<input type="checkbox" class="cw-tickbox" data-act="pickgroup" aria-label="选中这一组"${list.every((s) => picked.has(s.id)) ? raw(" checked") : ""}>` : ""}<button type="button" class="cw-sghead-btn" data-act="sfold" aria-expanded="${String(open)}">${iconHtml(open ? "chevDown" : "chev")}<b>${groupName(k)}</b>${k === mineKey && k ? pill("当前", "accent") : ""}<small>${list.length} 个</small></button></div>
         ${open ? html`<div class="cw-sgbody">${list.map((s) => schemeRow(s, d))}</div>` : ""}</section>`;
     })}`);
   }

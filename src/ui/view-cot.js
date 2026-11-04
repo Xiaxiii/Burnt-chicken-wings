@@ -53,7 +53,7 @@ function mountCotView(box, { tools, goEntries, goVars }) {
       </section>
       <section class="cw-sec"><div class="cw-sec-h"><h3>开启条目与思维链的关联</h3></div>
         <p class="cw-hint">「未提及」不等于有问题。只需为文风、人设、玩法等重点条目接入思维链；接入越多，思考越长。</p>
-        <div class="cw-stats cw-stats-filter" style="--n:4" role="tablist">${filters.map(([k, l, n]) => html`<button type="button" role="tab" data-filter="${k}" class="${st.filter === k ? "on" : ""}" aria-selected="${st.filter === k}"><b>${n}</b><span>${l}</span></button>`)}</div>
+        <div class="cw-stats cw-stats-filter" style="--n:4" role="tablist">${filters.map(([k, l, n]) => html`<button type="button" role="tab" data-filter="${k}" class="${st.filter === k ? "on" : ""}" aria-selected="${String(st.filter === k)}"><b>${n}</b><span>${l}</span></button>`)}</div>
         <div class="cw-covlist"></div>
       </section>
       ${a.optional.length ? html`<section class="cw-sec">${fold(`思维链已预留、但没有开启选项的变量（${a.optional.length}）`, String(html`<ul class="cw-reads">${a.optional.map((o) => html`<li><code>${o.varName}</code>${o.ids.map((id) => html`<span class="cw-sup">${nm(id)}</span>`)}</li>`)}</ul>`))}</section>` : ""}`);

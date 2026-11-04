@@ -100,8 +100,8 @@ function renderEntryListNow(draft, o) {
     const selectable = !place && (organize || o.mode === "source");
     out += String(html`<section class="${gcls}" data-gid="${b.groupId}">
         <header class="cw-ghead" data-gid="${b.groupId}" data-first="${first}" data-last="${last}" tabindex="0" data-key-click>
-          ${selectable ? html`<button type="button" class="cw-gsel" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="cw-row-sel" aria-hidden="true"></span></button>` : ""}
-          <button type="button" class="cw-gname" data-act="fold" aria-expanded="${!isCol}"><span>${raw(markText(g?.name || "分组", q))}</span>${b.parts > 1 ? html`<em>第 ${b.part}/${b.parts} 段</em>` : ""}${iconHtml("chev")}</button>
+          ${selectable ? html`<button type="button" class="cw-gsel" data-act="gselect" aria-label="选择整组" aria-pressed="${String(!!allSel && !b.empty)}"><span class="cw-row-sel" aria-hidden="true"></span></button>` : ""}
+          <button type="button" class="cw-gname" data-act="fold" aria-expanded="${String(!isCol)}"><span>${raw(markText(g?.name || "分组", q))}</span>${b.parts > 1 ? html`<em>第 ${b.part}/${b.parts} 段</em>` : ""}${iconHtml("chev")}</button>
           ${hasAt && isCol ? pill("位置在组内", "accent") : ""}
           <span class="cw-gcount cw-num">${onCount}/${b.ids.length}</span>
           ${organize ? html`${switchHtml({ act: "gtoggle", on: !off, small: true, label: "分组开关（不修改内部条目）" })}${ibtn("more", "分组操作", { act: "gmenu" })}<span class="cw-handle" data-act="gdrag" aria-label="拖动分组" title="拖动分组">${iconHtml("grip")}</span>` : ""}

@@ -2,7 +2,7 @@
 function mountLookPage(page) {
   page.innerHTML = String(html`<div class="cw-body"><div class="cw-col cw-look">
       <section class="cw-sec"><div class="cw-sec-h"><h3>入口</h3></div><div data-r="entry"></div></section>
-      <section class="cw-sec"><div class="cw-sec-h"><h3>配色</h3><span class="cw-gap"></span><label class="cw-inline-switch"><span>跟随系统</span>${switchHtml({ act: "followsys", label: "跟随系统深浅色", attrs: 'data-r="follow"' })}</label></div>
+      <section class="cw-sec"><div class="cw-sec-h"><h3>配色</h3><span class="cw-gap"></span><div class="cw-inline-switch"><span data-act="followtext">跟随系统</span>${switchHtml({ act: "followsys", label: "跟随系统深浅色", attrs: 'data-r="follow"' })}</div></div>
         <p class="cw-hint" data-r="follownote" hidden>系统为深色时用夜雾，浅色时用选中的配色。</p>
         <div class="cw-themes" data-r="themes" role="group" aria-label="配色"></div></section>
       <section class="cw-sec"><div class="cw-sec-h"><h3>文字大小</h3><small>只对这台设备生效</small></div><div data-r="fs"></div></section>
@@ -19,7 +19,7 @@ function mountLookPage(page) {
       const dots = t.dots || ["var(--SmartThemeBlurTintColor, #333)", "var(--SmartThemeQuoteColor, #e0a24a)", "var(--SmartThemeBodyColor, #ddd)"];
       // 卡片用配色自己的底色和字色；夜间防护规则会强改字色，这里用 !important 保住
       const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]} !important;border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]} !important;border-color:${t.dots[1]}55` : "";
-      return html`<button type="button" class="cw-theme${t.paint ? ` cw-paint-${t.id}` : ""}" data-theme-id="${t.id}" aria-pressed="${t.id === cur}" style="${style}">
+      return html`<button type="button" class="cw-theme${t.paint ? ` cw-paint-${t.id}` : ""}" data-theme-id="${t.id}" aria-pressed="${String(t.id === cur)}" style="${style}">
         <span class="cw-theme-dots">${dots.map((c) => html`<i style="background:${c}"></i>`)}</span><b>${t.name}</b><small>${t.sub}</small>${t.id === cur ? iconHtml("check") : ""}</button>`;
     })}`);
     $("fs").innerHTML = String(segHtml([["s", "小"], ["m", "标准"], ["l", "大"]], fontSizePref(), { attr: "data-fs", label: "文字大小" }));
@@ -29,7 +29,9 @@ function mountLookPage(page) {
       ${bg.on ? html`<label class="cw-range"><span>遮罩</span><input type="range" min="0" max="90" step="5" value="${veil}" data-bg="veil" aria-label="遮罩"><em>${veil}%</em></label>` : ""}`);
   }
   page.addEventListener("click", async (e) => {
-    const en = e.target.closest("[data-entry]");
+    // 点「跟随系统」文字等于点开关
+    if (e.target.closest('[data-act="followtext"]')) return $("follow").click();
+    const en = e.target.closest("button[data-entry]");
     if (en) return setEntryMode(en.dataset.entry), render();
     const th = e.target.closest("[data-theme-id]");
     if (th) {
@@ -39,7 +41,7 @@ function mountLookPage(page) {
       applyTheme(root());
       return render();
     }
-    const fs = e.target.closest("[data-fs]");
+    const fs = e.target.closest("button[data-fs]");
     if (fs) {
       try { localStorage.setItem(FS_KEY, fs.dataset.fs); } catch {}
       if (root()) root().dataset.fs = fs.dataset.fs;

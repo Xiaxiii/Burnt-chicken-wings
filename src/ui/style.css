@@ -1150,3 +1150,5 @@ html.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }
 #cw-root .cw-moreitem b { font-weight: 500; }
 #cw-root .cw-moreitem small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }
 #cw-root .cw-more-ver { text-align: center; margin-top: 16px; }
+/* 窄屏打开详情（编辑条目等）时收起底部页签，编辑区更高 */
+@media (max-width: 959px) { #cw-root .cw-main:has(> .cw-stage.cw-has-detail) > .cw-tabbar { display: none; } }
