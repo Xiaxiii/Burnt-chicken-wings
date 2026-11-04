@@ -48,7 +48,7 @@ async function boot(ctx) {
   await page.waitForTimeout(600); // 自动保存已发出，还没回来
   assert.ok(log.includes("save-start:" + nameA) && !log.includes("save-end:" + nameA), "保存正在进行");
   // 用户在酒馆里换到了别的预设，再去清理页删除甲
-  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("conn"); });
+  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("more"); });
   await page.click('[data-m="clean"]'); await page.waitForTimeout(300);
   await page.click('[data-f="all"]'); await page.waitForTimeout(200);
   await page.click(`.pa-crow:has-text("${nameA}") input[data-c=pick]`);

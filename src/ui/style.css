@@ -129,7 +129,7 @@ html.pa-open body { overflow: hidden; }
 }
 #pa-root .pa-btn:disabled { opacity: .45; cursor: default; }
 /* 2.6.22 按下即有回应：只动 transform，120ms */
-#pa-root :is(.pa-btn, .pa-icon-btn, .pa-seg button) { transition: transform .12s var(--pa-ease), background-color .16s var(--pa-ease), color .16s var(--pa-ease); }
+#pa-root :is(.pa-btn, .pa-icon-btn, .pa-seg button) { transition: transform .12s var(--pa-ease); }
 #pa-root :is(.pa-btn, .pa-icon-btn, .pa-seg button):not(:disabled):active { transform: scale(.97); }
 /* 2.5.0 不能点的主按钮：描边、正文灰，字看得清，也不像能点的实心按钮 */
 #pa-root .pa-btn-primary:disabled { opacity: 1; background: transparent; border-color: var(--pa-line); color: var(--pa-dim); }
