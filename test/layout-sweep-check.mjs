@@ -12,7 +12,7 @@ const problems = [];
 const scan = (p, where) => p.evaluate((where) => {
   const W = innerWidth, out = [];
   if (document.documentElement.scrollWidth > W + 1) out.push(`页面横向滚动 ${document.documentElement.scrollWidth}>${W}`);
-  const root = document.getElementById('pa-root');
+  const root = document.getElementById('cw-root');
   const visible = (e) => { const r = e.getBoundingClientRect(); return r.width && r.height && getComputedStyle(e).visibility !== 'hidden'; };
   for (const e of root.querySelectorAll('button, input, select, label, .cw-pill, h3, b, .cw-card')) {
     if (!visible(e) || e.closest('.pa-tabs-scroll, .cw-seg, [style*="overflow"]')) continue;

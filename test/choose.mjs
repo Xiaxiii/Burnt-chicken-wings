@@ -58,6 +58,8 @@ export async function choose(page, btnSel, value) {
 }
 // 缝合页的来源类型（preset / world / file / paste）、目标类型（preset / world）：分段按钮
 export async function chooseSrcType(page, type) {
+  // 3.0：「正则」不再是来源类型，是缝合页顶上的按钮，打开正则缝合窗口
+  if (type === "regex") { await page.locator('#cw-root [data-act="st-regex"]:visible').first().click(); await page.waitForTimeout(400); return; }
   await page.locator(`#cw-root .cw-pane-src [data-srctype="${type}"]`).first().click();
   await page.waitForTimeout(300);
 }

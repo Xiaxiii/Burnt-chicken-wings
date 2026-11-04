@@ -253,7 +253,7 @@ html.cw-open body { overflow: hidden; }
 #cw-root .cw-field { display: grid; gap: 5px; }
 #cw-root .cw-field > span:first-child, #cw-root .cw-label { color: var(--cw-muted); font-size: var(--cw-fs-s); display: flex; align-items: center; gap: 6px; }
 #cw-root .cw-field-err { color: var(--cw-warn); font-size: var(--cw-fs-s); }
-#cw-root .cw-form { display: grid; gap: 14px; }
+#cw-root .cw-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 #cw-root .cw-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 #cw-root .cw-check { display: inline-flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.45; }
 #cw-root .cw-check input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; accent-color: var(--cw-accent); }
@@ -807,7 +807,6 @@ html.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }
 #cw-root .cw-reply > [data-r="for"]:not(:empty) { margin-top: 8px; }
 #cw-root .cw-sec > .cw-warn-text { margin: 8px 0 0; font-size: var(--cw-fs-s); }
 #cw-root .cw-reply-paste .cw-field { margin-top: 6px; }
-#cw-root .cw-form { display: grid; gap: 14px; }
 #cw-root .cw-status-row { display: flex; align-items: center; gap: 12px; }
 #cw-root .cw-status-row > :first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
 #cw-root .cw-status-row .cw-p { margin: 0; }

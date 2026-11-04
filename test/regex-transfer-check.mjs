@@ -127,8 +127,7 @@ async function boot(width, targetPreset = target) {
 // 2.6.1：缝合正则在来源类型「正则」里（选中即打开）；之后点来源栏的「选择正则…」再打开。正则文件读入后自动打开
 async function clickRegex(page) {
   await page.waitForTimeout(150);
-  if (await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-regex-transfer').count()) return;
-  if (await page.locator('.pa-rx-src [data-act=st-regex]').isVisible()) return page.click('.pa-rx-src [data-act=st-regex]');
+  if (await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) [data-rx-index]').count()) return;
   return chooseSrcType(page, 'regex');
 }
 async function openRegex(page) {
@@ -212,7 +211,7 @@ try {
     assert.equal(await d.getByRole('button', { name: '确认缝合正则', exact: true }).isDisabled(), true);
     await d.locator('[data-rx-pick=display]').click();
     assert.equal(await d.locator('[data-rx-select]:checked').count(), 4);
-    const overflow = await d.evaluate(n => [...n.querySelectorAll('.cw-dlg-body, .pa-regex-transfer, .cw-card')].some(x => x.scrollWidth > x.clientWidth + 2));
+    const overflow = await d.evaluate(n => [...n.querySelectorAll('.cw-dlg-body, .cw-card')].some(x => x.scrollWidth > x.clientWidth + 2));
     assert.equal(overflow, false, '手机与桌面预览均不横向溢出');
     fs.mkdirSync(path.join(root, 'test/shots'), { recursive: true });
     if (width < 500) await d.screenshot({ path: path.join(root, 'test/shots/regex-transfer-phone.png') });
@@ -259,7 +258,7 @@ try {
     equal(nativeEvents[0].rules, (await stored(page)).extensions.regex_scripts, '原生监听读取到保存后的新规则');
     assert.equal(nativeEvents[0].sourceConnected && nativeEvents[0].sourceSame, true, '自身刷新不重画来源 DOM');
     assert.equal(nativeEvents[0].refreshName, targetName, '自身事件派发期间持有精确预设标记');
-    assert.equal(await page.locator('.cw-src-pick .cw-pick-btn').innerText(), sourceName + '\n▾');
+    assert.equal(await page.locator('.cw-src-pick .cw-pick-btn').innerText(), sourceName);
     assert.equal(await page.locator('[data-act=st-go]').isDisabled(), true, '仍未选提示词或位置');
     equal(await stored(page, sourceName), source, '刷新没有修改来源');
     await page.click('#cw-root .cw-top [data-act=undo]');
@@ -311,7 +310,7 @@ try {
     await page.evaluate(() => {
       for (const [key, value] of Object.entries({ SmartThemeBlurTintColor: 'rgb(32,33,38)', SmartThemeBodyColor: '#e4e1dc', SmartThemeQuoteColor: '#d0debd', SmartThemeEmColor: '#a9bfae' })) document.body.style.setProperty('--' + key, value);
     });
-    await page.waitForFunction(() => document.getElementById('pa-root').style.getPropertyValue('--pa-tint') === 'rgb(32, 33, 38)');
+    await page.waitForFunction(() => document.getElementById('cw-root').style.getPropertyValue('--cw-bg') === 'rgb(32, 33, 38)');
     await openRegex(page);
     const d = dialog(page);
     await d.locator('[data-rx-group-name]').fill('   ');
@@ -412,7 +411,7 @@ try {
     const page = await boot(390);
     await chooseSrcType(page, 'file');
     const fileSource = { prompts: [], extensions: { regex_scripts: sourceRules } };
-    await page.locator('.cw-src-pick .cw-pick-btn input[type=file]').setInputFiles({ name: '仅含正则的完整预设.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fileSource)) });
+    await page.locator('.cw-src-pick input[type=file]').setInputFiles({ name: '仅含正则的完整预设.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fileSource)) });
     await openRegex(page);
     assert.equal(await dialog(page).locator('[data-rx-index]').count(), 6, '完整 JSON 文件无需提示词条目也能独立缝制');
     await dialog(page).getByRole('button', { name: '确认缝合正则', exact: true }).click();
@@ -428,7 +427,7 @@ try {
     await chooseSrcType(page, 'file');
     const malformed = { scriptName: { toString: null }, id: { toString: null }, findRegex: { toString: null }, replaceString: { toString: null }, placement: [{ toString: null }], markdownOnly: true };
     const fileSource = { prompts: [], extensions: { regex_scripts: [sourceRules[0], malformed] } };
-    await page.locator('.cw-src-pick .cw-pick-btn input[type=file]').setInputFiles({ name: '包含损坏规则的预设.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fileSource)) });
+    await page.locator('.cw-src-pick input[type=file]').setInputFiles({ name: '包含损坏规则的预设.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fileSource)) });
     await openRegex(page);
     const d = dialog(page);
     assert.equal(await d.locator('[data-rx-select="1"]').isDisabled(), true, '损坏规则可以看到但不能搬运');
@@ -448,7 +447,7 @@ try {
     const page = await boot(390);
     await chooseSrcType(page, 'file');
     const duplicateOnly = { prompts: [], extensions: { regex_scripts: structuredClone(target.extensions.regex_scripts) } };
-    await page.locator('.cw-src-pick .cw-pick-btn input[type=file]').setInputFiles({ name: '全部精确重复的来源.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(duplicateOnly)) });
+    await page.locator('.cw-src-pick input[type=file]').setInputFiles({ name: '全部精确重复的来源.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(duplicateOnly)) });
     await openRegex(page);
     const d = dialog(page);
     assert.match(await d.locator('[data-rx-group-preview]').innerText(), /不创建分组/);
