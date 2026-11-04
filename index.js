@@ -11987,13 +11987,1847 @@ function mountReplyPage(page) {
 }
 
 // src/ui/dlg-model.js
-// 建设中
+// 模型选择窗口：单密钥和多密钥站点共用。
+// 视图：按模型平铺；按分类（自建分类在前，其余按系列自动分段）；按分组（多密钥，一个分组一段）。
+// 自建分类记在站点上（site.modelCats），一个模型可在几个分类里；多选可新建分类或加入已有分类。
+// 多密钥站点的模型后面标出哪些分组有它：点模型名用排在上面的分组，点分组标签换；超过 2 个收成「+N」。
+// 段落展开记在 fold.mpick（按站点）。返回：单密钥为模型名，多密钥为 { model, keyId }，取消为 null
+async function modelPicker({ site = null, keys = null, list = [], cur = "", curKey = null, title = "选择模型" }) {
+  const multi = Array.isArray(keys) && keys.length > 1;
+  const kname = (k) => keyName(site, k);
+  // 当前模型不在这个站点的列表里时不混进列表；列表为空时才列出当前模型
+  const all = multi ? [...new Set(keys.flatMap((k) => k.models || []))] : [...new Set((list.length ? list : [cur]).filter(Boolean))];
+  const allSet = new Set(all);
+  const ownersOf = new Map(all.map((m) => [m, []]));
+  if (multi) for (const k of keys) for (const m of new Set(k.models || [])) ownersOf.get(m).push(k);
+  const cats = () => site?.modelCats || [];
+  const fams = () => familyGroups(all.filter((m) => !cats().some((c) => c.models.includes(m))));
+  const canCat = !!site || familyGroups(all).length > 1;
+  const views = [["model", "按模型"], ...canCat ? [["cat", "按分类"]] : [], ...multi ? [["group", "按分组"]] : []];
+  const saved = (site && (multi || site.modelView) ? site.modelView : settings().modelView) || "";
+  let mode = { family: "cat", cat: "cat", group: "group" }[saved] || "model";
+  if (!views.some(([v]) => v === mode)) mode = "model";
+  const firstCat = cats().find((c) => c.models.includes(cur));
+  const secDefault = new Set([multi ? keys[0].id : "", firstCat ? `c:${firstCat.id}` : `f:${modelFamily(cur || all[0])}`]);
+  const secKey = (id) => `${site?.id || "live"}\u0001${id}`;
+  const secOpen = {
+    has: (id) => foldGet("mpick", secKey(id), secDefault.has(id)),
+    set: (id, on) => foldSet("mpick", secKey(id), on, 300)
+  };
+  const more = new Set();
+  let selecting = false;
+  let editing = null;
+  const sel = new Set();
+  let picked = null;
+  const body = el(html`<div class="cw-mpick">
+      <div class="cw-mpick-top">
+        ${views.length > 1 ? segHtml(views, mode, { attr: "data-view", label: "模型显示方式", size: "sm" }) : ""}
+        <div class="cw-mpick-find"><span class="cw-search">${iconHtml("search")}<input class="cw-input" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜索，或输入模型名称" aria-label="搜索模型"></span>${site ? btn("多选", { act: "selmode", size: "sm" }) : ""}</div>
+        <div class="cw-mpick-sel" hidden><span class="cw-mpick-cnt"></span><button type="button" class="cw-link" data-act="selall"></button><button type="button" class="cw-link" data-act="selnone">清空</button><span class="cw-gap"></span><span class="cw-mpick-acts"></span>
+          <div class="cw-mpick-new" hidden><input class="cw-input" placeholder="分类名，如 Gemini 逆向、0.07/次" maxlength="60" aria-label="新分类名">${btn("取消", { act: "newcancel", size: "sm" })}${btn("确定", { act: "newok", size: "sm", kind: "primary" })}</div></div>
+        ${!multi && cur && list.length && !allSet.has(cur) ? html`<p class="cw-hint">当前模型「${cur}」不在此站点的列表中</p>` : ""}
+      </div>
+      <div class="cw-mpick-list" role="listbox" aria-label="模型"></div></div>`);
+  const input = body.querySelector(".cw-mpick-find input");
+  const box = body.querySelector(".cw-mpick-list");
+  const query = () => input.value.trim();
+  const hit = (m) => { const q = query().toLowerCase(); return !q || m.toLowerCase().includes(q); };
+  const chip = (m, k) => {
+    const on = m === cur && k.id === curKey;
+    return html`<button type="button" class="cw-kchip${on ? " on" : ""}" data-m="${m}" data-k="${k.id}" aria-pressed="${on}">${kname(k)}</button>`;
+  };
+  const selRow = (m) => html`<button type="button" class="cw-choice cw-mrow-sel${sel.has(m) ? " is-sel" : ""}" data-sel="${m}" aria-pressed="${sel.has(m)}"><span class="cw-tick" aria-hidden="true"></span><span>${m}</span></button>`;
+  const plainRow = (m, k = null) => {
+    const on = m === cur && (!multi || k?.id === curKey);
+    return html`<button type="button" class="cw-choice${on ? " on" : ""}" role="option" aria-selected="${on}" data-m="${m}"${k ? raw(` data-k="${esc(k.id)}"`) : ""}><span>${m}</span>${on ? iconHtml("check") : ""}</button>`;
+  };
+  const keyRow = (m) => {
+    const owners = ownersOf.get(m);
+    const on = m === cur;
+    let tail;
+    if (owners.length <= 2) tail = owners.map((k) => chip(m, k));
+    else if (more.has(m)) tail = html`${owners.map((k) => chip(m, k))}<button type="button" class="cw-kmore" data-more="${m}" aria-expanded="true">收起</button>`;
+    else {
+      const shown = owners.find((k) => on && k.id === curKey) || owners[0];
+      tail = html`${chip(m, shown)}<button type="button" class="cw-kmore" data-more="${m}" aria-expanded="false" aria-label="还有 ${owners.length - 1} 个分组">+${owners.length - 1}</button>`;
+    }
+    return html`<div class="cw-krow${on ? " on" : ""}"><button type="button" class="cw-kname" data-m="${m}" data-k="${owners[0].id}">${m}${on ? iconHtml("check") : ""}</button><span class="cw-kchips">${tail}</span></div>`;
+  };
+  const row = (m) => selecting ? selRow(m) : multi ? keyRow(m) : plainRow(m);
+  const custom = (k = null) => {
+    const q = query();
+    return !selecting && q && !(k ? (k.models || []).includes(q) : allSet.has(q)) ? html`<button type="button" class="cw-choice cw-mrow-custom" data-m="${q}"${multi ? raw(` data-k="${esc((k || keys[0]).id)}"`) : ""}>${iconHtml("plus")}<span>使用「${q}」</span></button>` : "";
+  };
+  const secHead = (id, label, n, open, sub = "", menu = "") => html`<div class="cw-msec"><button type="button" class="cw-msec-h" data-fold="${id}" aria-expanded="${open}">${iconHtml(open ? "chevDown" : "chev")}<b>${label}</b>${sub ? html`<small>${sub}</small>` : ""}<span class="cw-msec-n">${n}</span></button>${menu}</div>`;
+  const none = html`<p class="cw-hint cw-pad">没有匹配的模型，可直接输入名称</p>`;
+  const paint = () => {
+    body.querySelectorAll("[data-view]").forEach((b) => { b.classList.toggle("on", b.dataset.view === mode); b.setAttribute("aria-selected", b.dataset.view === mode); });
+    const q = query();
+    let out;
+    if (mode === "model") {
+      const rows = all.filter(hit);
+      out = html`${custom()}${rows.map(row)}`;
+      if (!rows.length && !custom()) out = none;
+    } else if (mode === "cat") {
+      const parts = [];
+      for (const c of cats()) {
+        const present = c.models.filter((m) => allSet.has(m));
+        const ms = present.filter(hit);
+        if (q && !ms.length) continue;
+        const id = `c:${c.id}`;
+        const open = !!q || secOpen.has(id);
+        parts.push(html`${secHead(id, c.name, present.length, open, "", ibtn("more", `分类「${c.name}」的操作`, { attrs: `data-catmenu="${esc(c.id)}"` }))}${open ? ms.map(row) : ""}`);
+      }
+      for (const f of fams()) {
+        const ms = f.list.filter(hit);
+        if (q && !ms.length) continue;
+        const id = `f:${f.name}`;
+        const open = !!q || secOpen.has(id);
+        parts.push(html`${secHead(id, f.name, f.list.length, open, cats().length ? "自动" : "")}${open ? ms.map(row) : ""}`);
+      }
+      out = parts.length || custom() ? html`${custom()}${parts}` : none;
+    } else {
+      out = keys.map((k) => {
+        const ms = (k.models || []).filter(hit);
+        const open = !!q || secOpen.has(k.id);
+        const items = ms.map((m) => selecting ? selRow(m) : plainRow(m, k));
+        const kc = custom(k);
+        const blank = !ms.length && !kc ? html`<p class="cw-hint cw-pad">${(k.models || []).length ? "没有匹配的模型" : "还没有模型列表，可在搜索框输入模型名称"}</p>` : "";
+        return html`${secHead(k.id, kname(k), (k.models || []).length, open, k.keyMask || "")}${open ? html`${kc}${items}${blank}` : ""}`;
+      });
+    }
+    box.innerHTML = String(out);
+    const bar = body.querySelector(".cw-mpick-sel");
+    bar.hidden = !selecting;
+    if (!selecting) bar.querySelector(".cw-mpick-new").hidden = true;
+    const sb = body.querySelector('[data-act="selmode"]');
+    if (sb) { sb.querySelector("span").textContent = selecting ? "取消多选" : "多选"; sb.setAttribute("aria-pressed", selecting); }
+    if (selecting) {
+      const n = all.filter(hit).length;
+      bar.querySelector('[data-act="selall"]').textContent = q ? `全选搜索结果（${n}）` : `全选（${n}）`;
+      bar.querySelector('[data-act="selnone"]').hidden = !sel.size;
+      bar.querySelector(".cw-mpick-cnt").textContent = editing ? `「${editing.name}」已选 ${sel.size}` : `已选 ${sel.size}`;
+      bar.querySelector(".cw-mpick-acts").innerHTML = String(editing
+        ? html`${btn("取消", { act: "cancel", size: "sm" })}${btn("保存", { act: "save", size: "sm", kind: "primary" })}`
+        : html`${cats().length ? btn("加入…", { act: "addto", size: "sm" }) : ""}${btn("新建分类", { act: "newcat", size: "sm", kind: "primary" })}`);
+    }
+  };
+  const stopSelect = () => { selecting = false; editing = null; sel.clear(); };
+  const saveCats = () => { if (!site.modelCats) site.modelCats = []; saveSettings(); };
+  onSearchInput(input, paint, all.length > 150 ? 120 : 0);
+  paint();
+  await dialog({ title: `${title}（${all.length}）`, body, noFocus: true, size: all.length > 10 ? "tall" : "md", cls: "cw-dlg-picker", actions: [], onMount: (w) => {
+    const newBox = body.querySelector(".cw-mpick-new");
+    const newInput = newBox.querySelector("input");
+    const makeCat = () => {
+      const name = newInput.value.trim();
+      if (!name) return newInput.focus();
+      if (!site.modelCats) site.modelCats = [];
+      const c = { id: uid(), name, models: all.filter((m) => sel.has(m)) };
+      site.modelCats.push(c);
+      saveCats();
+      secOpen.set(`c:${c.id}`, true);
+      toast(`已新建「${name}」，${c.models.length} 个模型`, "success");
+      newInput.value = "";
+      stopSelect();
+      mode = "cat";
+      input.value = "";
+      paint();
+    };
+    newInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); makeCat(); }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); newBox.hidden = true; }
+    });
+    body.querySelector(".cw-mpick-top").addEventListener("click", async (e) => {
+      const v = e.target.closest("[data-view]");
+      if (v) {
+        if (v.dataset.view === mode) return;
+        mode = v.dataset.view;
+        if (site && (multi || site.modelView || site.modelCats?.length)) site.modelView = mode;
+        else settings().modelView = mode;
+        saveSettings();
+        return paint();
+      }
+      const a = e.target.closest("[data-act]")?.dataset.act;
+      if (!a) return;
+      if (a === "selmode") { if (selecting) stopSelect(); else selecting = true; return paint(); }
+      if (a === "selall") { all.filter(hit).forEach((m) => sel.add(m)); return paint(); }
+      if (a === "selnone") { if (query()) all.filter(hit).forEach((m) => sel.delete(m)); else sel.clear(); return paint(); }
+      if (a === "newok") return makeCat();
+      if (a === "newcancel") { newBox.hidden = true; newInput.value = ""; return; }
+      if (a === "cancel") { stopSelect(); return paint(); }
+      if (a === "save") {
+        editing.models = [...editing.models.filter((m) => !allSet.has(m)), ...all.filter((m) => sel.has(m))];
+        saveCats();
+        toast(`「${editing.name}」已保存，${sel.size} 个模型`, "success");
+        stopSelect();
+        return paint();
+      }
+      if (!sel.size) return toast("先勾选模型", "info");
+      if (a === "newcat") { newBox.hidden = false; newInput.focus(); return; }
+      if (a === "addto") {
+        const id = await pickBox("加入哪个分类", cats().map((c) => ({ label: c.name, sub: `${c.models.filter((m) => allSet.has(m)).length} 个模型`, value: c.id })));
+        const c = cats().find((x) => x.id === id);
+        if (!c) return;
+        const before = c.models.length;
+        c.models = [...new Set([...c.models, ...all.filter((m) => sel.has(m))])];
+        saveCats();
+        secOpen.set(`c:${c.id}`, true);
+        toast(`已加入「${c.name}」，新增 ${c.models.length - before} 个`, "success");
+        stopSelect();
+        mode = "cat";
+        input.value = "";
+        paint();
+      }
+    });
+    box.addEventListener("click", async (e) => {
+      const mo = e.target.closest("[data-more]");
+      if (mo) { more.has(mo.dataset.more) ? more.delete(mo.dataset.more) : more.add(mo.dataset.more); return paint(); }
+      const cm = e.target.closest("[data-catmenu]");
+      if (cm) {
+        const c = cats().find((x) => x.id === cm.dataset.catmenu);
+        if (!c) return;
+        const a = await pickBox(`分类「${c.name}」`, [{ label: "编辑模型", sub: "勾选要留下的模型", value: "edit" }, { label: "改名", value: "rename" }, { label: "删除分类", sub: "模型不受影响", value: "del", danger: true }], { anchor: cm });
+        if (a === "edit") {
+          selecting = true;
+          editing = c;
+          sel.clear();
+          c.models.forEach((m) => allSet.has(m) && sel.add(m));
+        } else if (a === "rename") {
+          const label = cm.closest(".cw-msec")?.querySelector("b");
+          const name = label ? await inlineEdit(label, c.name) : await promptBox("分类改名", c.name);
+          if (name) { c.name = name; saveCats(); }
+        } else if (a === "del") {
+          if (!await confirmBox("删除分类", `删除「${c.name}」？里面的模型不受影响。`, "删除", true)) return;
+          site.modelCats = cats().filter((x) => x !== c);
+          saveCats();
+        }
+        return paint();
+      }
+      const f = e.target.closest("[data-fold]");
+      if (f) { secOpen.set(f.dataset.fold, !secOpen.has(f.dataset.fold)); return paint(); }
+      const sr = e.target.closest("[data-sel]");
+      if (sr) { sel.has(sr.dataset.sel) ? sel.delete(sr.dataset.sel) : sel.add(sr.dataset.sel); return paint(); }
+      const b = e.target.closest("[data-m]");
+      if (!b) return;
+      if (multi) {
+        let k = b.dataset.k;
+        // 点的是已选中的模型名，保留现在的分组
+        if (b.classList.contains("cw-kname") && b.dataset.m === cur && (ownersOf.get(cur) || []).some((x) => x.id === curKey)) k = curKey;
+        picked = { model: b.dataset.m, keyId: k };
+      } else picked = b.dataset.m;
+      w.close(picked);
+    });
+    // 搜索框回车：只有一个结果时选它，否则用输入的名字
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || imeEnter(e) || selecting) return;
+      const first = box.querySelector("[data-m]");
+      if (first) { e.preventDefault(); first.click(); }
+    });
+    box.querySelector(".cw-krow.on, .cw-choice.on")?.scrollIntoView({ block: "center" });
+    if (matchMedia("(pointer:fine)").matches) input.focus();
+  } });
+  return picked;
+}
+// site：传了就能建分类（分类记在站点上）
+function pickModel(list, cur, { title = "选择模型", site = null } = {}) {
+  return modelPicker({ site, list, cur, title });
+}
+// 多密钥站点：选模型时一并选分组。cur：{ keyId, model }，返回 { model, keyId }
+function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
+  return modelPicker({ site, keys: site.keys, cur: cur?.model || "", curKey: cur?.keyId || null, title });
+}
+// 模型按钮：key 是多密钥站点当前分组名；arrow 有列表可选时才显示
+const modelBtn = (cur, { act = "", attrs = "", arrow = true, key = "" } = {}) =>
+  html`<button type="button" class="cw-modelbtn"${act ? raw(` data-act="${esc(act)}"`) : ""}${raw(attrs ? " " + attrs : "")} title="${[cur, key].filter(Boolean).join(" · ")}"><span class="cw-modelbtn-name">${cur || "选择模型"}</span>${key ? html`<em class="cw-pill cw-pill-line">${key}</em>` : ""}${arrow ? iconHtml("chevDown") : ""}</button>`;
 
 // src/ui/dlg-site.js
-// 建设中
+// 站点编辑窗口、导入导出站点文件。
+// 单密钥站点的密钥就是站点自己；进窗口时统一成一组，保存时只有一个就写回站点上。
+// 密钥存入酒馆密钥库（旧版酒馆存在本浏览器）；取消时删掉本窗口新存的，换过、删掉的旧密钥同样删掉
+async function siteModels(site) {
+  return withSiteKey(site, () => fetchModelList(site));
+}
+// 多密钥站点：每个分组各拉一次模型列表。返回 { ok, bad: [失败的分组名] }
+async function siteFetchAllKeys(site, keys = site.keys) {
+  const bad = [];
+  let ok = 0;
+  for (const k of keys) {
+    try {
+      k.models = await siteModels(keyView(site, k.id));
+      ok++;
+    } catch (e) {
+      bad.push(keyName(site, k));
+      console.warn("[焦香鸡翅] 拉取模型失败", keyName(site, k), e);
+    }
+  }
+  return { ok, bad };
+}
+const siteKeyFailText = (names) => `${names.map((x) => `「${x}」`).join("")}密钥请求失败（额度用完或已失效）`;
+const blankSiteKey = () => ({ id: uid(), name: "", secretId: null, keyMask: "", localKey: false, model: "", models: [] });
+const keysOfSite = (s) => siteMulti(s) ? s.keys : [{ id: null, name: "", secretId: s.secretId || null, keyMask: s.keyMask || "", localKey: !!s.localKey, localId: s.localId, legacyKey: s.legacyKey, model: s.model || "", models: s.models || [] }];
+const savedKey = (k) => !!(k.secretId || k.localKey || k.legacyKey);
+async function keyTextOf(site, k) {
+  if (k.secretId) return (await revealSecret(site.source, k.secretId)).value || "";
+  if (k.localKey || k.legacyKey) return getLocalKey({ id: site.id, localId: k.localId, legacyKey: k.legacyKey }) || "";
+  return "";
+}
+// 返回 "del"（点了删除）、站点对象（已保存）或 null。onSaved(site, { newBalance, rekeyed })
+async function editSiteDialog(site, { onSaved } = {}) {
+  const isNew = !site;
+  const s = site ? structuredClone(site) : { id: uid(), name: "", source: "custom", url: "", model: "", models: [], secretId: null, keyMask: "", note: "" };
+  let ks = siteMulti(s) ? s.keys : [{ id: uid(), name: "", secretId: s.secretId || null, keyMask: s.keyMask || "", localKey: !!s.localKey, localId: s.localId || (s.localKey || s.legacyKey ? s.id : undefined), legacyKey: s.legacyKey, model: s.model || "", models: s.models || [] }];
+  let curKey = siteMulti(s) ? siteKey(s).id : ks[0].id;
+  const body = el(html`<div class="cw-form cw-siteform">
+      <label class="cw-field"><span>名称</span><input class="cw-input" data-f="name" value="${s.name}" placeholder="例如：某中转站"></label>
+      <label class="cw-field"><span>类型</span><select class="cw-select" data-f="source">${Object.entries(SOURCES).map(([k, v]) => html`<option value="${k}"${k === s.source ? raw(" selected") : ""}>${v.label}</option>`)}</select></label>
+      <label class="cw-field" data-show="custom"><span>网址</span><input class="cw-input" data-f="url" value="${s.url}" placeholder="https://…/v1" inputmode="url" autocapitalize="off" spellcheck="false"></label>
+      <div class="cw-field"><span>密钥<span class="cw-gap"></span>${btn("加一个密钥", { act: "keyadd", size: "sm", kind: "quiet", icon: "plus", title: "同一站点的其他分组" })}</span><div class="cw-keys" data-f="keys"></div></div>
+      <div class="cw-field"><span>模型</span><div class="cw-modelline">${modelBtn(s.model, { attrs: 'data-f="modelbtn"' })}${btn("获取模型列表", { act: "fetch", size: "sm", icon: "refresh", attrs: 'data-show="custom"' })}</div><input type="hidden" data-f="model" value="${s.model || ""}"></div>
+      <label class="cw-field" data-show="custom"><span>账户余额（可选）</span><input class="cw-input" data-f="manualbal" value="${s.manualBalance ? String(s.manualBalance.amount) : ""}" inputmode="decimal" autocomplete="off" placeholder="密钥不限额时，填网站上的余额，之后按用量扣减"></label>
+      <label class="cw-field"><span>备注</span><input class="cw-input" data-f="note" value="${s.note || ""}" placeholder="例如：月卡至 11 月"></label>
+      <p class="cw-hint">${multiKeySupported() ? "密钥存入酒馆密钥库，本扩展只记录编号。" : "酒馆版本较旧，没有密钥库。密钥只保存在这个浏览器里，不写进酒馆设置文件；换设备、换浏览器需要重新填写。"}</p>
+    </div>`);
+  const keysBox = body.querySelector("[data-f=keys]");
+  const hasKey = (k) => !!(k.secretId || k.localKey || k.legacyKey);
+  // 框里还没存的密钥文字（重画时不丢）；正显示明文的；已保存且能看到的；看不了时的说明
+  const typed = new Map();
+  const shown = new Set();
+  const revealed = new Map();
+  const keyNote = new Map();
+  const syncTyped = () => {
+    keysBox.querySelectorAll(".cw-keyrow").forEach((row) => {
+      const k = ks.find((x) => x.id === row.dataset.k);
+      if (!k) return;
+      // 框里是看到的已存密钥（没改）时，不算新填的
+      const v = row.querySelector("[data-f=key]").value.trim();
+      if (v && v === revealed.get(k.id)) typed.delete(k.id);
+      else typed.set(k.id, v);
+      const n = row.querySelector("[data-f=keyname]");
+      if (n) k.name = n.value.trim();
+    });
+  };
+  const paintKeys = () => {
+    const many = ks.length > 1;
+    keysBox.classList.toggle("is-many", many);
+    keysBox.innerHTML = String(html`${ks.map((k, i) => {
+      const ph = hasKey(k) ? (k.keyMask ? `${k.keyMask} · 留空不改` : "不修改请留空") : many ? "粘贴密钥，回车填下一个" : "留空则用酒馆当前密钥；多个可一次粘贴，或回车分行";
+      const vis = shown.has(k.id);
+      const val = typed.get(k.id) || vis && revealed.get(k.id) || "";
+      return html`<div class="cw-keyrow" data-k="${k.id}">
+          ${many ? html`<span class="cw-handle cw-key-grip" aria-hidden="true" title="拖动调顺序，排在上面的优先">${iconHtml("grip")}</span><input class="cw-input cw-key-name" data-f="keyname" value="${k.name}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
+          <input class="cw-input cw-key-val" data-f="key" type="${vis ? "text" : "password"}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${ph}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${val}">
+          ${ibtn("eye", vis ? "隐藏密钥" : "显示密钥", { attrs: 'data-f="keyeye"', pressed: vis })}
+          ${vis && val ? ibtn("copy", "复制密钥", { attrs: 'data-f="keycopy"' }) : ""}
+          ${(k.models || []).length ? html`<span class="cw-pill cw-pill-ok" title="拉取到的模型">${k.models.length} 个模型</span>` : ""}
+          ${many ? ibtn("close", "删除这个密钥", { attrs: 'data-f="keydel"' }) : ""}
+        </div>${keyNote.has(k.id) ? html`<p class="cw-hint cw-key-note">${keyNote.get(k.id)}</p>` : ""}`;
+    })}`);
+  };
+  paintKeys();
+  const sync = (w) => {
+    const custom = w.querySelector("[data-f=source]").value === "custom";
+    w.querySelectorAll("[data-show=custom]").forEach((x) => { x.hidden = !custom; });
+  };
+  const viewSite = () => ({ ...s, keys: ks, keyId: curKey });
+  const setModel = (w, m, keyId = curKey) => {
+    if (keyId) curKey = keyId;
+    const k = ks.find((x) => x.id === curKey) || ks[0];
+    k.model = m;
+    w.querySelector("[data-f=model]").value = m;
+    const kn = ks.length > 1 ? keyName(viewSite(), k) : "";
+    w.querySelector("[data-f=modelbtn]").outerHTML = String(modelBtn(m, { attrs: 'data-f="modelbtn"', key: kn }));
+  };
+  const readModel = (w) => w.querySelector("[data-f=model]").value.trim();
+  const read = (w) => {
+    syncTyped();
+    return {
+      name: w.querySelector("[data-f=name]").value.trim(),
+      source: w.querySelector("[data-f=source]").value,
+      url: w.querySelector("[data-f=url]").value.trim(),
+      model: readModel(w),
+      note: w.querySelector("[data-f=note]").value.trim(),
+      manualbal: w.querySelector("[data-f=manualbal]").value.trim()
+    };
+  };
+  const madeKeys = [];
+  const madeLocal = [];
+  const localIdOf = (k) => k.localId || (ks.length > 1 || ks[0] !== k ? `${s.id}.${k.id}` : s.id);
+  const persistKey = async (k, v) => {
+    const text = typed.get(k.id);
+    if (!text) return;
+    if (multiKeySupported()) {
+      const label = ks.length > 1 ? `焦香鸡翅\xB7${v.name || "站点"}\xB7${keyName(viewSite(), k)}` : `焦香鸡翅\xB7${v.name || "站点"}`;
+      const id = await storeKey(v.source, text, label);
+      madeKeys.push({ source: v.source, id });
+      k.secretId = id;
+      delete k.legacyKey;
+    } else {
+      const lid = localIdOf(k);
+      if (!setLocalKey(lid, text)) throw new Error("浏览器不允许保存密钥（可能是无痕模式）");
+      madeLocal.push(lid);
+      k.localKey = true;
+      k.localId = lid;
+      delete k.legacyKey;
+    }
+    k.keyMask = keyMaskOf(text);
+    typed.delete(k.id);
+  };
+  // 多个密钥时，新加了却没填的行不算
+  const liveKeys = () => {
+    if (ks.length < 2) return ks;
+    const hit = ks.filter((k) => hasKey(k) || typed.get(k.id));
+    return hit.length ? hit : [ks[0]];
+  };
+  const fieldOk = (w, v) => {
+    if (!v.name) { toast("请填写名称"); w.querySelector("[data-f=name]").focus(); return false; }
+    if (v.source === "custom" && !v.url) { toast("自定义类型需填写网址"); w.querySelector("[data-f=url]").focus(); return false; }
+    if (v.source === "custom" && v.manualbal && balanceParseAmount(v.manualbal) == null) { toast("账户余额请填一个金额，如 50 或 12.5"); w.querySelector("[data-f=manualbal]").focus(); return false; }
+    return true;
+  };
+  const r = await dialog({
+    title: isNew ? "添加站点" : `编辑「${s.name}」`,
+    body,
+    size: "lg",
+    noFocus: !isNew,
+    onMount: (w) => {
+      sync(w);
+      setModel(w, (ks.find((x) => x.id === curKey) || ks[0]).model || "");
+      w.querySelector("[data-f=source]").addEventListener("change", () => sync(w));
+      const focusKey = (id) => keysBox.querySelector(`.cw-keyrow[data-k="${CSS.escape(id)}"] [data-f=key]`)?.focus();
+      w.querySelector('[data-act="keyadd"]').addEventListener("click", () => {
+        syncTyped();
+        const k = blankSiteKey();
+        ks.push(k);
+        paintKeys();
+        setModel(w, readModel(w));
+        focusKey(k.id);
+      });
+      keysBox.addEventListener("click", async (e) => {
+        const f = e.target.closest("[data-f]")?.dataset.f;
+        const row = e.target.closest(".cw-keyrow");
+        if (!row || !f) return;
+        const id = row.dataset.k;
+        const k = ks.find((x) => x.id === id);
+        if (f === "keyeye") {
+          syncTyped();
+          if (shown.has(id)) shown.delete(id);
+          else {
+            shown.add(id);
+            if (!typed.get(id) && hasKey(k) && !revealed.has(id)) {
+              // 只存在这个浏览器里的直接读；存在酒馆密钥库的去问酒馆
+              const local = !k.secretId ? getLocalKey({ id: s.id, localId: k.localId, legacyKey: k.legacyKey }) : null;
+              const got = local ? { value: local } : k.secretId ? await revealSecret(w.querySelector("[data-f=source]").value, k.secretId) : {};
+              if (got.value) revealed.set(id, got.value);
+              else {
+                shown.delete(id);
+                keyNote.set(id, got.blocked ? "这把密钥是更新前或在别的浏览器里存的，这里没留底。重新粘贴一次保存，以后就能看；或在酒馆的 config.yaml 里把 allowKeysExposure 改成 true，重启酒馆。" : k.secretId ? "没取到这个密钥，可能已从酒馆密钥库删除。重新粘贴一次即可。" : "这个密钥只存在这个浏览器里，看不了全文；要确认请重新粘贴一次。");
+              }
+            }
+          }
+          paintKeys();
+          return;
+        }
+        if (f === "keycopy") {
+          const input = row.querySelector("[data-f=key]");
+          const text = input.value.trim();
+          if (!text) return;
+          const ok = await copyText(text, input);
+          toast(ok ? "已复制" : "复制失败，长按框里的密钥手动复制", ok ? "success" : "warning");
+          return;
+        }
+        if (f === "keydel") {
+          syncTyped();
+          ks = ks.filter((x) => x.id !== id);
+          typed.delete(id);
+          if (curKey === id) curKey = ks[0].id;
+          paintKeys();
+          setModel(w, (ks.find((x) => x.id === curKey) || ks[0]).model || "");
+        }
+      });
+      // 一次填进多个密钥：一个一行，拆成多行
+      const spreadKeys = (box, list) => {
+        syncTyped();
+        const id = box.closest(".cw-keyrow").dataset.k;
+        let i = ks.findIndex((k) => k.id === id);
+        typed.set(id, list[0]);
+        for (const key of list.slice(1)) {
+          const k = blankSiteKey();
+          ks.splice(++i, 0, k);
+          typed.set(k.id, key);
+        }
+        paintKeys();
+        setModel(w, readModel(w));
+        focusKey(ks[i].id);
+        toast(`已拆成 ${list.length} 个密钥，可在左边填分组名`, "success");
+      };
+      keysBox.addEventListener("paste", (e) => {
+        const box = e.target.closest("[data-f=key]");
+        const list = box && splitKeyText(e.clipboardData?.getData("text"));
+        if (!list) return;
+        e.preventDefault();
+        spreadKeys(box, list);
+      });
+      // 手机输入法的剪贴板、拖放不触发粘贴：一次插进来的一串里有几个密钥时照样拆开
+      keysBox.addEventListener("input", (e) => {
+        if (e.target.matches("[data-f=keyname]")) { syncTyped(); setModel(w, readModel(w)); return; }
+        const box = e.target.closest?.("[data-f=key]");
+        if (!box || e.isComposing) return;
+        const bulk = /^insertFrom|^insertReplacement/.test(e.inputType || "") || (e.inputType === "insertText" && (e.data || "").length > 1);
+        const list = bulk && splitKeyText(box.value);
+        if (list) spreadKeys(box, list);
+      });
+      // 回车：新开一行，接着填下一个密钥
+      keysBox.addEventListener("keydown", (e) => {
+        const box = e.target.closest?.("[data-f=key]");
+        if (!box || e.key !== "Enter" || imeEnter(e)) return;
+        e.preventDefault();
+        if (!box.value.trim()) return;
+        syncTyped();
+        const id = box.closest(".cw-keyrow").dataset.k;
+        const k = blankSiteKey();
+        ks.splice(ks.findIndex((x) => x.id === id) + 1, 0, k);
+        paintKeys();
+        setModel(w, readModel(w));
+        focusKey(k.id);
+      });
+      // 拖动左边的把手调顺序（排在上面的优先）
+      keysBox.addEventListener("pointerdown", (e) => {
+        const grip = e.target.closest(".cw-key-grip");
+        if (!grip) return;
+        e.preventDefault();
+        keyNote.clear();
+        keysBox.querySelectorAll(".cw-key-note").forEach((n) => n.remove());
+        syncTyped();
+        const row = grip.closest(".cw-keyrow");
+        row.classList.add("is-drag");
+        grip.setPointerCapture?.(e.pointerId);
+        const move = (ev) => {
+          const rows = [...keysBox.querySelectorAll(".cw-keyrow")];
+          const over = rows.find((x) => x !== row && ev.clientY < x.getBoundingClientRect().top + x.offsetHeight / 2);
+          if (over) { if (over !== row.nextElementSibling) keysBox.insertBefore(row, over); }
+          else if (row !== keysBox.lastElementChild) keysBox.append(row);
+        };
+        const up = () => {
+          grip.removeEventListener("pointermove", move);
+          grip.removeEventListener("pointerup", up);
+          grip.removeEventListener("pointercancel", up);
+          const order = [...keysBox.querySelectorAll(".cw-keyrow")].map((x) => x.dataset.k);
+          ks.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+          paintKeys();
+          setModel(w, readModel(w));
+        };
+        grip.addEventListener("pointermove", move);
+        grip.addEventListener("pointerup", up);
+        grip.addEventListener("pointercancel", up);
+      });
+      body.addEventListener("click", async (e) => {
+        if (e.target.closest("[data-f=modelbtn]")) {
+          syncTyped();
+          const view = viewSite();
+          if (ks.length > 1) {
+            const m = await pickKeyModel(view, { keyId: curKey, model: readModel(w) });
+            s.modelView = view.modelView;
+            if (view.modelCats) s.modelCats = view.modelCats;
+            if (m) setModel(w, m.model, m.keyId);
+            return;
+          }
+          const m = await pickModel(ks[0].models || [], readModel(w), { site: s });
+          if (m) setModel(w, m);
+          return;
+        }
+        const fb = e.target.closest('[data-act="fetch"]');
+        if (!fb) return;
+        const v = read(w);
+        if (!v.url) return toast("请填写网址");
+        fb.disabled = true;
+        fb.classList.add("cw-spin");
+        try {
+          const use = liveKeys();
+          for (const k of use) await persistKey(k, v);
+          Object.assign(s, { source: v.source, url: v.url, name: v.name || s.name });
+          if (use.length > 1) {
+            const view = { ...viewSite(), keys: use };
+            const { ok, bad } = await siteFetchAllKeys(view, use);
+            paintKeys();
+            const n = new Set(use.flatMap((k) => k.models || [])).size;
+            if (bad.length) toast(siteKeyFailText(bad), "warning");
+            if (ok && n) {
+              toast(`已获取 ${n} 个模型`, "success");
+              const m = await pickKeyModel(view, { keyId: curKey, model: v.model });
+              s.modelView = view.modelView;
+              if (view.modelCats) s.modelCats = view.modelCats;
+              if (m) setModel(w, m.model, m.keyId);
+            } else if (ok) toast("站点未返回模型，可手动输入模型名称", "warning");
+          } else {
+            const k = use[0];
+            const models = await siteModels({ ...s, secretId: k.secretId, localId: k.localId, localKey: k.localKey, legacyKey: k.legacyKey });
+            k.models = models;
+            paintKeys();
+            if (models.length) {
+              toast(`已获取 ${models.length} 个模型`, "success");
+              const m = await pickModel(models, v.model, { site: s });
+              if (m) setModel(w, m);
+            } else toast("站点未返回模型，可手动输入模型名称", "warning");
+          }
+        } catch (err) {
+          toast("获取失败：" + err.message, "error");
+        }
+        fb.disabled = false;
+        fb.classList.remove("cw-spin");
+      });
+    },
+    actions: [...isNew ? [] : [{ label: "删除", kind: "danger", value: "del" }], { label: "取消", value: null }, {
+      label: "保存", kind: "primary",
+      validate: (w) => fieldOk(w, read(w)),
+      value: read
+    }]
+  });
+  if (!r || r === "del") {
+    for (const k of madeKeys) await dropKey(k.source, k.id);
+    if (isNew) for (const id of madeLocal) setLocalKey(id, null);
+    return r === "del" ? "del" : null;
+  }
+  const final = liveKeys();
+  try {
+    for (const k of final) await persistKey(k, r);
+  } catch (e) {
+    for (const k of madeKeys) await dropKey(k.source, k.id);
+    toast("密钥保存失败，站点未保存：" + e.message, "error");
+    return null;
+  }
+  const keep = new Set(final.map((k) => k.secretId).filter(Boolean));
+  for (const k of madeKeys) if (!keep.has(k.id)) await dropKey(k.source, k.id);
+  Object.assign(s, { name: r.name, source: r.source, url: r.source === "custom" ? r.url : "", note: r.note });
+  // 手填的账户余额：改了数就重新起算，清空则不再手填
+  const amount = r.source === "custom" && r.manualbal ? balanceParseAmount(r.manualbal) : null;
+  const newBalance = amount != null && amount !== s.manualBalance?.amount;
+  if (amount == null) delete s.manualBalance;
+  else if (newBalance) s.manualBalance = { amount, at: Date.now(), base: {} };
+  for (const f of ["secretId", "keyMask", "localKey", "localId", "legacyKey", "model", "models", "keys", "keyId"]) delete s[f];
+  if (final.length > 1) {
+    s.keys = final.map((k) => {
+      const out = { id: k.id, name: k.name, secretId: k.secretId || null, keyMask: k.keyMask || "", model: k.model || "", models: k.models || [] };
+      if (k.localKey) Object.assign(out, { localKey: true, localId: localIdOf(k) });
+      return out;
+    });
+    s.keyId = final.some((k) => k.id === curKey) ? curKey : final[0].id;
+  } else {
+    const k = final[0];
+    Object.assign(s, { secretId: k.secretId || null, keyMask: k.keyMask || "", model: k.model || r.model || "", models: k.models || [] });
+    if (k.localKey) {
+      s.localKey = true;
+      if (localIdOf(k) !== s.id) s.localId = localIdOf(k);
+    }
+    if (k.legacyKey) s.legacyKey = k.legacyKey;
+  }
+  const list = settings().sites;
+  const i = list.findIndex((x) => x.id === s.id);
+  if (i >= 0) list[i] = s;
+  else list.push(s);
+  saveSettings();
+  await onSaved?.(s, { newBalance, rekeyed: madeKeys.some((m) => keep.has(m.id)) || madeLocal.length > 0 });
+  return s;
+}
+// ---------- 导出、导入站点（JSON）。单密钥站点在文件里写成只有一个的 keys ----------
+async function exportSites(anchor) {
+  const list = settings().sites;
+  if (!list.length) return toast("还没有站点");
+  const how = await pickBox("导出站点", [
+    { label: "含密钥", sub: "密钥为明文", value: "keys" },
+    { label: "不含密钥", sub: "仅名称、网址、模型、备注", value: "bare" }
+  ], { anchor });
+  if (!how) return;
+  let missing = 0;
+  const out = [];
+  for (const s of list) {
+    const keys = [];
+    for (const k of keysOfSite(s)) {
+      const item = { name: k.name || "", model: k.model || "", models: k.models || [] };
+      if (how === "keys" && savedKey(k)) {
+        const v = await keyTextOf(s, k);
+        if (v) item.key = v;
+        else missing++;
+      }
+      keys.push(item);
+    }
+    out.push({ name: s.name, source: s.source, url: s.url || "", note: s.note || "", keys, ...(s.modelCats?.length ? { cats: s.modelCats.map((c) => ({ name: c.name, models: c.models || [] })) } : {}) });
+  }
+  // 文件名只用英文数字：有的浏览器遇到中文文件名会存成「download」
+  const d = new Date(), two = (n) => String(n).padStart(2, "0");
+  const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
+  downloadBlob(new Blob([JSON.stringify({ format: SITE_FILE_FORMAT, version: 1, exported: d.toISOString(), sites: out }, null, 2)], { type: "application/json" }), `api-sites-${stamp}.json`);
+  toast(missing ? `已导出 ${out.length} 个站点；${missing} 个密钥读不到，未写入` : `已导出 ${out.length} 个站点${how === "keys" ? "（含密钥）" : ""}`, missing ? "warning" : "success");
+}
+// 同名、同网址的站点算同一个：更新它，不再新增
+const normSiteUrl = (u) => String(u || "").trim().replace(/\/+$/, "").toLowerCase();
+const sameSiteAs = (f) => settings().sites.find((s) => s.source === f.source && s.name === f.name && normSiteUrl(s.url) === normSiteUrl(f.url));
+async function importSites(file) {
+  let found;
+  try { found = parseSiteFile(await file.text()); } catch { return toast("不是 JSON 文件", "error"); }
+  if (!found.length) return toast("没找到站点（需有 http 开头的网址）", "warning");
+  const plan = found.map((f) => ({ f, old: sameSiteAs(f) }));
+  const updates = plan.filter((x) => x.old).length;
+  const ok = await dialog({
+    title: `导入 ${plan.length} 个站点`,
+    size: "md",
+    body: html`<div class="cw-implist">${plan.map(({ f, old }) => {
+      const n = f.keys.filter((k) => k.key).length;
+      const nm = new Set(f.keys.flatMap((k) => k.models || [])).size;
+      const what = [f.url ? hostOf(f.url) : SOURCES[f.source].label, n ? `${n} 个密钥` : "没有密钥", nm && `${nm} 个模型`, f.cats.length && `${f.cats.length} 个分类`].filter(Boolean);
+      return html`<div class="cw-implist-row"><div><b>${f.name}</b><small>${what.join(" · ")}</small></div>${pill(old ? "更新" : "新增", old ? "line" : "accent")}</div>`;
+    })}</div>${updates ? html`<p class="cw-hint">更新：同名同网址的站点，密钥和模型列表以文件为准。</p>` : ""}`,
+    actions: [{ label: "取消", value: false }, { label: "导入", kind: "primary", value: true }]
+  });
+  if (!ok) return;
+  let added = 0, updated = 0;
+  const failed = [];
+  for (const { f, old } of plan) {
+    try {
+      await saveImportedSite(f, old);
+      old ? updated++ : added++;
+    } catch (e) {
+      failed.push(`「${f.name}」${e.message}`);
+    }
+  }
+  saveSettings();
+  const done = [added && `新增 ${added} 个`, updated && `更新 ${updated} 个`].filter(Boolean).join("，");
+  if (failed.length) toast(`${done ? done + "；" : ""}未导入：${failed.join("；")}`, "error");
+  else toast(`已导入：${done}`, "success");
+}
+async function saveImportedSite(f, old) {
+  const s = old || { id: uid(), name: f.name, source: f.source, url: f.url, note: f.note };
+  const before = old ? keysOfSite(old) : [];
+  const made = [], madeLocal = [];
+  const many = f.keys.length > 1;
+  const keys = [];
+  try {
+    for (const [i, ik] of f.keys.entries()) {
+      const prev = (ik.name && before.find((k) => k.name === ik.name)) || before[i] || null;
+      const k = { id: (many && prev?.id) || uid(), name: ik.name || "", secretId: null, keyMask: "", model: ik.model || prev?.model || "", models: ik.models?.length ? ik.models : prev?.models || [] };
+      const keepPrev = () => Object.assign(k, { secretId: prev.secretId || null, keyMask: prev.keyMask || "", localKey: !!prev.localKey, localId: prev.localId, legacyKey: prev.legacyKey });
+      if (ik.key && prev && savedKey(prev) && await keyTextOf(s, prev) === ik.key) keepPrev();
+      else if (ik.key) {
+        if (multiKeySupported()) {
+          k.secretId = await storeKey(f.source, ik.key, many ? `焦香鸡翅·${f.name}·${ik.name || `密钥 ${i + 1}`}` : `焦香鸡翅·${f.name}`);
+          made.push(k.secretId);
+        } else {
+          const lid = many ? `${s.id}.${k.id}` : s.id;
+          if (!setLocalKey(lid, ik.key)) throw new Error("浏览器不允许保存密钥（可能是无痕模式）");
+          madeLocal.push(lid);
+          Object.assign(k, { localKey: true, localId: lid });
+        }
+        k.keyMask = keyMaskOf(ik.key);
+      } else if (prev && savedKey(prev)) keepPrev();
+      keys.push(k);
+    }
+  } catch (e) {
+    for (const id of made) await dropKey(f.source, id);
+    for (const id of madeLocal) if (!old) setLocalKey(id, null);
+    throw e;
+  }
+  if (f.note) s.note = f.note;
+  // 分类按名称合并：同名的并进模型，没有的新建
+  if (f.cats.length) {
+    const mine = s.modelCats || (s.modelCats = []);
+    for (const c of f.cats) {
+      const hit = mine.find((x) => x.name === c.name);
+      if (hit) hit.models = [...new Set([...(hit.models || []), ...c.models])];
+      else mine.push({ id: uid(), name: c.name, models: [...c.models] });
+    }
+  }
+  for (const x of ["secretId", "keyMask", "localKey", "localId", "legacyKey", "model", "models", "keys", "keyId"]) delete s[x];
+  if (many) {
+    s.keys = keys.map((k) => {
+      const o = { id: k.id, name: k.name, secretId: k.secretId, keyMask: k.keyMask, model: k.model, models: k.models };
+      if (k.localKey) Object.assign(o, { localKey: true, localId: k.localId });
+      if (k.legacyKey) o.legacyKey = k.legacyKey;
+      return o;
+    });
+    s.keyId = old?.keyId && keys.some((k) => k.id === old.keyId) ? old.keyId : keys[0].id;
+  } else {
+    const k = keys[0];
+    Object.assign(s, { secretId: k.secretId, keyMask: k.keyMask, model: k.model, models: k.models });
+    if (k.localKey) {
+      s.localKey = true;
+      if (k.localId && k.localId !== s.id) s.localId = k.localId;
+    }
+    if (k.legacyKey) s.legacyKey = k.legacyKey;
+  }
+  if (!old) settings().sites.push(s);
+}
 
 // src/ui/page-conn.js
-function mountConnPage(page) { page.innerHTML = '<div class="cw-body"><div class="cw-col"><p class="cw-hint">建设中</p></div></div>'; return { render() {} }; }
+// 「连接」页：当前连接、方案、站点、选项。
+// 当前连接：模型、拉取、测试、余额；站点：切换、编辑、排序、导入导出、查余额；方案：保存、切换、编辑、自动套用；
+// 选项：换角色或聊天时的提示、推理格式跟随预设
+// ---------- 方案窗口里的人设、API 选择 ----------
+function personaPicker(init, name = "") {
+  const cur = currentPersona();
+  const list = listPersonas();
+  if (init && init !== "__none" && !list.some((p) => p.avatar === init)) list.unshift({ avatar: init, name: name || init });
+  const opts = [["__none", "不记录（切换方案时人设不变）"], ...list.map((p) => [p.avatar, `${p.name}${p.avatar === cur ? "（当前）" : ""}`])];
+  if (!opts.some(([v]) => v === init)) init = "__none";
+  const box = el(html`<label class="cw-field"><span>人设</span><select class="cw-select" data-f="persona">${opts.map(([v, l]) => html`<option value="${v}"${v === init ? raw(" selected") : ""}>${l}</option>`)}</select></label>`);
+  const sel = box.querySelector("select");
+  const read = () => sel.value === "__none" ? { persona: null, personaName: "" } : { persona: sel.value, personaName: list.find((p) => p.avatar === sel.value)?.name || "" };
+  return { el: box, read };
+}
+// API 可选：不记录、当前连接、原记录（对不上已存站点时）、已存站点；模型可另选，多密钥站点一并选分组
+function connPicker(init, keep = null) {
+  const nowConn = liveConn();
+  const sites = settings().sites;
+  const keepSite = keep?.siteId && sites.some((x) => x.id === keep.siteId);
+  const opts = [
+    ["__none", "不记录（切换方案时 API 不变）"],
+    ...(nowConn ? [["__live", `当前连接：${connLabel(nowConn, { model: false })}`]] : []),
+    ...(keep && !keepSite ? [["__keep", `原来记的：${connLabel(keep, { model: false })}`]] : []),
+    ...sites.map((x) => [x.id, `站点：${x.name}`])
+  ];
+  if (!opts.some(([v]) => v === init)) init = "__none";
+  const box = el(html`<div class="cw-form">
+      <label class="cw-field"><span>API</span><select class="cw-select" data-f="api">${opts.map(([v, l]) => html`<option value="${v}"${v === init ? raw(" selected") : ""}>${l}</option>`)}</select></label>
+      <div class="cw-field" data-f="apimodel"><span>模型</span><div class="cw-modelslot"></div></div>
+    </div>`);
+  const sel = box.querySelector("[data-f=api]");
+  const slot = box.querySelector(".cw-modelslot");
+  let model = "";
+  let keyId = null;
+  const site = () => sites.find((x) => x.id === sel.value);
+  const models = () => sel.value === "__live" ? liveModelOptions() : site()?.models || [];
+  const setModel = (m, k = null) => {
+    model = m || "";
+    const x = site();
+    keyId = x && siteMulti(x) ? siteKey(x, k).id : null;
+    slot.innerHTML = String(modelBtn(model, { attrs: 'data-f="apimodelbtn"', key: keyId ? keyName(x, siteKey(x, keyId)) : "" }));
+  };
+  // 换了来源就带出它记的模型；原来就是这个站点时用方案记的模型
+  const reset = () => {
+    const v = sel.value;
+    box.querySelector("[data-f=apimodel]").hidden = v === "__none";
+    if (v === "__live") setModel(nowConn.model);
+    else if (v === "__keep") setModel(keep.model);
+    else if (site()) {
+      const same = keep?.siteId === v;
+      const k = siteKey(site(), same ? keep.keyId : undefined);
+      setModel(same && keep.model ? keep.model : k.model, k.id);
+    }
+  };
+  sel.addEventListener("change", reset);
+  slot.addEventListener("click", async () => {
+    const x = site();
+    if (x && siteMulti(x)) {
+      const r = await pickKeyModel(x, { keyId, model });
+      if (r) setModel(r.model, r.keyId);
+      return;
+    }
+    const m = await pickModel(models(), model, { site: x || null });
+    if (m) setModel(m);
+  });
+  reset();
+  const read = () => {
+    const v = sel.value;
+    if (v === "__none") return null;
+    if (v === "__live") return { ...nowConn, model };
+    if (v === "__keep") return { ...keep, model };
+    const x = site();
+    const kv = keyView(x, keyId);
+    return { source: x.source, url: x.url || "", model, secretId: kv.secretId || null, siteId: x.id, keyId };
+  };
+  return { el: box, read, choice: () => sel.value };
+}
+// 推理格式编辑。live：这是当前预设、跟随开着，保存即改酒馆现在的设置
+async function editReasoning(name, init, live) {
+  const base = { ...(reasoningNow() || {}), ...init };
+  const has = (k) => base[k] !== undefined;
+  const tpls = reasoningTemplates();
+  if (has("name") && base.name && !tpls.some((t) => t.name === base.name)) tpls.unshift({ name: base.name });
+  const text = (k, label) => has(k) ? html`<label class="cw-field"><span>${label}<i class="cw-rws"></i></span><textarea class="cw-input cw-mono" data-k="${k}" rows="2" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea></label>` : "";
+  const body = el(html`<div class="cw-form">
+      <p class="cw-hint">${live ? "当前预设：保存后立即改酒馆「推理内容格式化」的设置。" : "切到这个预设时套用。"}</p>
+      ${has("name") ? html`<label class="cw-field"><span>模板</span>${tpls.length ? html`<select class="cw-select" data-k="name">${tpls.map((t) => html`<option value="${t.name}"${t.name === base.name ? raw(" selected") : ""}>${t.name}</option>`)}</select>` : html`<input class="cw-input" data-k="name" value="${base.name}">`}</label>` : ""}
+      ${text("prefix", "前缀")}${text("suffix", "后缀")}${text("separator", "分隔符")}
+      <div class="cw-checks">${REASONING_FLAGS.filter(([k]) => has(k)).map(([k, label]) => html`<label class="cw-check"><input type="checkbox" data-k="${k}"${base[k] ? raw(" checked") : ""}><span>${label}</span></label>`)}</div>
+      ${has("max_additions") ? html`<label class="cw-field"><span>添加到提示词的最大条数</span><input class="cw-input" type="number" min="0" max="999" step="1" inputmode="numeric" data-k="max_additions" value="${base.max_additions}"></label>` : ""}
+    </div>`);
+  // 只有换行或空格时框里看着是空的，在标题旁标出来
+  const mark = (t) => { t.closest(".cw-field").querySelector(".cw-rws").textContent = t.value && !t.value.trim() ? `（${showBreaks(t.value).replace(/ /g, "␣")}）` : ""; };
+  // 前后缀常以换行开头，写进 HTML 会被吞掉，所以直接赋值
+  body.querySelectorAll("textarea[data-k]").forEach((t) => {
+    t.value = String(base[t.dataset.k] ?? "");
+    mark(t);
+    t.addEventListener("input", () => mark(t));
+  });
+  // 换模板时和酒馆一样带出该模板的前缀、后缀、分隔符
+  body.querySelector("select[data-k=name]")?.addEventListener("change", (e) => {
+    const t = tpls.find((x) => x.name === e.target.value);
+    for (const k of ["prefix", "suffix", "separator"]) {
+      const box = body.querySelector(`textarea[data-k=${k}]`);
+      if (box && typeof t?.[k] === "string") { box.value = t[k]; mark(box); }
+    }
+  });
+  return dialog({
+    title: `推理格式：${name}`,
+    body,
+    noFocus: true,
+    actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => {
+      const out = { ...init };
+      w.querySelectorAll("[data-k]").forEach((x) => {
+        const k = x.dataset.k;
+        if (x.type === "checkbox") out[k] = x.checked;
+        else if (k === "max_additions") {
+          const n = Math.round(Number(x.value));
+          out[k] = x.value.trim() !== "" && Number.isFinite(n) ? Math.min(999, Math.max(0, n)) : base[k];
+        } else out[k] = x.value;
+      });
+      return out;
+    } }]
+  });
+}
+function mountConnPage(page) {
+  page.innerHTML = String(html`<div class="cw-body"><div class="cw-col cw-conn">
+      <section class="cw-sec" data-r="live"></section>
+      <section class="cw-sec" data-r="schemes">
+        <div class="cw-sec-h"><h3>方案</h3><button type="button" class="cw-namebtn" data-s="view" title="方案的分组方式"><small>按</small><span></span>${iconHtml("chevDown")}</button><span class="cw-gap"></span>${tipBtn()}<span class="cw-scheme-tools"></span>${btn("保存为方案", { act: "s-new", kind: "primary", size: "sm", icon: "plus", attrs: 'data-s="new"' })}</div>
+        ${tipNote("<p>方案保存预设和条目开关，可选记下人设、API 和模型。</p><p>「切换」：恢复方案保存时的全部状态。「自动套用」：绑定聊天或角色后，进入该聊天时切换一次，之后手动修改的内容保持不变。</p><p>换预设时 API 不变；切换方案时，方案记了 API 的才换 API。</p>")}
+        <div class="cw-scheme-nudge"></div>
+        <div class="cw-schemes"></div>
+      </section>
+      <section class="cw-sec" data-r="sites"></section>
+      <section class="cw-sec" data-r="opts"><div class="cw-sec-h"><h3>选项</h3></div><div data-r="optsbody"></div></section>
+    </div></div>`);
+  const $ = (k) => page.querySelector(`[data-r="${k}"]`);
+  const liveBox = $("live"), sitesBox = $("sites"), optsBox = $("optsbody");
+  const sites = () => settings().sites;
+  const shortLabel = (source) => (SOURCES[source]?.label || source || "—").split("（")[0];
+  // 当前连接还没存成站点时拉取到的模型列表；测试结果（换了模型就不显示）
+  let liveFetched = null;
+  let liveTest = null;
+  let editing = false;
+  let dragging = false;
+  const liveOpen = () => foldGet("live", "detail");
+  // ---------- 余额 ----------
+  const balBusy = new Set();
+  const balTried = new Map();
+  // 当前连接要查余额的站点：存成站点的按站点和分组记，没存的按类型和网址记
+  const liveBalTarget = (live, active, ak, same) => same
+    ? { site: keyView(active, ak.id), id: balanceId(active, ak), owner: { siteId: active.id, k: ak } }
+    : live.source ? { site: { id: "live", name: "当前连接", source: live.source, url: live.url || "", secretId: live.secretId }, id: `live:${live.source}:${live.url || ""}` } : null;
+  const balKid = (x, k) => siteMulti(x) ? k.id : "main";
+  const balSec = (k) => String(k.secretId || k.localId || (k.localKey ? "local" : ""));
+  const balKeys = (x) => siteMulti(x) ? x.keys : [x];
+  // 手填后，一个分组第一次查到用量时记下作起点
+  function balBase(owner, result) {
+    const x = owner && sites().find((y) => y.id === owner.siteId);
+    const m = x?.manualBalance;
+    if (!m || result?.used == null) return;
+    const kid = balKid(x, owner.k), sec = balSec(owner.k);
+    if (m.base?.[kid]?.sec === sec) return;
+    m.base = { ...(m.base || {}), [kid]: { used: result.used, sec } };
+  }
+  function balManualNow(x) {
+    const readings = balKeys(x).map((k) => ({ kid: balKid(x, k), sec: balSec(k), used: balanceGet(balanceId(x, k))?.used ?? null }));
+    return balanceManual(x.manualBalance, readings);
+  }
+  async function queryBalance(site, id, owner = null) {
+    if (balBusy.has(id)) return;
+    balBusy.add(id);
+    render();
+    try {
+      const result = await fetchBalance(site);
+      balanceSet(id, result);
+      balBase(owner, result);
+    } catch (e) {
+      balanceSet(id, { ok: false, text: "没查到", why: e.message, at: Date.now() });
+    } finally {
+      balBusy.delete(id);
+      saveSettings();
+      render();
+    }
+  }
+  async function querySite(x) {
+    for (const k of balKeys(x)) {
+      const target = keyView(x, k.id);
+      if (!balancePlan(target).none) await queryBalance(target, balanceId(x, k), { siteId: x.id, k });
+    }
+  }
+  async function setManualBalance(x, amount) {
+    if (amount == null) delete x.manualBalance;
+    else x.manualBalance = { amount, at: Date.now(), base: {} };
+    saveSettings();
+    render();
+    if (amount != null) await querySite(x);
+  }
+  const balLine = (t) => {
+    if (!t || balancePlan(t.site).none) return "";
+    const b = balanceGet(t.id);
+    const again = ibtn("refresh", "重新查余额", { act: "balance" });
+    const x = t.owner && sites().find((y) => y.id === t.owner.siteId);
+    // 填余额：不限额的令牌、没查到余额时才给；已手填的给「改余额」
+    const setBtn = x && balancePlan(t.site).kind === "relay" && (x.manualBalance || b && (!b.ok || b.text === "不限额")) ? html`<button type="button" class="cw-link" data-act="balanceset">${x.manualBalance ? "改余额" : "填余额"}</button>` : "";
+    if (balBusy.has(t.id)) return html`<div class="cw-bal"><span class="cw-bal-k">余额</span><small class="cw-dim">正在查…</small></div>`;
+    if (x?.manualBalance) {
+      const m = balManualNow(x);
+      const all = balKeys(x).length;
+      const note = [`手填 ${balanceMoney(x.manualBalance.amount)}`, `之后用了 ${balanceMoney(m.spent)}`, m.missing ? `${m.missing === all ? "" : `${m.missing} 个分组`}用量还没查到` : "", b ? balanceAgo(b.at) : ""].filter(Boolean).join(" · ");
+      return html`<div class="cw-bal"><span class="cw-bal-k">余额</span><b>${balanceMoney(m.remain)}</b><small>${note}</small>${setBtn}${again}</div>`;
+    }
+    if (!b) return html`<div class="cw-bal"><span class="cw-bal-k">余额</span><button type="button" class="cw-link" data-act="balance">查余额</button></div>`;
+    if (!b.ok) return html`<div class="cw-bal is-bad"${b.why ? raw(` title="${esc(b.why)}"`) : ""}><span class="cw-bal-k">余额</span><small>${b.text} · ${balanceAgo(b.at)}</small>${setBtn}${again}</div>`;
+    return html`<div class="cw-bal"><span class="cw-bal-k">余额</span><b>${b.text}</b><small>${[b.sub, balanceAgo(b.at)].filter(Boolean).join(" · ")}</small>${setBtn}${again}</div>`;
+  };
+  // 站点小字：手填了账户余额的写扣减后的余额（多密钥站点写在站点那一行）
+  const balShort = (x, k) => {
+    if (x.manualBalance) return k === x || siteMulti(x) && k === siteKey(x) && !foldGet("sites", x.id) ? `余额 ${balanceMoney(balManualNow(x).remain)}` : "";
+    const b = balanceGet(balanceId(x, k));
+    return b?.ok ? `余额 ${b.text}` : "";
+  };
+  // ---------- 当前连接 ----------
+  const usingModel = (live = liveConnection()) => {
+    const c = ctx();
+    return (typeof c.getChatCompletionModel === "function" ? c.getChatCompletionModel() : "") || live.model || "";
+  };
+  const isSame = (site, live) => !!site && site.source === live.source && (site.source !== "custom" || (site.url || "") === (live.url || ""));
+  const activeSite = () => sites().find((x) => x.id === settings().activeSiteId);
+  function liveModelList(live = liveConnection()) {
+    const active = activeSite();
+    const fetched = liveFetched && liveFetched.source === live.source && liveFetched.url === (live.url || "") ? liveFetched.models : [];
+    return [...new Set([...liveModelOptions(), ...isSame(active, live) ? siteKey(active).models || [] : [], ...fetched])];
+  }
+  function renderLive() {
+    const live = liveConnection();
+    const active = activeSite();
+    const src = SOURCES[live.source];
+    const liveModels = liveModelOptions();
+    const sameSite = isSame(active, live);
+    // 多密钥站点：在酒馆里换了密钥、正好是这个站点的另一个分组，跟着记过去
+    if (sameSite && siteMulti(active) && live.secretId && siteKey(active).secretId !== live.secretId) {
+      const k = active.keys.find((x) => x.secretId === live.secretId);
+      if (k) { active.keyId = k.id; saveSettings(); }
+    }
+    const ak = sameSite ? siteKey(active) : null;
+    // 单密钥站点只同步可选的模型列表；在酒馆里临时换的模型不悄悄写进站点
+    if (ak && !siteMulti(active) && liveModels.length && JSON.stringify(ak.models || []) !== JSON.stringify(liveModels)) {
+      ak.models = liveModels;
+      saveSettings();
+    }
+    const modelDiff = ak && live.model && ak.model && live.model !== ak.model;
+    const sub = live.url || src?.label || "";
+    const testOk = liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null);
+    const open = liveOpen();
+    let details = "";
+    if (open) {
+      const source = active ? active.source : live.source;
+      const mask = (x) => x.keyMask || (x.secretId ? "已保存" : "使用当前密钥");
+      const key = active ? siteMulti(active) ? `${keyName(active, ak || siteKey(active))}：${mask(ak || siteKey(active))}（共 ${active.keys.length} 个分组）` : mask(active) : live.secretMask;
+      details = html`<div class="cw-live-detail"><dl class="cw-kv"><dt>类型</dt><dd>${SOURCES[source]?.label || source || "—"}</dd>${key ? html`<dt>密钥</dt><dd>${key}</dd>` : ""}${active?.note ? html`<dt>备注</dt><dd>${active.note}</dd>` : ""}</dl>
+        <div class="cw-card-acts">${active ? html`${btn("编辑站点", { act: "edit", size: "sm", icon: "pencil" })}${btn("删除站点", { act: "del", size: "sm", kind: "danger" })}` : btn("保存为站点", { act: "capture", size: "sm", kind: "primary" })}</div></div>`;
+    }
+    liveBox.innerHTML = String(html`<div class="cw-sec-h"><h3>当前连接</h3></div>
+      <article class="cw-card cw-live${live.online ? " is-on" : ""}"${active ? raw(` data-id="${esc(active.id)}"`) : ""}>
+        <header class="cw-live-head"><span class="cw-dot${live.online ? " on" : ""}" aria-hidden="true"></span><span class="cw-live-state">${live.online ? "已连接" : "未连接"}</span>
+          <b class="cw-live-name" title="${active ? active.name : shortLabel(live.source)}">${active ? active.name : shortLabel(live.source)}</b>
+          ${active ? "" : html`<button type="button" class="cw-link" data-act="capture" title="保存为站点">保存为站点</button>`}
+          <span class="cw-gap"></span>${ibtn("more", "连接详情", { act: "livemore", attrs: `aria-expanded="${open}"`, cls: open ? "on" : "" })}</header>
+        ${sub ? html`<div class="cw-live-url" title="${sub}">${sub}</div>` : ""}
+        <div class="cw-live-model">${modelBtn(live.model, { act: "livemodel", arrow: liveModelList(live).length > 0 || !!ak && siteMulti(active), key: ak && siteMulti(active) ? keyName(active, ak) : "" })}
+          ${live.source === "custom" ? ibtn("refresh", "拉取模型列表", { act: "livefetch" }) : ""}${ibtn("bolt", "发送测试消息，看选中的模型能不能用", { act: "testmodel" })}</div>
+        ${testOk ? html`<p class="cw-test ${liveTest.ok ? "is-ok" : "is-bad"}"${liveTest.raw ? raw(` title="${esc(liveTest.raw)}" data-act="testraw" role="button" tabindex="0"`) : ""}>${iconHtml(liveTest.ok ? "ok" : "warn")}<span>${liveTest.text}</span></p>` : ""}
+        ${balLine(liveBalTarget(live, active, ak, sameSite))}
+        ${modelDiff ? html`<p class="cw-hint">站点记的是「${ak.model}」，切换预设后会换回它。<button type="button" class="cw-link" data-act="keepmodel">改记为当前模型</button></p>` : ""}
+        ${details}
+      </article>`);
+    // 当前连接的余额超过 10 分钟没查过就查一次；手填了账户余额的站点改为 1 分钟。同一连接节流
+    const t = liveBalTarget(live, active, ak, sameSite);
+    const b = t && balanceGet(t.id);
+    const now = Date.now();
+    const gap = sameSite && active.manualBalance ? 60000 : 600000;
+    if (t && !balancePlan(t.site).none && (!b || now - b.at > gap) && !(now - (balTried.get(t.id) || 0) < gap)) {
+      balTried.set(t.id, now);
+      setTimeout(() => queryBalance(t.site, t.id, t.owner), 0);
+    }
+  }
+  // ---------- 站点 ----------
+  const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => schemeConn(sc)?.siteId === id).map((sc) => sc.preset))];
+  const useBtn = (on) => on ? pill("使用中", "accent") : btn("切换", { act: "use", size: "sm" });
+  function siteRow(x, i) {
+    const used = usedBy(x.id);
+    const on = x.id === settings().activeSiteId;
+    if (editing) {
+      const info = [siteMulti(x) ? `${x.keys.length} 组` : x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
+      return html`<div class="cw-site is-edit${on ? " is-on" : ""}" data-id="${x.id}">
+        <button type="button" class="cw-handle cw-site-grip" aria-label="「${x.name}」第 ${i + 1} 个，共 ${sites().length} 个，按上下方向键移动" title="拖动排序">${iconHtml("grip")}</button>
+        <div class="cw-site-main"><b>${x.name}</b><small>${info}</small></div>
+        ${on ? pill("使用中", "accent") : ""}${ibtn("trash", `删除「${x.name}」`, { act: "del", cls: "cw-ibtn-danger" })}</div>`;
+    }
+    if (siteMulti(x)) {
+      const open = foldGet("sites", x.id);
+      const k = siteKey(x);
+      const info = [on ? `${keyName(x, k)} · ${k.model || "未选模型"}` : "", x.source === "custom" ? "" : shortLabel(x.source), on || x.manualBalance ? balShort(x, k) : "", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
+      return html`<div class="cw-site is-multi${on ? " is-on" : ""}${open ? " is-open" : ""}" data-id="${x.id}">
+        <div class="cw-site-head"><div class="cw-site-main" data-act="edit" role="button" tabindex="0" data-key-click title="查看、编辑"><b>${x.name}</b>${info ? html`<small>${info}</small>` : ""}</div>
+          ${on ? pill("使用中", "accent") : ""}<button type="button" class="cw-btn cw-btn-sm cw-btn-ghost cw-site-fold" data-act="sitefold" aria-expanded="${open}">${x.keys.length} 组${iconHtml(open ? "chevDown" : "chev")}</button></div>
+        ${open ? html`<div class="cw-site-keys">${x.keys.map((y) => {
+          const cur = on && y.id === k.id;
+          return html`<div class="cw-site-key${cur ? " is-on" : ""}" data-k="${y.id}"><div class="cw-site-main" data-act="edit" role="button" tabindex="0" data-key-click><b>${keyName(x, y)}</b><small>${[y.model || "未选模型", balShort(x, y)].filter(Boolean).join(" · ")}</small></div>${useBtn(cur)}</div>`;
+        })}</div>` : ""}</div>`;
+    }
+    const info = [x.model || "未选模型", x.source === "custom" ? "" : shortLabel(x.source), balShort(x, x), used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · ");
+    return html`<div class="cw-site${on ? " is-on" : ""}" data-id="${x.id}"><div class="cw-site-head"><div class="cw-site-main" data-act="edit" role="button" tabindex="0" data-key-click title="查看、编辑"><b>${x.name}</b><small>${info}</small></div>${useBtn(on)}</div></div>`;
+  }
+  function renderSites() {
+    if (dragging) return;
+    const n = sites().length;
+    if (!n) editing = false;
+    const head = editing
+      ? html`${fileBtn("导入", { attr: "data-import-sites", icon: "fileIn", kind: "sm" })}${btn("导出", { act: "exportsites", size: "sm", icon: "fileOut" })}${btn("完成", { act: "sitesdone", size: "sm", kind: "primary" })}`
+      : html`${n ? ibtn("wallet", "查全部站点的余额", { act: "balanceall" }) : ""}${n ? ibtn("pencil", "编辑：排序、删除、导入导出", { act: "sitesedit" }) : ""}${ibtn("plus", "添加站点", { act: "new" })}`;
+    sitesBox.innerHTML = String(html`<div class="cw-sec-h"><h3>站点</h3>${n ? html`<small>${n} 个</small>` : ""}<span class="cw-gap"></span>${n ? tipBtn() : ""}<span class="cw-sec-acts">${head}</span></div>
+      ${n ? html`${tipNote(editing ? "按住左边的把手拖动排序，点垃圾桶删除。导出的站点文件可在重装、换设备后导入。" : "点站点名修改详情。点铅笔可排序、删除，导入或导出站点文件。")}<div class="cw-sites${editing ? " is-editing" : ""}">${sites().map(siteRow)}</div>`
+        : html`<div class="cw-empty-line">暂无站点。可点 ＋ 添加、${fileBtn("从文件导入", { attr: "data-import-sites", kind: "quiet" })}，或保存上方的当前连接。</div>`}`);
+  }
+  // ---------- 选项 ----------
+  function renderOpts() {
+    const s = settings();
+    const follow = s.reasoningFollowPreset === true;
+    const kept = Object.keys(s.reasoningByPreset || {}).length;
+    let reasoning = "";
+    if (follow) {
+      const store = reasoningStore();
+      const live = reasoningNow();
+      const rows = Object.keys(store).filter((n) => n !== reasoningPreset).sort((a, b) => a.localeCompare(b, "zh")).map((n) => ({ name: n, r: store[n], cur: false }));
+      if (reasoningPreset && live) rows.unshift({ name: reasoningPreset, r: live, cur: true });
+      reasoning = html`<div class="cw-rlist">${rows.map((x) => html`<div class="cw-rrow${x.cur ? " is-on" : ""}" data-name="${x.name}">
+          <div class="cw-rrow-main"><b title="${x.name}">${x.name}</b>${x.cur ? pill("当前", "accent") : ""}<small title="${reasoningSummary(x.r)}"><code>${showBreaks(x.r.prefix).trim() || "无前缀"}</code>${x.r.auto_parse ? "自动解析" : "不解析"}</small></div>
+          ${btn("修改", { act: "reasoningedit", size: "sm" })}${x.cur ? "" : ibtn("trash", `删除「${x.name}」的记录`, { act: "reasoningdel" })}</div>`)}
+        <button type="button" class="cw-addrow" data-act="reasoningadd">${iconHtml("plus")}<span>给其他预设设置</span></button></div>`;
+    } else if (kept) reasoning = html`<div class="cw-rlist"><div class="cw-rrow"><div class="cw-rrow-main"><b>已记住 ${kept} 个预设</b></div>${btn("清除", { act: "reasoningclear", size: "sm", kind: "danger" })}</div></div>`;
+    optsBox.innerHTML = String(html`<div class="cw-setlist">
+        <label class="cw-setrow"><span><b>换角色或聊天时，提示当前预设和模型</b><small>弹出当前预设和模型，3 秒后消失。换预设时 API 不变；切换方案时，方案记了 API 的才换。</small></span>${switchHtml({ act: "chattoast", on: s.chatToast !== false, label: "换角色或聊天时，提示当前预设和模型" })}</label>
+        <label class="cw-setrow"><span><b>切换预设时，同时切换推理格式</b><small>离开预设时记下酒馆「推理内容格式化」的设置，切回时恢复</small></span>${switchHtml({ act: "reasoningfollow", on: follow, label: "切换预设时，同时切换推理格式" })}</label>
+      </div>${reasoning}`);
+  }
+  // ---------- 方案 ----------
+  const schemesBox = page.querySelector(".cw-schemes");
+  const nudge = page.querySelector(".cw-scheme-nudge");
+  const SVIEWS = [["char", "角色卡"], ["preset", "预设"], ["persona", "人设"]];
+  const allSchemes = () => settings().schemes;
+  let picking = false;
+  const picked = new Set();
+  const sview = () => SVIEWS.some(([k]) => k === settings().schemeView) ? settings().schemeView : "char";
+  const groupKey = (s) => sview() === "preset" ? s.preset : sview() === "persona" ? s.persona ? s.personaName || s.persona : "" : schemeCharKey(s);
+  const groupName = (k) => sview() === "char" ? charNameOf(k) : k || (sview() === "persona" ? "没记人设" : "");
+  function schemeRow(s, d) {
+    const bind = bindingNow();
+    const bound = bind?.id === s.id ? bind.scope : null;
+    // 「使用中」要和酒馆实际生效的一致：预设正在用、开关一致、人设和 API 站点也对得上
+    const switchesOk = !!d && s.preset === d.name && schemeMatches(d, s);
+    const conn = schemeConn(s);
+    const cs = connSite(conn);
+    const on = switchesOk && currentPresetName() === s.preset && (!s.persona || currentPersona() === s.persona) && (!cs || !siteDiffers(cs, { ...liveConnection(), online: true }));
+    const archived = !listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset);
+    const meta = [
+      sview() !== "preset" ? s.preset + (archived ? "（已归档）" : "") : "",
+      sview() !== "persona" && s.persona ? s.personaName || s.persona : "",
+      sview() !== "char" && schemeCharKey(s) ? charNameOf(schemeCharKey(s)) : "",
+      shortTime(Math.max(s.usedAt || 0, s.at || 0))
+    ].filter(Boolean).join(" · ");
+    const api = html`<small class="cw-scheme-api${conn ? "" : " is-none"}">API：${conn ? connLabel(conn) : "不切换"}</small>`;
+    const bindPill = bound ? html`<span class="cw-pill cw-pill-line" title="进入${bound === "chat" ? "这个聊天" : "这个角色的聊天"}时自动切换到它">${iconHtml("link")}${BIND_LABEL[bound]}</span>` : "";
+    if (picking) return html`<label class="cw-scheme is-pick" data-id="${s.id}"><input type="checkbox" class="cw-tickbox" data-act="pick"${picked.has(s.id) ? raw(" checked") : ""}>
+        <div class="cw-scheme-main"><div class="cw-scheme-name"><b>${s.name}</b>${bindPill}</div><small>${meta}</small>${api}</div></label>`;
+    return html`<div class="cw-scheme${on ? " is-on" : ""}" data-id="${s.id}">
+        <div class="cw-scheme-main"><div class="cw-scheme-name"><b>${s.name}</b>${on ? pill("使用中", "accent") : switchesOk ? pill("开关一致", "muted", "条目开关和方案一致，但预设、人设或 API 站点不是方案记录的") : ""}${bindPill}</div><small>${meta}</small>${api}</div>
+        ${btn("切换", { act: "apply", size: "sm", kind: on ? "ghost" : "", title: "把预设、开关、人设、API 一次换成方案记的样子" })}${ibtn("pencil", "编辑方案", { act: "sedit" })}</div>`;
+  }
+  function renderSchemes() {
+    let d = null;
+    try { d = getDraft(currentPresetName()); } catch {}
+    page.querySelector('[data-s="view"] span').textContent = SVIEWS.find(([k]) => k === sview())[1] + "分组";
+    for (const id of [...picked]) if (!allSchemes().some((x) => x.id === id)) picked.delete(id);
+    if (picking && !allSchemes().length) picking = false;
+    page.querySelector(".cw-scheme-tools").innerHTML = String(picking
+      ? html`<small class="cw-dim">已选 ${picked.size} 个</small>${btn("删除", { act: "s-delpicked", size: "sm", kind: "danger", disabled: !picked.size, attrs: 'data-s="delpicked"' })}${btn("取消", { size: "sm", attrs: 'data-s="pickoff"' })}`
+      : allSchemes().length ? ibtn("trash", "勾选删除方案", { attrs: 'data-s="pickon"' }) : "");
+    page.querySelector('[data-s="new"]').hidden = picking;
+    const ck = hasChat() ? currentCharKey() : null;
+    const cur = currentPresetName();
+    nudge.innerHTML = ck && cur && !allSchemes().some((s) => schemeCharKey(s) === ck && s.preset === cur)
+      ? String(html`<div class="cw-note">${iconHtml("info")}<div>「${currentCharName()}」还没有「${cur}」的方案。<button type="button" class="cw-link" data-s="new">保存一个</button></div></div>`) : "";
+    if (!allSchemes().length) {
+      schemesBox.innerHTML = String(html`<div class="cw-empty-line">还没有方案。先开启需要的条目，再点「保存为方案」。</div>`);
+      return;
+    }
+    const groups = new Map();
+    for (const s of allSchemes()) {
+      const k = groupKey(s);
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(s);
+    }
+    const t = (s) => Math.max(s.usedAt || 0, s.at || 0);
+    // 当前角色（预设、人设）那一组排最前，其余按最近用过排；「未分角色」放最后
+    const mineKey = sview() === "char" ? ck || "" : sview() === "preset" ? cur : listPersonas().find((p) => p.avatar === currentPersona())?.name || "";
+    const keys = [...groups.keys()].sort((a, b) => (b === mineKey) - (a === mineKey) || (!a) - (!b) || Math.max(...groups.get(b).map(t)) - Math.max(...groups.get(a).map(t)));
+    const defOpen = groups.has(mineKey) ? mineKey : keys[0];
+    schemesBox.innerHTML = String(html`${keys.map((k) => {
+      const list = groups.get(k).sort((a, b) => t(b) - t(a));
+      const open = foldGet("schemes", sview() + "|" + k, k === defOpen);
+      return html`<section class="cw-sgroup${open ? " is-open" : ""}" data-k="${k}">
+        <div class="cw-sghead">${picking ? html`<input type="checkbox" class="cw-tickbox" data-act="pickgroup" aria-label="选中这一组"${list.every((s) => picked.has(s.id)) ? raw(" checked") : ""}>` : ""}<button type="button" class="cw-sghead-btn" data-act="sfold" aria-expanded="${open}">${iconHtml(open ? "chevDown" : "chev")}<b>${groupName(k)}</b>${k === mineKey && k ? pill("当前", "accent") : ""}<small>${list.length} 个</small></button></div>
+        ${open ? html`<div class="cw-sgbody">${list.map((s) => schemeRow(s, d))}</div>` : ""}</section>`;
+    })}`);
+  }
+  async function saveNewScheme() {
+    let d;
+    try { d = getDraft(currentPresetName()); } catch (e) { return toast(e.message, "error"); }
+    const groups = d.groups.groups;
+    const ck = hasChat() ? currentCharKey() : null;
+    const cname = ck ? currentCharName() : "";
+    const prevBound = hasChat() ? allSchemes().find((x) => x.id === chatMeta()[META_KEY]) : null;
+    const picker = connPicker(settings().schemeApiPick || "__none");
+    const pp = personaPicker(settings().schemePersonaPick === "__none" ? "__none" : currentPersona() || "__none");
+    const body = el(html`<div class="cw-form">
+        <label class="cw-field"><span>方案名称</span><input class="cw-input" data-f="name" value="${d.name}" placeholder="例如：纯爱、年上"></label>
+        <div class="cw-card"><dl class="cw-kv"><dt>预设</dt><dd>${d.name}</dd><dt>条目开关</dt><dd class="cw-save-scope">${groups.length ? "勾选的分组" : "全部条目"}</dd></dl></div>
+        <div class="cw-slot-persona"></div><div class="cw-slot-conn"></div>
+        ${ck ? html`<label class="cw-check"><input type="checkbox" data-f="char" checked><span>归到角色「${cname}」</span></label>
+          <label class="cw-check"><input type="checkbox" data-f="bind"><span>进入这个聊天时自动切换到它${prevBound ? `（替换「${prevBound.name}」）` : ""}</span></label>` : html`<p class="cw-hint">当前不在聊天中，方案归入「未分角色」。</p>`}
+        ${fold("条目开关的保存范围", String(html`<div class="cw-form">
+          <label class="cw-check"><input type="radio" name="cw-scope" value="groups"${groups.length ? raw(" checked") : raw(" disabled")}><span>只保存勾选的分组（其他条目不受影响）</span></label>
+          <div class="cw-checks cw-checks-indent">${groups.length ? groups.map((g) => html`<label class="cw-check"><input type="checkbox" data-g="${g.id}"${LIKELY.test(g.name) ? raw(" checked") : ""}><span>${g.name}</span></label>`) : html`<p class="cw-hint">此预设没有分组</p>`}</div>
+          <label class="cw-check"><input type="radio" name="cw-scope" value="all"${groups.length ? "" : raw(" checked")}><span>保存全部条目（整个预设每条的开关都按方案恢复）</span></label></div>`))}
+      </div>`);
+    body.querySelector(".cw-slot-persona").replaceWith(pp.el);
+    body.querySelector(".cw-slot-conn").replaceWith(picker.el);
+    body.addEventListener("change", () => {
+      const all2 = body.querySelector("input[name=cw-scope]:checked")?.value === "all";
+      body.querySelector(".cw-save-scope").textContent = all2 ? "全部条目" : "勾选的分组";
+    });
+    const r = await dialog({
+      title: "保存为方案", body, size: "lg",
+      actions: [{ label: "取消", value: null }, {
+        label: "保存", kind: "primary",
+        validate: (w) => {
+          if (!w.querySelector("[data-f=name]").value.trim()) { toast("请填写方案名称"); return false; }
+          return true;
+        },
+        value: (w) => ({
+          name: w.querySelector("[data-f=name]").value.trim(),
+          scope: w.querySelector("input[name=cw-scope]:checked")?.value === "all" ? "all" : [...w.querySelectorAll("[data-g]:checked")].map((x) => x.dataset.g),
+          char: !!w.querySelector("[data-f=char]")?.checked,
+          bind: !!w.querySelector("[data-f=bind]")?.checked,
+          conn: picker.read(),
+          ...pp.read()
+        })
+      }]
+    });
+    if (!r) return;
+    if (Array.isArray(r.scope) && !r.scope.length) return toast("请至少勾选一个分组，或选择保存全部条目", "warning");
+    settings().schemeApiPick = picker.choice();
+    settings().schemePersonaPick = r.persona ? "current" : "__none";
+    const conn = r.conn;
+    const s = { id: uid(), name: r.name, preset: d.name, scope: r.scope, persona: r.persona, personaName: r.personaName, conn, siteId: conn?.siteId || null, charKey: r.char && ck ? ck : "", at: Date.now(), usedAt: Date.now() };
+    Object.assign(s, schemeStates(d, s));
+    allSchemes().push(s);
+    if (r.bind && hasChat()) {
+      chatMeta()[META_KEY] = s.id;
+      await saveChatMeta();
+      markChatHandled();
+    }
+    saveSettings();
+    foldSet("schemes", sview() + "|" + groupKey(s), true);
+    toast(`已保存方案「${s.name}」${r.bind ? "。进入这个聊天时将自动切换到它" : ""}`, "success");
+    render();
+  }
+  // 编辑菜单：做完一项回到菜单，方便接着改；点别处或删除后才关掉
+  async function editScheme(s) {
+    while (allSchemes().includes(s)) {
+      const conn = schemeConn(s);
+      const bind = bindingNow();
+      const anchor = schemesBox.querySelector(`.cw-scheme[data-id="${CSS.escape(s.id)}"] [data-act="sedit"]`) || recentAnchor();
+      const v = await pickBox(s.name, [
+        { label: "重命名", value: "rename" },
+        { label: "用现在的状态覆盖", sub: "更新条目开关，人设和 API 可选", value: "update" },
+        { label: "人设", sub: s.persona ? `现在：${s.personaName || s.persona}` : "现在：未记录，切换时人设不变", value: "persona" },
+        { label: "API 和模型", sub: conn ? `现在：${connLabel(conn)}` : "现在：未记录，切换时 API 不变", value: "site" },
+        { label: "条目开关的保存范围", sub: s.scope === "all" ? "现在：全部条目" : `现在：${s.scope.length} 个分组`, value: "scope" },
+        { label: "自动套用", sub: bind?.id === s.id ? `现在：${bind.scope === "chat" ? "进入这个聊天时" : "进入这个角色的聊天时"}` : "现在：不自动套用", value: "bind" },
+        { label: "改归属角色", sub: `现在：${charNameOf(schemeCharKey(s))}`, value: "char" },
+        { sep: true },
+        { label: "删除方案", sub: "预设不受影响", value: "del", danger: true }
+      ], { anchor });
+      if (!v) break;
+      if (v === "rename") {
+        const b = schemesBox.querySelector(`.cw-scheme[data-id="${CSS.escape(s.id)}"] .cw-scheme-name > b`);
+        const n = b ? await inlineEdit(b, s.name) : await promptBox("方案名称", s.name);
+        if (n) { s.name = n; saveSettings(); }
+        break;
+      }
+      await schemeAction(s, v);
+      render();
+    }
+    render();
+  }
+  async function schemeAction(s, v) {
+    if (v === "update") {
+      let d;
+      try { d = getDraft(s.preset); } catch (e) { return toast(e.message, "error"); }
+      const nowConn = liveConn();
+      const cur = schemeConn(s);
+      const persona = currentPersona();
+      const personaName = persona ? listPersonas().find((p) => p.avatar === persona)?.name || persona : "";
+      const r = await dialog({ size: "sm", title: "用现在的状态覆盖", body: html`<div class="cw-form"><p class="cw-p">用「${s.preset}」现在的条目开关覆盖方案「${s.name}」？</p>
+          ${persona ? html`<label class="cw-check"><input type="checkbox" data-f="persona"${s.persona ? raw(" checked") : ""}><span>人设也换成当前人设（${personaName}）</span></label>` : ""}
+          ${nowConn ? html`<label class="cw-check"><input type="checkbox" data-f="api"><span>API 也换成当前连接（${connLabel(nowConn)}）</span></label>` : ""}
+          <p class="cw-hint">方案现在记的人设：${s.persona ? s.personaName || s.persona : "未记录"}；API：${cur ? connLabel(cur) : "未记录"}。</p></div>`,
+        actions: [{ label: "取消", value: null }, { label: "覆盖", kind: "primary", value: (w) => ({ persona: !!w.querySelector("[data-f=persona]")?.checked, api: !!w.querySelector("[data-f=api]")?.checked }) }] });
+      if (!r) return;
+      Object.assign(s, schemeStates(d, s));
+      if (r.persona && persona) { s.persona = persona; s.personaName = personaName; }
+      if (r.api && nowConn) { s.conn = nowConn; s.siteId = nowConn.siteId || null; }
+      s.at = Date.now();
+      saveSettings();
+      toast("方案已更新", "success");
+    }
+    if (v === "persona") {
+      const pp = personaPicker(s.persona || "__none", s.personaName);
+      const body = el(html`<div class="cw-form"><p class="cw-hint">切换到这个方案时换成的人设。</p></div>`);
+      body.append(pp.el);
+      const r = await dialog({ size: "sm", title: "人设", body, noFocus: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: () => pp.read() }] });
+      if (!r) return;
+      Object.assign(s, r);
+      saveSettings();
+    }
+    if (v === "site") {
+      const cur = schemeConn(s);
+      const init = !cur ? "__none" : cur.siteId && settings().sites.some((x) => x.id === cur.siteId) ? cur.siteId : "__keep";
+      const picker = connPicker(init, cur);
+      const body = el(html`<div class="cw-form"><p class="cw-hint">切换到这个方案时连接的 API 和模型。</p></div>`);
+      body.append(picker.el);
+      const r = await dialog({ size: "sm", title: "API 和模型", body, noFocus: true, actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: () => ({ conn: picker.read() }) }] });
+      if (!r) return;
+      s.conn = r.conn;
+      s.siteId = r.conn?.siteId || null;
+      saveSettings();
+    }
+    if (v === "scope") {
+      let d;
+      try { d = getDraft(s.preset); } catch (e) { return toast(`读不到预设「${s.preset}」：${e.message}`, "error"); }
+      const gs = d.groups.groups;
+      const r = await dialog({ title: "条目开关的保存范围", size: "md", body: html`<div class="cw-form"><p class="cw-hint">修改范围后，按「${s.preset}」当前的开关重新保存。</p>
+          <label class="cw-check"><input type="radio" name="cw-scope2" value="groups"${s.scope !== "all" ? raw(" checked") : ""}${gs.length ? "" : raw(" disabled")}><span>只保存勾选的分组</span></label>
+          <div class="cw-checks cw-checks-indent">${gs.map((g) => html`<label class="cw-check"><input type="checkbox" data-g="${g.id}"${s.scope !== "all" && s.scope.includes(g.id) ? raw(" checked") : ""}><span>${g.name}</span></label>`)}</div>
+          <label class="cw-check"><input type="radio" name="cw-scope2" value="all"${s.scope === "all" ? raw(" checked") : ""}><span>保存全部条目（整个预设每条的开关都按方案恢复）</span></label></div>`,
+        actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => w.querySelector("input[name=cw-scope2]:checked")?.value === "all" ? "all" : [...w.querySelectorAll("[data-g]:checked")].map((x) => x.dataset.g) }] });
+      if (!r) return;
+      if (Array.isArray(r) && !r.length) return toast("请至少勾选一个分组，或选择保存全部条目", "warning");
+      s.scope = r;
+      Object.assign(s, schemeStates(d, s));
+      s.at = Date.now();
+      saveSettings();
+      toast("保存范围已更新", "success");
+    }
+    if (v === "bind") return bindMenu(s);
+    if (v === "char") {
+      const chars = (ctx().characters || []).filter((x) => x?.avatar);
+      const ck = schemeCharKey(s);
+      const pick = await pickName({ title: "归到哪个角色卡", current: ck || "__none", extra: { value: "__none", label: "取消归属" }, items: chars.map((x) => ({ value: x.avatar, label: x.name })) });
+      if (!pick) return;
+      s.charKey = pick === "__none" ? "" : pick;
+      saveSettings();
+    }
+    if (v === "del") {
+      if (!await confirmBox("删除方案", `删除「${s.name}」？预设不受影响。`, "删除", true)) return;
+      await removeSchemes([s.id]);
+    }
+  }
+  async function removeSchemes(ids) {
+    const gone = new Set(ids);
+    settings().schemes = allSchemes().filter((x) => !gone.has(x.id));
+    const cb = settings().schemeCharBind || {};
+    for (const k of Object.keys(cb)) if (gone.has(cb[k])) delete cb[k];
+    if (hasChat() && gone.has(chatMeta()[META_KEY])) { delete chatMeta()[META_KEY]; await saveChatMeta(); }
+    saveSettings();
+  }
+  async function bindMenu(s) {
+    if (!hasChat()) return toast("请先打开一个聊天");
+    const meta = chatMeta();
+    const ck = currentCharKey();
+    const cname = currentCharName();
+    const cur = meta[META_KEY] === s.id ? "chat" : ck && settings().schemeCharBind?.[ck] === s.id ? "char" : "none";
+    const v = await pickBox(`「${s.name}」什么时候自动套用`, [
+      { label: "进入这个聊天时", sub: "只对当前这个聊天生效", value: "chat", on: cur === "chat" },
+      ...(ck ? [{ label: `进入「${cname}」的任何聊天时`, sub: "这个角色的新旧聊天都生效；单个聊天另有绑定时，以聊天的为准", value: "char", on: cur === "char" }] : []),
+      { label: "不自动套用", sub: "仅在点击「切换」时切换", value: "none", on: cur === "none" }
+    ], { hint: "进入聊天时切换一次。之后手动修改的内容保持不变。" });
+    if (!v || v === cur) return;
+    if (!settings().schemeCharBind || typeof settings().schemeCharBind !== "object") settings().schemeCharBind = {};
+    const cb = settings().schemeCharBind;
+    if (meta[META_KEY] === s.id) delete meta[META_KEY];
+    if (ck && cb[ck] === s.id) delete cb[ck];
+    if (v === "chat") meta[META_KEY] = s.id;
+    if (v === "char" && ck) cb[ck] = s.id;
+    await saveChatMeta();
+    saveSettings();
+    markChatHandled();
+    toast(v === "none" ? "已取消自动套用" : `已设置：进入${v === "chat" ? "这个聊天" : `「${cname}」的聊天`}时自动切换到「${s.name}」`, "success");
+  }
+  // ---------- 操作 ----------
+  async function connectKey(target, keyId, b = null) {
+    const k = siteKey(target, keyId);
+    if (b) { b.disabled = true; b.classList.add("cw-busy"); }
+    try {
+      const v = keyView(target, k.id);
+      await applyConnection(v);
+      keepKeyId(target, v);
+      target.keyId = k.id;
+      settings().activeSiteId = target.id;
+      saveSettings();
+      const live = liveConnection();
+      toast(live.online ? `已连接「${target.name}」· ${keyName(target, k)}` : `「${keyName(target, k)}」密钥请求失败（额度用完或已失效）`, live.online ? "success" : "warning");
+    } catch (err) {
+      toast(`「${keyName(target, k)}」切换失败：${err.message}`, "error");
+    }
+    return render();
+  }
+  // 测试：用现在的连接和选中的模型发一句「Hi」，流式收到第一段就算通。不先重新套用站点
+  async function testModel(b = null) {
+    const c = ctx();
+    const svc = c.ChatCompletionService;
+    if (typeof svc?.presetToGeneratePayload !== "function") {
+      const stBtn = globalThis.jQuery?.("#test_api_button");
+      if (stBtn?.length) { stBtn.trigger("click"); return toast("已让酒馆发送测试消息，结果看酒馆弹出的提示", "info"); }
+      return toast("这个酒馆版本不能单独发送测试消息，请到酒馆的 API 设置里点「测试消息」", "warning");
+    }
+    const live = liveConnection();
+    const model = usingModel(live);
+    if (!model) return toast("还没有选模型", "warning");
+    const active = activeSite();
+    const k = siteMulti(active) && isSame(active, live) ? siteKey(active) : null;
+    if (b) { b.disabled = true; b.classList.add("cw-busy"); }
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 60e3);
+    const base = { model, source: live.source, url: live.url || "", secretId: live.secretId || null };
+    try {
+      const payload = await svc.presetToGeneratePayload({}, {}, { model, messages: [{ role: "user", content: "Hi" }], stream: true, max_tokens: 300, n: 1 });
+      const res = await fetch(stUrl("api/backends/chat-completions/generate"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...c.getRequestHeaders?.() || {} },
+        body: JSON.stringify(payload),
+        cache: "no-cache",
+        signal: controller.signal
+      });
+      // 酒馆转交流式报错时把 401 改成 400，状态说明还是 Unauthorized
+      const status = res.status === 400 && /unauthori[sz]ed/i.test(res.statusText) ? 401 : res.status;
+      const first = await firstReply(res);
+      controller.abort();
+      if (!res.ok || first.error) throw { status, message: first.error || res.statusText };
+      liveTest = { ...base, ok: true, text: k ? `${keyName(active, k)} · Successful` : "Successful" };
+    } catch (err) {
+      const rawText = String(timedOut ? "没有回复" : err?.message || "");
+      const why = explainApiError(errStatus(err?.status, rawText), rawText);
+      liveTest = { ...base, ok: false, text: k ? `${keyName(active, k)} · ${why}` : why, raw: rawText };
+    } finally {
+      clearTimeout(timer);
+    }
+    return render();
+  }
+  async function editSite(site) {
+    const r = await editSiteDialog(site, { onSaved: async (s, { newBalance, rekeyed }) => {
+      render();
+      if (newBalance) querySite(s).catch((e) => console.warn("[焦香鸡翅] 查余额失败", e));
+      // 改的是当前连接的站点、又存了新密钥：换上新密钥并重新连接
+      if (settings().activeSiteId === s.id && rekeyed) {
+        try {
+          await applyConnection(siteMulti(s) ? keyView(s, s.keyId) : s);
+          const on = liveConnection().online;
+          toast(on ? "已保存，已用新密钥重新连接" : "已保存，用新密钥重新连接未成功，请检查网址和密钥", on ? "success" : "warning");
+        } catch (e) {
+          toast("已保存，但没能换上新密钥：" + e.message, "error");
+        }
+        render();
+      }
+    } });
+    if (r === "del") return act("del", site);
+  }
+  async function act(a, site, b = null, from = null) {
+    if (a === "livemore") { foldSet("live", "detail", !liveOpen()); return renderLive(); }
+    if (a === "reasoningclear") {
+      if (!await confirmBox("清除推理格式记录", "清除所有预设记住的推理格式？当前酒馆设置不变。", "清除")) return;
+      settings().reasoningByPreset = {};
+      if (reasoningFollowOn()) rememberReasoning();
+      saveSettings();
+      return renderOpts();
+    }
+    if (a === "reasoningedit" || a === "reasoningadd") {
+      let name = from?.closest(".cw-rrow")?.dataset.name;
+      if (a === "reasoningadd") {
+        const store = reasoningStore();
+        const items = listPresets().filter((n) => n !== reasoningPreset && !store[n]).map((n) => ({ value: n }));
+        if (!items.length) return toast("所有预设都已有记录", "info");
+        name = await pickName({ title: "给哪个预设设置推理格式", items });
+        if (!name) return;
+      }
+      const cur = name === reasoningPreset;
+      const init = cur ? reasoningNow() : reasoningStore()[name] || reasoningNow();
+      if (!init) return toast("酒馆没有「推理内容格式化」设置", "warning");
+      const r = await editReasoning(name, init, cur);
+      if (!r) return;
+      reasoningStore()[name] = r;
+      if (cur) applyReasoning(r);
+      saveSettings();
+      toast(cur ? "已改酒馆现在的推理格式" : `已保存「${name}」的推理格式`, "success");
+      return renderOpts();
+    }
+    if (a === "reasoningdel") {
+      const name = from?.closest(".cw-rrow")?.dataset.name;
+      if (!name || !await confirmBox("删除推理格式记录", `删除「${name}」记住的推理格式？切到它时将保持当时的设置。`, "删除", true)) return;
+      delete reasoningStore()[name];
+      saveSettings();
+      return renderOpts();
+    }
+    if (a === "sitefold") { foldSet("sites", site.id, !foldGet("sites", site.id)); return renderSites(); }
+    // 多密钥站点正在用：选模型时一并选分组，换了分组就换密钥重新连接
+    if (a === "livemodel") {
+      const live = liveConnection();
+      const active = activeSite();
+      if (siteMulti(active) && isSame(active, live)) {
+        const k0 = siteKey(active);
+        const r = await pickKeyModel(active, { keyId: k0.id, model: live.model });
+        if (!r) return render();
+        const k = siteKey(active, r.keyId);
+        k.model = r.model;
+        if (k === k0) {
+          setLiveModel(r.model);
+          saveSettings();
+          toast(`模型已切换为 ${r.model}`, "success");
+          return render();
+        }
+        return connectKey(active, k.id, b);
+      }
+      const target = active;
+      const m = await pickModel(liveModelList(live), live.model, { site: target || null });
+      if (!m) return;
+      if (target) siteKey(target).model = m;
+      setLiveModel(m);
+      saveSettings();
+      toast(`模型已切换为 ${m}`, "success");
+      return render();
+    }
+    if (a === "balance") {
+      const live = liveConnection();
+      const active = activeSite();
+      const same = isSame(active, live);
+      const t = liveBalTarget(live, active, same ? siteKey(active) : null, same);
+      if (t?.owner && active.manualBalance) await querySite(active);
+      else if (t) await queryBalance(t.site, t.id, t.owner);
+      return;
+    }
+    if (a === "balanceset") {
+      const x = activeSite();
+      if (!x) return;
+      if (x.manualBalance) {
+        const how = await pickBox(`「${x.name}」的账户余额`, [{ label: "改余额", sub: "充值后填网站上现在的余额", value: "edit" }, { label: "不再手填", sub: "改回显示查到的结果", value: "clear" }], { anchor: b });
+        if (!how) return;
+        if (how === "clear") {
+          await setManualBalance(x, null);
+          return toast(`「${x.name}」不再手填余额`, "success");
+        }
+      }
+      const rawAmount = await promptBox(`「${x.name}」的账户余额`, x.manualBalance ? String(x.manualBalance.amount) : "", "网站上显示的余额，如 50");
+      if (rawAmount == null) return;
+      const n = balanceParseAmount(rawAmount);
+      if (n == null) return toast("请填一个金额，如 50 或 12.5", "error");
+      await setManualBalance(x, n);
+      return toast(`「${x.name}」的账户余额记为 ${balanceMoney(n)}，之后按站点查到的用量扣减`, "success");
+    }
+    // 逐个查全部站点（多密钥站点逐个分组）的余额；官方接口不提供的跳过
+    if (a === "balanceall") {
+      if (b) { b.disabled = true; b.classList.add("cw-spin"); }
+      let ok = 0, bad = 0, skip = 0;
+      for (const x of [...sites()]) {
+        for (const k of siteMulti(x) ? x.keys : [x]) {
+          const target = keyView(x, k.id);
+          if (balancePlan(target).none) { skip++; continue; }
+          await queryBalance(target, balanceId(x, k), { siteId: x.id, k });
+          if (balanceGet(balanceId(x, k))?.ok) ok++;
+          else bad++;
+        }
+      }
+      toast([`已查 ${ok} 个余额`, bad && `${bad} 个没查到`, skip && `${skip} 个官方接口不提供`].filter(Boolean).join("，"), bad ? "warning" : "success");
+      return render();
+    }
+    if (a === "livefetch") {
+      const live = liveConnection();
+      const active = activeSite();
+      const same = isSame(active, live);
+      if (live.source === "custom" && !live.url) return toast("当前连接没有网址", "warning");
+      if (b) { b.disabled = true; b.classList.add("cw-spin"); }
+      if (same && siteMulti(active)) {
+        const { bad } = await siteFetchAllKeys(active);
+        saveSettings();
+        const n = new Set(active.keys.flatMap((k) => k.models || [])).size;
+        if (bad.length) toast(siteKeyFailText(bad), "warning");
+        if (bad.length < active.keys.length) toast(n ? `已拉取 ${n} 个模型，点模型按钮选择` : "站点未返回模型，可点模型按钮手动填写", n ? "success" : "warning");
+        return render();
+      }
+      try {
+        const models = await siteModels(same ? active : { name: "当前连接", source: live.source, url: live.url || "", secretId: live.secretId });
+        liveFetched = { source: live.source, url: live.url || "", models };
+        if (same) { active.models = models; saveSettings(); }
+        toast(models.length ? `已拉取 ${models.length} 个模型，点模型按钮选择` : "站点未返回模型，可点模型按钮手动填写", models.length ? "success" : "warning");
+      } catch (err) {
+        toast("拉取失败：" + err.message, "error");
+      }
+      return render();
+    }
+    if (a === "keepmodel") {
+      const t = activeSite();
+      const m = liveConnection().model;
+      if (t && m) {
+        siteKey(t).model = m;
+        saveSettings();
+        toast(`站点「${t.name}」的模型已改为 ${m}`, "success");
+      }
+      return render();
+    }
+    if (a === "new") return editSite(null);
+    if (a === "sitesedit" || a === "sitesdone") {
+      editing = a === "sitesedit";
+      renderSites();
+      sitesBox.querySelector(editing ? '[data-act="sitesdone"]' : '[data-act="sitesedit"]')?.focus({ preventScroll: true });
+      return;
+    }
+    if (a === "exportsites") return exportSites(b);
+    if (a === "edit") return editSite(site);
+    if (a === "del") {
+      if (!site) return;
+      const users = settings().schemes.filter((sc) => schemeConn(sc)?.siteId === site.id);
+      if (!await confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库中的密钥不会删除。${users.length ? `${users.length} 个方案使用此站点，将保留其网址、模型和密钥记录。` : ""}`, "删除", true)) return;
+      users.forEach((sc) => { sc.conn = { ...schemeConn(sc), siteId: null }; delete sc.siteId; });
+      settings().sites = sites().filter((x) => x.id !== site.id);
+      if (settings().activeSiteId === site.id) settings().activeSiteId = null;
+      saveSettings();
+      return render();
+    }
+    if (a === "testmodel") return testModel(b);
+    if (a === "testraw") return liveTest?.raw && toast(`原文：${liveTest.raw.length > 300 ? liveTest.raw.slice(0, 300) + "…" : liveTest.raw}`, "info");
+    if (a === "use") {
+      const target = site;
+      if (siteMulti(target)) return connectKey(target, from?.closest("[data-k]")?.dataset.k, b);
+      if (b) { b.disabled = true; b.querySelector("span").textContent = "连接中…"; }
+      try {
+        await applyConnection(target);
+        settings().activeSiteId = target.id;
+        saveSettings();
+        const live = liveConnection();
+        toast(live.online ? `已连接「${target.name}」` : "已切换，未连接成功，请检查网址和密钥", live.online ? "success" : "warning");
+      } catch (err) {
+        toast("切换失败：" + err.message, "error");
+      }
+      return render();
+    }
+    if (a === "capture") {
+      await readSecretState();
+      const live = liveConnection();
+      if (!SOURCES[live.source]) return toast("暂不支持保存当前连接类型", "warning");
+      const s = { id: uid(), name: `${SOURCES[live.source].label.split("（")[0]}${live.url ? " " + hostOf(live.url) : ""}`, source: live.source, url: live.url || "", model: live.model || "", models: customModelOptions(), secretId: live.secretId, keyMask: live.secretMask, note: "" };
+      sites().push(s);
+      settings().activeSiteId = s.id;
+      saveSettings();
+      toast("已保存为站点", "success");
+      render();
+    }
+  }
+  // ---------- 事件 ----------
+  page.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.matches("[data-import-sites]")) {
+      const file = t.files?.[0];
+      t.value = "";
+      if (file) importSites(file).then(render);
+      return;
+    }
+    const a = t.dataset.act;
+    if (a === "chattoast") { settings().chatToast = t.checked; saveSettings(); }
+    if (a === "reasoningfollow") {
+      settings().reasoningFollowPreset = t.checked;
+      // 打开时先记下当前预设现在的推理格式
+      if (t.checked) { initReasoningFollow(); rememberReasoning(); }
+      saveSettings();
+      renderOpts();
+    }
+  });
+  page.addEventListener("click", async (e) => {
+    // 方案
+    const sv = e.target.closest("[data-s]")?.dataset.s;
+    if (sv === "new") return saveNewScheme();
+    if (sv === "pickon" || sv === "pickoff") { picking = sv === "pickon"; picked.clear(); return renderSchemes(); }
+    if (sv === "delpicked") {
+      const names = allSchemes().filter((x) => picked.has(x.id)).map((x) => `「${x.name}」`);
+      if (!names.length) return;
+      if (!await confirmBox("删除方案", `删除 ${names.length} 个方案：${names.slice(0, 6).join("、")}${names.length > 6 ? " 等" : ""}？预设不受影响。`, "删除", true)) return;
+      await removeSchemes([...picked]);
+      picking = false;
+      picked.clear();
+      toast(`已删除 ${names.length} 个方案`, "success");
+      return renderSchemes();
+    }
+    if (sv === "view") {
+      const v = await pickName({ title: "方案按什么分组", current: sview(), search: false, items: SVIEWS.map(([k, l]) => ({ value: k, label: l })) });
+      if (!v) return;
+      settings().schemeView = v;
+      saveSettings();
+      return renderSchemes();
+    }
+    const actEl = e.target.closest("[data-act]");
+    const a = actEl?.dataset.act;
+    if (!a) return;
+    if (e.target.closest(".cw-schemes")) {
+      if (a === "pickgroup") {
+        const k = e.target.closest(".cw-sgroup").dataset.k;
+        const ids = allSchemes().filter((x) => String(groupKey(x)) === k).map((x) => x.id);
+        for (const id of ids) e.target.checked ? picked.add(id) : picked.delete(id);
+        if (e.target.checked) foldSet("schemes", sview() + "|" + k, true);
+        return renderSchemes();
+      }
+      if (a === "pick") {
+        const id = e.target.closest(".cw-scheme").dataset.id;
+        e.target.checked ? picked.add(id) : picked.delete(id);
+        return renderSchemes();
+      }
+      if (a === "sfold") {
+        const sec = e.target.closest(".cw-sgroup");
+        foldSet("schemes", sview() + "|" + sec.dataset.k, !sec.classList.contains("is-open"));
+        return renderSchemes();
+      }
+      const s = allSchemes().find((x) => x.id === e.target.closest(".cw-scheme")?.dataset.id);
+      if (!s) return;
+      if (a === "apply") {
+        await applyScheme(s);
+        setFocusPreset(s.preset);
+        return render();
+      }
+      if (a === "sedit") return editScheme(s);
+      return;
+    }
+    if (a === "chattoast" || a === "reasoningfollow") return;
+    const site = sites().find((x) => x.id === e.target.closest("[data-id]")?.dataset.id);
+    return act(a, site, actEl.closest("button"), e.target);
+  });
+  page.addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches?.("[data-act=testraw]")) { e.preventDefault(); e.target.click(); }
+  });
+  bindFileKeys(page);
+  // ---------- 站点排序：按住把手拖动（各行让位，靠近边缘自动滚动，松手保存）；键盘上下方向键 ----------
+  const still = () => reducedMotion();
+  function slideFrom(rows, tops, ms = 180) {
+    if (still()) return;
+    for (const x of rows) {
+      const dy = (tops.get(x.dataset.id) ?? x.offsetTop) - x.offsetTop;
+      if (dy) x.animate?.([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: ms, easing: "cubic-bezier(.23,1,.32,1)" });
+    }
+  }
+  function saveOrder(ids) {
+    const old = sites().map((x) => x.id).join("\n");
+    sites().sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+    if (sites().map((x) => x.id).join("\n") !== old) saveSettings();
+  }
+  sitesBox.addEventListener("pointerdown", (e) => {
+    const grip = e.target.closest(".cw-site-grip");
+    if (!grip || e.button > 0) return;
+    e.preventDefault();
+    const row = grip.closest(".cw-site");
+    const list = row.parentElement;
+    const rows = [...list.children];
+    const from = rows.indexOf(row);
+    const scroller = row.closest(".cw-body");
+    const tops = rows.map((x) => x.offsetTop);
+    const hs = rows.map((x) => x.offsetHeight);
+    const mids = rows.map((x, i) => tops[i] + hs[i] / 2);
+    const gap = rows.length > 1 ? Math.max(0, tops[1] - tops[0] - hs[0]) : 0;
+    const step = hs[from] + gap;
+    const minDy = tops[0] - tops[from];
+    const maxDy = tops.at(-1) + hs.at(-1) - hs[from] - tops[from];
+    const box = scroller?.getBoundingClientRect();
+    const scroll0 = scroller?.scrollTop || 0;
+    const y0 = e.clientY;
+    const shift = rows.map(() => 0);
+    let y = y0, frame = 0, dy = 0, to = from, alive = true;
+    dragging = true;
+    list.classList.add("is-sorting");
+    row.classList.add("is-drag");
+    grip.setPointerCapture?.(e.pointerId);
+    const update = () => {
+      frame = 0;
+      if (!alive) return;
+      const near = scroller && box ? (y < box.top + 48 && y < y0 ? -1 : y > box.bottom - 48 && y > y0 ? 1 : 0) : 0;
+      if (near) scroller.scrollTop += near < 0 ? -Math.min(14, (box.top + 48 - y) / 3) : Math.min(14, (y - box.bottom + 48) / 3);
+      dy = Math.max(minDy, Math.min(maxDy, y - y0 + (scroller ? scroller.scrollTop - scroll0 : 0)));
+      const mid = mids[from] + dy;
+      to = from;
+      rows.forEach((x, i) => {
+        const s = i < from && mid <= mids[i] ? step : i > from && mid >= mids[i] ? -step : 0;
+        if (s > 0) to--;
+        if (s < 0) to++;
+        if (i !== from && s !== shift[i]) { shift[i] = s; x.style.transform = s ? `translateY(${s}px)` : ""; }
+      });
+      row.style.transform = `translateY(${dy}px)`;
+      if (near) frame = requestAnimationFrame(update);
+    };
+    const move = (ev) => { y = ev.clientY; if (!frame) frame = requestAnimationFrame(update); };
+    const up = (ev) => {
+      cancelAnimationFrame(frame);
+      if (ev?.clientY != null) y = ev.clientY;
+      update();
+      cancelAnimationFrame(frame);
+      alive = false;
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", up);
+      grip.removeEventListener("pointercancel", up);
+      const ids = rows.map((x) => x.dataset.id);
+      const [id] = ids.splice(from, 1);
+      ids.splice(to, 0, id);
+      const seen = new Map([[id, tops[from] + dy]]);
+      dragging = false;
+      saveOrder(ids);
+      renderSites();
+      const now = sitesBox.querySelector(`.cw-site[data-id="${CSS.escape(id)}"]`);
+      if (now) { slideFrom([now], seen, 160); now.classList.add("cw-flash"); }
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", up);
+    grip.addEventListener("pointercancel", up);
+  });
+  sitesBox.addEventListener("keydown", (e) => {
+    const grip = e.target.closest?.(".cw-site-grip");
+    if (!grip || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    const id = grip.closest(".cw-site").dataset.id;
+    const ids = sites().map((x) => x.id);
+    const i = ids.indexOf(id);
+    const j = i + (e.key === "ArrowUp" ? -1 : 1);
+    if (j < 0 || j >= ids.length) return;
+    const list = grip.closest(".cw-sites");
+    const tops = new Map([...list.children].map((x) => [x.dataset.id, x.offsetTop]));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    saveOrder(ids);
+    renderSites();
+    const moved = [ids[i], ids[j]].map((x) => sitesBox.querySelector(`.cw-site[data-id="${CSS.escape(x)}"]`)).filter(Boolean);
+    slideFrom(moved, tops);
+    sitesBox.querySelector(`.cw-site[data-id="${CSS.escape(id)}"] .cw-site-grip`)?.focus();
+  });
+  function render() {
+    if (page.hidden) return;
+    renderLive();
+    renderSchemes();
+    renderSites();
+    renderOpts();
+  }
+  cleanups.push(onDraftChange((name, kind) => { if (kind !== "status" && !page.hidden) renderSchemes(); }));
+  return { render };
+}
 
 // src/ui/page-clean.js
 function mountCleanPage(page) { page.innerHTML = '<div class="cw-body"><div class="cw-col"><p class="cw-hint">建设中</p></div></div>'; return { render() {} }; }
@@ -12011,7 +13845,7 @@ function mountLookPage(page) { page.innerHTML = '<div class="cw-body"><div class
 function addSettingsEntry() {}
 
 // src/ui/style.css
-var style_default = "/* 焦香鸡翅 3.0 样式。全部选择器限定在 #cw-root（面板）、#cw-settings（扩展页设置框）、#cw-ball（悬浮球）之内。\n   颜色只用变量：跟随酒馆时由主题引擎（app/theme.js）按对比度计算，内置配色在本文件末尾给定。 */\n\n#cw-root {\n    /* 颜色 */\n    --cw-bg: var(--SmartThemeBlurTintColor, #1d1b20);\n    --cw-text: var(--SmartThemeBodyColor, #e8e3da);\n    --cw-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, .16));\n    --cw-accent: var(--SmartThemeQuoteColor, #e0a24a);\n    --cw-muted: rgba(128, 128, 128, .95);\n    --cw-surface: rgba(127, 127, 127, .07);\n    --cw-raised: rgba(127, 127, 127, .14);\n    --cw-accent-soft: rgba(224, 162, 74, .16);\n    --cw-rule: rgba(127, 127, 127, .14);\n    --cw-input: rgba(0, 0, 0, .18);\n    --cw-warn: #e0784a;\n    --cw-ok: #6fb38a;\n    --cw-on-accent: #1b1712;\n    --cw-control: rgba(127, 127, 127, .6);\n    --cw-scrim: rgba(10, 10, 14, .42);\n    --cw-shadow: 0 12px 36px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .12);\n    /* 尺寸 */\n    --cw-fs-xs: .8em; --cw-fs-s: .9em; --cw-fs-l: 1.15em; --cw-fs-xl: 1.4em;\n    --cw-r-s: 6px; --cw-r: 10px; --cw-r-l: 16px;\n    --cw-h-s: 28px; --cw-h: 36px; --cw-h-l: 44px;\n    --cw-row: 40px;\n    --cw-side: 224px;\n    --cw-detail: 400px;\n    --cw-ease: cubic-bezier(.23, 1, .32, 1);\n    --cw-drawer: cubic-bezier(.32, .72, 0, 1);\n    --cw-base: var(--mainFontSize, 15px);\n    position: fixed; inset: 0; z-index: 10010;\n    width: 100%; height: 100vh; height: 100dvh; height: var(--cw-vh, 100dvh);\n    margin: 0; padding: 0;\n    color: var(--cw-text);\n    font-size: calc(var(--cw-base) * var(--cw-k, 1));\n    line-height: 1.5;\n    text-shadow: none;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #cw-root {\n        --cw-muted: color-mix(in srgb, var(--cw-text) 62%, transparent);\n        --cw-surface: color-mix(in srgb, var(--cw-text) 5%, transparent);\n        --cw-raised: color-mix(in srgb, var(--cw-text) 10%, transparent);\n        --cw-rule: color-mix(in srgb, var(--cw-line) 60%, transparent);\n        --cw-accent-soft: color-mix(in srgb, var(--cw-accent) 16%, transparent);\n    }\n}\n#cw-root[data-fs=\"s\"] { --cw-k: .9; }\n#cw-root[data-fs=\"l\"] { --cw-k: 1.12; }\n@media (pointer: coarse) { #cw-root { --cw-row: 44px; } }\n@media (max-width: 959px) { #cw-root { --cw-base: min(var(--mainFontSize, 15px), 15px); } }\n#cw-root[hidden] { display: none; }\nhtml.cw-open body { overflow: hidden; }\n#cw-root *, #cw-root *::before, #cw-root *::after { box-sizing: border-box; }\n#cw-root :where(b, strong, p, span, label, small, em, details, summary, li, h1, h2, h3, h4) { color: inherit; }\n#cw-root :where(h1, h2, h3, h4, p, ul, ol, dl, figure) { margin: 0; }\n#cw-root :where(button, input, select, textarea) { font: inherit; color: inherit; }\n#cw-root [hidden] { display: none !important; }\n#cw-root .cw-ico { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#cw-root .cw-stitch { stroke-dasharray: 2.4 2.2; }\n#cw-root ::selection { background: var(--cw-accent-soft); }\n#cw-root :focus-visible { outline: 2px solid var(--cw-accent); outline-offset: 1px; }\n#cw-root mark { background: color-mix(in srgb, var(--cw-accent) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }\n#cw-root code { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: .92em; background: var(--cw-raised); padding: 0 4px; border-radius: 4px; }\n#cw-root .cw-num { font-variant-numeric: tabular-nums; }\n\n/* ---------- 外壳 ---------- */\n#cw-root .cw-app {\n    position: absolute; inset: 0; overflow: hidden;\n    display: grid; grid-template-columns: var(--cw-side) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);\n    background: var(--cw-bg);\n}\n#cw-root .cw-side {\n    display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto;\n    padding: calc(14px + var(--cw-sat, env(safe-area-inset-top))) 10px calc(12px + var(--cw-sab, env(safe-area-inset-bottom))) calc(10px + env(safe-area-inset-left));\n    border-right: 1px solid var(--cw-rule);\n    background: color-mix(in srgb, var(--cw-text) 2.5%, transparent);\n}\n#cw-root .cw-brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; white-space: nowrap; min-width: 0; }\n#cw-root .cw-brand .cw-logo { display: inline-flex; color: var(--cw-accent); }\n#cw-root .cw-brand .cw-logo .cw-ico { width: 22px; height: 22px; }\n#cw-root .cw-brand b { font-size: var(--cw-fs-l); overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-brand small { color: var(--cw-muted); font-size: var(--cw-fs-xs); align-self: flex-end; margin-bottom: .2em; }\n#cw-root .cw-scope {\n    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 6px;\n    width: 100%; margin: 0 0 14px; padding: 7px 10px; text-align: left; cursor: pointer;\n    border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface);\n}\n#cw-root .cw-scope small { grid-column: 1 / -1; color: var(--cw-muted); font-size: var(--cw-fs-xs); line-height: 1.3; }\n#cw-root .cw-scope span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }\n#cw-root .cw-scope .cw-using { font-weight: 400; color: var(--cw-accent); font-size: var(--cw-fs-xs); margin-left: 4px; }\n#cw-root .cw-scope .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; }\n#cw-root .cw-nav { display: grid; gap: 2px; }\n#cw-root .cw-nav + .cw-nav { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-nav button {\n    display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px;\n    border: 0; border-radius: 8px; background: none; cursor: pointer; color: var(--cw-muted); text-align: left;\n}\n#cw-root .cw-nav button[aria-current=\"page\"] { background: var(--cw-raised); color: var(--cw-text); font-weight: 600; }\n#cw-root .cw-nav button[aria-current=\"page\"] .cw-ico { color: var(--cw-accent); }\n@media (hover: hover) { #cw-root .cw-nav button:hover { color: var(--cw-text); } }\n#cw-root .cw-side-foot { margin-top: auto; padding: 10px 10px 0; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n\n#cw-root .cw-main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }\n#cw-root .cw-top {\n    display: flex; align-items: center; gap: 10px; min-height: 52px;\n    padding: calc(6px + var(--cw-sat, 0px)) calc(12px + env(safe-area-inset-right)) 6px 20px;\n    border-bottom: 1px solid var(--cw-rule);\n}\n#cw-root .cw-top-title { font-size: var(--cw-fs-l); font-weight: 600; white-space: nowrap; }\n#cw-root .cw-top .cw-mobile-only { display: none; }\n#cw-root .cw-top-gap { flex: 1 1 auto; }\n#cw-root .cw-save { display: flex; align-items: center; gap: 6px; min-width: 0; }\n#cw-root .cw-save-text { font-size: var(--cw-fs-s); color: var(--cw-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-save-text.bad { color: var(--cw-warn); }\n#cw-root .cw-save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cw-ok); flex: none; }\n#cw-root .cw-save-dot.busy { background: var(--cw-accent); animation: cw-pulse 1s ease-in-out infinite; }\n#cw-root .cw-save-dot.bad { background: var(--cw-warn); }\n@keyframes cw-pulse { 50% { opacity: .3; } }\n#cw-root .cw-stage { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; position: relative; }\n#cw-root .cw-stage.cw-has-detail { grid-template-columns: minmax(0, 1fr) var(--cw-detail); }\n#cw-root .cw-pages { position: relative; min-height: 0; min-width: 0; }\n#cw-root .cw-page { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }\n#cw-root .cw-tabbar { display: none; }\n#cw-root .cw-layer { position: absolute; inset: 0; pointer-events: none; z-index: 30; }\n#cw-root .cw-layer > * { pointer-events: auto; }\n\n/* 窄屏：顶栏 + 底部页签 */\n@media (max-width: 959px) {\n    #cw-root .cw-app { grid-template-columns: minmax(0, 1fr); }\n    #cw-root .cw-side { display: none; }\n    #cw-root .cw-top { padding-left: calc(10px + env(safe-area-inset-left)); gap: 6px; min-height: 48px; }\n    #cw-root .cw-top .cw-mobile-only { display: flex; }\n    #cw-root .cw-top .cw-desk-only { display: none; }\n    #cw-root .cw-top .cw-logo { color: var(--cw-accent); display: inline-flex; }\n    #cw-root .cw-top .cw-logo .cw-ico { width: 22px; height: 22px; }\n    #cw-root .cw-top .cw-scope { margin: 0; width: auto; min-width: 0; flex: 1 1 auto; max-width: 62%; padding: 4px 9px; display: flex; gap: 4px; }\n    #cw-root .cw-top .cw-scope small { display: none; }\n    #cw-root .cw-top .cw-top-gap { flex: 0 1 auto; }\n    #cw-root .cw-save-text { max-width: 28vw; }\n    #cw-root .cw-tabbar {\n        display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));\n        border-top: 1px solid var(--cw-rule);\n        padding: 0 env(safe-area-inset-right) var(--cw-sab, env(safe-area-inset-bottom)) env(safe-area-inset-left);\n        background: color-mix(in srgb, var(--cw-text) 2.5%, transparent);\n    }\n    #cw-root .cw-tabbar button {\n        display: grid; justify-items: center; gap: 2px; padding: 7px 0 6px; border: 0; background: none; cursor: pointer;\n        color: var(--cw-muted); font-size: var(--cw-fs-xs);\n    }\n    #cw-root .cw-tabbar .cw-ico { width: 22px; height: 22px; }\n    #cw-root .cw-tabbar button[aria-current=\"page\"] { color: var(--cw-text); font-weight: 600; }\n    #cw-root .cw-tabbar button[aria-current=\"page\"] .cw-ico { color: var(--cw-accent); }\n    #cw-root .cw-stage.cw-has-detail { grid-template-columns: minmax(0, 1fr); }\n}\n\n/* ---------- 页面骨架 ---------- */\n#cw-root .cw-pagehead {\n    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;\n    padding: 12px 20px 10px; border-bottom: 1px solid transparent;\n}\n#cw-root .cw-pagehead .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px 20px 28px; }\n/* 正文列：宽屏上限 880px，居中 */\n#cw-root .cw-col { width: 100%; max-width: 880px; margin-inline: auto; }\n#cw-root .cw-pagehead > .cw-col, #cw-root .cw-bar > .cw-col { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n@media (max-width: 959px) {\n    #cw-root .cw-pagehead { padding: 10px 12px 8px; }\n    #cw-root .cw-body { padding: 2px 12px 24px; }\n}\n#cw-root .cw-bar {\n    flex: none; padding: 10px 20px calc(10px + var(--cw-safe-bottom, 0px));\n    border-top: 1px solid var(--cw-rule); background: var(--cw-bg);\n    box-shadow: 0 -6px 18px rgba(0, 0, 0, .06);\n}\n@media (max-width: 959px) { #cw-root .cw-bar { padding: 8px 12px; } }\n#cw-root .cw-bar-info { display: grid; min-width: 0; margin-right: auto; }\n#cw-root .cw-bar-info b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-bar-info small { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-bar-acts { display: flex; gap: 6px; flex-wrap: wrap; }\n#cw-root .cw-sec { margin-top: 22px; }\n#cw-root .cw-sec:first-child { margin-top: 8px; }\n#cw-root .cw-sec-h { display: flex; align-items: center; gap: 8px; min-height: 32px; margin-bottom: 8px; }\n#cw-root .cw-sec-h h2, #cw-root .cw-sec-h h3 { font-size: 1em; font-weight: 600; }\n#cw-root .cw-sec-h .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-sec-h small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n\n/* ---------- 文字 ---------- */\n#cw-root .cw-p { margin: 0 0 8px; }\n#cw-root .cw-hint { color: var(--cw-muted); font-size: var(--cw-fs-s); margin: 4px 0; }\n#cw-root .cw-pad { padding: 12px; }\n#cw-root .cw-warn-text { color: var(--cw-warn); }\n#cw-root .cw-ok-text { color: var(--cw-ok); }\n#cw-root .cw-dim { color: var(--cw-muted); }\n#cw-root .cw-pre { margin: 6px 0 0; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); line-height: 1.55; background: var(--cw-input); border-radius: var(--cw-r-s); max-height: 50vh; overflow: auto; }\n#cw-root .cw-bullets { margin: 4px 0; padding-left: 1.25em; display: grid; gap: 4px; }\n#cw-root .cw-empty { display: grid; justify-items: center; gap: 10px; padding: 36px 16px; color: var(--cw-muted); text-align: center; }\n\n/* ---------- 按钮 ---------- */\n#cw-root .cw-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: var(--cw-h); padding: 0 14px; border: 1px solid var(--cw-line); border-radius: 8px;\n    background: var(--cw-surface); cursor: pointer; white-space: nowrap; font-weight: 500; text-decoration: none;\n    -webkit-tap-highlight-color: transparent; transition: transform .12s var(--cw-ease);\n}\n#cw-root .cw-btn .cw-ico { width: 1.05em; height: 1.05em; }\n#cw-root .cw-btn:not(:disabled):active, #cw-root .cw-ibtn:not(:disabled):active, #cw-root .cw-seg button:active { transform: scale(.97); }\n#cw-root .cw-btn:disabled { opacity: .45; cursor: default; }\n#cw-root .cw-btn-primary { background: var(--cw-accent); border-color: var(--cw-accent); color: var(--cw-on-accent); font-weight: 600; }\n#cw-root .cw-btn-primary:disabled { opacity: 1; background: transparent; border-color: var(--cw-line); color: var(--cw-muted); }\n#cw-root .cw-btn-danger { color: var(--cw-warn); border-color: color-mix(in srgb, var(--cw-warn) 55%, transparent); background: transparent; }\n#cw-root .cw-btn-ghost { border-color: transparent; background: transparent; }\n#cw-root .cw-btn-quiet { border-color: transparent; background: transparent; color: var(--cw-accent); padding: 0 6px; min-height: var(--cw-h-s); }\n#cw-root .cw-btn-sm { min-height: var(--cw-h-s); padding: 0 10px; font-size: var(--cw-fs-s); border-radius: var(--cw-r-s); }\n#cw-root .cw-btn.on { border-color: var(--cw-accent); color: var(--cw-accent); }\n@media (hover: hover) {\n    #cw-root .cw-btn:not(:disabled):not(.cw-btn-primary):hover { background: var(--cw-raised); }\n    #cw-root .cw-btn-quiet:not(:disabled):hover { background: var(--cw-accent-soft) !important; }\n}\n#cw-root .cw-ibtn {\n    display: inline-flex; align-items: center; justify-content: center; flex: none;\n    width: var(--cw-h); height: var(--cw-h); padding: 0; border: 0; border-radius: 8px; background: none; cursor: pointer;\n    color: var(--cw-muted); -webkit-tap-highlight-color: transparent; transition: transform .12s var(--cw-ease);\n}\n#cw-root .cw-ibtn .cw-ico { width: 20px; height: 20px; }\n#cw-root .cw-ibtn[aria-pressed=\"true\"], #cw-root .cw-ibtn.on { color: var(--cw-accent); background: var(--cw-accent-soft); }\n#cw-root .cw-ibtn:disabled { opacity: .4; cursor: default; }\n@media (hover: hover) { #cw-root .cw-ibtn:not(:disabled):hover { background: var(--cw-raised); color: var(--cw-text); } }\n#cw-root .cw-ibtn.cw-busy .cw-ico { animation: cw-pulse .9s ease-in-out infinite; }\n#cw-root .cw-ibtn.cw-spin .cw-ico, #cw-root .cw-btn.cw-spin .cw-ico { animation: cw-spin .8s linear infinite; }\n@keyframes cw-spin { to { transform: rotate(360deg); } }\n#cw-root .cw-link { border: 0; background: none; padding: 2px 4px; color: var(--cw-accent); cursor: pointer; font: inherit; text-decoration: none; border-radius: 4px; }\n@media (hover: hover) { #cw-root .cw-link:hover { text-decoration: underline; text-underline-offset: 3px; } }\n#cw-root .cw-link:disabled { color: var(--cw-muted); cursor: default; text-decoration: none; }\n\n/* ---------- 表单 ---------- */\n#cw-root .cw-input, #cw-root .cw-select {\n    width: 100%; min-height: var(--cw-h); padding: 6px 10px;\n    border: 1px solid var(--cw-line) !important; border-radius: 8px !important;\n    background: var(--cw-input) !important; background-image: none !important; box-shadow: none !important;\n    color: var(--cw-text) !important; -webkit-text-fill-color: var(--cw-text) !important; caret-color: var(--cw-text);\n    font-size: 1em; margin: 0 !important; -webkit-appearance: none; appearance: none;\n}\n#cw-root .cw-input::placeholder { color: var(--cw-muted) !important; -webkit-text-fill-color: var(--cw-muted) !important; opacity: 1; }\n#cw-root textarea.cw-input { min-height: 120px; resize: vertical; line-height: 1.55; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); white-space: pre-wrap; }\n#cw-root .cw-input:focus, #cw-root .cw-select:focus { outline: 2px solid var(--cw-accent); outline-offset: -1px; }\n#cw-root .cw-input[aria-invalid=\"true\"] { border-color: var(--cw-warn) !important; }\n#cw-root .cw-select { padding-right: 30px; background-image: linear-gradient(45deg, transparent 50%, var(--cw-muted) 50%), linear-gradient(135deg, var(--cw-muted) 50%, transparent 50%) !important; background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52% !important; background-size: 5px 5px, 5px 5px !important; background-repeat: no-repeat !important; }\n#cw-root .cw-select option { background: var(--cw-bg); color: var(--cw-text); }\n@supports (-webkit-touch-callout: none) { #cw-root .cw-input, #cw-root .cw-select { font-size: max(16px, 1em); } }\n#cw-root .cw-field { display: grid; gap: 5px; }\n#cw-root .cw-field > span:first-child, #cw-root .cw-label { color: var(--cw-muted); font-size: var(--cw-fs-s); display: flex; align-items: center; gap: 6px; }\n#cw-root .cw-field-err { color: var(--cw-warn); font-size: var(--cw-fs-s); }\n#cw-root .cw-form { display: grid; gap: 14px; }\n#cw-root .cw-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }\n#cw-root .cw-check { display: inline-flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.45; }\n#cw-root .cw-check input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; accent-color: var(--cw-accent); }\n#cw-root .cw-check small { display: block; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-inline-input { min-height: 30px; padding: 2px 8px; }\n#cw-root .cw-pick-btn {\n    display: inline-flex; align-items: center; gap: 6px; min-height: var(--cw-h); min-width: 0; max-width: 100%;\n    padding: 0 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-input); cursor: pointer; text-align: left;\n}\n#cw-root .cw-pick-btn > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-pick-btn .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; margin-left: auto; }\n#cw-root .cw-pick-btn small { color: var(--cw-accent); font-size: var(--cw-fs-xs); white-space: nowrap; }\n\n/* 开关：36×20；部分开启时滑块居中 */\n#cw-root .cw-switch { position: relative; display: inline-block; width: 36px; height: 20px; flex: none; cursor: pointer; }\n#cw-root .cw-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }\n#cw-root .cw-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--cw-raised); border: 1px solid var(--cw-control); pointer-events: none; transition: background-color .16s var(--cw-ease), border-color .16s var(--cw-ease); }\n#cw-root .cw-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--cw-text); opacity: .6; transition: transform .16s var(--cw-ease), opacity .16s var(--cw-ease); }\n#cw-root .cw-switch input:checked + i { background: var(--cw-accent); border-color: var(--cw-accent); }\n#cw-root .cw-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: var(--cw-on-accent); }\n#cw-root .cw-switch input:indeterminate + i, #cw-root .cw-switch input[data-mixed=\"1\"] + i { background: var(--cw-raised); border-color: var(--cw-accent); }\n#cw-root .cw-switch input:indeterminate + i::after, #cw-root .cw-switch input[data-mixed=\"1\"] + i::after { transform: translateX(8px); opacity: 1; background: var(--cw-accent); }\n#cw-root .cw-switch input:focus-visible + i { outline: 2px solid var(--cw-accent); outline-offset: 2px; }\n#cw-root .cw-switch input:disabled + i { opacity: .45; }\n#cw-root .cw-switch-s { width: 30px; height: 17px; }\n#cw-root .cw-switch-s i::after { width: 11px; height: 11px; }\n#cw-root .cw-switch-s input:checked + i { background: transparent; border: 1.5px solid var(--cw-accent); }\n#cw-root .cw-switch-s input:checked + i::after { transform: translateX(13px); background: var(--cw-accent); }\n#cw-root .cw-switch-s input[data-mixed=\"1\"] + i::after { transform: translateX(6.5px); }\n\n/* 分段控件、下划线页签 */\n#cw-root .cw-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--cw-raised); max-width: 100%; overflow-x: auto; scrollbar-width: none; }\n#cw-root .cw-seg::-webkit-scrollbar { display: none; }\n#cw-root .cw-seg button { flex: none; border: 0; background: none; padding: 0 12px; min-height: 30px; border-radius: 7px; cursor: pointer; color: var(--cw-muted); white-space: nowrap; transition: transform .12s var(--cw-ease); }\n#cw-root .cw-seg button.on { background: var(--cw-bg); color: var(--cw-text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 0 0 1px var(--cw-rule); }\n#cw-root .cw-seg-sm button { min-height: 26px; padding: 0 10px; font-size: var(--cw-fs-s); }\n#cw-root .cw-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--cw-rule); overflow-x: auto; scrollbar-width: none; }\n#cw-root .cw-tabs::-webkit-scrollbar { display: none; }\n#cw-root .cw-tabs button { flex: none; border: 0; background: none; padding: 8px 10px; margin-bottom: -1px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--cw-muted); white-space: nowrap; }\n#cw-root .cw-tabs button.on { color: var(--cw-text); font-weight: 600; border-bottom-color: var(--cw-accent); }\n\n/* ---------- 卡片、胶囊、提示 ---------- */\n#cw-root .cw-card { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); padding: 12px 14px; }\n#cw-root .cw-card + .cw-card { margin-top: 8px; }\n#cw-root .cw-card-h { display: flex; align-items: center; gap: 8px; }\n#cw-root .cw-card-h b { flex: 0 1 auto; min-width: 0; }\n#cw-root .cw-card-h .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-card-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }\n#cw-root .cw-card-warn { border-color: color-mix(in srgb, var(--cw-warn) 50%, var(--cw-line)); }\n#cw-root .cw-note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-surface); border: 1px solid var(--cw-line); }\n#cw-root .cw-note > .cw-ico { margin-top: .15em; color: var(--cw-muted); }\n#cw-root .cw-note-warn { border-color: color-mix(in srgb, var(--cw-warn) 45%, var(--cw-line)); }\n#cw-root .cw-note-warn > .cw-ico { color: var(--cw-warn); }\n#cw-root .cw-note-ok > .cw-ico { color: var(--cw-ok); }\n#cw-root .cw-note > div { min-width: 0; flex: 1 1 auto; }\n#cw-root .cw-pill { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 0 8px; min-height: 20px; border-radius: 999px; font-size: var(--cw-fs-xs); line-height: 1.6; white-space: nowrap; max-width: 14em; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-pill .cw-ico { width: 1em; height: 1em; }\n#cw-root .cw-pill-muted { background: var(--cw-raised); color: var(--cw-muted); }\n#cw-root .cw-pill-line { border: 1px solid var(--cw-line); color: var(--cw-muted); }\n#cw-root .cw-pill-accent { background: var(--cw-accent-soft); color: var(--cw-accent); }\n#cw-root .cw-pill-ok { background: color-mix(in srgb, var(--cw-ok) 16%, transparent); color: var(--cw-ok); }\n#cw-root .cw-pill-warn { background: color-mix(in srgb, var(--cw-warn) 16%, transparent); color: var(--cw-warn); }\n#cw-root .cw-tipbtn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; border: 0; background: none; color: var(--cw-muted); cursor: pointer; border-radius: 50%; padding: 0; }\n#cw-root .cw-tipbtn .cw-ico { width: 17px; height: 17px; }\n#cw-root .cw-tipbtn[aria-expanded=\"true\"] { color: var(--cw-accent); }\n#cw-root .cw-tipnote { margin: 4px 0 10px; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-surface); color: var(--cw-muted); font-size: var(--cw-fs-s); display: grid; gap: 6px; }\n#cw-root .cw-fold { border-radius: var(--cw-r); }\n#cw-root .cw-fold > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; padding: 6px 0; color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-fold > summary::-webkit-details-marker { display: none; }\n#cw-root .cw-fold > summary > .cw-ico { width: 1em; height: 1em; transition: transform .16s var(--cw-ease); }\n#cw-root .cw-fold[open] > summary > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-fold-body { padding: 4px 0 6px; }\n#cw-root .cw-meter { display: block; height: 6px; border-radius: 999px; background: var(--cw-raised); overflow: hidden; min-width: 40px; }\n#cw-root .cw-meter b { display: block; height: 100%; background: var(--cw-accent); border-radius: 999px; opacity: .8; }\n#cw-root .cw-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; font-size: var(--cw-fs-s); }\n#cw-root .cw-kv dt, #cw-root .cw-kv > span { color: var(--cw-muted); }\n#cw-root .cw-kv dd { margin: 0; overflow-wrap: anywhere; }\n#cw-root .cw-stats { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); border: 1px solid var(--cw-line); border-radius: var(--cw-r); overflow: hidden; background: var(--cw-surface); }\n#cw-root .cw-stats > * { display: grid; gap: 1px; padding: 9px 6px 8px; text-align: center; border: 0; border-left: 1px solid var(--cw-rule); background: none; color: inherit; font: inherit; }\n#cw-root .cw-stats > :first-child { border-left: 0; }\n#cw-root .cw-stats b { font-size: var(--cw-fs-xl); line-height: 1.2; font-variant-numeric: tabular-nums; font-weight: 600; }\n#cw-root .cw-stats span { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; }\n#cw-root .cw-stats button { cursor: pointer; box-shadow: inset 0 -2px 0 transparent; }\n#cw-root .cw-stats button.on { box-shadow: inset 0 -2px 0 var(--cw-accent); }\n#cw-root .cw-stats button.on span { color: var(--cw-text); }\n\n/* ---------- 弹窗 ---------- */\n#cw-root .cw-scrim { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--cw-scrim); animation: cw-fade .16s var(--cw-ease); }\n#cw-root .cw-scrim.cw-out { opacity: 0; transition: opacity .15s var(--cw-ease); }\n#cw-root .cw-dlg {\n    position: relative; display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: min(86%, 900px);\n    border: 1px solid var(--cw-line); border-radius: var(--cw-r-l); background: var(--cw-bg); box-shadow: var(--cw-shadow);\n    animation: cw-pop .16s var(--cw-ease); outline: none;\n}\n#cw-root .cw-dlg[data-size=\"sm\"] { max-width: 420px; }\n#cw-root .cw-dlg[data-size=\"lg\"] { max-width: 820px; }\n#cw-root .cw-dlg[data-size=\"full\"] { max-width: 1100px; height: 92%; max-height: none; }\n#cw-root .cw-dlg[data-size=\"tall\"] { height: min(80%, 720px); }\n#cw-root .cw-dlg-head { display: flex; align-items: flex-start; gap: 8px; padding: 14px 10px 10px 18px; border-bottom: 1px solid var(--cw-rule); }\n#cw-root .cw-dlg-title { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; padding-top: 5px; }\n#cw-root .cw-dlg-title b { font-size: 1.05em; overflow-wrap: anywhere; }\n#cw-root .cw-dlg-title small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 18px 16px; }\n#cw-root .cw-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 10px 18px calc(12px + var(--cw-sab, 0px)); border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-dlg[data-size=\"sm\"] .cw-dlg-foot { border-top: 0; padding-top: 0; }\n@keyframes cw-fade { from { opacity: 0; } }\n@keyframes cw-pop { from { opacity: 0; transform: scale(.98); } }\n@keyframes cw-up { from { transform: translateY(100%); } }\n@media (max-width: 959px) {\n    #cw-root .cw-scrim { align-items: flex-end; padding: 0; }\n    #cw-root .cw-dlg { max-width: none; max-height: calc(var(--cw-vh, 100dvh) - var(--cw-sat, 0px) - 24px); border-radius: var(--cw-r-l) var(--cw-r-l) 0 0; border-bottom: 0; animation: cw-up .24s var(--cw-drawer); }\n    #cw-root .cw-dlg[data-size=\"full\"], #cw-root .cw-dlg[data-size=\"tall\"] { height: calc(var(--cw-vh, 100dvh) - var(--cw-sat, 0px) - 24px); }\n    #cw-root .cw-scrim[data-size=\"sm\"] { align-items: center; padding: 20px; }\n    #cw-root .cw-scrim[data-size=\"sm\"] .cw-dlg { border-radius: var(--cw-r-l); border-bottom: 1px solid var(--cw-line); animation: cw-pop .16s var(--cw-ease); }\n    #cw-root .cw-dlg-head { padding-left: 16px; }\n    #cw-root .cw-dlg-body { padding: 12px 16px 14px; }\n    #cw-root .cw-dlg-foot { padding-left: 16px; padding-right: 16px; }\n    #cw-root .cw-dlg-foot .cw-btn { flex: 1 1 auto; }\n}\n\n/* 贴着按钮的菜单 */\n#cw-root .cw-pop-scrim { position: absolute; inset: 0; }\n#cw-root .cw-pop-scrim.cw-out .cw-pop { opacity: 0; transform: scale(.97); transition: opacity .12s var(--cw-ease), transform .12s var(--cw-ease); }\n#cw-root .cw-pop { position: absolute; overflow-y: auto; padding: 5px; border: 1px solid var(--cw-line); border-radius: 12px; background: var(--cw-bg); box-shadow: var(--cw-shadow); animation: cw-menu .14s var(--cw-ease); outline: none; }\n@keyframes cw-menu { from { opacity: 0; transform: scale(.96); } }\n#cw-root .cw-menu-title { padding: 6px 10px 4px; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-menu-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; min-height: 38px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }\n#cw-root .cw-menu-item small { grid-column: 1; color: var(--cw-muted); font-size: var(--cw-fs-xs); line-height: 1.4; }\n#cw-root .cw-menu-item .cw-ico { grid-row: 1 / span 2; grid-column: 2; color: var(--cw-accent); }\n#cw-root .cw-menu-item.cw-danger { color: var(--cw-warn); }\n#cw-root .cw-menu-item:disabled { opacity: .45; cursor: default; }\n@media (hover: hover) { #cw-root .cw-menu-item:not(:disabled):hover, #cw-root .cw-choice:hover { background: var(--cw-raised); } }\n#cw-root .cw-menu-item:focus-visible { outline-offset: -2px; }\n#cw-root .cw-menu-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }\n#cw-root .cw-menu-sep { border: 0; border-top: 1px solid var(--cw-rule); margin: 4px 6px; }\n#cw-root .cw-menu-flat { display: grid; gap: 2px; margin: 0 -6px; }\n#cw-root .cw-chooser { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }\n#cw-root .cw-chooser-top { display: flex; gap: 8px; flex: none; }\n#cw-root .cw-chooser-list { display: grid; gap: 1px; align-content: start; overflow-y: auto; min-height: 0; margin: 0 -6px; }\n#cw-root .cw-dlg[data-size=\"tall\"] .cw-dlg-body { display: flex; flex-direction: column; }\n#cw-root .cw-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }\n#cw-root .cw-choice > span { overflow-wrap: anywhere; }\n#cw-root .cw-choice small { grid-column: 1; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-choice .cw-ico { grid-row: 1 / span 2; grid-column: 2; color: var(--cw-accent); }\n#cw-root .cw-choice.on { background: var(--cw-accent-soft); }\n\n/* 详情栏（宽屏在右侧，窄屏整屏推入） */\n#cw-root .cw-detail { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--cw-rule); background: var(--cw-bg); }\n#cw-root .cw-detail-head { display: flex; align-items: center; gap: 6px; padding: 10px 8px 10px 16px; border-bottom: 1px solid var(--cw-rule); min-height: 52px; }\n#cw-root .cw-detail-head b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-detail-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 16px; }\n#cw-root .cw-detail-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--cw-rule); }\n@media (max-width: 959px) {\n    #cw-root .cw-detail { position: absolute; inset: 0; z-index: 20; border-left: 0; animation: cw-in-right .24s var(--cw-drawer); }\n    #cw-root .cw-detail-head { padding-left: 4px; }\n    #cw-root .cw-detail-foot .cw-btn { flex: 1 1 auto; }\n}\n@keyframes cw-in-right { from { transform: translateX(100%); } }\n\n@media (prefers-reduced-motion: reduce) {\n    #cw-root *, #cw-root *::before, #cw-root *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }\n}\n\n/* 换聊天时的预设、模型提示（酒馆的 toastr，在面板之外） */\n#toast-container > .toast.cw-chat-toast { width: auto; min-width: 0; max-width: min(300px, calc(100vw - 32px)); padding: 7px 12px 7px 38px; background-position: 11px center; background-size: 18px; font-size: 13px; line-height: 1.35; }\n#toast-container > .toast.cw-chat-toast .toast-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#toast-container > .toast.cw-chat-toast .toast-message { white-space: pre-line; overflow-wrap: anywhere; opacity: .85; }\n\n/* 悬浮球（在面板之外，跟随酒馆主题） */\n#cw-ball { position: fixed; z-index: 10005; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(28,26,30,.92)); color: var(--SmartThemeQuoteColor, #e0a24a); box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 18px; cursor: pointer; opacity: .88; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }\n#cw-ball.cw-ball-drag { will-change: transform; opacity: 1; }\n@media (hover: hover) { #cw-ball:hover { opacity: 1; } }\nhtml.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }\n\n/* ---------- 预设页：工具行、选位置条 ---------- */\n#cw-root .cw-view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }\n#cw-root .cw-viewtools { display: flex; gap: 6px; align-items: center; }\n#cw-root .cw-toolrow { flex: none; padding: 0 20px 10px; }\n#cw-root .cw-toolrow > .cw-col { display: flex; gap: 8px; align-items: center; }\n@media (max-width: 959px) { #cw-root .cw-toolrow { padding: 0 12px 8px; } #cw-root .cw-toolrow .cw-btn span { display: none; } #cw-root .cw-toolrow .cw-btn { padding: 0 10px; } }\n#cw-root .cw-search { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: var(--cw-h); padding: 0 4px 0 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-input); cursor: text; }\n#cw-root .cw-search > .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; }\n#cw-root .cw-search input { flex: 1 1 auto; min-width: 0; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; padding: 6px 0; color: var(--cw-text); -webkit-text-fill-color: var(--cw-text); margin: 0; -webkit-appearance: none; appearance: none; }\n#cw-root .cw-search input::placeholder { color: var(--cw-muted); -webkit-text-fill-color: var(--cw-muted); }\n#cw-root .cw-search:focus-within { outline: 2px solid var(--cw-accent); outline-offset: -1px; }\n#cw-root .cw-search-x { width: 28px; height: 28px; visibility: hidden; }\n#cw-root .cw-search.has-q .cw-search-x { visibility: visible; }\n#cw-root .cw-placebar { flex: none; padding: 8px 20px; background: var(--cw-accent-soft); border-block: 1px solid color-mix(in srgb, var(--cw-accent) 30%, transparent); }\n#cw-root .cw-placebar > .cw-col { display: flex; align-items: center; gap: 8px; }\n#cw-root .cw-placebar-info { display: grid; min-width: 0; margin-right: auto; }\n#cw-root .cw-placebar-info small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-place-steps { display: flex; gap: 2px; align-items: center; }\n@media (max-width: 959px) { #cw-root .cw-placebar { padding: 8px 12px; } }\n\n/* ---------- 条目列表 ---------- */\n#cw-root .cw-listwrap { position: relative; }\n#cw-root .cw-banners { display: grid; gap: 8px; }\n#cw-root .cw-banners:not(:empty) { margin: 2px 0 10px; }\n#cw-root .cw-list { display: grid; gap: 4px; }\n#cw-root .cw-qsum { padding: 4px 2px 8px; color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-loose, #cw-root .cw-gbody { content-visibility: auto; contain-intrinsic-height: auto calc(var(--n, 1) * (var(--cw-row) + 2px) + 8px); }\n#cw-root .cw-row {\n    position: relative; display: flex; align-items: center; gap: 8px;\n    min-height: var(--cw-row); padding: 2px 4px 2px 10px; border-radius: 8px; cursor: pointer;\n    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;\n}\n@media (hover: hover) { #cw-root .cw-row:hover { background: var(--cw-surface); } }\n#cw-root .cw-row-sel { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--cw-control); transition: background-color .12s var(--cw-ease), border-color .12s var(--cw-ease); }\n#cw-root .cw-row.is-sel { background: var(--cw-accent-soft); }\n#cw-root .cw-row.is-sel .cw-row-sel, #cw-root .cw-gsel[aria-pressed=\"true\"] .cw-row-sel { border-color: var(--cw-accent); background: var(--cw-accent) var(--cw-check) center / 12px no-repeat; }\n#cw-root .cw-row.is-editing { box-shadow: inset 2px 0 0 var(--cw-accent); background: var(--cw-surface); }\n#cw-root .cw-row-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-row-hit { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-row.is-off .cw-row-name { color: var(--cw-muted); }\n#cw-root .cw-row.is-sep .cw-row-name { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-row-tags { display: inline-flex; gap: 4px; flex: none; max-width: 38%; overflow: hidden; }\n#cw-root .cw-row-edit { width: 32px; height: 32px; opacity: .7; }\n@media (hover: hover) { #cw-root .cw-row-edit { opacity: 0; } #cw-root .cw-row:hover .cw-row-edit, #cw-root .cw-row:focus-within .cw-row-edit { opacity: 1; } }\n#cw-root .cw-handle { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: calc(var(--cw-row) - 6px); flex: none; color: var(--cw-muted); cursor: grab; touch-action: none; border-radius: 8px; }\n#cw-root .cw-handle:active { cursor: grabbing; background: var(--cw-raised); }\n#cw-root .cw-row.is-dragging, #cw-root .cw-group.is-dragging { opacity: .35; }\n#cw-root .cw-row.cw-flash { animation: cw-flash 1.4s var(--cw-ease); }\n@keyframes cw-flash { 0%, 30% { background: var(--cw-accent-soft); box-shadow: inset 2px 0 0 var(--cw-accent); } 100% { background: transparent; box-shadow: none; } }\n/* 分组：左边一道缝线 */\n#cw-root .cw-group { position: relative; padding-left: 12px; }\n#cw-root .cw-group::before { content: \"\"; position: absolute; left: 3px; top: 8px; bottom: 8px; border-left: 2px dashed var(--cw-accent); opacity: .7; }\n#cw-root .cw-group.is-off { opacity: .62; }\n#cw-root .cw-group.is-off::before { border-left-color: var(--cw-muted); }\n#cw-root .cw-group.is-sel > .cw-ghead { background: var(--cw-accent-soft); }\n#cw-root .cw-ghead { display: flex; align-items: center; gap: 6px; min-height: var(--cw-row); padding: 2px 4px 2px 6px; border-radius: 8px; border-bottom: 1px solid var(--cw-rule); cursor: pointer; user-select: none; -webkit-user-select: none; }\n#cw-root .cw-gsel { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; flex: none; }\n#cw-root .cw-gname { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; cursor: pointer; text-align: left; font-weight: 600; }\n#cw-root .cw-gname > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-gname em { font-style: normal; font-weight: 400; color: var(--cw-warn); font-size: var(--cw-fs-xs); white-space: nowrap; }\n#cw-root .cw-gname > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transform: rotate(90deg); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-group.is-col .cw-gname > .cw-ico { transform: none; }\n#cw-root .cw-gcount { color: var(--cw-muted); font-size: var(--cw-fs-s); white-space: nowrap; margin-right: 2px; }\n#cw-root .cw-gbody { padding: 2px 0 6px; }\n#cw-root .cw-group.is-col .cw-gbody { display: none; }\n#cw-root .cw-gempty { color: var(--cw-muted); font-size: var(--cw-fs-s); padding: 6px 10px; }\n#cw-root .cw-group.is-empty .cw-ghead { border-bottom-style: dashed; }\n/* 选位置 */\n#cw-root .cw-slot { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; padding: 0 10px; margin: 2px 0; border: 1px dashed var(--cw-line); border-radius: 8px; background: transparent; color: var(--cw-muted); cursor: pointer; text-align: left; font-size: var(--cw-fs-s); }\n#cw-root .cw-slot .cw-ico { width: 1em; height: 1em; }\n@media (hover: hover) { #cw-root .cw-slot:hover { color: var(--cw-accent); border-color: var(--cw-accent); } }\n#cw-root .cw-insert { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; padding: 3px 10px; border-radius: 6px; background: var(--cw-accent); color: var(--cw-on-accent); font-size: var(--cw-fs-s); font-weight: 600; }\n#cw-root .cw-insert .cw-ico { width: 1em; height: 1em; }\n#cw-root .cw-row.is-at { background: var(--cw-accent-soft); box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-group.has-at > .cw-ghead { box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-group.after-at { box-shadow: 0 0 0 1.5px var(--cw-accent); border-radius: 8px; }\n#cw-root .is-placing .cw-row { cursor: copy; }\n#cw-root .is-placing .cw-row:not(.is-sel) { box-shadow: inset 0 -1px 0 var(--cw-rule); }\n@media (hover: hover) { #cw-root .is-placing .cw-row:not(.is-sel):hover { box-shadow: inset 0 -2px 0 var(--cw-accent); } }\n/* 拖动 */\n#cw-root .cw-ghost { position: absolute; left: 0; top: 0; z-index: 25; pointer-events: none; display: flex; align-items: center; gap: 8px; max-width: min(360px, calc(100% - 24px)); padding: 8px 12px; border-radius: 10px; background: var(--cw-accent); color: var(--cw-on-accent); font-weight: 600; box-shadow: var(--cw-shadow); }\n#cw-root .cw-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-dropline { position: absolute; left: 14px; right: 14px; top: 0; height: 0; border-top: 3px solid var(--cw-accent); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n/* 详情栏加宽 */\n#cw-root .cw-stage.cw-has-detail.cw-detail-wide { grid-template-columns: minmax(0, 1fr) min(760px, 62%); }\n#cw-root .cw-entryform { height: 100%; grid-template-rows: auto; }\n#cw-root .cw-field-grow { flex: 1 1 auto; }\n#cw-root .cw-entry-text { min-height: 46vh !important; }\n#cw-root .cw-field .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-field small.cw-dim { font-size: var(--cw-fs-xs); margin-left: 6px; }\n@media (max-width: 959px) { #cw-root .cw-desk-tool { display: none; } }\n\n/* ---------- 通用堆叠、清单 ---------- */\n#cw-root .cw-stack { display: grid; gap: 8px; }\n#cw-root .cw-stack > .cw-card + .cw-card { margin-top: 0; }\n#cw-root .cw-checklist { display: grid; gap: 2px; }\n#cw-root .cw-checkrow { padding: 8px 10px; border-radius: 8px; width: 100%; }\n@media (hover: hover) { #cw-root .cw-checkrow:hover { background: var(--cw-surface); } }\n#cw-root .cw-orderlist { margin: 0; padding-left: 2.2em; display: grid; gap: 4px; font-size: var(--cw-fs-s); }\n#cw-root .cw-orderlist small { display: block; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-sug { display: grid; gap: 8px; }\n#cw-root .cw-rank-edit { display: grid; gap: 4px; }\n#cw-root .cw-rankrow { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-surface); }\n#cw-root .cw-rankrow b { flex: 1 1 auto; min-width: 0; font-weight: 500; }\n#cw-root .cw-setrow { display: flex; align-items: center; gap: 12px; min-height: var(--cw-h-l); padding: 8px 2px; border-top: 1px solid var(--cw-rule); cursor: pointer; }\n#cw-root .cw-setrow:first-child { border-top: 0; }\n#cw-root .cw-setrow > span:first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }\n#cw-root .cw-setrow small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-setrow b { font-weight: 500; }\n#cw-root .cw-setrow.is-disabled { cursor: default; }\n#cw-root .cw-setrow.is-disabled b { color: var(--cw-muted); }\n#cw-root .cw-setlist { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); padding: 0 12px; }\n#cw-root h4 { font-size: var(--cw-fs-s); color: var(--cw-muted); font-weight: 500; margin: 8px 0 4px; }\n\n/* ---------- 思维链、变量 ---------- */\n#cw-root .cw-verdict { display: flex; align-items: center; gap: 8px; margin: 6px 0; }\n#cw-root .cw-verdict-main { flex: 1 1 auto; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }\n#cw-root .cw-verdict-main span { color: var(--cw-muted); }\n#cw-root .cw-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }\n#cw-root .cw-legend li { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; align-items: start; }\n#cw-root .cw-note-btn { width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; margin: 8px 0; }\n#cw-root .cw-note-btn > .cw-ico:last-child { align-self: center; color: var(--cw-muted); }\n#cw-root .cw-cotcard > summary, #cw-root .cw-dead > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }\n#cw-root .cw-cotcard > summary::-webkit-details-marker, #cw-root .cw-dead > summary::-webkit-details-marker { display: none; }\n#cw-root .cw-cotcard > summary small { color: var(--cw-muted); font-size: var(--cw-fs-s); flex: 1 1 auto; }\n#cw-root .cw-cotcard > summary > .cw-ico, #cw-root .cw-dead > summary > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-cotcard[open] > summary > .cw-ico, #cw-root .cw-dead[open] > summary > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-cotcard[open] > summary, #cw-root .cw-dead[open] > summary { margin-bottom: 8px; }\n#cw-root .cw-reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }\n#cw-root .cw-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }\n#cw-root .cw-sup { font-size: var(--cw-fs-s); padding: 0 6px; border-radius: 5px; background: var(--cw-raised); }\n#cw-root .cw-stats-filter { margin: 10px 0 4px; }\n#cw-root .cw-covgroup h4 { margin: 14px 0 4px; }\n#cw-root .cw-cov { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 2px; border-bottom: 1px solid var(--cw-rule); }\n#cw-root .cw-cov-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-cov-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow-wrap: anywhere; }\n#cw-root .cw-cov .cw-pill { min-width: 5.2em; justify-content: center; }\n#cw-root .cw-dead-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-dead-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n\n/* ---------- 内置配色（3.0 沿用 2.x 的色值与画面） ---------- */\n#cw-root[data-theme=\"mist\"] { --cw-bg: #f6f2e2; --cw-text: #2f3a46; --cw-accent: #4f74a3; --cw-line: #d3d9c6; --cw-input: rgba(255,255,255,.78); --cw-warn: #b25a3c; --cw-ok: #4f7d55; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.46); --cw-raised: rgba(255,255,255,.66); --cw-accent-soft: rgba(79,116,163,.18); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"bean\"] { --cw-bg: #f7ece9; --cw-text: #45343f; --cw-accent: #b0607e; --cw-line: #e3d1d8; --cw-input: rgba(255,255,255,.78); --cw-warn: #b4513e; --cw-ok: #5b8466; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(176,96,126,.16); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"oat\"] { --cw-bg: #f6e6e3; --cw-text: #4a3438; --cw-accent: #b5566a; --cw-line: #e6cfcf; --cw-input: rgba(255,255,255,.78); --cw-warn: #b4472e; --cw-ok: #5b7d4f; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"sage\"] { --cw-bg: #f7efe8; --cw-text: #2c3a58; --cw-accent: #5a6e9e; --cw-line: #e1d6d8; --cw-input: rgba(255,255,255,.78); --cw-warn: #b0604a; --cw-ok: #4f7d55; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(90,110,158,.16); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"goose\"] { --cw-bg: #f9f1e4; --cw-text: #3d4540; --cw-accent: #5f7f68; --cw-line: #e3ddd0; --cw-input: rgba(255,255,255,.76); --cw-warn: #b0604a; --cw-ok: #5f7f68; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.46); --cw-raised: rgba(255,255,255,.66); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"taro\"] { --cw-bg: #f6eef6; --cw-text: #4a4160; --cw-accent: #7b6fa3; --cw-line: #e3d9ea; --cw-input: rgba(255,255,255,.76); --cw-warn: #b0566a; --cw-ok: #5b7d6a; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.42); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(156,145,184,.2); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"dusk\"] { --cw-bg: #fbf1e6; --cw-text: #1f4a55; --cw-accent: #026d81; --cw-line: #ead9cc; --cw-input: rgba(255,255,255,.76); --cw-warn: #c4503f; --cw-ok: #3f7d5c; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.42); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(2,109,129,.14); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"bud\"] { --cw-bg: #f5f2ee; --cw-text: #2f423d; --cw-accent: #4f6c66; --cw-line: #dcd8d0; --cw-input: rgba(255,255,255,.52); --cw-warn: #b8533f; --cw-ok: #3f7a5c; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.30); --cw-raised: rgba(255,255,255,.48); --cw-accent-soft: rgba(101,127,120,.15); --cw-glow: rgba(101,127,120,.40); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"colony\"] { --cw-bg: #eff3f4; --cw-text: #303f47; --cw-accent: #536b78; --cw-line: #d4dde0; --cw-input: rgba(255,255,255,.52); --cw-warn: #ad5d48; --cw-ok: #46765d; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.30); --cw-raised: rgba(255,255,255,.48); --cw-accent-soft: rgba(102,125,135,.15); --cw-glow: rgba(102,125,135,.40); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"night\"] { --cw-bg: #262a30; --cw-text: #e4e1dc; --cw-accent: #a9bfae; --cw-line: #41474f; --cw-input: #1e2126; --cw-warn: #e09a82; --cw-ok: #9fc8a8; --cw-on-accent: #1f2421; --cw-surface: rgba(255,255,255,.03); --cw-raised: rgba(255,255,255,.05); --cw-accent-soft: rgba(169,191,174,.10); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root { --cw-paint-bean:\n        var(--cw-canvas),\n        radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),\n        radial-gradient(ellipse 55% 28% at 84% 86%, rgba(244, 178, 150, .46), transparent 70%),\n        radial-gradient(ellipse 48% 24% at 46% 72%, rgba(190, 170, 226, .42), transparent 72%),\n        radial-gradient(ellipse 70% 20% at 72% 36%, rgba(206, 190, 226, .50), transparent 70%),\n        radial-gradient(ellipse 50% 18% at 18% 40%, rgba(214, 198, 228, .46), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 56%, rgba(246, 212, 192, .40), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),\n        linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%); }\n#cw-root { --cw-paint-mist:\n        var(--cw-canvas),\n        radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),\n        radial-gradient(ellipse 45% 16% at 12% 10%, rgba(104, 148, 138, .36), transparent 70%),\n        radial-gradient(ellipse 55% 26% at 30% 54%, rgba(246, 230, 146, .52), transparent 70%),\n        radial-gradient(ellipse 46% 24% at 78% 64%, rgba(212, 226, 164, .56), transparent 70%),\n        radial-gradient(ellipse 28% 14% at 70% 40%, rgba(240, 176, 186, .42), transparent 70%),\n        radial-gradient(ellipse 34% 16% at 22% 86%, rgba(198, 188, 236, .42), transparent 70%),\n        radial-gradient(ellipse 30% 14% at 86% 90%, rgba(244, 196, 160, .40), transparent 70%),\n        linear-gradient(180deg, #e2eaec 0%, #f6f1db 26%, #f3eecd 60%, #e2e9cf 100%); }\n#cw-root { --cw-paint-oat:\n        var(--cw-canvas),\n        radial-gradient(ellipse 50% 22% at 30% 56%, rgba(236, 140, 165, .48), transparent 70%),\n        radial-gradient(ellipse 45% 20% at 74% 46%, rgba(240, 160, 182, .44), transparent 70%),\n        radial-gradient(ellipse 26% 12% at 30% 72%, rgba(214, 80, 82, .24), transparent 70%),\n        radial-gradient(ellipse 22% 10% at 64% 66%, rgba(220, 96, 110, .22), transparent 70%),\n        radial-gradient(ellipse 24% 12% at 84% 50%, rgba(240, 200, 92, .32), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 58% 36%, rgba(206, 172, 220, .30), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 100%, rgba(140, 158, 108, .40), transparent 72%),\n        linear-gradient(180deg, #f6e4e1 0%, #f4dad9 34%, #f0d4d5 60%, #e2dfca 86%, #d3d8b8 100%); }\n#cw-root { --cw-paint-sage:\n        var(--cw-canvas),\n        radial-gradient(ellipse 46% 26% at 6% 6%, rgba(118, 132, 190, .52), transparent 70%),\n        radial-gradient(ellipse 36% 26% at 16% 34%, rgba(158, 142, 170, .42), transparent 70%),\n        radial-gradient(ellipse 50% 24% at 10% 86%, rgba(108, 124, 182, .48), transparent 70%),\n        radial-gradient(ellipse 34% 8% at 36% 80%, rgba(255, 255, 255, .70), transparent 70%),\n        radial-gradient(ellipse 36% 22% at 92% 16%, rgba(212, 158, 138, .45), transparent 70%),\n        radial-gradient(ellipse 40% 28% at 92% 66%, rgba(240, 184, 120, .48), transparent 70%),\n        radial-gradient(ellipse 60% 26% at 76% 100%, rgba(236, 168, 112, .55), transparent 72%),\n        radial-gradient(ellipse 48% 30% at 52% 46%, rgba(255, 249, 242, .80), transparent 72%),\n        linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%); }\n#cw-root { --cw-paint-goose:\n        var(--cw-canvas),\n        radial-gradient(ellipse 45% 30% at 6% 8%, rgba(251, 222, 208, .95), transparent 70%),\n        radial-gradient(ellipse 40% 34% at 18% 52%, rgba(240, 222, 198, .85), transparent 70%),\n        radial-gradient(ellipse 50% 40% at 88% 46%, rgba(209, 229, 217, .95), transparent 72%),\n        radial-gradient(ellipse 40% 26% at 82% 92%, rgba(189, 205, 176, .75), transparent 70%),\n        radial-gradient(ellipse 30% 20% at 12% 92%, rgba(189, 205, 176, .55), transparent 70%),\n        linear-gradient(120deg, #f9f1e4 0%, #f9f1e4 40%, #e8efe4 100%); }\n#cw-root { --cw-paint-taro:\n        var(--cw-canvas),\n        radial-gradient(ellipse 52% 30% at 4% 4%, rgba(156, 145, 184, .50), transparent 70%),\n        radial-gradient(ellipse 44% 26% at 92% 10%, rgba(232, 196, 222, .62), transparent 70%),\n        radial-gradient(ellipse 40% 30% at 20% 46%, rgba(217, 211, 234, .85), transparent 72%),\n        radial-gradient(ellipse 36% 22% at 78% 42%, rgba(205, 189, 219, .62), transparent 70%),\n        radial-gradient(ellipse 30% 10% at 56% 64%, rgba(255, 255, 255, .72), transparent 70%),\n        radial-gradient(ellipse 56% 30% at 90% 94%, rgba(156, 145, 184, .46), transparent 72%),\n        radial-gradient(ellipse 44% 24% at 14% 92%, rgba(240, 206, 228, .66), transparent 70%),\n        radial-gradient(ellipse 60% 34% at 50% 30%, rgba(250, 244, 250, .80), transparent 72%),\n        linear-gradient(160deg, #e9e2f1 0%, #f5e8f3 40%, #efe4f2 70%, #ddd5ea 100%); }\n#cw-root { --cw-paint-dusk:\n        var(--cw-canvas),\n        radial-gradient(ellipse 70% 26% at 20% 0%, rgba(2, 109, 129, .34), transparent 72%),\n        radial-gradient(ellipse 46% 20% at 88% 8%, rgba(60, 140, 160, .26), transparent 70%),\n        radial-gradient(ellipse 60% 24% at 76% 38%, rgba(248, 112, 120, .30), transparent 72%),\n        radial-gradient(ellipse 48% 22% at 14% 52%, rgba(248, 140, 140, .26), transparent 70%),\n        radial-gradient(ellipse 70% 22% at 50% 72%, rgba(252, 152, 4, .22), transparent 72%),\n        radial-gradient(ellipse 50% 20% at 88% 86%, rgba(249, 186, 50, .32), transparent 70%),\n        radial-gradient(ellipse 60% 22% at 18% 96%, rgba(249, 186, 50, .26), transparent 72%),\n        radial-gradient(ellipse 54% 26% at 46% 50%, rgba(255, 250, 240, .70), transparent 72%),\n        linear-gradient(175deg, #e2eef0 0%, #f8e7e3 34%, #fde6d2 64%, #f8edc8 100%); }\n#cw-root { --cw-canvas: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); }\n#cw-root {\n    /* 芽体 F9EEE8 F0C9B8 C5E1C5 A9D5D1 657F78：顶部深藻灰绿薄雾 → 生命青 → 一点嫩绿 → 浅珊瑚 → 珊瑚奶白 */\n    --cw-paint-bud:\n        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(101,127,120,.28), rgba(101,127,120,.10) 45%, transparent 75%),\n        radial-gradient(ellipse 58% 24% at 84% 16%, rgba(169,213,209,.84), rgba(169,213,209,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 46% 20% at 8% 32%, rgba(169,213,209,.66), rgba(169,213,209,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 34% 14% at 70% 47%, rgba(197,225,197,.56), rgba(197,225,197,.20) 45%, transparent 72%),\n        radial-gradient(ellipse 60% 24% at 74% 80%, rgba(240,201,184,.84), rgba(240,201,184,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 48% 20% at 10% 92%, rgba(240,201,184,.66), rgba(240,201,184,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 40% 8% at 40% 38%, rgba(255,255,255,.90), transparent 70%),\n        radial-gradient(ellipse 36% 7% at 58% 64%, rgba(255,255,255,.80), transparent 70%),\n        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(255,252,250,.70), transparent 72%),\n        linear-gradient(180deg, #e3eeec 0%, #ebf6f4 24%, #f6f8f2 50%, #fcede6 78%, #fcf4f0 100%);\n    /* 圆圆的芽体，边缘晕开，透过玻璃卡片像光斑 */\n    --cw-cells-bud:\n        radial-gradient(circle at 18% 24%, rgba(169,213,209,.85), rgba(169,213,209,.40) 22px, rgba(169,213,209,0) 50px),\n        radial-gradient(circle at 80% 36%, rgba(240,201,184,.85), rgba(240,201,184,.40) 16px, rgba(240,201,184,0) 40px),\n        radial-gradient(circle at 62% 56%, rgba(169,213,209,.80), rgba(169,213,209,.38) 26px, rgba(169,213,209,0) 58px),\n        radial-gradient(circle at 24% 70%, rgba(240,201,184,.85), rgba(240,201,184,.40) 20px, rgba(240,201,184,0) 46px),\n        radial-gradient(circle at 86% 86%, rgba(197,225,197,.80), rgba(197,225,197,.38) 18px, rgba(197,225,197,0) 42px),\n        radial-gradient(circle at 44% 92%, rgba(169,213,209,.72), rgba(169,213,209,.32) 14px, rgba(169,213,209,0) 34px);\n    /* 菌落 EEF5F0 C7D8D0 B8D4E7 D8D0E6 667D87：顶部标本灰蓝薄雾 → 菌落淡紫 → 冰雾蓝 → 菌落灰绿 → 冷雾白 */\n    --cw-paint-colony:\n        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(102,125,135,.28), rgba(102,125,135,.10) 45%, transparent 75%),\n        radial-gradient(ellipse 56% 24% at 16% 18%, rgba(216,208,230,.86), rgba(216,208,230,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 44% 18% at 90% 26%, rgba(216,208,230,.64), rgba(216,208,230,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 58% 24% at 76% 48%, rgba(184,212,231,.84), rgba(184,212,231,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 44% 20% at 8% 56%, rgba(184,212,231,.64), rgba(184,212,231,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 60% 24% at 28% 82%, rgba(199,216,208,.86), rgba(199,216,208,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 46% 20% at 88% 92%, rgba(199,216,208,.66), rgba(199,216,208,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 40% 8% at 58% 37%, rgba(255,255,255,.90), transparent 70%),\n        radial-gradient(ellipse 36% 7% at 38% 66%, rgba(255,255,255,.80), transparent 70%),\n        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(250,253,252,.70), transparent 72%),\n        linear-gradient(180deg, #e5eaed 0%, #f0eef6 20%, #ebf3f9 48%, #edf4f0 76%, #f4f9f6 100%);\n    /* 大小不一的圆形菌落，像培养皿里的光斑 */\n    --cw-cells-colony:\n        radial-gradient(circle at 76% 20%, rgba(216,208,230,.85), rgba(216,208,230,.40) 24px, rgba(216,208,230,0) 54px),\n        radial-gradient(circle at 20% 40%, rgba(184,212,231,.85), rgba(184,212,231,.40) 18px, rgba(184,212,231,0) 44px),\n        radial-gradient(circle at 30% 44%, rgba(184,212,231,.75), rgba(184,212,231,.30) 7px, rgba(184,212,231,0) 18px),\n        radial-gradient(circle at 70% 62%, rgba(199,216,208,.85), rgba(199,216,208,.40) 26px, rgba(199,216,208,0) 58px),\n        radial-gradient(circle at 16% 80%, rgba(216,208,230,.80), rgba(216,208,230,.38) 16px, rgba(216,208,230,0) 40px),\n        radial-gradient(circle at 60% 90%, rgba(184,212,231,.80), rgba(184,212,231,.38) 20px, rgba(184,212,231,0) 46px),\n        radial-gradient(circle at 68% 86%, rgba(184,212,231,.70), rgba(184,212,231,.30) 6px, rgba(184,212,231,0) 16px);\n}\n\n/* 画面配色：整块底和弹窗铺画，配色卡上同一幅画缩小 */\n#cw-root[data-theme=\"bean\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-bean { background: var(--cw-paint-bean); }\n#cw-root[data-theme=\"mist\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-mist { background: var(--cw-paint-mist); }\n#cw-root[data-theme=\"oat\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-oat { background: var(--cw-paint-oat); }\n#cw-root[data-theme=\"sage\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-sage { background: var(--cw-paint-sage); }\n#cw-root[data-theme=\"goose\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-goose { background: var(--cw-paint-goose); }\n#cw-root[data-theme=\"taro\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-taro { background: var(--cw-paint-taro); }\n#cw-root[data-theme=\"dusk\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-dusk { background: var(--cw-paint-dusk); }\n#cw-root[data-theme=\"bud\"]:not(.cw-has-bg) .cw-app { background: var(--cw-canvas), var(--cw-cells-bud), var(--cw-paint-bud); }\n#cw-root[data-theme=\"bud\"]:not(.cw-has-bg) :is(.cw-dlg, .cw-pop), #cw-root .cw-paint-bud { background: var(--cw-canvas), var(--cw-paint-bud); }\n#cw-root[data-theme=\"colony\"]:not(.cw-has-bg) .cw-app { background: var(--cw-canvas), var(--cw-cells-colony), var(--cw-paint-colony); }\n#cw-root[data-theme=\"colony\"]:not(.cw-has-bg) :is(.cw-dlg, .cw-pop), #cw-root .cw-paint-colony { background: var(--cw-canvas), var(--cw-paint-colony); }\n#cw-root.cw-painted:not(.cw-has-bg) :is(.cw-dlg, .cw-pop) { background-color: var(--cw-bg); }\n#cw-root.cw-painted :is(.cw-side, .cw-tabbar) { background: rgba(255, 255, 255, .3); }\n#cw-root.cw-painted .cw-detail, #cw-root.cw-painted .cw-bar { background: rgba(255, 255, 255, .62); }\n#cw-root.cw-painted .cw-seg button.on { background: rgba(255, 255, 255, .85); }\n#cw-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .cw-scrim { background: rgba(60, 60, 70, .28); }\n/* 毛玻璃（芽体、菌落）：只给不随列表滚动的导航栏、顶栏、页签栏做实时模糊；卡片用半透明渐变和边缘高光 */\n#cw-root.cw-glass :is(.cw-side, .cw-top, .cw-tabbar) { background: rgba(255, 255, 255, .24); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }\n#cw-root.cw-glass .cw-card, #cw-root.cw-glass .cw-note, #cw-root.cw-glass .cw-stats { background-image: linear-gradient(150deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, 0) 62%); border-color: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), inset 0 1px 0 rgba(255, 255, 255, .85); }\n#cw-root.cw-glass :is(.cw-input, .cw-select, .cw-search, .cw-pick-btn) { border-color: rgba(255, 255, 255, .7) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8) !important; }\n/* 跟随酒馆、深色底：卡片、按下改为固定的淡层 */\n#cw-root[data-theme=\"follow\"].cw-dark:not(.cw-has-bg) { --cw-surface: rgba(255, 255, 255, .035); --cw-raised: rgba(255, 255, 255, .07); }\n@supports (color: color-mix(in srgb, red 50%, blue)) { #cw-root[data-theme=\"follow\"].cw-dark:not(.cw-has-bg) { --cw-accent-soft: color-mix(in srgb, var(--cw-accent) 14%, transparent); } }\n/* 自定义背景图：图上盖一层配色底色（遮罩），面板各层半透明 */\n#cw-root.cw-has-bg .cw-app { background: linear-gradient(var(--cw-bg-veil), var(--cw-bg-veil)), var(--cw-bg-img) center / cover no-repeat var(--cw-bg); }\n#cw-root.cw-has-bg :is(.cw-side, .cw-tabbar, .cw-top) { background: color-mix(in srgb, var(--cw-bg) 55%, transparent); }\n#cw-root.cw-has-bg :is(.cw-bar, .cw-detail) { background: color-mix(in srgb, var(--cw-bg) 86%, transparent); }\n#cw-root.cw-has-bg { --cw-surface: color-mix(in srgb, var(--cw-bg) 58%, transparent); --cw-raised: color-mix(in srgb, var(--cw-bg) 80%, transparent); }\n\n\n/* ---------- 缝合页 ---------- */\n#cw-root .cw-col-wide { max-width: none; }\n#cw-root .cw-mobile-flex { display: none; }\n#cw-root .cw-stitch { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, var(--cw-split, 1fr)) 9px minmax(0, var(--cw-split-r, 1fr)); padding: 0 12px 0 20px; }\n#cw-root .cw-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#cw-root .cw-pane-head { flex: none; display: grid; gap: 8px; padding: 2px 0 10px; }\n#cw-root .cw-pane-row { display: flex; align-items: center; gap: 8px; min-width: 0; }\n#cw-root .cw-pane-ft { font-size: var(--cw-fs-l); color: var(--cw-accent); width: 1.4em; flex: none; }\n#cw-root .cw-src-pick, #cw-root .cw-dst-pick { flex: 1 1 55%; min-width: 0; display: flex; }\n#cw-root .cw-src-pick > *, #cw-root .cw-dst-pick > * { width: 100%; }\n#cw-root .cw-search-sm { flex: 1 1 45%; }\n#cw-root .cw-pane-list { padding: 0 6px 20px 0; }\n#cw-root .cw-pane-list > .cw-col { max-width: none; }\n#cw-root .cw-divider { position: relative; cursor: col-resize; display: flex; justify-content: center; touch-action: none; }\n#cw-root .cw-divider::before { content: \"\"; position: absolute; top: 4px; bottom: 4px; left: 4px; border-left: 1px solid var(--cw-rule); }\n#cw-root .cw-divider span { position: relative; align-self: center; width: 5px; height: 44px; border-radius: 5px; background: var(--cw-line); transition: background-color .16s var(--cw-ease); }\n#cw-root .cw-divider.is-dragging span, #cw-root .cw-divider:focus-visible span { background: var(--cw-accent); }\n@media (hover: hover) { #cw-root .cw-divider:hover span { background: var(--cw-accent); } }\n#cw-root .cw-pane-dst { padding-left: 8px; }\n#cw-root .cw-slot-new { margin-bottom: 8px; }\n#cw-root .cw-stitchbar .cw-where { max-width: 52vw; }\n#cw-root .cw-picked-n { font-weight: 600; padding: 0; text-align: left; }\n#cw-root .cw-paste textarea { min-height: 200px; }\n@media (max-width: 959px) {\n    #cw-root .cw-mobile-flex { display: flex; }\n    #cw-root .cw-stitch { grid-template-columns: minmax(0, 1fr); padding: 0 12px; }\n    #cw-root .cw-divider { display: none; }\n    #cw-root .cw-stitch[data-show=\"src\"] .cw-pane-dst, #cw-root .cw-stitch[data-show=\"dst\"] .cw-pane-src { display: none; }\n    #cw-root .cw-pane-dst { padding-left: 0; }\n    #cw-root .cw-pane-row { flex-wrap: wrap; }\n    #cw-root .cw-src-pick, #cw-root .cw-dst-pick, #cw-root .cw-search-sm { flex: 1 1 100%; }\n    #cw-root .cw-pagehead .cw-btn span { display: none; }\n    #cw-root .cw-pagehead .cw-btn { padding: 0 10px; }\n}\n#cw-root .cw-picked { display: grid; gap: 2px; margin: 0 -6px; }\n#cw-root .cw-picked-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; }\n#cw-root .cw-picked-row > span { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-picked-row small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n/* 缝合预览 */\n#cw-root .cw-review { display: grid; gap: 12px; }\n#cw-root .cw-review-head { display: grid; gap: 10px; }\n#cw-root .cw-review-where { display: grid; gap: 2px; }\n#cw-root .cw-review-where small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-enable { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n#cw-root .cw-enable [data-enable-count] { font-weight: 500; }\n#cw-root .cw-enable + .cw-hint { margin-top: -6px; }\n#cw-root .cw-hookbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-hookbar .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-items { display: grid; gap: 8px; }\n#cw-root .cw-item { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); }\n#cw-root .cw-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px 8px 14px; cursor: pointer; }\n#cw-root .cw-item-head > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-item.open .cw-item-head > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-item-name { flex: 1 1 12em; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }\n#cw-root .cw-item-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }\n#cw-root .cw-item-on { font-size: var(--cw-fs-s); align-items: center; }\n#cw-root .cw-item-on input { margin-top: 0; }\n#cw-root .cw-item-body { display: grid; gap: 12px; padding: 4px 14px 14px; border-top: 1px solid var(--cw-rule); padding-top: 12px; }\n#cw-root .cw-modes { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }\n#cw-root .cw-mode { display: grid; gap: 6px; align-content: start; padding: 10px 12px; border: 1px solid var(--cw-line); border-radius: var(--cw-r); cursor: pointer; background: var(--cw-bg); }\n#cw-root .cw-mode.on { border: 2px solid var(--cw-accent); padding: 9px 11px; background: var(--cw-accent-soft); }\n#cw-root .cw-mode-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 8px; align-items: center; }\n#cw-root .cw-mode-head input { accent-color: var(--cw-accent); margin: 0; }\n#cw-root .cw-mode-head small { grid-column: 2; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-snip { margin: 0; padding: 6px 8px; border-radius: var(--cw-r-s); background: var(--cw-input); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-xs); line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--cw-muted); }\n#cw-root .cw-hook { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-raised); }\n#cw-root .cw-hook .cw-check span { display: grid; gap: 2px; }\n#cw-root .cw-hook .cw-pill { margin-left: 6px; }\n#cw-root .cw-warns { margin: 0; }\n#cw-root .cw-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }\n#cw-root .cw-body-edit textarea { min-height: 200px; }\n/* 正则缝合 */\n#cw-root .cw-rx-tools { display: grid; gap: 8px; }\n#cw-root .cw-rx-picks { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }\n#cw-root .cw-rx-rule .cw-check span { display: grid; gap: 1px; }\n/* ---------- 回复 ---------- */\n#cw-root .cw-reply > [data-r=\"for\"]:not(:empty) { margin-top: 8px; }\n#cw-root .cw-sec > .cw-warn-text { margin: 8px 0 0; font-size: var(--cw-fs-s); }\n#cw-root .cw-reply-paste .cw-field { margin-top: 6px; }\n#cw-root .cw-form { display: grid; gap: 14px; }\n#cw-root .cw-status-row { display: flex; align-items: center; gap: 12px; }\n#cw-root .cw-status-row > :first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }\n#cw-root .cw-status-row .cw-p { margin: 0; }\n#cw-root .cw-status-tag { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 1.05em; font-weight: 600; }\n#cw-root .cw-reply-sample { min-height: 6.5em; resize: vertical; }\n#cw-root .cw-reply-result { display: grid; gap: 8px; margin-top: 10px; }\n#cw-root .cw-reply-result:empty { display: none; }\n#cw-root .cw-reply-result .cw-card + .cw-card { margin-top: 0; }\n#cw-root .cw-issues { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }\n#cw-root .cw-issues > li { padding: 8px 12px; border-left: 2px solid var(--cw-warn); background: var(--cw-surface); border-radius: 0 var(--cw-r-s) var(--cw-r-s) 0; }\n#cw-root .cw-reply .cw-sec > .cw-fold { margin-top: 10px; }\n";
+var style_default = "/* 焦香鸡翅 3.0 样式。全部选择器限定在 #cw-root（面板）、#cw-settings（扩展页设置框）、#cw-ball（悬浮球）之内。\n   颜色只用变量：跟随酒馆时由主题引擎（app/theme.js）按对比度计算，内置配色在本文件末尾给定。 */\n\n#cw-root {\n    /* 颜色 */\n    --cw-bg: var(--SmartThemeBlurTintColor, #1d1b20);\n    --cw-text: var(--SmartThemeBodyColor, #e8e3da);\n    --cw-line: var(--SmartThemeBorderColor, rgba(255, 255, 255, .16));\n    --cw-accent: var(--SmartThemeQuoteColor, #e0a24a);\n    --cw-muted: rgba(128, 128, 128, .95);\n    --cw-surface: rgba(127, 127, 127, .07);\n    --cw-raised: rgba(127, 127, 127, .14);\n    --cw-accent-soft: rgba(224, 162, 74, .16);\n    --cw-rule: rgba(127, 127, 127, .14);\n    --cw-input: rgba(0, 0, 0, .18);\n    --cw-warn: #e0784a;\n    --cw-ok: #6fb38a;\n    --cw-on-accent: #1b1712;\n    --cw-control: rgba(127, 127, 127, .6);\n    --cw-scrim: rgba(10, 10, 14, .42);\n    --cw-shadow: 0 12px 36px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .12);\n    /* 尺寸 */\n    --cw-fs-xs: .8em; --cw-fs-s: .9em; --cw-fs-l: 1.15em; --cw-fs-xl: 1.4em;\n    --cw-r-s: 6px; --cw-r: 10px; --cw-r-l: 16px;\n    --cw-h-s: 28px; --cw-h: 36px; --cw-h-l: 44px;\n    --cw-row: 40px;\n    --cw-side: 224px;\n    --cw-detail: 400px;\n    --cw-ease: cubic-bezier(.23, 1, .32, 1);\n    --cw-drawer: cubic-bezier(.32, .72, 0, 1);\n    --cw-base: var(--mainFontSize, 15px);\n    position: fixed; inset: 0; z-index: 10010;\n    width: 100%; height: 100vh; height: 100dvh; height: var(--cw-vh, 100dvh);\n    margin: 0; padding: 0;\n    color: var(--cw-text);\n    font-size: calc(var(--cw-base) * var(--cw-k, 1));\n    line-height: 1.5;\n    text-shadow: none;\n    -webkit-text-size-adjust: 100%;\n}\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    #cw-root {\n        --cw-muted: color-mix(in srgb, var(--cw-text) 62%, transparent);\n        --cw-surface: color-mix(in srgb, var(--cw-text) 5%, transparent);\n        --cw-raised: color-mix(in srgb, var(--cw-text) 10%, transparent);\n        --cw-rule: color-mix(in srgb, var(--cw-line) 60%, transparent);\n        --cw-accent-soft: color-mix(in srgb, var(--cw-accent) 16%, transparent);\n    }\n}\n#cw-root[data-fs=\"s\"] { --cw-k: .9; }\n#cw-root[data-fs=\"l\"] { --cw-k: 1.12; }\n@media (pointer: coarse) { #cw-root { --cw-row: 44px; } }\n@media (max-width: 959px) { #cw-root { --cw-base: min(var(--mainFontSize, 15px), 15px); } }\n#cw-root[hidden] { display: none; }\nhtml.cw-open body { overflow: hidden; }\n#cw-root *, #cw-root *::before, #cw-root *::after { box-sizing: border-box; }\n#cw-root :where(b, strong, p, span, label, small, em, details, summary, li, h1, h2, h3, h4) { color: inherit; }\n#cw-root :where(h1, h2, h3, h4, p, ul, ol, dl, figure) { margin: 0; }\n#cw-root :where(button, input, select, textarea) { font: inherit; color: inherit; }\n#cw-root [hidden] { display: none !important; }\n#cw-root .cw-ico { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }\n#cw-root .cw-stitch { stroke-dasharray: 2.4 2.2; }\n#cw-root ::selection { background: var(--cw-accent-soft); }\n#cw-root :focus-visible { outline: 2px solid var(--cw-accent); outline-offset: 1px; }\n#cw-root mark { background: color-mix(in srgb, var(--cw-accent) 30%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }\n#cw-root code { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: .92em; background: var(--cw-raised); padding: 0 4px; border-radius: 4px; }\n#cw-root .cw-num { font-variant-numeric: tabular-nums; }\n\n/* ---------- 外壳 ---------- */\n#cw-root .cw-app {\n    position: absolute; inset: 0; overflow: hidden;\n    display: grid; grid-template-columns: var(--cw-side) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);\n    background: var(--cw-bg);\n}\n#cw-root .cw-side {\n    display: flex; flex-direction: column; gap: 2px; min-height: 0; overflow-y: auto;\n    padding: calc(14px + var(--cw-sat, env(safe-area-inset-top))) 10px calc(12px + var(--cw-sab, env(safe-area-inset-bottom))) calc(10px + env(safe-area-inset-left));\n    border-right: 1px solid var(--cw-rule);\n    background: color-mix(in srgb, var(--cw-text) 2.5%, transparent);\n}\n#cw-root .cw-brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; white-space: nowrap; min-width: 0; }\n#cw-root .cw-brand .cw-logo { display: inline-flex; color: var(--cw-accent); }\n#cw-root .cw-brand .cw-logo .cw-ico { width: 22px; height: 22px; }\n#cw-root .cw-brand b { font-size: var(--cw-fs-l); overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-brand small { color: var(--cw-muted); font-size: var(--cw-fs-xs); align-self: flex-end; margin-bottom: .2em; }\n#cw-root .cw-scope {\n    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 6px;\n    width: 100%; margin: 0 0 14px; padding: 7px 10px; text-align: left; cursor: pointer;\n    border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface);\n}\n#cw-root .cw-scope small { grid-column: 1 / -1; color: var(--cw-muted); font-size: var(--cw-fs-xs); line-height: 1.3; }\n#cw-root .cw-scope span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }\n#cw-root .cw-scope .cw-using { font-weight: 400; color: var(--cw-accent); font-size: var(--cw-fs-xs); margin-left: 4px; }\n#cw-root .cw-scope .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; }\n#cw-root .cw-nav { display: grid; gap: 2px; }\n#cw-root .cw-nav + .cw-nav { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-nav button {\n    display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px;\n    border: 0; border-radius: 8px; background: none; cursor: pointer; color: var(--cw-muted); text-align: left;\n}\n#cw-root .cw-nav button[aria-current=\"page\"] { background: var(--cw-raised); color: var(--cw-text); font-weight: 600; }\n#cw-root .cw-nav button[aria-current=\"page\"] .cw-ico { color: var(--cw-accent); }\n@media (hover: hover) { #cw-root .cw-nav button:hover { color: var(--cw-text); } }\n#cw-root .cw-side-foot { margin-top: auto; padding: 10px 10px 0; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n\n#cw-root .cw-main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }\n#cw-root .cw-top {\n    display: flex; align-items: center; gap: 10px; min-height: 52px;\n    padding: calc(6px + var(--cw-sat, 0px)) calc(12px + env(safe-area-inset-right)) 6px 20px;\n    border-bottom: 1px solid var(--cw-rule);\n}\n#cw-root .cw-top-title { font-size: var(--cw-fs-l); font-weight: 600; white-space: nowrap; }\n#cw-root .cw-top .cw-mobile-only { display: none; }\n#cw-root .cw-top-gap { flex: 1 1 auto; }\n#cw-root .cw-save { display: flex; align-items: center; gap: 6px; min-width: 0; }\n#cw-root .cw-save-text { font-size: var(--cw-fs-s); color: var(--cw-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-save-text.bad { color: var(--cw-warn); }\n#cw-root .cw-save-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cw-ok); flex: none; }\n#cw-root .cw-save-dot.busy { background: var(--cw-accent); animation: cw-pulse 1s ease-in-out infinite; }\n#cw-root .cw-save-dot.bad { background: var(--cw-warn); }\n@keyframes cw-pulse { 50% { opacity: .3; } }\n#cw-root .cw-stage { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 0; position: relative; }\n#cw-root .cw-stage.cw-has-detail { grid-template-columns: minmax(0, 1fr) var(--cw-detail); }\n#cw-root .cw-pages { position: relative; min-height: 0; min-width: 0; }\n#cw-root .cw-page { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }\n#cw-root .cw-tabbar { display: none; }\n#cw-root .cw-layer { position: absolute; inset: 0; pointer-events: none; z-index: 30; }\n#cw-root .cw-layer > * { pointer-events: auto; }\n\n/* 窄屏：顶栏 + 底部页签 */\n@media (max-width: 959px) {\n    #cw-root .cw-app { grid-template-columns: minmax(0, 1fr); }\n    #cw-root .cw-side { display: none; }\n    #cw-root .cw-top { padding-left: calc(10px + env(safe-area-inset-left)); gap: 6px; min-height: 48px; }\n    #cw-root .cw-top .cw-mobile-only { display: flex; }\n    #cw-root .cw-top .cw-desk-only { display: none; }\n    #cw-root .cw-top .cw-logo { color: var(--cw-accent); display: inline-flex; }\n    #cw-root .cw-top .cw-logo .cw-ico { width: 22px; height: 22px; }\n    #cw-root .cw-top .cw-scope { margin: 0; width: auto; min-width: 0; flex: 1 1 auto; max-width: 62%; padding: 4px 9px; display: flex; gap: 4px; }\n    #cw-root .cw-top .cw-scope small { display: none; }\n    #cw-root .cw-top .cw-top-gap { flex: 0 1 auto; }\n    #cw-root .cw-save-text { max-width: 28vw; }\n    #cw-root .cw-tabbar {\n        display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));\n        border-top: 1px solid var(--cw-rule);\n        padding: 0 env(safe-area-inset-right) var(--cw-sab, env(safe-area-inset-bottom)) env(safe-area-inset-left);\n        background: color-mix(in srgb, var(--cw-text) 2.5%, transparent);\n    }\n    #cw-root .cw-tabbar button {\n        display: grid; justify-items: center; gap: 2px; padding: 7px 0 6px; border: 0; background: none; cursor: pointer;\n        color: var(--cw-muted); font-size: var(--cw-fs-xs);\n    }\n    #cw-root .cw-tabbar .cw-ico { width: 22px; height: 22px; }\n    #cw-root .cw-tabbar button[aria-current=\"page\"] { color: var(--cw-text); font-weight: 600; }\n    #cw-root .cw-tabbar button[aria-current=\"page\"] .cw-ico { color: var(--cw-accent); }\n    #cw-root .cw-stage.cw-has-detail { grid-template-columns: minmax(0, 1fr); }\n}\n\n/* ---------- 页面骨架 ---------- */\n#cw-root .cw-pagehead {\n    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;\n    padding: 12px 20px 10px; border-bottom: 1px solid transparent;\n}\n#cw-root .cw-pagehead .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 4px 20px 28px; }\n/* 正文列：宽屏上限 880px，居中 */\n#cw-root .cw-col { width: 100%; max-width: 880px; margin-inline: auto; }\n#cw-root .cw-pagehead > .cw-col, #cw-root .cw-bar > .cw-col { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n@media (max-width: 959px) {\n    #cw-root .cw-pagehead { padding: 10px 12px 8px; }\n    #cw-root .cw-body { padding: 2px 12px 24px; }\n}\n#cw-root .cw-bar {\n    flex: none; padding: 10px 20px calc(10px + var(--cw-safe-bottom, 0px));\n    border-top: 1px solid var(--cw-rule); background: var(--cw-bg);\n    box-shadow: 0 -6px 18px rgba(0, 0, 0, .06);\n}\n@media (max-width: 959px) { #cw-root .cw-bar { padding: 8px 12px; } }\n#cw-root .cw-bar-info { display: grid; min-width: 0; margin-right: auto; }\n#cw-root .cw-bar-info b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-bar-info small { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-bar-acts { display: flex; gap: 6px; flex-wrap: wrap; }\n#cw-root .cw-sec { margin-top: 22px; }\n#cw-root .cw-sec:first-child { margin-top: 8px; }\n#cw-root .cw-sec-h { display: flex; align-items: center; gap: 8px; min-height: 32px; margin-bottom: 8px; }\n#cw-root .cw-sec-h h2, #cw-root .cw-sec-h h3 { font-size: 1em; font-weight: 600; }\n#cw-root .cw-sec-h .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-sec-h small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n\n/* ---------- 文字 ---------- */\n#cw-root .cw-p { margin: 0 0 8px; }\n#cw-root .cw-hint { color: var(--cw-muted); font-size: var(--cw-fs-s); margin: 4px 0; }\n#cw-root .cw-pad { padding: 12px; }\n#cw-root .cw-warn-text { color: var(--cw-warn); }\n#cw-root .cw-ok-text { color: var(--cw-ok); }\n#cw-root .cw-dim { color: var(--cw-muted); }\n#cw-root .cw-pre { margin: 6px 0 0; padding: 8px 10px; white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); line-height: 1.55; background: var(--cw-input); border-radius: var(--cw-r-s); max-height: 50vh; overflow: auto; }\n#cw-root .cw-bullets { margin: 4px 0; padding-left: 1.25em; display: grid; gap: 4px; }\n#cw-root .cw-empty { display: grid; justify-items: center; gap: 10px; padding: 36px 16px; color: var(--cw-muted); text-align: center; }\n\n/* ---------- 按钮 ---------- */\n#cw-root .cw-btn {\n    display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n    min-height: var(--cw-h); padding: 0 14px; border: 1px solid var(--cw-line); border-radius: 8px;\n    background: var(--cw-surface); cursor: pointer; white-space: nowrap; font-weight: 500; text-decoration: none;\n    -webkit-tap-highlight-color: transparent; transition: transform .12s var(--cw-ease);\n}\n#cw-root .cw-btn .cw-ico { width: 1.05em; height: 1.05em; }\n#cw-root .cw-btn:not(:disabled):active, #cw-root .cw-ibtn:not(:disabled):active, #cw-root .cw-seg button:active { transform: scale(.97); }\n#cw-root .cw-btn:disabled { opacity: .45; cursor: default; }\n#cw-root .cw-btn-primary { background: var(--cw-accent); border-color: var(--cw-accent); color: var(--cw-on-accent); font-weight: 600; }\n#cw-root .cw-btn-primary:disabled { opacity: 1; background: transparent; border-color: var(--cw-line); color: var(--cw-muted); }\n#cw-root .cw-btn-danger { color: var(--cw-warn); border-color: color-mix(in srgb, var(--cw-warn) 55%, transparent); background: transparent; }\n#cw-root .cw-btn-ghost { border-color: transparent; background: transparent; }\n#cw-root .cw-btn-quiet { border-color: transparent; background: transparent; color: var(--cw-accent); padding: 0 6px; min-height: var(--cw-h-s); }\n#cw-root .cw-btn-sm { min-height: var(--cw-h-s); padding: 0 10px; font-size: var(--cw-fs-s); border-radius: var(--cw-r-s); }\n#cw-root .cw-btn.on { border-color: var(--cw-accent); color: var(--cw-accent); }\n@media (hover: hover) {\n    #cw-root .cw-btn:not(:disabled):not(.cw-btn-primary):hover { background: var(--cw-raised); }\n    #cw-root .cw-btn-quiet:not(:disabled):hover { background: var(--cw-accent-soft) !important; }\n}\n#cw-root .cw-ibtn {\n    display: inline-flex; align-items: center; justify-content: center; flex: none;\n    width: var(--cw-h); height: var(--cw-h); padding: 0; border: 0; border-radius: 8px; background: none; cursor: pointer;\n    color: var(--cw-muted); -webkit-tap-highlight-color: transparent; transition: transform .12s var(--cw-ease);\n}\n#cw-root .cw-ibtn .cw-ico { width: 20px; height: 20px; }\n#cw-root .cw-ibtn[aria-pressed=\"true\"], #cw-root .cw-ibtn.on { color: var(--cw-accent); background: var(--cw-accent-soft); }\n#cw-root .cw-ibtn:disabled { opacity: .4; cursor: default; }\n@media (hover: hover) { #cw-root .cw-ibtn:not(:disabled):hover { background: var(--cw-raised); color: var(--cw-text); } }\n#cw-root .cw-ibtn.cw-busy .cw-ico { animation: cw-pulse .9s ease-in-out infinite; }\n#cw-root .cw-ibtn.cw-spin .cw-ico, #cw-root .cw-btn.cw-spin .cw-ico { animation: cw-spin .8s linear infinite; }\n@keyframes cw-spin { to { transform: rotate(360deg); } }\n#cw-root .cw-link { border: 0; background: none; padding: 2px 4px; color: var(--cw-accent); cursor: pointer; font: inherit; text-decoration: none; border-radius: 4px; }\n@media (hover: hover) { #cw-root .cw-link:hover { text-decoration: underline; text-underline-offset: 3px; } }\n#cw-root .cw-link:disabled { color: var(--cw-muted); cursor: default; text-decoration: none; }\n\n/* ---------- 表单 ---------- */\n#cw-root .cw-input, #cw-root .cw-select {\n    width: 100%; min-height: var(--cw-h); padding: 6px 10px;\n    border: 1px solid var(--cw-line) !important; border-radius: 8px !important;\n    background: var(--cw-input) !important; background-image: none !important; box-shadow: none !important;\n    color: var(--cw-text) !important; -webkit-text-fill-color: var(--cw-text) !important; caret-color: var(--cw-text);\n    font-size: 1em; margin: 0 !important; -webkit-appearance: none; appearance: none;\n}\n#cw-root .cw-input::placeholder { color: var(--cw-muted) !important; -webkit-text-fill-color: var(--cw-muted) !important; opacity: 1; }\n#cw-root textarea.cw-input { min-height: 120px; resize: vertical; line-height: 1.55; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); white-space: pre-wrap; }\n#cw-root .cw-input:focus, #cw-root .cw-select:focus { outline: 2px solid var(--cw-accent); outline-offset: -1px; }\n#cw-root .cw-input[aria-invalid=\"true\"] { border-color: var(--cw-warn) !important; }\n#cw-root .cw-select { padding-right: 30px; background-image: linear-gradient(45deg, transparent 50%, var(--cw-muted) 50%), linear-gradient(135deg, var(--cw-muted) 50%, transparent 50%) !important; background-position: calc(100% - 15px) 52%, calc(100% - 10px) 52% !important; background-size: 5px 5px, 5px 5px !important; background-repeat: no-repeat !important; }\n#cw-root .cw-select option { background: var(--cw-bg); color: var(--cw-text); }\n@supports (-webkit-touch-callout: none) { #cw-root .cw-input, #cw-root .cw-select { font-size: max(16px, 1em); } }\n#cw-root .cw-field { display: grid; gap: 5px; }\n#cw-root .cw-field > span:first-child, #cw-root .cw-label { color: var(--cw-muted); font-size: var(--cw-fs-s); display: flex; align-items: center; gap: 6px; }\n#cw-root .cw-field-err { color: var(--cw-warn); font-size: var(--cw-fs-s); }\n#cw-root .cw-form { display: grid; gap: 14px; }\n#cw-root .cw-form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }\n#cw-root .cw-check { display: inline-flex; align-items: flex-start; gap: 8px; cursor: pointer; line-height: 1.45; }\n#cw-root .cw-check input { width: 18px; height: 18px; margin: 1px 0 0; flex: none; accent-color: var(--cw-accent); }\n#cw-root .cw-check small { display: block; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-inline-input { min-height: 30px; padding: 2px 8px; }\n#cw-root .cw-pick-btn {\n    display: inline-flex; align-items: center; gap: 6px; min-height: var(--cw-h); min-width: 0; max-width: 100%;\n    padding: 0 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-input); cursor: pointer; text-align: left;\n}\n#cw-root .cw-pick-btn > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-pick-btn .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; margin-left: auto; }\n#cw-root .cw-pick-btn small { color: var(--cw-accent); font-size: var(--cw-fs-xs); white-space: nowrap; }\n\n/* 开关：36×20；部分开启时滑块居中 */\n#cw-root .cw-switch { position: relative; display: inline-block; width: 36px; height: 20px; flex: none; cursor: pointer; }\n#cw-root .cw-switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }\n#cw-root .cw-switch i { position: absolute; inset: 0; border-radius: 999px; background: var(--cw-raised); border: 1px solid var(--cw-control); pointer-events: none; transition: background-color .16s var(--cw-ease), border-color .16s var(--cw-ease); }\n#cw-root .cw-switch i::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--cw-text); opacity: .6; transition: transform .16s var(--cw-ease), opacity .16s var(--cw-ease); }\n#cw-root .cw-switch input:checked + i { background: var(--cw-accent); border-color: var(--cw-accent); }\n#cw-root .cw-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: var(--cw-on-accent); }\n#cw-root .cw-switch input:indeterminate + i, #cw-root .cw-switch input[data-mixed=\"1\"] + i { background: var(--cw-raised); border-color: var(--cw-accent); }\n#cw-root .cw-switch input:indeterminate + i::after, #cw-root .cw-switch input[data-mixed=\"1\"] + i::after { transform: translateX(8px); opacity: 1; background: var(--cw-accent); }\n#cw-root .cw-switch input:focus-visible + i { outline: 2px solid var(--cw-accent); outline-offset: 2px; }\n#cw-root .cw-switch input:disabled + i { opacity: .45; }\n#cw-root .cw-switch-s { width: 30px; height: 17px; }\n#cw-root .cw-switch-s i::after { width: 11px; height: 11px; }\n#cw-root .cw-switch-s input:checked + i { background: transparent; border: 1.5px solid var(--cw-accent); }\n#cw-root .cw-switch-s input:checked + i::after { transform: translateX(13px); background: var(--cw-accent); }\n#cw-root .cw-switch-s input[data-mixed=\"1\"] + i::after { transform: translateX(6.5px); }\n\n/* 分段控件、下划线页签 */\n#cw-root .cw-seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--cw-raised); max-width: 100%; overflow-x: auto; scrollbar-width: none; }\n#cw-root .cw-seg::-webkit-scrollbar { display: none; }\n#cw-root .cw-seg button { flex: none; border: 0; background: none; padding: 0 12px; min-height: 30px; border-radius: 7px; cursor: pointer; color: var(--cw-muted); white-space: nowrap; transition: transform .12s var(--cw-ease); }\n#cw-root .cw-seg button.on { background: var(--cw-bg); color: var(--cw-text); font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, .12), 0 0 0 1px var(--cw-rule); }\n#cw-root .cw-seg-sm button { min-height: 26px; padding: 0 10px; font-size: var(--cw-fs-s); }\n#cw-root .cw-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--cw-rule); overflow-x: auto; scrollbar-width: none; }\n#cw-root .cw-tabs::-webkit-scrollbar { display: none; }\n#cw-root .cw-tabs button { flex: none; border: 0; background: none; padding: 8px 10px; margin-bottom: -1px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--cw-muted); white-space: nowrap; }\n#cw-root .cw-tabs button.on { color: var(--cw-text); font-weight: 600; border-bottom-color: var(--cw-accent); }\n\n/* ---------- 卡片、胶囊、提示 ---------- */\n#cw-root .cw-card { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); padding: 12px 14px; }\n#cw-root .cw-card + .cw-card { margin-top: 8px; }\n#cw-root .cw-card-h { display: flex; align-items: center; gap: 8px; }\n#cw-root .cw-card-h b { flex: 0 1 auto; min-width: 0; }\n#cw-root .cw-card-h .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-card-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; align-items: center; }\n#cw-root .cw-card-warn { border-color: color-mix(in srgb, var(--cw-warn) 50%, var(--cw-line)); }\n#cw-root .cw-note { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-surface); border: 1px solid var(--cw-line); }\n#cw-root .cw-note > .cw-ico { margin-top: .15em; color: var(--cw-muted); }\n#cw-root .cw-note-warn { border-color: color-mix(in srgb, var(--cw-warn) 45%, var(--cw-line)); }\n#cw-root .cw-note-warn > .cw-ico { color: var(--cw-warn); }\n#cw-root .cw-note-ok > .cw-ico { color: var(--cw-ok); }\n#cw-root .cw-note > div { min-width: 0; flex: 1 1 auto; }\n#cw-root .cw-pill { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 0 8px; min-height: 20px; border-radius: 999px; font-size: var(--cw-fs-xs); line-height: 1.6; white-space: nowrap; max-width: 14em; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-pill .cw-ico { width: 1em; height: 1em; }\n#cw-root .cw-pill-muted { background: var(--cw-raised); color: var(--cw-muted); }\n#cw-root .cw-pill-line { border: 1px solid var(--cw-line); color: var(--cw-muted); }\n#cw-root .cw-pill-accent { background: var(--cw-accent-soft); color: var(--cw-accent); }\n#cw-root .cw-pill-ok { background: color-mix(in srgb, var(--cw-ok) 16%, transparent); color: var(--cw-ok); }\n#cw-root .cw-pill-warn { background: color-mix(in srgb, var(--cw-warn) 16%, transparent); color: var(--cw-warn); }\n#cw-root .cw-tipbtn { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; border: 0; background: none; color: var(--cw-muted); cursor: pointer; border-radius: 50%; padding: 0; }\n#cw-root .cw-tipbtn .cw-ico { width: 17px; height: 17px; }\n#cw-root .cw-tipbtn[aria-expanded=\"true\"] { color: var(--cw-accent); }\n#cw-root .cw-tipnote { margin: 4px 0 10px; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-surface); color: var(--cw-muted); font-size: var(--cw-fs-s); display: grid; gap: 6px; }\n#cw-root .cw-fold { border-radius: var(--cw-r); }\n#cw-root .cw-fold > summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; padding: 6px 0; color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-fold > summary::-webkit-details-marker { display: none; }\n#cw-root .cw-fold > summary > .cw-ico { width: 1em; height: 1em; transition: transform .16s var(--cw-ease); }\n#cw-root .cw-fold[open] > summary > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-fold-body { padding: 4px 0 6px; }\n#cw-root .cw-meter { display: block; height: 6px; border-radius: 999px; background: var(--cw-raised); overflow: hidden; min-width: 40px; }\n#cw-root .cw-meter b { display: block; height: 100%; background: var(--cw-accent); border-radius: 999px; opacity: .8; }\n#cw-root .cw-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 14px; font-size: var(--cw-fs-s); }\n#cw-root .cw-kv dt, #cw-root .cw-kv > span { color: var(--cw-muted); }\n#cw-root .cw-kv dd { margin: 0; overflow-wrap: anywhere; }\n#cw-root .cw-stats { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); border: 1px solid var(--cw-line); border-radius: var(--cw-r); overflow: hidden; background: var(--cw-surface); }\n#cw-root .cw-stats > * { display: grid; gap: 1px; padding: 9px 6px 8px; text-align: center; border: 0; border-left: 1px solid var(--cw-rule); background: none; color: inherit; font: inherit; }\n#cw-root .cw-stats > :first-child { border-left: 0; }\n#cw-root .cw-stats b { font-size: var(--cw-fs-xl); line-height: 1.2; font-variant-numeric: tabular-nums; font-weight: 600; }\n#cw-root .cw-stats span { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; }\n#cw-root .cw-stats button { cursor: pointer; box-shadow: inset 0 -2px 0 transparent; }\n#cw-root .cw-stats button.on { box-shadow: inset 0 -2px 0 var(--cw-accent); }\n#cw-root .cw-stats button.on span { color: var(--cw-text); }\n\n/* ---------- 弹窗 ---------- */\n#cw-root .cw-scrim { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--cw-scrim); animation: cw-fade .16s var(--cw-ease); }\n#cw-root .cw-scrim.cw-out { opacity: 0; transition: opacity .15s var(--cw-ease); }\n#cw-root .cw-dlg {\n    position: relative; display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: min(86%, 900px);\n    border: 1px solid var(--cw-line); border-radius: var(--cw-r-l); background: var(--cw-bg); box-shadow: var(--cw-shadow);\n    animation: cw-pop .16s var(--cw-ease); outline: none;\n}\n#cw-root .cw-dlg[data-size=\"sm\"] { max-width: 420px; }\n#cw-root .cw-dlg[data-size=\"lg\"] { max-width: 820px; }\n#cw-root .cw-dlg[data-size=\"full\"] { max-width: 1100px; height: 92%; max-height: none; }\n#cw-root .cw-dlg[data-size=\"tall\"] { height: min(80%, 720px); }\n#cw-root .cw-dlg-head { display: flex; align-items: flex-start; gap: 8px; padding: 14px 10px 10px 18px; border-bottom: 1px solid var(--cw-rule); }\n#cw-root .cw-dlg-title { display: grid; gap: 2px; min-width: 0; flex: 1 1 auto; padding-top: 5px; }\n#cw-root .cw-dlg-title b { font-size: 1.05em; overflow-wrap: anywhere; }\n#cw-root .cw-dlg-title small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 18px 16px; }\n#cw-root .cw-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; padding: 10px 18px calc(12px + var(--cw-sab, 0px)); border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-dlg[data-size=\"sm\"] .cw-dlg-foot { border-top: 0; padding-top: 0; }\n@keyframes cw-fade { from { opacity: 0; } }\n@keyframes cw-pop { from { opacity: 0; transform: scale(.98); } }\n@keyframes cw-up { from { transform: translateY(100%); } }\n@media (max-width: 959px) {\n    #cw-root .cw-scrim { align-items: flex-end; padding: 0; }\n    #cw-root .cw-dlg { max-width: none; max-height: calc(var(--cw-vh, 100dvh) - var(--cw-sat, 0px) - 24px); border-radius: var(--cw-r-l) var(--cw-r-l) 0 0; border-bottom: 0; animation: cw-up .24s var(--cw-drawer); }\n    #cw-root .cw-dlg[data-size=\"full\"], #cw-root .cw-dlg[data-size=\"tall\"] { height: calc(var(--cw-vh, 100dvh) - var(--cw-sat, 0px) - 24px); }\n    #cw-root .cw-scrim[data-size=\"sm\"] { align-items: center; padding: 20px; }\n    #cw-root .cw-scrim[data-size=\"sm\"] .cw-dlg { border-radius: var(--cw-r-l); border-bottom: 1px solid var(--cw-line); animation: cw-pop .16s var(--cw-ease); }\n    #cw-root .cw-dlg-head { padding-left: 16px; }\n    #cw-root .cw-dlg-body { padding: 12px 16px 14px; }\n    #cw-root .cw-dlg-foot { padding-left: 16px; padding-right: 16px; }\n    #cw-root .cw-dlg-foot .cw-btn { flex: 1 1 auto; }\n}\n\n/* 贴着按钮的菜单 */\n#cw-root .cw-pop-scrim { position: absolute; inset: 0; }\n#cw-root .cw-pop-scrim.cw-out .cw-pop { opacity: 0; transform: scale(.97); transition: opacity .12s var(--cw-ease), transform .12s var(--cw-ease); }\n#cw-root .cw-pop { position: absolute; overflow-y: auto; padding: 5px; border: 1px solid var(--cw-line); border-radius: 12px; background: var(--cw-bg); box-shadow: var(--cw-shadow); animation: cw-menu .14s var(--cw-ease); outline: none; }\n@keyframes cw-menu { from { opacity: 0; transform: scale(.96); } }\n#cw-root .cw-menu-title { padding: 6px 10px 4px; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-menu-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; min-height: 38px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }\n#cw-root .cw-menu-item small { grid-column: 1; color: var(--cw-muted); font-size: var(--cw-fs-xs); line-height: 1.4; }\n#cw-root .cw-menu-item .cw-ico { grid-row: 1 / span 2; grid-column: 2; color: var(--cw-accent); }\n#cw-root .cw-menu-item.cw-danger { color: var(--cw-warn); }\n#cw-root .cw-menu-item:disabled { opacity: .45; cursor: default; }\n@media (hover: hover) { #cw-root .cw-menu-item:not(:disabled):hover, #cw-root .cw-choice:hover { background: var(--cw-raised); } }\n#cw-root .cw-menu-item:focus-visible { outline-offset: -2px; }\n#cw-root .cw-menu-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }\n#cw-root .cw-menu-sep { border: 0; border-top: 1px solid var(--cw-rule); margin: 4px 6px; }\n#cw-root .cw-menu-flat { display: grid; gap: 2px; margin: 0 -6px; }\n#cw-root .cw-chooser { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }\n#cw-root .cw-chooser-top { display: flex; gap: 8px; flex: none; }\n#cw-root .cw-chooser-list { display: grid; gap: 1px; align-content: start; overflow-y: auto; min-height: 0; margin: 0 -6px; }\n#cw-root .cw-dlg[data-size=\"tall\"] .cw-dlg-body { display: flex; flex-direction: column; }\n#cw-root .cw-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 8px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: none; cursor: pointer; text-align: left; }\n#cw-root .cw-choice > span { overflow-wrap: anywhere; }\n#cw-root .cw-choice small { grid-column: 1; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-choice .cw-ico { grid-row: 1 / span 2; grid-column: 2; color: var(--cw-accent); }\n#cw-root .cw-choice.on { background: var(--cw-accent-soft); }\n\n/* 详情栏（宽屏在右侧，窄屏整屏推入） */\n#cw-root .cw-detail { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--cw-rule); background: var(--cw-bg); }\n#cw-root .cw-detail-head { display: flex; align-items: center; gap: 6px; padding: 10px 8px 10px 16px; border-bottom: 1px solid var(--cw-rule); min-height: 52px; }\n#cw-root .cw-detail-head b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-detail-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px 16px; }\n#cw-root .cw-detail-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--cw-rule); }\n@media (max-width: 959px) {\n    #cw-root .cw-detail { position: absolute; inset: 0; z-index: 20; border-left: 0; animation: cw-in-right .24s var(--cw-drawer); }\n    #cw-root .cw-detail-head { padding-left: 4px; }\n    #cw-root .cw-detail-foot .cw-btn { flex: 1 1 auto; }\n}\n@keyframes cw-in-right { from { transform: translateX(100%); } }\n\n@media (prefers-reduced-motion: reduce) {\n    #cw-root *, #cw-root *::before, #cw-root *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }\n}\n\n/* 换聊天时的预设、模型提示（酒馆的 toastr，在面板之外） */\n#toast-container > .toast.cw-chat-toast { width: auto; min-width: 0; max-width: min(300px, calc(100vw - 32px)); padding: 7px 12px 7px 38px; background-position: 11px center; background-size: 18px; font-size: 13px; line-height: 1.35; }\n#toast-container > .toast.cw-chat-toast .toast-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#toast-container > .toast.cw-chat-toast .toast-message { white-space: pre-line; overflow-wrap: anywhere; opacity: .85; }\n\n/* 悬浮球（在面板之外，跟随酒馆主题） */\n#cw-ball { position: fixed; z-index: 10005; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(28,26,30,.92)); color: var(--SmartThemeQuoteColor, #e0a24a); box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 18px; cursor: pointer; opacity: .88; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }\n#cw-ball.cw-ball-drag { will-change: transform; opacity: 1; }\n@media (hover: hover) { #cw-ball:hover { opacity: 1; } }\nhtml.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }\n\n/* ---------- 预设页：工具行、选位置条 ---------- */\n#cw-root .cw-view { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }\n#cw-root .cw-viewtools { display: flex; gap: 6px; align-items: center; }\n#cw-root .cw-toolrow { flex: none; padding: 0 20px 10px; }\n#cw-root .cw-toolrow > .cw-col { display: flex; gap: 8px; align-items: center; }\n@media (max-width: 959px) { #cw-root .cw-toolrow { padding: 0 12px 8px; } #cw-root .cw-toolrow .cw-btn span { display: none; } #cw-root .cw-toolrow .cw-btn { padding: 0 10px; } }\n#cw-root .cw-search { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: var(--cw-h); padding: 0 4px 0 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-input); cursor: text; }\n#cw-root .cw-search > .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; }\n#cw-root .cw-search input { flex: 1 1 auto; min-width: 0; border: 0 !important; background: transparent !important; box-shadow: none !important; outline: none; padding: 6px 0; color: var(--cw-text); -webkit-text-fill-color: var(--cw-text); margin: 0; -webkit-appearance: none; appearance: none; }\n#cw-root .cw-search input::placeholder { color: var(--cw-muted); -webkit-text-fill-color: var(--cw-muted); }\n#cw-root .cw-search:focus-within { outline: 2px solid var(--cw-accent); outline-offset: -1px; }\n#cw-root .cw-search-x { width: 28px; height: 28px; visibility: hidden; }\n#cw-root .cw-search.has-q .cw-search-x { visibility: visible; }\n#cw-root .cw-placebar { flex: none; padding: 8px 20px; background: var(--cw-accent-soft); border-block: 1px solid color-mix(in srgb, var(--cw-accent) 30%, transparent); }\n#cw-root .cw-placebar > .cw-col { display: flex; align-items: center; gap: 8px; }\n#cw-root .cw-placebar-info { display: grid; min-width: 0; margin-right: auto; }\n#cw-root .cw-placebar-info small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-place-steps { display: flex; gap: 2px; align-items: center; }\n@media (max-width: 959px) { #cw-root .cw-placebar { padding: 8px 12px; } }\n\n/* ---------- 条目列表 ---------- */\n#cw-root .cw-listwrap { position: relative; }\n#cw-root .cw-banners { display: grid; gap: 8px; }\n#cw-root .cw-banners:not(:empty) { margin: 2px 0 10px; }\n#cw-root .cw-list { display: grid; gap: 4px; }\n#cw-root .cw-qsum { padding: 4px 2px 8px; color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-loose, #cw-root .cw-gbody { content-visibility: auto; contain-intrinsic-height: auto calc(var(--n, 1) * (var(--cw-row) + 2px) + 8px); }\n#cw-root .cw-row {\n    position: relative; display: flex; align-items: center; gap: 8px;\n    min-height: var(--cw-row); padding: 2px 4px 2px 10px; border-radius: 8px; cursor: pointer;\n    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;\n}\n@media (hover: hover) { #cw-root .cw-row:hover { background: var(--cw-surface); } }\n#cw-root .cw-row-sel { width: 18px; height: 18px; flex: none; border-radius: 50%; border: 1.5px solid var(--cw-control); transition: background-color .12s var(--cw-ease), border-color .12s var(--cw-ease); }\n#cw-root .cw-row.is-sel { background: var(--cw-accent-soft); }\n#cw-root .cw-row.is-sel .cw-row-sel, #cw-root .cw-gsel[aria-pressed=\"true\"] .cw-row-sel { border-color: var(--cw-accent); background: var(--cw-accent) var(--cw-check) center / 12px no-repeat; }\n#cw-root .cw-row.is-editing { box-shadow: inset 2px 0 0 var(--cw-accent); background: var(--cw-surface); }\n#cw-root .cw-row-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-row-hit { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-row.is-off .cw-row-name { color: var(--cw-muted); }\n#cw-root .cw-row.is-sep .cw-row-name { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-row-tags { display: inline-flex; gap: 4px; flex: none; max-width: 38%; overflow: hidden; }\n#cw-root .cw-row-edit { width: 32px; height: 32px; opacity: .7; }\n@media (hover: hover) { #cw-root .cw-row-edit { opacity: 0; } #cw-root .cw-row:hover .cw-row-edit, #cw-root .cw-row:focus-within .cw-row-edit { opacity: 1; } }\n#cw-root .cw-handle { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: calc(var(--cw-row) - 6px); flex: none; color: var(--cw-muted); cursor: grab; touch-action: none; border-radius: 8px; }\n#cw-root .cw-handle:active { cursor: grabbing; background: var(--cw-raised); }\n#cw-root .cw-row.is-dragging, #cw-root .cw-group.is-dragging { opacity: .35; }\n#cw-root .cw-row.cw-flash { animation: cw-flash 1.4s var(--cw-ease); }\n@keyframes cw-flash { 0%, 30% { background: var(--cw-accent-soft); box-shadow: inset 2px 0 0 var(--cw-accent); } 100% { background: transparent; box-shadow: none; } }\n/* 分组：左边一道缝线 */\n#cw-root .cw-group { position: relative; padding-left: 12px; }\n#cw-root .cw-group::before { content: \"\"; position: absolute; left: 3px; top: 8px; bottom: 8px; border-left: 2px dashed var(--cw-accent); opacity: .7; }\n#cw-root .cw-group.is-off { opacity: .62; }\n#cw-root .cw-group.is-off::before { border-left-color: var(--cw-muted); }\n#cw-root .cw-group.is-sel > .cw-ghead { background: var(--cw-accent-soft); }\n#cw-root .cw-ghead { display: flex; align-items: center; gap: 6px; min-height: var(--cw-row); padding: 2px 4px 2px 6px; border-radius: 8px; border-bottom: 1px solid var(--cw-rule); cursor: pointer; user-select: none; -webkit-user-select: none; }\n#cw-root .cw-gsel { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 30px; padding: 0; border: 0; background: none; cursor: pointer; flex: none; }\n#cw-root .cw-gname { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; cursor: pointer; text-align: left; font-weight: 600; }\n#cw-root .cw-gname > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-gname em { font-style: normal; font-weight: 400; color: var(--cw-warn); font-size: var(--cw-fs-xs); white-space: nowrap; }\n#cw-root .cw-gname > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transform: rotate(90deg); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-group.is-col .cw-gname > .cw-ico { transform: none; }\n#cw-root .cw-gcount { color: var(--cw-muted); font-size: var(--cw-fs-s); white-space: nowrap; margin-right: 2px; }\n#cw-root .cw-gbody { padding: 2px 0 6px; }\n#cw-root .cw-group.is-col .cw-gbody { display: none; }\n#cw-root .cw-gempty { color: var(--cw-muted); font-size: var(--cw-fs-s); padding: 6px 10px; }\n#cw-root .cw-group.is-empty .cw-ghead { border-bottom-style: dashed; }\n/* 选位置 */\n#cw-root .cw-slot { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 34px; padding: 0 10px; margin: 2px 0; border: 1px dashed var(--cw-line); border-radius: 8px; background: transparent; color: var(--cw-muted); cursor: pointer; text-align: left; font-size: var(--cw-fs-s); }\n#cw-root .cw-slot .cw-ico { width: 1em; height: 1em; }\n@media (hover: hover) { #cw-root .cw-slot:hover { color: var(--cw-accent); border-color: var(--cw-accent); } }\n#cw-root .cw-insert { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; padding: 3px 10px; border-radius: 6px; background: var(--cw-accent); color: var(--cw-on-accent); font-size: var(--cw-fs-s); font-weight: 600; }\n#cw-root .cw-insert .cw-ico { width: 1em; height: 1em; }\n#cw-root .cw-row.is-at { background: var(--cw-accent-soft); box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-group.has-at > .cw-ghead { box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-group.after-at { box-shadow: 0 0 0 1.5px var(--cw-accent); border-radius: 8px; }\n#cw-root .is-placing .cw-row { cursor: copy; }\n#cw-root .is-placing .cw-row:not(.is-sel) { box-shadow: inset 0 -1px 0 var(--cw-rule); }\n@media (hover: hover) { #cw-root .is-placing .cw-row:not(.is-sel):hover { box-shadow: inset 0 -2px 0 var(--cw-accent); } }\n/* 拖动 */\n#cw-root .cw-ghost { position: absolute; left: 0; top: 0; z-index: 25; pointer-events: none; display: flex; align-items: center; gap: 8px; max-width: min(360px, calc(100% - 24px)); padding: 8px 12px; border-radius: 10px; background: var(--cw-accent); color: var(--cw-on-accent); font-weight: 600; box-shadow: var(--cw-shadow); }\n#cw-root .cw-ghost span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }\n#cw-root .cw-dropline { position: absolute; left: 14px; right: 14px; top: 0; height: 0; border-top: 3px solid var(--cw-accent); border-radius: 2px; pointer-events: none; z-index: 3; display: none; }\n/* 详情栏加宽 */\n#cw-root .cw-stage.cw-has-detail.cw-detail-wide { grid-template-columns: minmax(0, 1fr) min(760px, 62%); }\n#cw-root .cw-entryform { height: 100%; grid-template-rows: auto; }\n#cw-root .cw-field-grow { flex: 1 1 auto; }\n#cw-root .cw-entry-text { min-height: 46vh !important; }\n#cw-root .cw-field .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-field small.cw-dim { font-size: var(--cw-fs-xs); margin-left: 6px; }\n@media (max-width: 959px) { #cw-root .cw-desk-tool { display: none; } }\n\n/* ---------- 通用堆叠、清单 ---------- */\n#cw-root .cw-stack { display: grid; gap: 8px; }\n#cw-root .cw-stack > .cw-card + .cw-card { margin-top: 0; }\n#cw-root .cw-checklist { display: grid; gap: 2px; }\n#cw-root .cw-checkrow { padding: 8px 10px; border-radius: 8px; width: 100%; }\n@media (hover: hover) { #cw-root .cw-checkrow:hover { background: var(--cw-surface); } }\n#cw-root .cw-orderlist { margin: 0; padding-left: 2.2em; display: grid; gap: 4px; font-size: var(--cw-fs-s); }\n#cw-root .cw-orderlist small { display: block; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-sug { display: grid; gap: 8px; }\n#cw-root .cw-rank-edit { display: grid; gap: 4px; }\n#cw-root .cw-rankrow { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-surface); }\n#cw-root .cw-rankrow b { flex: 1 1 auto; min-width: 0; font-weight: 500; }\n#cw-root .cw-setrow { display: flex; align-items: center; gap: 12px; min-height: var(--cw-h-l); padding: 8px 2px; border-top: 1px solid var(--cw-rule); cursor: pointer; }\n#cw-root .cw-setrow:first-child { border-top: 0; }\n#cw-root .cw-setrow > span:first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }\n#cw-root .cw-setrow small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-setrow b { font-weight: 500; }\n#cw-root .cw-setrow.is-disabled { cursor: default; }\n#cw-root .cw-setrow.is-disabled b { color: var(--cw-muted); }\n#cw-root .cw-setlist { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); padding: 0 12px; }\n#cw-root h4 { font-size: var(--cw-fs-s); color: var(--cw-muted); font-weight: 500; margin: 8px 0 4px; }\n\n/* ---------- 思维链、变量 ---------- */\n#cw-root .cw-verdict { display: flex; align-items: center; gap: 8px; margin: 6px 0; }\n#cw-root .cw-verdict-main { flex: 1 1 auto; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }\n#cw-root .cw-verdict-main span { color: var(--cw-muted); }\n#cw-root .cw-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }\n#cw-root .cw-legend li { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 8px; align-items: start; }\n#cw-root .cw-note-btn { width: 100%; text-align: left; cursor: pointer; color: inherit; font: inherit; margin: 8px 0; }\n#cw-root .cw-note-btn > .cw-ico:last-child { align-self: center; color: var(--cw-muted); }\n#cw-root .cw-cotcard > summary, #cw-root .cw-dead > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }\n#cw-root .cw-cotcard > summary::-webkit-details-marker, #cw-root .cw-dead > summary::-webkit-details-marker { display: none; }\n#cw-root .cw-cotcard > summary small { color: var(--cw-muted); font-size: var(--cw-fs-s); flex: 1 1 auto; }\n#cw-root .cw-cotcard > summary > .cw-ico, #cw-root .cw-dead > summary > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-cotcard[open] > summary > .cw-ico, #cw-root .cw-dead[open] > summary > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-cotcard[open] > summary, #cw-root .cw-dead[open] > summary { margin-bottom: 8px; }\n#cw-root .cw-reads { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }\n#cw-root .cw-reads li { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }\n#cw-root .cw-sup { font-size: var(--cw-fs-s); padding: 0 6px; border-radius: 5px; background: var(--cw-raised); }\n#cw-root .cw-stats-filter { margin: 10px 0 4px; }\n#cw-root .cw-covgroup h4 { margin: 14px 0 4px; }\n#cw-root .cw-cov { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 2px; border-bottom: 1px solid var(--cw-rule); }\n#cw-root .cw-cov-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-cov-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow-wrap: anywhere; }\n#cw-root .cw-cov .cw-pill { min-width: 5.2em; justify-content: center; }\n#cw-root .cw-dead-main { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-dead-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n\n/* ---------- 内置配色（3.0 沿用 2.x 的色值与画面） ---------- */\n#cw-root[data-theme=\"mist\"] { --cw-bg: #f6f2e2; --cw-text: #2f3a46; --cw-accent: #4f74a3; --cw-line: #d3d9c6; --cw-input: rgba(255,255,255,.78); --cw-warn: #b25a3c; --cw-ok: #4f7d55; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.46); --cw-raised: rgba(255,255,255,.66); --cw-accent-soft: rgba(79,116,163,.18); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"bean\"] { --cw-bg: #f7ece9; --cw-text: #45343f; --cw-accent: #b0607e; --cw-line: #e3d1d8; --cw-input: rgba(255,255,255,.78); --cw-warn: #b4513e; --cw-ok: #5b8466; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(176,96,126,.16); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"oat\"] { --cw-bg: #f6e6e3; --cw-text: #4a3438; --cw-accent: #b5566a; --cw-line: #e6cfcf; --cw-input: rgba(255,255,255,.78); --cw-warn: #b4472e; --cw-ok: #5b7d4f; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"sage\"] { --cw-bg: #f7efe8; --cw-text: #2c3a58; --cw-accent: #5a6e9e; --cw-line: #e1d6d8; --cw-input: rgba(255,255,255,.78); --cw-warn: #b0604a; --cw-ok: #4f7d55; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.44); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(90,110,158,.16); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"goose\"] { --cw-bg: #f9f1e4; --cw-text: #3d4540; --cw-accent: #5f7f68; --cw-line: #e3ddd0; --cw-input: rgba(255,255,255,.76); --cw-warn: #b0604a; --cw-ok: #5f7f68; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.46); --cw-raised: rgba(255,255,255,.66); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"taro\"] { --cw-bg: #f6eef6; --cw-text: #4a4160; --cw-accent: #7b6fa3; --cw-line: #e3d9ea; --cw-input: rgba(255,255,255,.76); --cw-warn: #b0566a; --cw-ok: #5b7d6a; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.42); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(156,145,184,.2); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"dusk\"] { --cw-bg: #fbf1e6; --cw-text: #1f4a55; --cw-accent: #026d81; --cw-line: #ead9cc; --cw-input: rgba(255,255,255,.76); --cw-warn: #c4503f; --cw-ok: #3f7d5c; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.42); --cw-raised: rgba(255,255,255,.64); --cw-accent-soft: rgba(2,109,129,.14); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"bud\"] { --cw-bg: #f5f2ee; --cw-text: #2f423d; --cw-accent: #4f6c66; --cw-line: #dcd8d0; --cw-input: rgba(255,255,255,.52); --cw-warn: #b8533f; --cw-ok: #3f7a5c; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.30); --cw-raised: rgba(255,255,255,.48); --cw-accent-soft: rgba(101,127,120,.15); --cw-glow: rgba(101,127,120,.40); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"colony\"] { --cw-bg: #eff3f4; --cw-text: #303f47; --cw-accent: #536b78; --cw-line: #d4dde0; --cw-input: rgba(255,255,255,.52); --cw-warn: #ad5d48; --cw-ok: #46765d; --cw-on-accent: #fff; --cw-surface: rgba(255,255,255,.30); --cw-raised: rgba(255,255,255,.48); --cw-accent-soft: rgba(102,125,135,.15); --cw-glow: rgba(102,125,135,.40); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root[data-theme=\"night\"] { --cw-bg: #262a30; --cw-text: #e4e1dc; --cw-accent: #a9bfae; --cw-line: #41474f; --cw-input: #1e2126; --cw-warn: #e09a82; --cw-ok: #9fc8a8; --cw-on-accent: #1f2421; --cw-surface: rgba(255,255,255,.03); --cw-raised: rgba(255,255,255,.05); --cw-accent-soft: rgba(169,191,174,.10); --cw-rule: color-mix(in srgb, var(--cw-line) 70%, transparent); }\n#cw-root { --cw-paint-bean:\n        var(--cw-canvas),\n        radial-gradient(ellipse 70% 30% at 18% 94%, rgba(236, 150, 168, .50), transparent 70%),\n        radial-gradient(ellipse 55% 28% at 84% 86%, rgba(244, 178, 150, .46), transparent 70%),\n        radial-gradient(ellipse 48% 24% at 46% 72%, rgba(190, 170, 226, .42), transparent 72%),\n        radial-gradient(ellipse 70% 20% at 72% 36%, rgba(206, 190, 226, .50), transparent 70%),\n        radial-gradient(ellipse 50% 18% at 18% 40%, rgba(214, 198, 228, .46), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 56%, rgba(246, 212, 192, .40), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 90% 62%, rgba(196, 216, 186, .40), transparent 70%),\n        linear-gradient(180deg, #eef0ea 0%, #f6eee6 28%, #f7e7e7 62%, #ecefe2 100%); }\n#cw-root { --cw-paint-mist:\n        var(--cw-canvas),\n        radial-gradient(ellipse 95% 24% at 50% -2%, rgba(92, 132, 182, .50), transparent 75%),\n        radial-gradient(ellipse 45% 16% at 12% 10%, rgba(104, 148, 138, .36), transparent 70%),\n        radial-gradient(ellipse 55% 26% at 30% 54%, rgba(246, 230, 146, .52), transparent 70%),\n        radial-gradient(ellipse 46% 24% at 78% 64%, rgba(212, 226, 164, .56), transparent 70%),\n        radial-gradient(ellipse 28% 14% at 70% 40%, rgba(240, 176, 186, .42), transparent 70%),\n        radial-gradient(ellipse 34% 16% at 22% 86%, rgba(198, 188, 236, .42), transparent 70%),\n        radial-gradient(ellipse 30% 14% at 86% 90%, rgba(244, 196, 160, .40), transparent 70%),\n        linear-gradient(180deg, #e2eaec 0%, #f6f1db 26%, #f3eecd 60%, #e2e9cf 100%); }\n#cw-root { --cw-paint-oat:\n        var(--cw-canvas),\n        radial-gradient(ellipse 50% 22% at 30% 56%, rgba(236, 140, 165, .48), transparent 70%),\n        radial-gradient(ellipse 45% 20% at 74% 46%, rgba(240, 160, 182, .44), transparent 70%),\n        radial-gradient(ellipse 26% 12% at 30% 72%, rgba(214, 80, 82, .24), transparent 70%),\n        radial-gradient(ellipse 22% 10% at 64% 66%, rgba(220, 96, 110, .22), transparent 70%),\n        radial-gradient(ellipse 24% 12% at 84% 50%, rgba(240, 200, 92, .32), transparent 70%),\n        radial-gradient(ellipse 40% 16% at 58% 36%, rgba(206, 172, 220, .30), transparent 70%),\n        radial-gradient(ellipse 90% 22% at 50% 100%, rgba(140, 158, 108, .40), transparent 72%),\n        linear-gradient(180deg, #f6e4e1 0%, #f4dad9 34%, #f0d4d5 60%, #e2dfca 86%, #d3d8b8 100%); }\n#cw-root { --cw-paint-sage:\n        var(--cw-canvas),\n        radial-gradient(ellipse 46% 26% at 6% 6%, rgba(118, 132, 190, .52), transparent 70%),\n        radial-gradient(ellipse 36% 26% at 16% 34%, rgba(158, 142, 170, .42), transparent 70%),\n        radial-gradient(ellipse 50% 24% at 10% 86%, rgba(108, 124, 182, .48), transparent 70%),\n        radial-gradient(ellipse 34% 8% at 36% 80%, rgba(255, 255, 255, .70), transparent 70%),\n        radial-gradient(ellipse 36% 22% at 92% 16%, rgba(212, 158, 138, .45), transparent 70%),\n        radial-gradient(ellipse 40% 28% at 92% 66%, rgba(240, 184, 120, .48), transparent 70%),\n        radial-gradient(ellipse 60% 26% at 76% 100%, rgba(236, 168, 112, .55), transparent 72%),\n        radial-gradient(ellipse 48% 30% at 52% 46%, rgba(255, 249, 242, .80), transparent 72%),\n        linear-gradient(135deg, #e6e2ef 0%, #f7efe8 45%, #f6dfc9 100%); }\n#cw-root { --cw-paint-goose:\n        var(--cw-canvas),\n        radial-gradient(ellipse 45% 30% at 6% 8%, rgba(251, 222, 208, .95), transparent 70%),\n        radial-gradient(ellipse 40% 34% at 18% 52%, rgba(240, 222, 198, .85), transparent 70%),\n        radial-gradient(ellipse 50% 40% at 88% 46%, rgba(209, 229, 217, .95), transparent 72%),\n        radial-gradient(ellipse 40% 26% at 82% 92%, rgba(189, 205, 176, .75), transparent 70%),\n        radial-gradient(ellipse 30% 20% at 12% 92%, rgba(189, 205, 176, .55), transparent 70%),\n        linear-gradient(120deg, #f9f1e4 0%, #f9f1e4 40%, #e8efe4 100%); }\n#cw-root { --cw-paint-taro:\n        var(--cw-canvas),\n        radial-gradient(ellipse 52% 30% at 4% 4%, rgba(156, 145, 184, .50), transparent 70%),\n        radial-gradient(ellipse 44% 26% at 92% 10%, rgba(232, 196, 222, .62), transparent 70%),\n        radial-gradient(ellipse 40% 30% at 20% 46%, rgba(217, 211, 234, .85), transparent 72%),\n        radial-gradient(ellipse 36% 22% at 78% 42%, rgba(205, 189, 219, .62), transparent 70%),\n        radial-gradient(ellipse 30% 10% at 56% 64%, rgba(255, 255, 255, .72), transparent 70%),\n        radial-gradient(ellipse 56% 30% at 90% 94%, rgba(156, 145, 184, .46), transparent 72%),\n        radial-gradient(ellipse 44% 24% at 14% 92%, rgba(240, 206, 228, .66), transparent 70%),\n        radial-gradient(ellipse 60% 34% at 50% 30%, rgba(250, 244, 250, .80), transparent 72%),\n        linear-gradient(160deg, #e9e2f1 0%, #f5e8f3 40%, #efe4f2 70%, #ddd5ea 100%); }\n#cw-root { --cw-paint-dusk:\n        var(--cw-canvas),\n        radial-gradient(ellipse 70% 26% at 20% 0%, rgba(2, 109, 129, .34), transparent 72%),\n        radial-gradient(ellipse 46% 20% at 88% 8%, rgba(60, 140, 160, .26), transparent 70%),\n        radial-gradient(ellipse 60% 24% at 76% 38%, rgba(248, 112, 120, .30), transparent 72%),\n        radial-gradient(ellipse 48% 22% at 14% 52%, rgba(248, 140, 140, .26), transparent 70%),\n        radial-gradient(ellipse 70% 22% at 50% 72%, rgba(252, 152, 4, .22), transparent 72%),\n        radial-gradient(ellipse 50% 20% at 88% 86%, rgba(249, 186, 50, .32), transparent 70%),\n        radial-gradient(ellipse 60% 22% at 18% 96%, rgba(249, 186, 50, .26), transparent 72%),\n        radial-gradient(ellipse 54% 26% at 46% 50%, rgba(255, 250, 240, .70), transparent 72%),\n        linear-gradient(175deg, #e2eef0 0%, #f8e7e3 34%, #fde6d2 64%, #f8edc8 100%); }\n#cw-root { --cw-canvas: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .38 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\"); }\n#cw-root {\n    /* 芽体 F9EEE8 F0C9B8 C5E1C5 A9D5D1 657F78：顶部深藻灰绿薄雾 → 生命青 → 一点嫩绿 → 浅珊瑚 → 珊瑚奶白 */\n    --cw-paint-bud:\n        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(101,127,120,.28), rgba(101,127,120,.10) 45%, transparent 75%),\n        radial-gradient(ellipse 58% 24% at 84% 16%, rgba(169,213,209,.84), rgba(169,213,209,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 46% 20% at 8% 32%, rgba(169,213,209,.66), rgba(169,213,209,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 34% 14% at 70% 47%, rgba(197,225,197,.56), rgba(197,225,197,.20) 45%, transparent 72%),\n        radial-gradient(ellipse 60% 24% at 74% 80%, rgba(240,201,184,.84), rgba(240,201,184,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 48% 20% at 10% 92%, rgba(240,201,184,.66), rgba(240,201,184,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 40% 8% at 40% 38%, rgba(255,255,255,.90), transparent 70%),\n        radial-gradient(ellipse 36% 7% at 58% 64%, rgba(255,255,255,.80), transparent 70%),\n        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(255,252,250,.70), transparent 72%),\n        linear-gradient(180deg, #e3eeec 0%, #ebf6f4 24%, #f6f8f2 50%, #fcede6 78%, #fcf4f0 100%);\n    /* 圆圆的芽体，边缘晕开，透过玻璃卡片像光斑 */\n    --cw-cells-bud:\n        radial-gradient(circle at 18% 24%, rgba(169,213,209,.85), rgba(169,213,209,.40) 22px, rgba(169,213,209,0) 50px),\n        radial-gradient(circle at 80% 36%, rgba(240,201,184,.85), rgba(240,201,184,.40) 16px, rgba(240,201,184,0) 40px),\n        radial-gradient(circle at 62% 56%, rgba(169,213,209,.80), rgba(169,213,209,.38) 26px, rgba(169,213,209,0) 58px),\n        radial-gradient(circle at 24% 70%, rgba(240,201,184,.85), rgba(240,201,184,.40) 20px, rgba(240,201,184,0) 46px),\n        radial-gradient(circle at 86% 86%, rgba(197,225,197,.80), rgba(197,225,197,.38) 18px, rgba(197,225,197,0) 42px),\n        radial-gradient(circle at 44% 92%, rgba(169,213,209,.72), rgba(169,213,209,.32) 14px, rgba(169,213,209,0) 34px);\n    /* 菌落 EEF5F0 C7D8D0 B8D4E7 D8D0E6 667D87：顶部标本灰蓝薄雾 → 菌落淡紫 → 冰雾蓝 → 菌落灰绿 → 冷雾白 */\n    --cw-paint-colony:\n        radial-gradient(ellipse 90% 18% at 50% -4%, rgba(102,125,135,.28), rgba(102,125,135,.10) 45%, transparent 75%),\n        radial-gradient(ellipse 56% 24% at 16% 18%, rgba(216,208,230,.86), rgba(216,208,230,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 44% 18% at 90% 26%, rgba(216,208,230,.64), rgba(216,208,230,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 58% 24% at 76% 48%, rgba(184,212,231,.84), rgba(184,212,231,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 44% 20% at 8% 56%, rgba(184,212,231,.64), rgba(184,212,231,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 60% 24% at 28% 82%, rgba(199,216,208,.86), rgba(199,216,208,.32) 45%, transparent 72%),\n        radial-gradient(ellipse 46% 20% at 88% 92%, rgba(199,216,208,.66), rgba(199,216,208,.24) 45%, transparent 72%),\n        radial-gradient(ellipse 40% 8% at 58% 37%, rgba(255,255,255,.90), transparent 70%),\n        radial-gradient(ellipse 36% 7% at 38% 66%, rgba(255,255,255,.80), transparent 70%),\n        radial-gradient(ellipse 70% 34% at 50% 52%, rgba(250,253,252,.70), transparent 72%),\n        linear-gradient(180deg, #e5eaed 0%, #f0eef6 20%, #ebf3f9 48%, #edf4f0 76%, #f4f9f6 100%);\n    /* 大小不一的圆形菌落，像培养皿里的光斑 */\n    --cw-cells-colony:\n        radial-gradient(circle at 76% 20%, rgba(216,208,230,.85), rgba(216,208,230,.40) 24px, rgba(216,208,230,0) 54px),\n        radial-gradient(circle at 20% 40%, rgba(184,212,231,.85), rgba(184,212,231,.40) 18px, rgba(184,212,231,0) 44px),\n        radial-gradient(circle at 30% 44%, rgba(184,212,231,.75), rgba(184,212,231,.30) 7px, rgba(184,212,231,0) 18px),\n        radial-gradient(circle at 70% 62%, rgba(199,216,208,.85), rgba(199,216,208,.40) 26px, rgba(199,216,208,0) 58px),\n        radial-gradient(circle at 16% 80%, rgba(216,208,230,.80), rgba(216,208,230,.38) 16px, rgba(216,208,230,0) 40px),\n        radial-gradient(circle at 60% 90%, rgba(184,212,231,.80), rgba(184,212,231,.38) 20px, rgba(184,212,231,0) 46px),\n        radial-gradient(circle at 68% 86%, rgba(184,212,231,.70), rgba(184,212,231,.30) 6px, rgba(184,212,231,0) 16px);\n}\n\n/* 画面配色：整块底和弹窗铺画，配色卡上同一幅画缩小 */\n#cw-root[data-theme=\"bean\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-bean { background: var(--cw-paint-bean); }\n#cw-root[data-theme=\"mist\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-mist { background: var(--cw-paint-mist); }\n#cw-root[data-theme=\"oat\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-oat { background: var(--cw-paint-oat); }\n#cw-root[data-theme=\"sage\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-sage { background: var(--cw-paint-sage); }\n#cw-root[data-theme=\"goose\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-goose { background: var(--cw-paint-goose); }\n#cw-root[data-theme=\"taro\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-taro { background: var(--cw-paint-taro); }\n#cw-root[data-theme=\"dusk\"]:not(.cw-has-bg) :is(.cw-app, .cw-dlg, .cw-pop), #cw-root .cw-paint-dusk { background: var(--cw-paint-dusk); }\n#cw-root[data-theme=\"bud\"]:not(.cw-has-bg) .cw-app { background: var(--cw-canvas), var(--cw-cells-bud), var(--cw-paint-bud); }\n#cw-root[data-theme=\"bud\"]:not(.cw-has-bg) :is(.cw-dlg, .cw-pop), #cw-root .cw-paint-bud { background: var(--cw-canvas), var(--cw-paint-bud); }\n#cw-root[data-theme=\"colony\"]:not(.cw-has-bg) .cw-app { background: var(--cw-canvas), var(--cw-cells-colony), var(--cw-paint-colony); }\n#cw-root[data-theme=\"colony\"]:not(.cw-has-bg) :is(.cw-dlg, .cw-pop), #cw-root .cw-paint-colony { background: var(--cw-canvas), var(--cw-paint-colony); }\n#cw-root.cw-painted:not(.cw-has-bg) :is(.cw-dlg, .cw-pop) { background-color: var(--cw-bg); }\n#cw-root.cw-painted :is(.cw-side, .cw-tabbar) { background: rgba(255, 255, 255, .3); }\n#cw-root.cw-painted .cw-detail, #cw-root.cw-painted .cw-bar { background: rgba(255, 255, 255, .62); }\n#cw-root.cw-painted .cw-seg button.on { background: rgba(255, 255, 255, .85); }\n#cw-root[data-theme]:not([data-theme=\"follow\"]):not([data-theme=\"night\"]) .cw-scrim { background: rgba(60, 60, 70, .28); }\n/* 毛玻璃（芽体、菌落）：只给不随列表滚动的导航栏、顶栏、页签栏做实时模糊；卡片用半透明渐变和边缘高光 */\n#cw-root.cw-glass :is(.cw-side, .cw-top, .cw-tabbar) { background: rgba(255, 255, 255, .24); -webkit-backdrop-filter: blur(12px) saturate(1.4); backdrop-filter: blur(12px) saturate(1.4); }\n#cw-root.cw-glass .cw-card, #cw-root.cw-glass .cw-note, #cw-root.cw-glass .cw-stats { background-image: linear-gradient(150deg, rgba(255, 255, 255, .32), rgba(255, 255, 255, 0) 62%); border-color: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .55), inset 0 1px 0 rgba(255, 255, 255, .85); }\n#cw-root.cw-glass :is(.cw-input, .cw-select, .cw-search, .cw-pick-btn) { border-color: rgba(255, 255, 255, .7) !important; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8) !important; }\n/* 跟随酒馆、深色底：卡片、按下改为固定的淡层 */\n#cw-root[data-theme=\"follow\"].cw-dark:not(.cw-has-bg) { --cw-surface: rgba(255, 255, 255, .035); --cw-raised: rgba(255, 255, 255, .07); }\n@supports (color: color-mix(in srgb, red 50%, blue)) { #cw-root[data-theme=\"follow\"].cw-dark:not(.cw-has-bg) { --cw-accent-soft: color-mix(in srgb, var(--cw-accent) 14%, transparent); } }\n/* 自定义背景图：图上盖一层配色底色（遮罩），面板各层半透明 */\n#cw-root.cw-has-bg .cw-app { background: linear-gradient(var(--cw-bg-veil), var(--cw-bg-veil)), var(--cw-bg-img) center / cover no-repeat var(--cw-bg); }\n#cw-root.cw-has-bg :is(.cw-side, .cw-tabbar, .cw-top) { background: color-mix(in srgb, var(--cw-bg) 55%, transparent); }\n#cw-root.cw-has-bg :is(.cw-bar, .cw-detail) { background: color-mix(in srgb, var(--cw-bg) 86%, transparent); }\n#cw-root.cw-has-bg { --cw-surface: color-mix(in srgb, var(--cw-bg) 58%, transparent); --cw-raised: color-mix(in srgb, var(--cw-bg) 80%, transparent); }\n\n\n/* ---------- 缝合页 ---------- */\n#cw-root .cw-col-wide { max-width: none; }\n#cw-root .cw-mobile-flex { display: none; }\n#cw-root .cw-stitch { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, var(--cw-split, 1fr)) 9px minmax(0, var(--cw-split-r, 1fr)); padding: 0 12px 0 20px; }\n#cw-root .cw-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; }\n#cw-root .cw-pane-head { flex: none; display: grid; gap: 8px; padding: 2px 0 10px; }\n#cw-root .cw-pane-row { display: flex; align-items: center; gap: 8px; min-width: 0; }\n#cw-root .cw-pane-ft { font-size: var(--cw-fs-l); color: var(--cw-accent); width: 1.4em; flex: none; }\n#cw-root .cw-src-pick, #cw-root .cw-dst-pick { flex: 1 1 55%; min-width: 0; display: flex; }\n#cw-root .cw-src-pick > *, #cw-root .cw-dst-pick > * { width: 100%; }\n#cw-root .cw-search-sm { flex: 1 1 45%; }\n#cw-root .cw-pane-list { padding: 0 6px 20px 0; }\n#cw-root .cw-pane-list > .cw-col { max-width: none; }\n#cw-root .cw-divider { position: relative; cursor: col-resize; display: flex; justify-content: center; touch-action: none; }\n#cw-root .cw-divider::before { content: \"\"; position: absolute; top: 4px; bottom: 4px; left: 4px; border-left: 1px solid var(--cw-rule); }\n#cw-root .cw-divider span { position: relative; align-self: center; width: 5px; height: 44px; border-radius: 5px; background: var(--cw-line); transition: background-color .16s var(--cw-ease); }\n#cw-root .cw-divider.is-dragging span, #cw-root .cw-divider:focus-visible span { background: var(--cw-accent); }\n@media (hover: hover) { #cw-root .cw-divider:hover span { background: var(--cw-accent); } }\n#cw-root .cw-pane-dst { padding-left: 8px; }\n#cw-root .cw-slot-new { margin-bottom: 8px; }\n#cw-root .cw-stitchbar .cw-where { max-width: 52vw; }\n#cw-root .cw-picked-n { font-weight: 600; padding: 0; text-align: left; }\n#cw-root .cw-paste textarea { min-height: 200px; }\n@media (max-width: 959px) {\n    #cw-root .cw-mobile-flex { display: flex; }\n    #cw-root .cw-stitch { grid-template-columns: minmax(0, 1fr); padding: 0 12px; }\n    #cw-root .cw-divider { display: none; }\n    #cw-root .cw-stitch[data-show=\"src\"] .cw-pane-dst, #cw-root .cw-stitch[data-show=\"dst\"] .cw-pane-src { display: none; }\n    #cw-root .cw-pane-dst { padding-left: 0; }\n    #cw-root .cw-pane-row { flex-wrap: wrap; }\n    #cw-root .cw-src-pick, #cw-root .cw-dst-pick, #cw-root .cw-search-sm { flex: 1 1 100%; }\n    #cw-root .cw-pagehead .cw-btn span { display: none; }\n    #cw-root .cw-pagehead .cw-btn { padding: 0 10px; }\n}\n#cw-root .cw-picked { display: grid; gap: 2px; margin: 0 -6px; }\n#cw-root .cw-picked-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 8px; }\n#cw-root .cw-picked-row > span { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-picked-row small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n/* 缝合预览 */\n#cw-root .cw-review { display: grid; gap: 12px; }\n#cw-root .cw-review-head { display: grid; gap: 10px; }\n#cw-root .cw-review-where { display: grid; gap: 2px; }\n#cw-root .cw-review-where small { color: var(--cw-muted); font-size: var(--cw-fs-s); }\n#cw-root .cw-enable { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n#cw-root .cw-enable [data-enable-count] { font-weight: 500; }\n#cw-root .cw-enable + .cw-hint { margin-top: -6px; }\n#cw-root .cw-hookbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-hookbar .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-items { display: grid; gap: 8px; }\n#cw-root .cw-item { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); }\n#cw-root .cw-item-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px 8px 14px; cursor: pointer; }\n#cw-root .cw-item-head > .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); transition: transform .16s var(--cw-ease); }\n#cw-root .cw-item.open .cw-item-head > .cw-ico { transform: rotate(90deg); }\n#cw-root .cw-item-name { flex: 1 1 12em; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }\n#cw-root .cw-item-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }\n#cw-root .cw-item-on { font-size: var(--cw-fs-s); align-items: center; }\n#cw-root .cw-item-on input { margin-top: 0; }\n#cw-root .cw-item-body { display: grid; gap: 12px; padding: 4px 14px 14px; border-top: 1px solid var(--cw-rule); padding-top: 12px; }\n#cw-root .cw-modes { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }\n#cw-root .cw-mode { display: grid; gap: 6px; align-content: start; padding: 10px 12px; border: 1px solid var(--cw-line); border-radius: var(--cw-r); cursor: pointer; background: var(--cw-bg); }\n#cw-root .cw-mode.on { border: 2px solid var(--cw-accent); padding: 9px 11px; background: var(--cw-accent-soft); }\n#cw-root .cw-mode-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 8px; align-items: center; }\n#cw-root .cw-mode-head input { accent-color: var(--cw-accent); margin: 0; }\n#cw-root .cw-mode-head small { grid-column: 2; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-snip { margin: 0; padding: 6px 8px; border-radius: var(--cw-r-s); background: var(--cw-input); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-xs); line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--cw-muted); }\n#cw-root .cw-hook { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--cw-r); background: var(--cw-raised); }\n#cw-root .cw-hook .cw-check span { display: grid; gap: 2px; }\n#cw-root .cw-hook .cw-pill { margin-left: 6px; }\n#cw-root .cw-warns { margin: 0; }\n#cw-root .cw-tags { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }\n#cw-root .cw-body-edit textarea { min-height: 200px; }\n/* 正则缝合 */\n#cw-root .cw-rx-tools { display: grid; gap: 8px; }\n#cw-root .cw-rx-picks { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }\n#cw-root .cw-rx-rule .cw-check span { display: grid; gap: 1px; }\n/* ---------- 回复 ---------- */\n#cw-root .cw-reply > [data-r=\"for\"]:not(:empty) { margin-top: 8px; }\n#cw-root .cw-sec > .cw-warn-text { margin: 8px 0 0; font-size: var(--cw-fs-s); }\n#cw-root .cw-reply-paste .cw-field { margin-top: 6px; }\n#cw-root .cw-form { display: grid; gap: 14px; }\n#cw-root .cw-status-row { display: flex; align-items: center; gap: 12px; }\n#cw-root .cw-status-row > :first-child { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }\n#cw-root .cw-status-row .cw-p { margin: 0; }\n#cw-root .cw-status-tag { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 1.05em; font-weight: 600; }\n#cw-root .cw-reply-sample { min-height: 6.5em; resize: vertical; }\n#cw-root .cw-reply-result { display: grid; gap: 8px; margin-top: 10px; }\n#cw-root .cw-reply-result:empty { display: none; }\n#cw-root .cw-reply-result .cw-card + .cw-card { margin-top: 0; }\n#cw-root .cw-issues { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }\n#cw-root .cw-issues > li { padding: 8px 12px; border-left: 2px solid var(--cw-warn); background: var(--cw-surface); border-radius: 0 var(--cw-r-s) var(--cw-r-s) 0; }\n#cw-root .cw-reply .cw-sec > .cw-fold { margin-top: 10px; }\n/* ---------- 连接 ---------- */\n#cw-root .cw-sec-acts { display: inline-flex; align-items: center; gap: 4px; }\n#cw-root .cw-empty-line { padding: 14px; border: 1px dashed var(--cw-line); border-radius: var(--cw-r); color: var(--cw-muted); font-size: var(--cw-fs-s); line-height: 1.8; }\n#cw-root .cw-empty-line .cw-btn-quiet { display: inline-flex; min-height: 0; padding: 0 2px; vertical-align: baseline; }\n#cw-root .cw-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cw-muted); flex: none; opacity: .6; }\n#cw-root .cw-dot.on { background: var(--cw-ok); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--cw-ok) 22%, transparent); }\n#cw-root .cw-live { display: grid; gap: 10px; }\n#cw-root .cw-live-head { display: flex; align-items: center; gap: 8px; min-width: 0; }\n#cw-root .cw-live-state { color: var(--cw-muted); font-size: var(--cw-fs-xs); flex: none; }\n#cw-root .cw-live-name { font-size: var(--cw-fs-l); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-live-head .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-live-head .cw-link { flex: none; font-size: var(--cw-fs-s); }\n#cw-root .cw-live-url { margin-top: -6px; color: var(--cw-muted); font-size: var(--cw-fs-s); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-live-model { display: flex; align-items: center; gap: 4px; min-width: 0; }\n#cw-root .cw-live-model .cw-modelbtn { flex: 1 1 auto; }\n#cw-root .cw-ibtn.on { background: var(--cw-raised); color: var(--cw-text); }\n#cw-root .cw-modelbtn { display: inline-flex; align-items: center; gap: 8px; min-width: 0; min-height: var(--cw-h); padding: 0 10px 0 12px; border: 1px solid var(--cw-line); border-radius: var(--cw-r-s); background: var(--cw-input); color: var(--cw-text); cursor: pointer; text-align: left; font: inherit; }\n#cw-root .cw-modelbtn-name { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); }\n#cw-root .cw-modelbtn > .cw-ico { color: var(--cw-muted); flex: none; }\n#cw-root .cw-modelbtn .cw-pill { flex: none; font-style: normal; }\n#cw-root .cw-modelline { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }\n#cw-root .cw-modelline .cw-modelbtn { flex: 1 1 220px; }\n#cw-root .cw-test { display: flex; align-items: flex-start; gap: 6px; margin: 0; font-size: var(--cw-fs-s); }\n#cw-root .cw-test .cw-ico { flex: none; margin-top: .2em; }\n#cw-root .cw-test.is-ok { color: var(--cw-ok); }\n#cw-root .cw-test.is-bad { color: var(--cw-warn); cursor: help; }\n#cw-root .cw-bal { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; padding-top: 10px; border-top: 1px solid var(--cw-rule); font-size: var(--cw-fs-s); }\n#cw-root .cw-bal-k { color: var(--cw-muted); }\n#cw-root .cw-bal b { font-size: var(--cw-fs-l); font-variant-numeric: tabular-nums; }\n#cw-root .cw-bal small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-bal .cw-ibtn { width: 28px; height: 28px; align-self: center; margin-left: auto; }\n#cw-root .cw-bal.is-bad small { color: var(--cw-warn); }\n#cw-root .cw-live-detail { padding-top: 10px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-live-detail .cw-card-acts { margin-top: 10px; }\n/* 站点列表 */\n#cw-root .cw-sites { display: grid; border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); overflow: hidden; }\n#cw-root .cw-site { position: relative; border-top: 1px solid var(--cw-rule); background: var(--cw-surface); }\n#cw-root .cw-site:first-child { border-top: 0; }\n#cw-root .cw-site-head, #cw-root .cw-site.is-edit, #cw-root .cw-site-key { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 12px; }\n#cw-root .cw-site.is-edit { padding-left: 4px; }\n#cw-root .cw-site-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; cursor: pointer; border-radius: 6px; }\n#cw-root .cw-site.is-edit .cw-site-main { cursor: default; }\n#cw-root .cw-site-main b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-site-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-site.is-on > .cw-site-head, #cw-root .cw-site.is-on.is-edit, #cw-root .cw-site-key.is-on { box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-site.is-multi.is-on > .cw-site-head { box-shadow: none; }\n#cw-root .cw-site-fold { gap: 2px; color: var(--cw-muted); }\n#cw-root .cw-site-keys { border-top: 1px solid var(--cw-rule); background: var(--cw-bg); }\n#cw-root .cw-site-key { padding-left: 26px; min-height: 46px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-site-key:first-child { border-top: 0; }\n#cw-root .cw-sites.is-sorting .cw-site { transition: transform .18s var(--cw-ease); }\n#cw-root .cw-sites.is-sorting .cw-site.is-drag { transition: none; z-index: 2; box-shadow: var(--cw-shadow); }\n#cw-root .cw-ibtn-danger { color: var(--cw-warn); }\n@media (hover: hover) { #cw-root .cw-site-main:not([aria-disabled]):hover b { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--cw-line); } }\n/* 方案 */\n#cw-root .cw-namebtn { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 0 6px 0 8px; border: 1px solid var(--cw-line); border-radius: 999px; background: transparent; color: var(--cw-text); cursor: pointer; font: inherit; font-size: var(--cw-fs-s); }\n#cw-root .cw-namebtn small { color: var(--cw-muted); }\n#cw-root .cw-namebtn .cw-ico { width: .9em; height: .9em; color: var(--cw-muted); }\n#cw-root .cw-scheme-tools { display: inline-flex; align-items: center; gap: 6px; }\n#cw-root .cw-scheme-nudge:not(:empty) { margin-bottom: 8px; }\n#cw-root .cw-schemes { display: grid; gap: 8px; }\n#cw-root .cw-sgroup { border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); overflow: hidden; }\n#cw-root .cw-sghead { display: flex; align-items: center; gap: 6px; padding-left: 10px; }\n#cw-root .cw-sghead-btn { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 12px 0 0; border: 0; background: none; color: inherit; cursor: pointer; font: inherit; text-align: left; }\n#cw-root .cw-sghead-btn .cw-ico { color: var(--cw-muted); width: 1em; height: 1em; flex: none; }\n#cw-root .cw-sghead-btn b { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }\n#cw-root .cw-sghead-btn small { margin-left: auto; color: var(--cw-muted); font-size: var(--cw-fs-xs); flex: none; }\n#cw-root .cw-sgbody { border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-scheme { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 14px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-scheme:first-child { border-top: 0; }\n#cw-root .cw-scheme.is-on { box-shadow: inset 2px 0 0 var(--cw-accent); background: color-mix(in srgb, var(--cw-accent-soft) 45%, transparent); }\n#cw-root .cw-scheme.is-pick { cursor: pointer; }\n#cw-root .cw-scheme-main { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }\n#cw-root .cw-scheme-name { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }\n#cw-root .cw-scheme-name b { font-weight: 600; overflow-wrap: anywhere; }\n#cw-root .cw-scheme-main small { color: var(--cw-muted); font-size: var(--cw-fs-xs); overflow-wrap: anywhere; }\n#cw-root .cw-scheme-api.is-none { opacity: .75; }\n#cw-root .cw-pill .cw-ico { width: .95em; height: .95em; }\n#cw-root .cw-tickbox { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--cw-accent); }\n#cw-root .cw-checks { display: grid; gap: 8px; }\n#cw-root .cw-checks-indent { padding-left: 26px; }\n/* 选项、推理格式 */\n#cw-root .cw-rlist { margin-top: 8px; border: 1px solid var(--cw-line); border-radius: var(--cw-r); background: var(--cw-surface); }\n#cw-root .cw-rrow { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 6px 8px 6px 12px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-rrow:first-child { border-top: 0; }\n#cw-root .cw-rrow.is-on { box-shadow: inset 2px 0 0 var(--cw-accent); }\n#cw-root .cw-rrow-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }\n#cw-root .cw-rrow-main b { font-weight: 500; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }\n#cw-root .cw-rrow-main small { flex-basis: 100%; display: flex; align-items: center; gap: 8px; color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-rrow-main code { padding: 0 5px; border-radius: 4px; background: var(--cw-input); font-size: var(--cw-fs-xs); }\n#cw-root .cw-addrow { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-top: 1px solid var(--cw-rule); background: none; color: var(--cw-accent); cursor: pointer; font: inherit; text-align: left; border-radius: 0 0 var(--cw-r) var(--cw-r); }\n#cw-root .cw-mono { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); }\n#cw-root .cw-rws { font-style: normal; color: var(--cw-muted); margin-left: 4px; }\n/* 站点窗口 */\n#cw-root .cw-siteform .cw-field > span { display: flex; align-items: center; gap: 6px; }\n#cw-root .cw-siteform .cw-field > span .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-keys { display: grid; gap: 6px; }\n#cw-root .cw-keyrow { display: flex; align-items: center; gap: 4px; min-width: 0; }\n#cw-root .cw-keyrow.is-drag { opacity: .7; }\n#cw-root .cw-key-val { flex: 1 1 auto; min-width: 0; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); }\n#cw-root .cw-key-name { flex: 0 1 8.5em; min-width: 5em; }\n#cw-root .cw-keys .cw-handle { width: 24px; height: var(--cw-h); }\n#cw-root .cw-key-note { margin: 0 0 4px; }\n#cw-root .cw-implist { display: grid; border: 1px solid var(--cw-line); border-radius: var(--cw-r); }\n#cw-root .cw-implist-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--cw-rule); }\n#cw-root .cw-implist-row:first-child { border-top: 0; }\n#cw-root .cw-implist-row > div { flex: 1 1 auto; min-width: 0; display: grid; }\n#cw-root .cw-implist-row small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n/* 模型选择 */\n#cw-root .cw-mpick { display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-height: 0; }\n#cw-root .cw-mpick-top { display: grid; gap: 8px; flex: none; }\n#cw-root .cw-mpick-find { display: flex; gap: 6px; align-items: center; }\n#cw-root .cw-mpick-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border-radius: var(--cw-r-s); background: var(--cw-raised); font-size: var(--cw-fs-s); }\n#cw-root .cw-mpick-sel[hidden], #cw-root .cw-mpick-new[hidden] { display: none; }\n#cw-root .cw-mpick-sel .cw-gap { flex: 1 1 auto; }\n#cw-root .cw-mpick-acts { display: inline-flex; gap: 6px; }\n#cw-root .cw-mpick-new { flex-basis: 100%; display: flex; gap: 6px; }\n#cw-root .cw-mpick-new .cw-input { flex: 1 1 auto; min-width: 0; }\n#cw-root .cw-mpick-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: grid; gap: 1px; align-content: start; margin: 0 -6px; padding: 0 0 4px; }\n#cw-root .cw-mpick-list .cw-choice > span { font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); }\n#cw-root .cw-mrow-custom { grid-template-columns: auto minmax(0, 1fr); color: var(--cw-accent); }\n#cw-root .cw-mrow-custom .cw-ico { grid-row: auto; grid-column: 1; }\n#cw-root .cw-mrow-sel { grid-template-columns: auto minmax(0, 1fr); }\n#cw-root .cw-tick { width: 18px; height: 18px; border: 1.5px solid var(--cw-line); border-radius: 5px; display: inline-grid; place-items: center; }\n#cw-root .cw-mrow-sel.is-sel .cw-tick { background: var(--cw-accent); border-color: var(--cw-accent); box-shadow: inset 0 0 0 3px var(--cw-bg); }\n#cw-root .cw-msec { display: flex; align-items: center; gap: 2px; margin-top: 6px; position: sticky; top: 0; z-index: 1; background: var(--cw-bg); }\n#cw-root .cw-msec:first-child { margin-top: 0; }\n#cw-root .cw-msec-h { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border: 0; background: none; color: inherit; cursor: pointer; font: inherit; text-align: left; border-radius: 8px; }\n#cw-root .cw-msec-h .cw-ico { width: 1em; height: 1em; color: var(--cw-muted); flex: none; }\n#cw-root .cw-msec-h b { font-weight: 600; font-size: var(--cw-fs-s); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n#cw-root .cw-msec-h small { color: var(--cw-muted); font-size: var(--cw-fs-xs); }\n#cw-root .cw-msec-n { margin-left: auto; color: var(--cw-muted); font-size: var(--cw-fs-xs); font-variant-numeric: tabular-nums; }\n#cw-root .cw-krow { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 2px 6px 2px 0; border-radius: 8px; }\n#cw-root .cw-krow.on { background: var(--cw-accent-soft); }\n#cw-root .cw-kname { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px; border: 0; background: none; cursor: pointer; text-align: left; color: inherit; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: var(--cw-fs-s); overflow-wrap: anywhere; }\n#cw-root .cw-kname .cw-ico { color: var(--cw-accent); flex: none; }\n#cw-root .cw-kchips { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; flex: 0 1 auto; }\n#cw-root .cw-kchip, #cw-root .cw-kmore { min-height: 24px; padding: 0 8px; border: 1px solid var(--cw-line); border-radius: 999px; background: transparent; color: var(--cw-muted); cursor: pointer; font: inherit; font-size: var(--cw-fs-xs); }\n#cw-root .cw-kchip.on { border-color: var(--cw-accent); color: var(--cw-accent); background: var(--cw-bg); }\n@media (hover: hover) { #cw-root .cw-msec-h:hover, #cw-root .cw-kname:hover { background: var(--cw-raised); } }\n";
 
 // src/ui/shell.js
 // 外壳：宽屏左侧导航栏，窄屏顶栏加底部页签；当前预设（全局）、保存状态、详情栏；打开、关闭、返回手势。
