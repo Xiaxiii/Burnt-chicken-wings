@@ -24,7 +24,7 @@ await choose(page, ".cw-src-pick .cw-pick-btn", "F1"); await page.waitForTimeout
 await rowClick(".cw-pane-src .cw-list", "开场白");
 await rowClick(".cw-pane-src .cw-list", "深度提醒");
 await chooseDstType(page, "world"); await page.waitForTimeout(300);
-assert.equal(await page.$$eval(".cw-pane-dst .cw-list [data-act=st-newgroup]", (b) => b.length), 0, "世界书目标不显示新建分组");
+assert.equal(await page.$$eval(".cw-pane-dst [data-act=st-newgroup]", (b) => b.length), 0, "世界书目标不显示新建分组");
 await choose(page, ".cw-dst-pick .cw-pick-btn", "示例世界书"); await page.waitForTimeout(300);
 await rowClick(".cw-pane-dst .cw-list", "示例条目"); await page.waitForTimeout(150);
 assert.match(await page.$eval(".cw-where", (x) => x.textContent), /世界书「示例世界书」，「示例条目」之后/);

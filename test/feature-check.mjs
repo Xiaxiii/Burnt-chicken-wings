@@ -22,12 +22,12 @@ await page.locator(".cw-list .cw-row").first().click();
 await organizeTool(page, "newentry"); await page.waitForTimeout(200);
 await page.fill(".cw-dlg input", "测试新条目");
 await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(400);
-assert.equal(await page.$eval(".cw-dlg-head b", (x) => x.textContent), "编辑条目");
-await page.fill(".cw-dlg [data-f=content]", "新条目的正文");
-await page.selectOption(".cw-dlg [data-f=role]", "user");
-await page.selectOption(".cw-dlg [data-f=pos]", "1");
-await page.fill(".cw-dlg [data-f=depth]", "2");
-await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(800);
+assert.equal(await page.$eval("#cw-root .cw-detail-head b", (x) => x.textContent), "测试新条目");
+await page.fill("#cw-root .cw-detail [data-f=content]", "新条目的正文");
+await page.click('#cw-root .cw-detail [data-role="user"]');
+await page.click('#cw-root .cw-detail [data-pos="1"]');
+await page.fill("#cw-root .cw-detail [data-f=depth]", "2");
+await page.click("#cw-root .cw-detail-foot .cw-btn-primary"); await page.waitForTimeout(800);
 const made = (await live()).find((p) => p.name === "测试新条目");
 assert.ok(made, "新条目已保存");
 assert.equal(made.content, "新条目的正文");
@@ -40,7 +40,7 @@ ok("新建条目，编辑角色和插入位置");
 
 // 1b) 搜索：先列名称、标签、分组名匹配的；只在正文里出现的要点开才列，并显示正文里匹配的那一句
 await page.click('[data-tool="search"]').catch(() => {});
-await page.fill(".pa-find", "文风");
+await page.fill('#cw-root .cw-page[data-page="preset"] .cw-search input', "文风");
 await page.waitForTimeout(300);
 let sum = await page.$eval(".cw-qsum", (x) => x.textContent);
 assert.match(sum, /分组名匹配 \d+ 条/);
@@ -49,7 +49,7 @@ assert.equal(await page.locator(".cw-list .cw-row-hit").count(), 0, "默认不�
 await page.click(".cw-qsum [data-act=qbody]"); await page.waitForTimeout(200);
 assert.ok(await page.locator(".cw-list .cw-row-hit").count() > 0, "点开后列出，并显示正文出处");
 assert.match(await page.locator(".cw-list .cw-row-hit").first().textContent(), /^正文：.*文风/);
-await page.fill(".pa-find", ""); await page.waitForTimeout(200);
+await page.fill('#cw-root .cw-page[data-page="preset"] .cw-search input', ""); await page.waitForTimeout(200);
 await page.click('[data-tool="search"]').catch(() => {});
 ok("搜索分名称和正文两层");
 
@@ -72,7 +72,7 @@ await page.locator(".cw-picked-row button").first().click(); await page.waitForT
 assert.equal(await page.locator(".cw-picked-row").count(), 1);
 await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(200);
 assert.match(await page.$eval(".cw-picked-n", (x) => x.textContent), /已选 1 条/);
-assert.equal(await page.locator(".cw-pane-dst .cw-list [data-act=st-newgroup]").count(), 1);
+assert.equal(await page.locator(".cw-pane-dst [data-act=st-newgroup]").count(), 1);
 ok("已选清单逐条去掉；新建分组在目标列表里");
 
 // 4) 缝进世界书后可以撤销
@@ -106,16 +106,16 @@ assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extension
 ok("站点模型不被悄悄覆盖，确认后才改");
 
 // 6) 设置框改名：在行内改，不弹浏览器输入框
-await page.click(".pa-close"); await page.waitForTimeout(200);
-await page.click('#cw-settings [data-act="rename"]'); await page.waitForTimeout(100);
+await page.click("#cw-root .cw-top [data-act=close]"); await page.waitForTimeout(200);
+await page.click('#cw-settings [data-a="rename"]'); await page.waitForTimeout(100);
 await page.fill("#cw-settings .cw-set-input", "我的鸡翅");
 await page.keyboard.press("Enter"); await page.waitForTimeout(150);
-assert.equal(await page.$eval("#cw-settings .cw-set-namerow .cw-appname", (x) => x.textContent), "我的鸡翅");
-assert.equal(await page.$eval("#pa-menu-entry .cw-appname", (x) => x.textContent), "我的鸡翅");
-await page.click('#cw-settings [data-act="rename"]'); await page.waitForTimeout(100);
+assert.equal(await page.$eval("#cw-settings [data-r=name] .cw-appname", (x) => x.textContent), "我的鸡翅");
+assert.equal(await page.$eval("#cw-menu-entry .cw-appname", (x) => x.textContent), "我的鸡翅");
+await page.click('#cw-settings [data-a="rename"]'); await page.waitForTimeout(100);
 await page.fill("#cw-settings .cw-set-input", "");
-await page.click('#cw-settings [data-act="rename-ok"]'); await page.waitForTimeout(150);
-assert.equal(await page.$eval("#pa-menu-entry .cw-appname", (x) => x.textContent), "焦香鸡翅", "留空恢复默认");
+await page.click('#cw-settings [data-a="rename-ok"]'); await page.waitForTimeout(150);
+assert.equal(await page.$eval("#cw-menu-entry .cw-appname", (x) => x.textContent), "焦香鸡翅", "留空恢复默认");
 ok("设置框行内改名，留空恢复默认");
 
 assert.deepEqual(errs, []);

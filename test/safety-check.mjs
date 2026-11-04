@@ -36,16 +36,16 @@ const firstToggle = ".cw-list .cw-loose .cw-row .cw-switch, .cw-list .cw-group .
   await page.locator(firstToggle).nth(1).click(); await page.waitForTimeout(900);
   assert.equal(await savedCount(page), n1, "别处改过时不再写入");
   assert.equal(await sheetTitle(page), "预设在别处被修改过");
-  assert.match(await page.$eval(".pa-dirty-text", (x) => x.textContent), /已暂停保存/);
+  assert.match(await page.$eval("#cw-root .cw-save-text", (x) => x.textContent), /已暂停/);
   // 关掉弹窗：继续暂停，再改也不写
   await page.click("#cw-root .cw-scrim:last-child .cw-dlg-x"); await page.waitForTimeout(300);
   await page.locator(firstToggle).nth(2).click(); await page.waitForTimeout(900);
   assert.equal(await savedCount(page), n1, "暂停期间不自动保存");
   // 顶栏「处理」→ 用我的修改覆盖
-  await page.click("[data-g=save]"); await page.waitForTimeout(300);
+  await page.click("#cw-root .cw-top [data-act=retry]"); await page.waitForTimeout(300);
   await page.click("#cw-root .cw-scrim:last-child .cw-btn-primary"); await page.waitForTimeout(900);
   assert.ok(await savedCount(page) > n1, "选择覆盖后写入");
-  assert.ok(!(await page.$eval(".pa-dirty-text", (x) => x.textContent)).includes("暂停"));
+  assert.ok(!(await page.$eval("#cw-root .cw-save", (x) => x.textContent)).includes("暂停"));
   assert.deepEqual(errs, []);
   ok("别处改过时暂停自动保存，用户选择覆盖后才写入");
   await ctx.close();
@@ -122,9 +122,9 @@ const firstToggle = ".cw-list .cw-loose .cw-row .cw-switch, .cw-list .cw-group .
   const id = await row.getAttribute("data-id");
   const content0 = await page.evaluate((id) => window.__mock.live.prompts.find((p) => p.identifier === id)?.content, id);
   await row.locator("[data-act=edit]").click(); await page.waitForTimeout(200);
-  await page.fill(".cw-dlg [data-f=content]", "随便改改");
+  await page.fill("#cw-root .cw-detail [data-f=content]", "随便改改");
   await page.waitForTimeout(600);
-  await page.click(".cw-dlg-foot >> text=取消"); await page.waitForTimeout(600);
+  await page.click("#cw-root .cw-detail-foot >> text=取消"); await page.waitForTimeout(600);
   const content1 = await page.evaluate((id) => window.__mock.live.prompts.find((p) => p.identifier === id)?.content, id);
   assert.equal(content1, content0, "取消后正文不变");
   ok("编辑条目点取消不改动");
@@ -143,7 +143,7 @@ const firstToggle = ".cw-list .cw-loose .cw-row .cw-switch, .cw-list .cw-group .
     assert.equal(await page.$$eval("#cw-root .cw-scrim", (x) => x.length), n0 - 1, "Esc 只关最上面一个");
     ok("Esc 只关最上面的弹窗");
     // 分组开关只改分组标记，内部选择始终不变。
-    const g = page.locator(".cw-list .cw-group:not(.pa-gempty-box)").first();
+    const g = page.locator(".cw-list .cw-group").first();
     const selection = () => g.locator('.cw-row [data-act=toggle]').evaluateAll(xs => xs.map(x => x.checked));
     const before = await selection();
     await g.locator(".cw-switch-s").click(); await page.waitForTimeout(400);
