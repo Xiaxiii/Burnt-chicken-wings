@@ -192,7 +192,7 @@ try {
   const last = () => page.evaluate(() => window.SillyTavern.getContext().chat.at(-1).mes);
   await turn(DUP);
   assert.equal(await last(), GOOD);
-  assert.ok((await toasts()).includes('已自动修正这条回复：删去另写的一份状态栏（<状态栏>…</状态栏>）。可在「思维链 → 格式」里撤销'));
+  assert.ok((await toasts()).includes('已自动修正这条回复：删去另写的一份状态栏（<状态栏>…</状态栏>）。可在「回复 → 格式设置」里撤销'));
   await turn('<content>\n正文。\n</content>\n<状态栏>\n<时>巳时</时>\n<地>望仙台</地>\n</状态栏>');
   assert.equal(await last(), GOOD);
   assert.ok((await toasts()).some((m) => /^已自动修正这条回复：把 <状态栏>…<\/状态栏> 改名为 <lxs_status>…<\/lxs_status>/.test(m)));

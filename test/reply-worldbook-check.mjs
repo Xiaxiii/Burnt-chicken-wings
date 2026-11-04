@@ -192,7 +192,7 @@ try {
   await turn(wrapped(11));
   assert.equal((await mes()).at(-1), clean(11));
   t = await toasts();
-  assert.deepEqual([t.at(-1)?.type, t.at(-1)?.m], ['success', '已自动修正这条回复：去掉 <lxs_status> 外面多包的 <状态栏>…</状态栏>。可在「思维链 → 格式」里撤销']);
+  assert.deepEqual([t.at(-1)?.type, t.at(-1)?.m], ['success', '已自动修正这条回复：去掉 <lxs_status> 外面多包的 <状态栏>…</状态栏>。可在「回复 → 格式设置」里撤销']);
   await turn(misnamed(12));
   assert.equal((await mes()).at(-1), clean(12));
   assert.match((await toasts()).at(-1)?.m || '', /^已自动修正这条回复：把 <状态栏>…<\/状态栏> 改名为 <lxs_status>…<\/lxs_status>/);

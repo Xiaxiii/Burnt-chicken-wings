@@ -125,7 +125,7 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('[data-page=organize] .pa-list .pa-row').length === 0);
 
     // 页签切换仅绘制可见页；缝合1200→1200仍只为选中4条生成预览。
-    await page.click('[data-tab=cot]');
+    await page.click('[data-tab=organize]'); await page.click('[data-page=organize] [data-view=cot]');
     await page.waitForSelector('[data-page=cot]:not([hidden])');
     const beforeContent = await page.evaluate(() => ({ renders: window.__perf.renders.length, analyses: window.__perf.analyses }));
     await page.evaluate(() => window.__perfContentNotify());

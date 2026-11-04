@@ -1,9 +1,9 @@
 // 2.7.0「回复」页：正文格式检查从「思维链 → 格式」弹窗提为一级页签。
 // 先看这张卡的状态栏和生成后的四个开关，开关就地改、立即生效；标签名、AI 语义审查等完整设置和手动检查仍在「格式设置」窗口里。
-// 按酒馆正在用的预设显示：生成后检查的正是它。
+// 按「预设」页选中的预设显示（打开面板时为酒馆正在用的预设）；不是正在用的预设时标出来，生成后检查只按正在用的预设。
 function mountReply(page) {
   page.innerHTML = `<div class="pa-scroll pa-reply">
-    <div class="pa-reply-head"><div><b class="pa-reply-preset"></b><p class="pa-hint pa-reply-sub">生成后检查回复格式。按酒馆正在用的预设设置。</p></div></div>
+    <div class="pa-reply-head"><div><b class="pa-reply-preset"></b><p class="pa-hint pa-reply-sub"></p></div></div>
     <section class="pa-card pa-reply-status" aria-live="polite"></section>
     <div class="pa-reply-acts"><button class="pa-btn pa-btn-primary" data-reply-check>检查最近回复</button><button class="pa-btn" data-reply-format>格式设置</button></div>
     <h3 class="pa-h">生成后</h3>
@@ -13,7 +13,7 @@ function mountReply(page) {
   const statusEl = page.querySelector(".pa-reply-status");
   const setsEl = page.querySelector(".pa-reply-sets");
   let seq = 0;
-  const preset = () => currentPresetName();
+  const preset = () => focusPreset();
   const row = (key, label, sub, on, disabled = false) => `<label class="pa-reply-row${disabled ? " pa-reply-off" : ""}"><span><span class="pa-reply-label">${esc(label)}</span>${sub ? `<small class="pa-hint">${esc(sub)}</small>` : ""}</span><span class="pa-switch"><input type="checkbox" data-rs="${key}" ${on ? "checked" : ""} ${disabled ? "disabled" : ""}><i></i></span></label>`;
   async function paintStatus(cfg) {
     const my = ++seq;
@@ -42,7 +42,7 @@ function mountReply(page) {
     const name = preset();
     const cfg = replyGuardConfig(name);
     const set = !!cfg.bodyTag;
-    nameEl.textContent = name ? `预设「${name}」` : "没有正在使用的预设";
+    nameEl.textContent = name ? `预设「${name}」${name === currentPresetName() ? "" : " · 未在使用"}` : "没有选中预设";
     page.querySelector(".pa-reply-sub").textContent = set ? `正文标签 <${cfg.bodyTag}>${cfg.requiredTags?.length ? ` · 必需标签 ${cfg.requiredTags.map((t) => `<${t}>`).join("、")}` : ""}` : "这个预设还没有设置正文标签。先在「格式设置」里填写，生成后才会检查。";
     setsEl.innerHTML = [
       row("notice", "发现格式问题时提示我", "提示只给你看，不发给 AI", set && cfg.notice !== false, !set),

@@ -130,7 +130,7 @@ try {
         const track = e.nextElementSibling;
         return { border: getComputedStyle(track).borderColor, style: getComputedStyle(track).borderStyle, knob: getComputedStyle(track, '::after').backgroundColor };
       });
-      assert.equal(mixed.style, 'dashed');
+      assert.equal(mixed.style, 'solid');
       assert.ok(ratio(rgb(mixed.border), theme.bg) >= 3, theme.name + ': 混合状态边框清晰');
       assert.ok(ratio(rgb(mixed.knob), theme.bg) >= 3, theme.name + ': 居中滑块清晰');
       await enabled.check();

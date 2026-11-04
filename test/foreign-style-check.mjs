@@ -54,7 +54,7 @@ try {
   await page.click('.pa-sheet-mask:not(.pa-out) .pa-sheet-x'); await page.waitForTimeout(200);
   ok('选预设、选择模型的搜索框同样不受影响');
 
-  await page.evaluate(() => window.__presetAtelier.open('more'));
+  await page.evaluate(() => window.__presetAtelier.open('conn'));
   await page.click('#pa-root [data-a=new]');
   const key = page.locator('.pa-sheet [data-f=key]').first();
   await key.waitFor();

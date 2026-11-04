@@ -48,7 +48,7 @@ async function boot(ctx) {
   await page.waitForTimeout(600); // 自动保存已发出，还没回来
   assert.ok(log.includes("save-start:" + nameA) && !log.includes("save-end:" + nameA), "保存正在进行");
   // 用户在酒馆里换到了别的预设，再去清理页删除甲
-  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("more"); });
+  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("conn"); });
   await page.click('[data-m="clean"]'); await page.waitForTimeout(300);
   await page.click('[data-f="all"]'); await page.waitForTimeout(200);
   await page.click(`.pa-crow:has-text("${nameA}") input[data-c=pick]`);
@@ -80,7 +80,7 @@ async function boot(ctx) {
       ],
       moreTab: "schemes"
     };
-    window.__presetAtelier.open("more");
+    window.__presetAtelier.open("conn");
   });
   await page.waitForTimeout(500);
   const card = (n) => page.$eval(`.pa-srow:has-text("${n}") .pa-srow-main`, (x) => x.innerText);
@@ -103,13 +103,13 @@ async function boot(ctx) {
       activeSiteId: "s2", moreTab: "schemes"
     };
     localStorage.setItem("presetAtelier:key:default-user:s1", "sk-local-key-123");
-    window.__presetAtelier.open("more");
+    window.__presetAtelier.open("conn");
   });
   await page.waitForTimeout(400);
   const vault = () => page.evaluate(async () => (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.length);
   const before = await vault();
   for (let i = 0; i < 2; i++) {
-    await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier.activeSiteId = "s2"; window.__presetAtelier.open("more"); });
+    await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier.activeSiteId = "s2"; window.__presetAtelier.open("conn"); });
     await page.waitForTimeout(300);
     await page.click('.pa-site:has-text("中转甲") [data-a="use"]');
     await page.waitForTimeout(1500);
