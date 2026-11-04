@@ -51,7 +51,7 @@ async function foldAll(page) {
   const desktop = page.locator('[data-page=preset] [data-tool=fold]');
   if (await desktop.isVisible()) await desktop.click();
   else {
-    await page.locator('[data-page=preset] [data-tool=menu]').click();
+    await page.locator('[data-page=preset] [data-act=tools]').click();
     await page.locator('.cw-menu-item').filter({ hasText: /全部展开|全部折叠/ }).click();
   }
 }
@@ -131,7 +131,7 @@ try {
     await page.evaluate(() => window.__perfContentNotify());
     assert.equal(await page.evaluate(() => window.__perf.renders.length) - beforeContent.renders, 0, '思维链可见时内容通知不会重画后台整理列表');
     assert.equal(await page.evaluate(() => window.__perf.analyses) - beforeContent.analyses, 1, '内容通知只重新分析可见思维链页一次');
-    await page.click('[data-tab=suture]');
+    await page.locator('#cw-root [data-nav="stitch"]:visible').first().click();
     await page.waitForSelector('.cw-pane-src .cw-list .cw-group');
     assert.equal(await page.locator('.cw-pane-src .cw-list .cw-row').count(), 0);
     await page.locator('.cw-pane-src .cw-list .cw-group').first().locator('.cw-gname').click();
@@ -187,7 +187,7 @@ try {
     await page.locator('.cw-dlg-foot .cw-btn').filter({ hasText: '取消' }).click();
     assert.ok(JSON.stringify(await saved(page)) === JSON.stringify(beforePreview), '取消4条预览保持目标原值');
     assert.ok(JSON.stringify(await page.evaluate(name => window.__mock.presets[window.__mock.names.indexOf(name)], sourceName)) === JSON.stringify(source));
-    await page.click('[data-tab=organize]');
+    await page.locator('#cw-root [data-nav="preset"]:visible').first().click();
     assert.equal(await list.locator('.cw-row').count(), 0, '返回整理保留折叠与搜索状态');
     const report = await page.evaluate(() => ({ renders: window.__perf.renders, regions: window.__perf.regions, analyses: window.__perf.analyses }));
     reports.push({ viewport: mobile ? 'phone' : 'desktop', ...report });

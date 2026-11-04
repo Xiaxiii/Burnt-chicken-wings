@@ -101,7 +101,7 @@ check(L.includes("[新组A: 📌收尾]") && L[L.indexOf("[新组A: 📌收尾]"
 await page.screenshot({ path: "test/shots/p-4-suture-done.png" });
 
 // 4) 整理页：整组「顶部」用把手拖到「思维链」下半 ＝ 思维链之后，保持成组
-await page.click('[data-tab="organize"]'); await page.waitForTimeout(300);
+await page.locator('#cw-root [data-nav="preset"]:visible').first().click(); await page.waitForTimeout(300);
 await choose(page, "#cw-root .cw-scope:visible", T); await page.waitForTimeout(300);
 const dragTo = async (fromSel, toSel, frac) => {
   const hb = await page.locator(fromSel).first().boundingBox();
@@ -116,7 +116,7 @@ check(L[L.findIndex((x) => x.startsWith("[思维链:")) + 1] === "[顶部: 🎭�
 
 // 5) 整理页「＋ 新建分组」→ 点「正文规则」组名 → 选两条 → 移动 → 「放入此组」
 // 手机上「新建分组」在「＋」菜单里
-await page.click('[data-tool="add"]'); await page.waitForTimeout(200);
+await page.click('[data-act="add"]'); await page.waitForTimeout(200);
 await page.click(".cw-menu-item >> text=＋ 新建分组"); await page.waitForTimeout(250);
 await fillPrompt("新组B");
 await page.screenshot({ path: "test/shots/p-5-organize-newgroup.png" });
@@ -139,9 +139,9 @@ console.log("after organize:", L.join(" | "));
 await page.screenshot({ path: "test/shots/p-6-organize.png" });
 
 // 6) 顶栏：有修改时显示「撤销」「完成」；点完成后收起；备份按钮能列出备份
-check(await page.locator('.cw-top [data-g="confirm"]').isVisible(), "有修改时显示「完成」");
-await page.click('.cw-top [data-g="confirm"]'); await page.waitForTimeout(600);
-check(!(await page.locator('.cw-top [data-g="confirm"]').isVisible()), "点完成后收起撤销/完成");
+check(await page.locator('.cw-top [data-act="confirm"]').isVisible(), "有修改时显示「完成」");
+await page.click('.cw-top [data-act="confirm"]'); await page.waitForTimeout(600);
+check(!(await page.locator('.cw-top [data-act="confirm"]').isVisible()), "点完成后收起撤销/完成");
 await page.click('.cw-top [data-g="backups"]'); await page.waitForTimeout(500);
 const nBk = await page.locator(".cw-dlg .cw-menu-item").count();
 check(nBk >= 1 && nBk <= 10, `备份列表 ${nBk} 份（不超过 10）`);
@@ -149,9 +149,9 @@ await page.click(".cw-dlg-x"); await page.waitForTimeout(300);
 
 // 7) 方案与 API：添加站点 → 获取模型列表 → 选择框里选模型 → 保存；方案记录站点
 await page.evaluate(async () => { const m = await import(new URL("scripts/secrets.js", document.baseURI).href); m.secret_state.api_key_custom.push({ id: "id1", value: "sk-…abcd", active: true }); });
-await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
+await page.evaluate(() => window.__presetAtelier.open('conn')); await page.waitForTimeout(200);
 check(!(await page.locator('[data-m="api"]').count()), "「开关方案」和「API 站点」已合并");
-await page.click('[data-m="schemes"]'); await page.waitForTimeout(300);
+await page.evaluate(() => window.__presetAtelier.open('conn')); await page.waitForTimeout(300);
 await page.click('[data-a="new"]'); await page.waitForTimeout(300);
 await page.fill('.cw-dlg [data-f="name"]', "测试站");
 await page.fill('.cw-dlg [data-f="url"]', "https://example.com/v1");

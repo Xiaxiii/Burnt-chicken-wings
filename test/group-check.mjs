@@ -46,7 +46,7 @@ await page.click('[data-act="sel-newgroup"]'); await page.waitForTimeout(300);
 await page.fill(".cw-dlg input.cw-input", "新组测试"); await page.click(".cw-dlg .cw-btn-primary"); await page.waitForTimeout(2500);
 check((await groups()).includes("新组测试"), "建成分组后保存仍在");
 // 缝合页：新建空白分组
-await page.click('[data-tab="suture"]'); await page.waitForTimeout(300);
+await page.locator('#cw-root [data-nav="stitch"]:visible').first().click(); await page.waitForTimeout(300);
 await page.click('[data-act="st-newgroup"]'); await page.waitForTimeout(300);
 await page.fill(".cw-dlg input.cw-input", "空白组"); await page.click(".cw-dlg .cw-btn-primary"); await page.waitForTimeout(300);
 await page.locator(".cw-pane-dst .cw-list .cw-ghead .cw-gname").first().click(); await page.waitForTimeout(2500);

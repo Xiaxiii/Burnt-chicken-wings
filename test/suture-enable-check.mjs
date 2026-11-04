@@ -115,7 +115,7 @@ try {
     const enabled = added.map(p => result.prompt_order[0].order.find(o => o.identifier === p.identifier).enabled);
     equal(enabled, scenario === 'all-off' ? [false, false, false, false] : scenario === 'all-on' ? [true, true, true, true] : [false, false, true, false], '确认后仅为新增条目保存选择');
     equal(await page.evaluate(name => window.__mock.presets[window.__mock.names.indexOf(name)], sourceName), source, '来源预设不改变');
-    await page.click('[data-g=undo]');
+    await page.click('#cw-root .cw-top [data-act=undo]');
     await page.waitForFunction(name => {
       const m = window.__mock;
       return m.presets[m.names.indexOf(name)].prompts.length === 3;

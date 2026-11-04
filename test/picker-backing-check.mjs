@@ -35,7 +35,7 @@ try {
           keys: [{ id: "k1", name: "", keyMask: "sk-…83Zo", model: ms[2], models: ms }, { id: "k2", name: "福利", model: "", models: [ms[0]] }, { id: "k3", name: "按量", model: "", models: [ms[0]] }] }
       ]
     };
-    window.__presetAtelier.open("more", "schemes");
+    window.__presetAtelier.open("conn");
   }, MODELS);
   await page.waitForTimeout(400);
 
@@ -44,7 +44,7 @@ try {
   const sweep = async (scope, label) => {
     const bad = await page.evaluate(([scope, bad]) => {
       const out = [];
-      const outer = document.querySelectorAll("#cw-root .cw-layer > .cw-scrim:not(.cw-out) :is(.pa-mpick, .cw-chooser, .cw-chooser-top)");
+      const outer = document.querySelectorAll("#cw-root .cw-layer > .cw-scrim:not(.cw-out) :is(.cw-mpick, .cw-chooser, .cw-chooser-top)");
       for (const x of outer) {
         const bg = getComputedStyle(x).backgroundColor;
         if (bad.includes(bg)) out.push(`${x.tagName.toLowerCase()}.${[...x.classList].join(".")} ${bg}`);
@@ -59,9 +59,9 @@ try {
     }, [scope, [...BAD]]);
     assert.deepEqual(bad, [], `${label}：有元素被铺上外来底色`);
   };
-  const LIST = "#cw-root .cw-layer > .cw-scrim:not(.cw-out) :is(.pa-mpick-list, .cw-chooser-list, .pa-pick)";
+  const LIST = "#cw-root .cw-layer > .cw-scrim:not(.cw-out) :is(.cw-mpick-list, .cw-chooser-list, .pa-pick)";
   const hoverAll = async (label) => {
-    for (const sel of [".pa-krow", ".pa-kname", ".pa-kchip", ".pa-kmore", ".pa-ksec", ".pa-cat-more", ".pa-mpick-item", ".cw-choice", ".cw-menu-item"]) {
+    for (const sel of [".cw-krow", ".cw-kname", ".cw-kchip", ".cw-kmore", ".cw-msec-h", "[data-catmenu]", ".cw-choice", ".cw-choice", ".cw-menu-item"]) {
       // 只在最上层的窗口里取（下面那层被遮罩挡着）
       const el = page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out)").last().locator(sel).first();
       if (!await el.count() || !await el.isVisible()) continue;
@@ -69,13 +69,13 @@ try {
       await sweep(LIST, `${label} · 悬停 ${sel}`);
     }
   };
-  const view = async (v) => { await page.click(`#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-kview [data-v=${v}]`); await page.waitForTimeout(120); };
+  const view = async (v) => { await page.click(`#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-mpick-top .cw-seg [data-v=${v}]`); await page.waitForTimeout(120); };
   const search = async (q) => { await page.fill("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-mfind .cw-input", q); await page.waitForTimeout(150); };
   const openPicker = async (siteName) => {
-    await page.locator("#cw-root .pa-plan-sites .pa-site", { hasText: siteName }).locator("[data-a=edit]").first().click();
+    await page.locator("#cw-root [data-r="sites"] .cw-site", { hasText: siteName }).locator("[data-act=edit]").first().click();
     await page.waitForTimeout(250);
     await page.click(".cw-dlg [data-f=modelbtn]");
-    await page.waitForSelector(".pa-mpick-list");
+    await page.waitForSelector(".cw-mpick-list");
   };
   // 关掉最上面的弹窗（Esc 只给最上面那个）
   const closeTop = async () => { await page.keyboard.press("Escape"); await page.waitForTimeout(220); };
@@ -85,30 +85,30 @@ try {
   for (const v of ["model", "cat", "group"]) {
     await view(v);
     // 按分类：展开 Claude 分类
-    if (v === "cat" && !await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-krow").count()) await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-ksec").first().click();
+    if (v === "cat" && !await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-krow").count()) await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-msec-h").first().click();
     await sweep(LIST, `多密钥 · ${v}`);
     await hoverAll(`多密钥 · ${v}`);
   }
   await view("model");
-  assert.ok(await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-kmore").count(), "有「+N」");
-  assert.equal(await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-krow.on").evaluate((x) => getComputedStyle(x).backgroundColor) !== "rgba(0, 0, 0, 0)", true, "选中的行有选中底色");
-  assert.notEqual(await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-kchip.on").evaluate((x) => getComputedStyle(x).backgroundColor), "rgba(0, 0, 0, 0)", "选中的分组标签是实心的");
+  assert.ok(await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-kmore").count(), "有「+N」");
+  assert.equal(await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-krow.on").evaluate((x) => getComputedStyle(x).backgroundColor) !== "rgba(0, 0, 0, 0)", true, "选中的行有选中底色");
+  assert.notEqual(await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-kchip.on").evaluate((x) => getComputedStyle(x).backgroundColor), "rgba(0, 0, 0, 0)", "选中的分组标签是实心的");
   await search("不存在的模型名");
   await sweep(LIST, "多密钥 · 搜索：使用「…」");
-  await page.click("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-selbtn");
+  await page.click("#cw-root .cw-layer > .cw-scrim:not(.cw-out) [data-act="selmode"]");
   await page.waitForTimeout(120);
   await search("");
   await sweep(LIST, "多密钥 · 多选");
   await hoverAll("多密钥 · 多选");
-  await page.click("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-selbtn");
+  await page.click("#cw-root .cw-layer > .cw-scrim:not(.cw-out) [data-act="selmode"]");
   await view("group");
   await search("zzz");
   await sweep(LIST, "多密钥 · 按分组 · 没有匹配");
   await search("");
   // 分类的 ⋯：贴着按钮弹出的选项
   await view("cat");
-  await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-cat-more").first().click();
-  await page.waitForSelector("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-menu-item");
+  await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) [data-catmenu]").first().click();
+  await page.waitForSelector("#cw-root .cw-layer .cw-menu-item");
   await sweep(LIST, "分类 ⋯ 的弹出选项");
   await hoverAll("分类 ⋯ 的弹出选项");
   await closeTop();
@@ -130,14 +130,14 @@ try {
   ok("单密钥站点：按模型、按分类、搜索，底色都是配色里的");
 
   // ---- 导出站点的弹出选项（编辑模式里）、选预设
-  await page.click("#cw-root [data-a=sitesedit]");
-  await page.click("#cw-root [data-a=exportsites]");
-  await page.waitForSelector("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-menu-item");
+  await page.click("#cw-root [data-act=sitesedit]");
+  await page.click("#cw-root [data-act=exportsites]");
+  await page.waitForSelector("#cw-root .cw-layer .cw-menu-item");
   await sweep(LIST, "导出站点的选项");
   await hoverAll("导出站点的选项");
   await closeTop();
   await page.evaluate(() => window.__presetAtelier.open("preset"));
-  await page.click("#cw-root .pa-toolbar .cw-row-namebtn");
+  await page.click("#cw-root .pa-toolbar");
   await page.waitForSelector(".cw-dlg .cw-choice");
   await sweep(LIST, "选预设");
   await hoverAll("选预设");

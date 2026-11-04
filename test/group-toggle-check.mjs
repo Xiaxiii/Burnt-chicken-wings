@@ -7,11 +7,8 @@ const saved = page => page.evaluate(n => structuredClone(window.__mock.presets[w
 const states = p => p.prompt_order[0].order.map(o => [o.identifier, o.enabled]);
 const group = (page, id) => page.locator(`[data-page=preset] .cw-group[data-gid="${id}"]`);
 async function choosePreset(page, name) {
-  const slot = page.locator('[data-page=preset] .pa-picker-slot');
-  if (await slot.locator('select').count()) {
-    await slot.locator('select').selectOption(name);
-  } else {
-    await slot.locator('.cw-row-namebtn').click();
+  {
+    await page.locator('#cw-root .cw-scope:visible').first().click();
     await page.waitForSelector('.cw-choice');
     assert.equal(await page.evaluate(name => {
       const item = [...document.querySelectorAll('.cw-choice')].find(x => x.dataset.v === name);
@@ -65,7 +62,7 @@ try {
     await toggleGroup(page, 'theater', true);
     assert.deepEqual(states(await saved(page)), chosen);
     assert.equal(await theater.locator('.cw-gcount').innerText(), '1/3');
-    await page.click('[data-g=undo]'); await waitGroup(page, 'theater', false);
+    await page.click('#cw-root .cw-top [data-act=undo]'); await waitGroup(page, 'theater', false);
     assert.deepEqual(states(await saved(page)), chosen, '撤销分组切换也不改成员');
     for (const on of [false, true]) {
       await toggleGroup(page, 'extras', on);
@@ -77,17 +74,17 @@ try {
 
     // 2.5.0 分组菜单「组内全部开启 / 关闭」：改组内每一条，再撤销回去
     await extras.locator('[data-act=gmenu]').click();
-    await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-menu-item', { hasText: '组内全部开启' }).click();
+    await page.locator('#cw-root .cw-layer .cw-menu-item', { hasText: '组内全部开启' }).click();
     for (let i = 0; i < 25 && (await extras.locator('.cw-gcount').innerText()) !== '2/2'; i++) await page.waitForTimeout(200);
     assert.equal(await extras.locator('.cw-gcount').innerText(), '2/2', '组内全部开启');
     await extras.locator('[data-act=gmenu]').click();
-    await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-menu-item', { hasText: '组内全部关闭' }).click();
+    await page.locator('#cw-root .cw-layer .cw-menu-item', { hasText: '组内全部关闭' }).click();
     for (let i = 0; i < 25 && (await extras.locator('.cw-gcount').innerText()) !== '0/2'; i++) await page.waitForTimeout(200);
     assert.equal(await extras.locator('.cw-gcount').innerText(), '0/2', '组内全部关闭');
     // 等自动保存写回，后面套用方案时才不会问「有未保存的修改」
     for (let i = 0; i < 30 && JSON.stringify(states(await saved(page))) !== JSON.stringify(chosen); i++) await page.waitForTimeout(200);
     assert.deepEqual(states(await saved(page)), chosen, '全部关闭后回到原来的开关');
-    for (let i = 0; i < 30 && await page.locator('.cw-top [data-g="confirm"]').isVisible(); i++) await page.waitForTimeout(200);
+    for (let i = 0; i < 30 && await page.locator('.cw-top [data-act="confirm"]').isVisible(); i++) await page.waitForTimeout(200);
 
     // 旧方案仅记录分组状态时，也不能暗中全开未记录的条目。
     await page.evaluate(title => {
@@ -95,8 +92,8 @@ try {
       c.extensionSettings.presetAtelier.schemes.push({ id: 'parent-only', name: '只切换分组', preset: title, scope: 'all', states: {}, groupStates: { theater: true } });
       window.__presetAtelier.open('more', 'schemes');
     }, title);
-    for (const h of await page.locator('.pa-plan-schemes .pa-sgroup:not(.open) .pa-sghead').all()) await h.click();
-    await page.locator('[data-id="parent-only"] [data-a=apply]').click();
+    for (const h of await page.locator('.cw-conn-schemes .cw-sgroup:not(.open) .cw-sghead-btn').all()) await h.click();
+    await page.locator('[data-id="parent-only"] [data-act=apply]').click();
     await waitGroup(page, 'theater', true);
     assert.deepEqual(states(await saved(page)), chosen);
     assert.deepEqual((await saved(page)).prompts, original.prompts);

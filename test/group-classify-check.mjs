@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import fixture from './fixtures/ungrouped-sections.cjs';
-import { choose } from './choose.mjs';
+import { choose, organizeTool } from './choose.mjs';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
 const title = '未分组识别合成测试';
@@ -23,9 +23,9 @@ async function start(mobile, preset = fixture()) {
 }
 async function smart(page, mobile) {
   if (mobile) {
-    await page.click('[data-tool=menu]');
-    await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-menu-item').filter({ hasText: '智能分组' }).click();
-  } else await page.click('[data-tool=smart]');
+    await page.click('[data-act=tools]');
+    await page.locator('#cw-root .cw-layer .cw-menu-item').filter({ hasText: '智能分组' }).click();
+  } else await organizeTool(page, 'smart');
   await dialog(page).waitFor();
 }
 async function cancel(page) {
@@ -79,7 +79,7 @@ try {
     assert.deepEqual(result.prompts, original.prompts);
     assert.deepEqual(Object.fromEntries(result.prompt_order[0].order.map(o => [o.identifier, o.enabled])), Object.fromEntries(original.prompt_order[0].order.map(o => [o.identifier, o.enabled])));
     assert.deepEqual(await page.evaluate(() => window.__gen || []), []);
-    await page.click('[data-g=undo]'); await waitUndo(page);
+    await page.click('#cw-root .cw-top [data-act=undo]'); await waitUndo(page);
     assert.deepEqual(await saved(page), original);
 
     // 弹窗期间的其他修改会使预览失效。

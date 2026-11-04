@@ -44,7 +44,7 @@ try {
   const draft = cards.filter({ hasText: '草稿检查小CoT' });
   await draft.locator('summary').click();
   assert.match(await draft.innerText(), /思维链没读/);
-  assert.equal(await draft.locator('[data-repair]').count(), 0, '片段变量不再给出会报「需人工核对」的通用修复');
+  assert.equal(await draft.locator('#cw-root [data-act=repair]').count(), 0, '片段变量不再给出会报「需人工核对」的通用修复');
   await draft.locator('[data-cotread]').click();
   const sheet = page.locator('.cw-dlg');
   await sheet.locator('[data-k=preview]').waitFor();
@@ -58,7 +58,7 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('.pa-dead').length === 2);
   ok('片段变量可选思维链和行，预览后加入读取，待核对随之消失');
 
-  await page.click('[data-g=undo]');
+  await page.click('#cw-root .cw-top [data-act=undo]');
   await page.waitForFunction(() => !window.__mock.presets[0].prompts.find((x) => x.identifier === 'cot').content.includes('草稿检查小CoT'));
   await page.waitForFunction(() => document.querySelectorAll('.pa-dead').length === 3);
   ok('顶栏撤销恢复思维链原文');

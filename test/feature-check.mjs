@@ -62,7 +62,7 @@ assert.ok(copy && copy.content === "新条目的正文" && copy.identifier !== m
 ok("复制条目");
 
 // 3) 缝合：已选清单里可以逐条去掉；新建分组在目标列表里
-await page.click('[data-tab="suture"]'); await page.waitForTimeout(400);
+await page.locator('#cw-root [data-nav="stitch"]:visible').first().click(); await page.waitForTimeout(400);
 await page.locator(".cw-pane-src .cw-list .cw-ghead").first().click(); await page.waitForTimeout(150);
 const rows = page.locator(".cw-pane-src .cw-list .cw-row:visible");
 await rows.nth(0).click(); await rows.nth(1).click(); await page.waitForTimeout(150);
@@ -98,23 +98,23 @@ await page.evaluate(() => {
   s.activeSiteId = "s1";
   window.__mock.live.custom_model = "m-b";
 });
-await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
-await page.click('[data-m="schemes"]'); await page.waitForTimeout(400);
+await page.evaluate(() => window.__presetAtelier.open('conn')); await page.waitForTimeout(200);
+ await page.waitForTimeout(400);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model), "m-a");
-await page.click('[data-a="keepmodel"]'); await page.waitForTimeout(300);
+await page.click('[data-act="keepmodel"]'); await page.waitForTimeout(300);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model), "m-b");
 ok("站点模型不被悄悄覆盖，确认后才改");
 
 // 6) 设置框改名：在行内改，不弹浏览器输入框
 await page.click(".pa-close"); await page.waitForTimeout(200);
-await page.click('#pa-settings [data-a="rename"]'); await page.waitForTimeout(100);
-await page.fill("#pa-settings .pa-set-input", "我的鸡翅");
+await page.click('#cw-settings [data-act="rename"]'); await page.waitForTimeout(100);
+await page.fill("#cw-settings .cw-set-input", "我的鸡翅");
 await page.keyboard.press("Enter"); await page.waitForTimeout(150);
-assert.equal(await page.$eval("#pa-settings .pa-set-namerow .cw-appname", (x) => x.textContent), "我的鸡翅");
+assert.equal(await page.$eval("#cw-settings .cw-set-namerow .cw-appname", (x) => x.textContent), "我的鸡翅");
 assert.equal(await page.$eval("#pa-menu-entry .cw-appname", (x) => x.textContent), "我的鸡翅");
-await page.click('#pa-settings [data-a="rename"]'); await page.waitForTimeout(100);
-await page.fill("#pa-settings .pa-set-input", "");
-await page.click('#pa-settings [data-a="rename-ok"]'); await page.waitForTimeout(150);
+await page.click('#cw-settings [data-act="rename"]'); await page.waitForTimeout(100);
+await page.fill("#cw-settings .cw-set-input", "");
+await page.click('#cw-settings [data-act="rename-ok"]'); await page.waitForTimeout(150);
 assert.equal(await page.$eval("#pa-menu-entry .cw-appname", (x) => x.textContent), "焦香鸡翅", "留空恢复默认");
 ok("设置框行内改名，留空恢复默认");
 

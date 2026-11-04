@@ -17,7 +17,7 @@ try {
   await page.waitForFunction(() => window.__presetAtelier?.open);
   await page.addStyleTag({ content: FOREIGN });
   await page.evaluate(() => window.__presetAtelier.open());
-  await page.click('#cw-root [data-tool=search]');
+  
   const q = page.locator('#cw-root .pa-findrow .cw-input');
   await q.waitFor();
   const look = (loc) => loc.evaluate((x) => { const s = getComputedStyle(x); return { radius: s.borderTopLeftRadius, margin: s.marginBottom, type: x.type, mode: x.inputMode, hint: x.enterKeyHint }; });
@@ -31,7 +31,7 @@ try {
   ok('整理页搜索框不受别处按类型、类名、搜索键改的样式影响，键盘照样是搜索键');
 
   // 选预设的列表、选择模型的搜索框
-  await page.click('#cw-root .pa-toolbar .cw-row-namebtn');
+  await page.click('#cw-root .pa-toolbar');
   const nq = page.locator('.cw-dlg .cw-chooser-top .cw-input');
   await nq.waitFor();
   const n = await look(nq);
@@ -45,7 +45,7 @@ try {
     document.body.insertAdjacentHTML('beforeend', '<select id="model_custom_select"><option value="m1">m1</option><option value="m2">m2</option></select><input id="custom_model_id">');
     window.__presetAtelier.open('more', 'schemes');
   });
-  await page.click('#cw-root [data-a=livemodel]');
+  await page.click('#cw-root [data-act=livemodel]');
   const mq = page.locator('.cw-dlg .pa-mfind .cw-input');
   await mq.waitFor();
   const m = await look(mq);
@@ -55,7 +55,7 @@ try {
   ok('选预设、选择模型的搜索框同样不受影响');
 
   await page.evaluate(() => window.__presetAtelier.open('more'));
-  await page.click('#cw-root [data-a=new]');
+  await page.click('#cw-root [data-act=new]');
   const key = page.locator('.cw-dlg [data-f=key]').first();
   await key.waitFor();
   const k = await look(key);

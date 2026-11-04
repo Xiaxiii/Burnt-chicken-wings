@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import fixture from './fixtures/group-repair.cjs';
-import { choose } from './choose.mjs';
+import { choose , organizeTool } from './choose.mjs';
 const name = '分散分区测试';
 const original = fixture();
 const originalIds = original.prompt_order[0].order.map(o => o.identifier);
@@ -20,7 +20,7 @@ async function cancel(page) {
   await dialog(page).waitFor({ state: 'hidden' });
 }
 async function open(page) {
-  await page.click('[data-repair-groups]'); await dialog(page).waitFor();
+  await page.click('#cw-root [data-act=repair]'); await dialog(page).waitFor();
 }
 const previewIds = page => dialog(page).locator('[data-preview-id]').evaluateAll(rows => rows.map(r => r.dataset.previewId));
 try {
@@ -49,10 +49,10 @@ try {
 
     // 手机与桌面均可从「智能分组」进入，勾选一个分区的预览与实际移动一致。
     if (mobile) {
-      await page.click('[data-tool=menu]');
-      await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-menu-item').filter({ hasText: '智能分组' }).click();
-    } else await page.click('[data-tool=smart]');
-    await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-menu-item').filter({ hasText: /^归整分散的/ }).click();
+      await page.click('[data-act=tools]');
+      await page.locator('#cw-root .cw-layer .cw-menu-item').filter({ hasText: '智能分组' }).click();
+    } else await organizeTool(page, 'smart');
+    await page.locator('#cw-root .cw-layer .cw-menu-item').filter({ hasText: /^归整分散的/ }).click();
     await dialog(page).waitFor();
     await dialog(page).locator('[data-gather="0"]').uncheck();
     await dialog(page).locator('[data-gather="1"]').uncheck();
@@ -62,7 +62,7 @@ try {
     await dialog(page).locator('.cw-btn-primary').click();
     await waitOrder(page, partialIds);
     assert.match(await page.locator('.cw-group-repair').innerText(), /1 个分区/);
-    await page.click('[data-g=undo]'); await waitOrder(page, originalIds);
+    await page.click('#cw-root .cw-top [data-act=undo]'); await waitOrder(page, originalIds);
 
     // 批量移动不改开关、组归属或正文，且一次撤销恢复原来的四段。
     await open(page);
@@ -80,7 +80,7 @@ try {
     const beforeSwitches = Object.fromEntries(original.prompt_order[0].order.map(o => [o.identifier, o.enabled]));
     assert.deepEqual(Object.fromEntries(after.prompt_order[0].order.map(o => [o.identifier, o.enabled])), beforeSwitches);
     assert.deepEqual(after.extensions.baibaiToolkit.presetPromptGroups.prompts, original.extensions.baibaiToolkit.presetPromptGroups.prompts);
-    await page.click('[data-g=undo]'); await waitOrder(page, originalIds);
+    await page.click('#cw-root .cw-top [data-act=undo]'); await waitOrder(page, originalIds);
     assert.equal(await page.locator('.cw-group[data-gid="a"]').count(), 4);
 
     // 打开弹窗后发生修改，不能再把旧预览写回去。
@@ -90,12 +90,12 @@ try {
     await page.waitForFunction(() => window.__groupToasts.some(m => m.includes('重新预览归整')));
     await waitOrder(page, originalIds);
     await page.waitForFunction(n => window.__mock.presets[window.__mock.names.indexOf(n)].prompt_order[0].order.find(o => o.identifier === 'tail').enabled === false, name);
-    await page.click('[data-g=undo]');
+    await page.click('#cw-root .cw-top [data-act=undo]');
     await page.waitForFunction(n => window.__mock.presets[window.__mock.names.indexOf(n)].prompt_order[0].order.find(o => o.identifier === 'tail').enabled === true, name);
 
     // 单组入口同样先预览，只列出该组。
     await page.locator('.cw-group[data-gid="a"] [data-act=gmenu]').first().click();
-    await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-menu-item').filter({ hasText: '合并分散的 4 段' }).click();
+    await page.locator('#cw-root .cw-layer .cw-menu-item').filter({ hasText: '合并分散的 4 段' }).click();
     await dialog(page).waitFor();
     assert.equal(await dialog(page).locator('[data-gather]').count(), 1);
     await cancel(page);

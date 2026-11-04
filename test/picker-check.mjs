@@ -1,5 +1,6 @@
 // 1.9.0：预设、世界书的选择列表不看数量一律带搜索；缝合页不再另放条目搜索框。用法同 clean-check.mjs
 import { chromium } from "playwright";
+import "./choose.mjs";
 import assert from "node:assert";
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
@@ -12,7 +13,7 @@ await page.evaluate(() => window.__presetAtelier.open("stitch"));
 await page.waitForTimeout(500);
 assert.equal(await page.$(".pa-src .pa-findrow, .pa-src-q"), null, "缝合页没有单独的搜索框");
 const n = await page.evaluate(() => window.SillyTavern.getContext().getPresetManager().getPresetList().preset_names.length ?? 0).catch(() => 0);
-await page.click(".cw-src-pick .cw-pick-btn .cw-row-namebtn"); await page.waitForSelector(".cw-choice");
+await page.click(".cw-src-pick .cw-pick-btn"); await page.waitForSelector(".cw-choice");
 assert.ok(await page.$(".cw-chooser-top .cw-input"), `预设列表带搜索（${n} 个预设）`);
 const before = await page.$$eval(".cw-choice", (x) => x.length);
 const first = await page.$eval(".cw-choice span", (x) => x.textContent);

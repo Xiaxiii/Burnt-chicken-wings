@@ -227,7 +227,7 @@ try {
     equal(await stored(page, sourceName), source, '确认也不改来源');
     equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.preset_allowed_regex), { openai: ['其他授权预设'] }, '不擅自扩大原生启用授权');
     equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.regex), [{ id: 'global-kept', scriptName: '全局规则保持原样' }]);
-    await page.click('[data-g=undo]');
+    await page.click('#cw-root .cw-top [data-act=undo]');
     await waitSaved(page, 3);
     equal(await stored(page), target, '撤销恢复整份目标');
     console.log(`✓ 正则缝制 ${width}px：默认美化/来源开关、全选清空、重复与冲突、最终顺序、安全文本、保存撤销及授权范围`);
@@ -262,7 +262,7 @@ try {
     assert.equal(await page.locator('.cw-src-pick .cw-pick-btn').innerText(), sourceName + '\n▾');
     assert.equal(await page.locator('[data-act=st-go]').isDisabled(), true, '仍未选提示词或位置');
     equal(await stored(page, sourceName), source, '刷新没有修改来源');
-    await page.click('[data-g=undo]');
+    await page.click('#cw-root .cw-top [data-act=undo]');
     await waitSaved(page, 3);
     await page.waitForFunction(() => window.__nativeRegexEvents.length === 2 && window.__regexTransferTest.getRefreshName() === null);
     nativeEvents = await page.evaluate(() => window.__nativeRegexEvents);
@@ -341,7 +341,7 @@ try {
     assertTransferGroup(await stored(page), customName, ['new-style', 'source-conflict', 'source-off']);
     assert.equal((await stored(page)).extensions.regex_scripts.at(-1).disabled, true, '建组不联动正则开关');
     equal(await stored(page, sourceName), source, '来源分组内容不会被写回');
-    await page.click('[data-g=undo]');
+    await page.click('#cw-root .cw-top [data-act=undo]');
     await waitSaved(page, 3);
     equal(await stored(page), target, '一次撤销恢复规则与整个新建组');
     console.log('✓ 自动正则分组：空名拦截、长中文可读、自定义名称保存、来源分组忽略及完整撤销');
@@ -362,7 +362,7 @@ try {
     equal(saved.extensions.baibaiToolkit.regexGroups.groups, reusable.extensions.baibaiToolkit.regexGroups.groups, '复用同名组保留原组ID、折叠与未知字段');
     equal(saved.extensions.baibaiToolkit.regexGroups.scripts.exact, reusable.extensions.baibaiToolkit.regexGroups.scripts.exact, '原成员及其未知字段不变');
     equal(readSavedGroupMembers(saved, group.id).map(rule => rule.id), ['exact', 'target-conflict', 'new-style', 'source-conflict', 'source-off'], '新成员追加在同名组已有成员之后');
-    await page.click('[data-g=undo]');
+    await page.click('#cw-root .cw-top [data-act=undo]');
     await waitSaved(page, 3);
     equal(await stored(page), reusable, '撤销复用组恢复既有成员');
     console.log('✓ 同名正则组复用：保留组和原成员，仅追加本次实际缝入规则，可撤销');

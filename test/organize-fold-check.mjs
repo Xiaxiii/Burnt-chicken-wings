@@ -19,7 +19,7 @@ async function openPage(saved) {
   await page.waitForTimeout(500);
   return page;
 }
-const fold = (page) => page.evaluate(() => [...document.querySelectorAll(".cw-list .cw-group")].map((g) => (g.classList.contains("pa-collapsed") ? "-" : "+") + g.querySelector(".cw-gname")?.textContent.trim()).join(" "));
+const fold = (page) => page.evaluate(() => [...document.querySelectorAll(".cw-list .cw-group")].map((g) => (g.classList.contains("is-col") ? "-" : "+") + g.querySelector(".cw-gname")?.textContent.trim()).join(" "));
 const head = (page, name) => page.locator(".cw-list .cw-group", { hasText: name }).first().locator(".cw-ghead .cw-gname");
 
 let page = await openPage(null);

@@ -18,7 +18,7 @@ const scan = (p, where) => p.evaluate((where) => {
     const r = e.getBoundingClientRect();
     if (r.right > W + 1 || r.left < -1) { out.push(`超出屏幕：${e.tagName.toLowerCase()}.${[...e.classList].join('.')} 「${(e.textContent || e.placeholder || '').trim().slice(0, 16)}」 ${Math.round(r.left)}..${Math.round(r.right)}`); }
   }
-  for (const box of root.querySelectorAll('.cw-dlg-body, .pa-scroll, .pa-page')) {
+  for (const box of root.querySelectorAll('.cw-dlg-body, .cw-body, .pa-page')) {
     if (!visible(box)) continue;
     if (box.scrollWidth > box.clientWidth + 2 && getComputedStyle(box).overflowX !== 'visible') out.push(`横向滚动：${[...box.classList].join('.')} ${box.scrollWidth}>${box.clientWidth}`);
   }
@@ -36,7 +36,7 @@ for (const [w, h, mobile] of sizes) {
   await go('整理', async () => { await p.evaluate(() => window.__presetAtelier.open()); await p.click('#cw-root [data-tool=search]'); });
   await go('缝合', () => p.evaluate(() => window.__presetAtelier.open('stitch')));
   for (const sec of ['schemes', 'look', 'health', 'clean']) await go(`更多/${sec}`, () => p.evaluate((s) => window.__presetAtelier.open('more', s), sec));
-  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('more', 'schemes')); await p.click('#cw-root [data-a=new]'); });
+  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('more', 'schemes')); await p.click('#cw-root [data-act=new]'); });
   await go('添加站点·看密钥', async () => { await p.locator('.cw-dlg [data-f=keyeye]').first().click(); });
   await p.evaluate(() => document.querySelectorAll('#cw-root #cw-root .cw-scrim').forEach((m) => m.remove()));
   await go('思维链（待核对）', () => p.evaluate(({ cotPreset, NAME }) => { const m = window.__mock; m.names.splice(0, m.names.length, NAME); m.presets.splice(0, m.presets.length, cotPreset); m.live.preset_settings_openai = NAME; Object.assign(m.live, structuredClone(cotPreset)); window.__presetAtelier.open('preset', 'cot'); }, { cotPreset, NAME }));
