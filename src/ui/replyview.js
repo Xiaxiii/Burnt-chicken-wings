@@ -35,6 +35,10 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
   const body = el(`<div class="pa-form">
     <div class="pa-whyrow"><p class="pa-hint">当前预设「${esc(name)}」</p>${whyBtn("preset")}</div>
     ${whyNote("preset", "每个预设分别设置。标签名须与预设的输出格式一致。")}
+    <div class="pa-card" data-r="status-card"><div class="pa-whyrow"><b>${statusCard() ? `角色卡「${esc(statusCard().name)}」的状态栏` : "状态栏"}</b>${whyBtn("status")}</div>
+      ${whyNote("status", "状态栏标签随角色卡而变，按卡分别记录，与预设无关，改动立即生效。没选过的卡，从它生效的世界书、角色卡、预设条目和显示正则里自动识别；认不准时请选择。检查回复时当作必需标签，必需标签栏里不必再填状态栏。")}
+      <div data-r="status-body" aria-live="polite"><p class="pa-hint">正在读取世界书…</p></div>
+      <label class="pa-field-row"><input type="checkbox" data-r="status-remind" ${statusRemindOn() ? "checked" : ""}>状态栏掉了时，下一轮自动提醒一次</label></div>
     <label class="pa-field"><span>正文标签名（不填尖括号）${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
     ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
     <label class="pa-field"><span>额外必需标签（可选，逗号分隔）${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="回复里实际的标签名，如 lxs_status" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small></label>
@@ -66,6 +70,71 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     </details>
   </div>`);
   bindWhy(body);
+  // 2.6.17 这张卡的状态栏：显示选定或自动认出的标签，可改选
+  const statusBox = body.querySelector('[data-r="status-body"]');
+  let status = null;
+  const rulesNow = () => { try { return normalizeReplyRules(read()); } catch { return normalizeReplyRules(saved.bodyTag ? saved : {}); } };
+  const statusLine = (s) => {
+    const btn = (label) => `<button class="pa-btn pa-btn-soft" data-r="status-pick">${label}</button>`;
+    if (s.state === "nocard") return '<p class="pa-hint">没有打开角色卡。</p>';
+    if (s.state === "manual" || s.state === "auto") return `<div class="pa-status-row"><div><b class="pa-status-tag">${esc(`<${s.tag}>`)}</b><p class="pa-hint">${esc([s.from, s.state === "auto" ? "自动识别" : "已选定"].filter(Boolean).join(" · "))}</p></div>${btn("更改")}</div>`;
+    if (s.state === "off") return `<div class="pa-status-row"><p class="pa-p">这张卡不检查状态栏。</p>${btn("更改")}</div>`;
+    if (s.state === "ambiguous") return `<div class="pa-status-row"><p class="pa-p">找到 ${s.list.length} 个可能的块，认不准哪个是状态栏，请选择。</p>${btn("选择")}</div>`;
+    return `<div class="pa-status-row"><p class="pa-p">世界书、角色卡、预设和显示正则里都没有找到状态栏。</p>${btn("选择")}</div>`;
+  };
+  const showStatus = async () => {
+    status = await statusFor(rulesNow(), name);
+    statusBox.innerHTML = statusLine(status);
+    return status;
+  };
+  const pickStatus = async () => {
+    const card = statusCard();
+    if (!card) return;
+    const rules = rulesNow();
+    const world = await replyWorldTexts();
+    const list = statusCandidates(rules, world, name);
+    const chat = ctx().chat;
+    const recent = (key) => { const r = statusRecentCount(chat, key.toLowerCase()); return r.seen ? `最近 ${r.seen} 条回复有 ${r.hit} 条写了它` : ""; };
+    const was = statusSaved(card);
+    const items = list.map((c) => ({ label: `<${c.name}>`, sub: [[...c.from, ...c.regex].slice(0, 3).join("、"), recent(c.key)].filter(Boolean).join(" · "), value: { tag: c.name, from: c.from[0] || c.regex[0] || "" } }));
+    items.push({ label: "从世界书条目里选…", sub: "列出当前生效的世界书里写了成对标签的条目", value: "entries" });
+    items.push({ label: "手动填写标签名…", value: "type" });
+    items.push({ label: "这张卡没有状态栏，不检查", value: "off" });
+    if (was) items.push({ label: "改回自动识别", value: "auto" });
+    let v = await pickBox(`「${card.name}」的状态栏`, items, { hint: "选这张卡回复里包住状态栏的标签，只对这张卡生效。" });
+    if (v == null) return;
+    if (v === "entries") {
+      const entries = statusEntryTags(world, rules);
+      const i = await pickBox("状态栏写在哪个世界书条目", entries.map((x, n) => ({ label: x.from, sub: x.tags.map((t) => `<${t}>`).join("、"), value: n })), { hint: entries.length ? "" : "当前生效的世界书里没有写了成对标签的条目。" });
+      if (i == null) return;
+      const entry = entries[i];
+      let tag = entry.tags[0];
+      if (entry.tags.length > 1) {
+        tag = await pickBox("这个条目里哪个是状态栏", entry.tags.map((t) => ({ label: `<${t}>`, sub: recent(t), value: t })), { hint: entry.from });
+        if (tag == null) return;
+      }
+      v = { tag, from: entry.from };
+    } else if (v === "type") {
+      const raw = await promptBox("状态栏标签名", was?.tag || "", "回复里实际的标签名，如 lxs_status");
+      if (!raw) return;
+      let tag;
+      try { tag = replyRuleTag(raw, "状态栏标签", "status"); } catch (e) { toast(e.message, "error"); return; }
+      v = { tag, from: "手动填写" };
+    }
+    statusSave(card, v === "auto" ? null : v === "off" ? { off: true } : v);
+    const now = await showStatus();
+    toast(now.tag ? `「${card.name}」的状态栏：<${now.tag}>` : now.state === "off" ? `「${card.name}」不检查状态栏` : `「${card.name}」的状态栏改回自动识别`, "success");
+  };
+  body.addEventListener("click", (e) => {
+    if (!e.target.closest('[data-r="status-pick"]')) return;
+    pickStatus().catch((err) => toast("设置状态栏失败：" + err.message, "error"));
+  });
+  body.querySelector('[data-r="status-remind"]').addEventListener("change", (e) => {
+    if (e.target.checked) delete settings().statusRemind;
+    else settings().statusRemind = false;
+    saveSettings();
+    if (!e.target.checked) statusRemindNext = null;
+  });
   const read = () => {
     const thinkingTag = body.querySelector('[data-r="thinking"]').value.trim();
     const input = { bodyTag: body.querySelector('[data-r="body"]').value.trim(), requiredTags: body.querySelector('[data-r="required"]').value };
@@ -138,7 +207,7 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     try { await checkNow(mode); } finally { result.removeAttribute("aria-busy"); }
   };
   const checkNow = async (mode) => {
-    const config = read();
+    const base = read();
     let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字", reasoning = "", latest = null;
     if (mode === "latest") {
       latest = latestReplyForCheck(ctx().chat);
@@ -149,7 +218,11 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     }
     const chat = ctx().chat;
     const at = latest ? latest.index : Array.isArray(chat) ? chat.length : 0;
-    let { report, extra } = await replyCheckChat(text, config, { chat, index: at, reasoning, name });
+    // 2.6.17 这张卡的状态栏标签当作必需标签一起查
+    const cardStatus = await showStatus();
+    const config = statusRules(base, cardStatus);
+    const force = cardStatus.tag || null;
+    let { report, extra } = await replyCheckChat(text, config, { chat, index: at, reasoning, name, force });
     const reminder = buildReplyReminder(report, config);
     const plan = report.issues.length ? planReplyFix(text, config, extra) : null;
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
@@ -159,7 +232,7 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     earlier = latest ? await scanEarlier() : null;
     // 前面的回复要用已知标签、世界书却还没读：读完再查一遍（只查筛出来的那几条）
     if (latest && extra.needWorld()) {
-      extra = { ...replyCheckExtras(chat, at, rules, name, await replyWorldTexts()), reasoning };
+      extra = { ...replyCheckExtras(chat, at, rules, name, await replyWorldTexts(), force), reasoning };
       earlier = await scanEarlier();
     }
     const asks = new Map();
@@ -275,6 +348,7 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
   });
   const value = await sheet({ title: "正文格式检查", body, wide: true, noFocus: true, onMount: (wrap) => {
     wrap.addEventListener("pa-closed", () => reviewCancel?.abort());
+    if (!autoCheck) showStatus().catch((e) => { statusBox.innerHTML = `<p class="pa-warn">读取状态栏失败：${esc(e.message)}</p>`; });
     if (autoCheck) check("latest").then(() => result.scrollIntoView({ block: "start" })).catch((e) => showError(e));
   }, actions: [
     { label: "取消", value: null },

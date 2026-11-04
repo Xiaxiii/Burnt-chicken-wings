@@ -13,6 +13,7 @@
  "core/varflow.js",
  "maintenance/variablewatch.js",
  "core/replycheck.js",
+ "maintenance/statusbar.js",
  "core/semanticreview.js",
  "maintenance/replyguard.js",
  "maintenance/reasoningbind.js",

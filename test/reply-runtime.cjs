@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const source = ['../src/core/replycheck.js', '../src/maintenance/replyguard.js']
+const source = ['../src/core/replycheck.js', '../src/maintenance/statusbar.js', '../src/maintenance/replyguard.js']
   .map((file) => fs.readFileSync(path.join(__dirname, file), 'utf8')).join('\n');
 const KEY = 'presetAtelier:reply-format';
 const EVENTS = Object.fromEntries(['GENERATION_AFTER_COMMANDS', 'CHAT_CHANGED', 'PRESET_CHANGED', 'GENERATION_STARTED', 'GENERATION_ENDED', 'GENERATION_STOPPED'].map((key) => [key, key.toLowerCase()]));
@@ -22,7 +22,7 @@ function fixture() {
     getCurrentChatId: () => chatId,
     setExtensionPrompt(...args) { calls.push(args); prompts[args[0]] = args[1]; }
   };
-  const functions = new Function('ctx', 'settings', 'currentPresetName', 'cleanups', 'console', source + '\nreturn { replyGuardConfig, replyGuardAvailable, latestReplyForCheck, clearReplyGuard, prepareReplyGuard, bindReplyGuard, armReplyReminder, replyReminderArmed, replyApplicable, replyCardRules };')(
+  const functions = new Function('ctx', 'settings', 'currentPresetName', 'cleanups', 'console', source + '\nreturn { replyGuardConfig, replyGuardAvailable, latestReplyForCheck, clearReplyGuard, prepareReplyGuard, bindReplyGuard, armReplyReminder, replyReminderArmed, replyApplicable, replyCardRules, armStatusReminder };')(
     () => context, () => state, () => selected, cleanups, { warn: (...args) => warnings.push(args) }
   );
   const hooks = new Map();
@@ -54,6 +54,27 @@ test('a required tag counts for the card only when the preset, card, world books
   assert.deepEqual(f.replyCardRules(rules, applicable).requiredTags, ['lxs_status']);
 });
 const TEXT = '【回复格式提醒】请让 <content>…</content> 完整成对出现一次。';
+// 2.6.17 状态栏掉了时排好的提醒：下一次正常生成加入一次，和玩家点的提醒一起；续写不用掉，换聊天作废
+test('the status-bar reminder is injected once with the player reminder, kept over continue, dropped on chat change', () => {
+  const f = fixture();
+  const STATUS = '【状态栏提醒】上一轮回复没有 <lxs_status>…</lxs_status>。';
+  f.armStatusReminder(STATUS);
+  f.generate('continue');
+  assert.equal(f.prompt(), '', '续写不用掉');
+  f.armReplyReminder(TEXT);
+  f.generate();
+  assert.equal(f.prompt(), `${TEXT}\n${STATUS}`);
+  f.generate();
+  assert.equal(f.prompt(), '', '只提醒一轮');
+  f.armStatusReminder(STATUS);
+  f.emit(EVENTS.CHAT_CHANGED);
+  f.generate();
+  assert.equal(f.prompt(), '', '换聊天作废');
+  f.armStatusReminder(STATUS);
+  f.switchChat('chat-2');
+  f.generate();
+  assert.equal(f.prompt(), '', '排好提醒的聊天已不是当前聊天');
+});
 // 2.6.11 不再自动提醒：玩家点「下一轮提醒一次」后，下一次生成加入一次
 test('nothing is injected by default, even for a bad reply with the old automatic setting saved', () => {
   const f = fixture();

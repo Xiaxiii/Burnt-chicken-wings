@@ -815,6 +815,11 @@ html.pa-open body { overflow: hidden; }
 #pa-root .pa-whyrow > p { margin: 0; }
 #pa-root .pa-field > span .pa-why, #pa-root .pa-h .pa-why { margin-left: 2px; font-weight: 400; vertical-align: -.15em; padding-top: 0; padding-bottom: 0; }
 #pa-root .pa-whyrow-check { margin-top: 6px; }
+#pa-root .pa-status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0; }
+#pa-root .pa-status-row > div { min-width: 0; }
+#pa-root .pa-status-row .pa-p, #pa-root .pa-status-row .pa-hint { margin: 2px 0 0; }
+#pa-root .pa-status-row .pa-btn { flex: none; }
+#pa-root .pa-status-tag { overflow-wrap: anywhere; }
 #pa-root .pa-whyrow-check > .pa-field-row { margin: 0; }
 #pa-root .pa-plan-sites .pa-row-head + .pa-whynote { margin: -2px 2px 8px; }
 #pa-root .pa-sitecard { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 12px; }

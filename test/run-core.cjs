@@ -545,6 +545,7 @@ test("诊断报告：去掉查询参数，角色、头像、聊天文件名换�
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);
 require("./reply-core.cjs");
 require("./reply-runtime.cjs");
+require("./statusbar-core.cjs");
 require("./variable-safety.cjs");
 require("./variable-flow.cjs");
 require("./semantic-review.cjs");

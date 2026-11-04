@@ -167,7 +167,7 @@ async function replyWorldTexts() {
     try {
       const data = cached(n) || await mods.wi?.loadWorldInfo?.(n);
       for (const e of Object.values(data?.entries || {})) {
-        if (e && !e.disable && typeof e.content === "string" && e.content.includes("<")) texts.push({ text: e.content, from: `世界书「${n}」条目「${e.comment || e.uid}」` });
+        if (e && !e.disable && typeof e.content === "string" && e.content.includes("<")) texts.push({ text: e.content, from: `世界书「${n}」条目「${e.comment || e.uid}」`, title: String(e.comment || ""), book: n });
       }
     } catch {}
   }
@@ -245,24 +245,27 @@ function replyTagOrigins(list, knownTags, chat, index) {
 // 检查一条聊天回复要用到的东西：前几条回复的布局、预设和世界书里的标签（用到时才算）、必需标签适用与否。
 // 2.6.12 世界书只在用得上时才读：先用读好的（没有就不带世界书）查一遍，查的过程中确实要用已知标签、世界书又没读好时，
 // 读完再查一遍。多数回复没有问题，用不到已知标签，就不读世界书
-function replyCheckExtras(chat, index, rules, name = currentPresetName(), world = replyWorldReady()) {
+// 2.6.17 force：这张卡的状态栏标签，玩家选定或自动认出的，一律算这张卡要的
+function replyCheckExtras(chat, index, rules, name = currentPresetName(), world = replyWorldReady(), force = null) {
   const state = { needWorld: false };
   const base = replyKnownTagsLazy(name, rules.requiredTags, world);
   const knownTags = () => {
     if (!world) state.needWorld = true;
     return base();
   };
-  return { layout: replyLayoutLazy(chat, index, rules), knownTags, isApplicable: replyApplicable(knownTags, chat), needWorld: () => state.needWorld };
+  const applicable = replyApplicable(knownTags, chat);
+  const forced = force ? String(force).toLowerCase() : null;
+  return { layout: replyLayoutLazy(chat, index, rules), knownTags, isApplicable: forced ? (key) => key === forced || applicable(key) : applicable, needWorld: () => state.needWorld };
 }
 // 检查聊天里的一条回复（或粘贴的文字）：返回 { report, extra }，extra 可直接交给 planReplyFix
-async function replyCheckChat(text, rules, { chat, index, reasoning = "", name = currentPresetName() }) {
-  let extra = { ...replyCheckExtras(chat, index, rules, name), reasoning };
+async function replyCheckChat(text, rules, { chat, index, reasoning = "", name = currentPresetName(), force = null }) {
+  let extra = { ...replyCheckExtras(chat, index, rules, name, undefined, force), reasoning };
   let report = checkReplyFormat(text, rules, extra);
   if (extra.needWorld()) {
     await replyBreath();
     const world = await replyWorldTexts();
     await replyBreath();
-    extra = { ...replyCheckExtras(chat, index, rules, name, world), reasoning };
+    extra = { ...replyCheckExtras(chat, index, rules, name, world, force), reasoning };
     report = checkReplyFormat(text, rules, extra);
   }
   return { report, extra };
@@ -274,7 +277,7 @@ function replyLayoutLazy(chat, index, rules) {
   let value;
   return () => value ??= replyLayoutBefore(chat, index, rules);
 }
-// 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改（2.6.11 起不改标签名、不去掉多包的一层）。
+// 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改（2.6.16 起去掉多包的一层、改回结构对得上的错名）。
 // 修正前的问题记在这里，点「下一轮提醒一次」时按修正前的问题写提醒；undo 供「格式」窗口撤销
 var replyAutoFixed = null;
 var replyAutoFixPending = false;
@@ -305,7 +308,8 @@ function scheduleReplyAutoFix() {
   if (!replyAutoFixPending) return;
   replyAutoFixPending = false;
   const first = replyGuardConfig();
-  if (!first?.bodyTag || !first.autoFix && first.notice === false) return;
+  // 2.6.17 状态栏自动提醒开着时，提示和自动修正都关了也要查
+  if (!first?.bodyTag || !first.autoFix && first.notice === false && !statusRemindOn()) return;
   const seq = replyGenSeq;
   // 等酒馆和其他扩展处理完这条消息（渲染、保存）、页面画完再看
   setTimeout(async () => {
@@ -315,11 +319,19 @@ function scheduleReplyAutoFix() {
       const c = ctx();
       const latest = latestReplyForCheck(c.chat);
       if (!config?.bodyTag || !latest || replyAutoFixStopped || seq !== replyGenSeq) return;
-      const rules = normalizeReplyRules(config);
       const snap = replyMessageSnapshot(latest.index);
-      const { report, extra } = await replyCheckChat(latest.message.mes, rules, { chat: c.chat, index: latest.index, reasoning: latest.message.extra?.reasoning });
+      // 2.6.17 这张卡的状态栏标签（玩家选定或自动认出的）加进必需标签
+      const status = await statusFor(normalizeReplyRules(config));
+      if (seq !== replyGenSeq) return;
+      const rules = normalizeReplyRules(statusRules(config, status));
+      const { report, extra } = await replyCheckChat(latest.message.mes, rules, { chat: c.chat, index: latest.index, reasoning: latest.message.extra?.reasoning, force: status.tag });
       // 读世界书时又开始生成、或这条回复已被改动：不再处理
-      if (!report.issues.length || seq !== replyGenSeq || replyMessageSnapshot(latest.index) !== snap) return;
+      if (seq !== replyGenSeq || replyMessageSnapshot(latest.index) !== snap) return;
+      // 状态栏掉了、写错、多包一层或进了思考区：下一轮提醒一次，只点名这张卡的状态栏标签
+      const remind = status.tag && statusRemindOn() ? statusReminder(report, status.tag) : "";
+      if (remind) armStatusReminder(remind);
+      if (!report.issues.length) return;
+      const next = remind ? "下一轮已提醒补上状态栏。点此查看" : "点此查看，可提醒下一轮";
       let left = report.issues;
       if (config.autoFix) {
         const plan = planReplyFix(latest.message.mes, rules, { ...extra, noTailClose: true, auto: true });
@@ -329,14 +341,14 @@ function scheduleReplyAutoFix() {
           left = plan.after.issues;
           const rest = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));
           replyNoticed = undo.snapshot;
-          if (rest.length && config.notice !== false) return replyNoticeToast(`已自动修正这条回复：${plan.steps.join("；")}。还有 ${rest.length} 个问题，点此查看，可提醒下一轮`);
-          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。可在「思维链 → 格式」里撤销`, left.length ? "warning" : "success");
+          if (rest.length && config.notice !== false) return replyNoticeToast(`已自动修正这条回复：${plan.steps.join("；")}。还有 ${rest.length} 个问题，${next}`);
+          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。${remind ? "下一轮已提醒补上状态栏。" : ""}可在「思维链 → 格式」里撤销`, left.length ? "warning" : "success");
         }
       }
       const sure = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));
       if (config.notice === false || !sure.length || replyNoticed === snap) return;
       replyNoticed = snap;
-      replyNoticeToast(`上一条回复：${sure[0].text}${sure.length > 1 ? `，另有 ${sure.length - 1} 个问题` : ""}。点此查看，可提醒下一轮`);
+      replyNoticeToast(`上一条回复：${sure[0].text}${sure.length > 1 ? `，另有 ${sure.length - 1} 个问题` : ""}。${next}`);
     } catch (e) {
       console.warn("[焦香鸡翅] 生成后的格式检查失败", e);
     }
@@ -365,12 +377,14 @@ function prepareReplyGuard(type, _options, dryRun) {
   try {
     clearReplyGuard();
     const c = ctx();
-    // 续写需要延续已有标签，代拟、后台生成与这条回复无关：都不用掉这次提醒
-    if (!replyRemindOnce || !replyGuardAvailable(c) || dryRun || REPLY_SKIP_TYPES.includes(type)) return;
+    // 续写需要延续已有标签，代拟、后台生成与这条回复无关：都不用掉这次提醒。
+    // 2.6.17 玩家点的「下一轮提醒一次」和状态栏掉了时排好的提醒一起加入
+    if (!replyRemindOnce && !statusRemindNext || !replyGuardAvailable(c) || dryRun || REPLY_SKIP_TYPES.includes(type)) return;
     if (c.mainApi && c.mainApi !== "openai") return;
-    if (replyRemindOnce.chat !== replyChatKey(c)) { replyRemindOnce = null; return; }
-    c.setExtensionPrompt(REPLY_GUARD_KEY, replyRemindOnce.text, 1, 0, false, 0);
-    replyRemindOnce = null;
+    const chat = replyChatKey(c);
+    const texts = [replyRemindOnce, statusRemindNext].filter((r) => r && r.chat === chat).map((r) => r.text);
+    replyRemindOnce = statusRemindNext = null;
+    if (texts.length) c.setExtensionPrompt(REPLY_GUARD_KEY, texts.join("\n"), 1, 0, false, 0);
   } catch (e) {
     console.warn("[焦香鸡翅] 加入格式提醒失败", e);
   }
@@ -388,7 +402,7 @@ function bindReplyGuard(on, events) {
   on(events.GENERATION_ENDED, scheduleReplyAutoFix);
   // 手动停止的回复不完整，不自动改、不提示
   on(events.GENERATION_STOPPED, () => { replyAutoFixPending = false; replyAutoFixStopped = true; });
-  on(events.CHAT_CHANGED, () => { replyAutoFixPending = false; replyAutoFixed = null; replyRemindOnce = null; });
+  on(events.CHAT_CHANGED, () => { replyAutoFixPending = false; replyAutoFixed = null; replyRemindOnce = null; statusRemindNext = null; });
   for (const ev of [events.CHAT_CHANGED, events.PRESET_CHANGED, events.GENERATION_STARTED, events.GENERATION_ENDED, events.GENERATION_STOPPED]) on(ev, clearReplyGuard);
   cleanups.push(clearReplyGuard);
 }
