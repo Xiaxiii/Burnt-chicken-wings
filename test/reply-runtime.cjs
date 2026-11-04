@@ -22,7 +22,7 @@ function fixture() {
     getCurrentChatId: () => chatId,
     setExtensionPrompt(...args) { calls.push(args); prompts[args[0]] = args[1]; }
   };
-  const functions = new Function('ctx', 'settings', 'currentPresetName', 'cleanups', 'console', source + '\nreturn { replyGuardConfig, replyGuardAvailable, latestReplyForCheck, clearReplyGuard, prepareReplyGuard, bindReplyGuard, armReplyReminder, replyReminderArmed };')(
+  const functions = new Function('ctx', 'settings', 'currentPresetName', 'cleanups', 'console', source + '\nreturn { replyGuardConfig, replyGuardAvailable, latestReplyForCheck, clearReplyGuard, prepareReplyGuard, bindReplyGuard, armReplyReminder, replyReminderArmed, replyApplicable, replyCardRules };')(
     () => context, () => state, () => selected, cleanups, { warn: (...args) => warnings.push(args) }
   );
   const hooks = new Map();
@@ -38,6 +38,21 @@ function fixture() {
     prompt() { return prompts[KEY] || ''; }
   };
 }
+// 2.6.16 必需标签这张卡用不用，只看预设、角色卡、世界书和开场白有没有要求，不看模型写的回复
+test('a required tag counts for the card only when the preset, card, world books or greeting ask for it', () => {
+  const f = fixture();
+  const known = new Set(['content', 'lxs_status', '状态栏']);
+  known.asked = new Set(['content', 'lxs_status']);
+  const chat = [{ is_user: false, mes: '<content>开场</content><摘要>序</摘要>' }, { is_user: true, mes: '继续' },
+    { is_user: false, mes: '<content>正文</content><状态栏><lxs_status>x</lxs_status></状态栏>' }];
+  const applicable = f.replyApplicable(() => known, chat);
+  assert.equal(applicable('lxs_status'), true);
+  assert.equal(applicable('摘要'), true, '开场白是卡写的，照算');
+  assert.equal(applicable('状态栏'), false, '只在正则或模型的回复里出现，不算这张卡要的');
+  assert.equal(f.replyApplicable(() => null, chat)('状态栏'), true, '读不到预设时一律算');
+  const rules = { bodyTag: 'content', thinkingTags: ['think', 'thinking'], requiredTags: ['状态栏', 'lxs_status'] };
+  assert.deepEqual(f.replyCardRules(rules, applicable).requiredTags, ['lxs_status']);
+});
 const TEXT = '【回复格式提醒】请让 <content>…</content> 完整成对出现一次。';
 // 2.6.11 不再自动提醒：玩家点「下一轮提醒一次」后，下一次生成加入一次
 test('nothing is injected by default, even for a bad reply with the old automatic setting saved', () => {

@@ -34,21 +34,32 @@ function replyLayoutBefore(chat, index, rules) {
 // 2.5.7 tags.children：want 里每个必需标签内部写过哪些子标签（条目里 <lxs_status>…</lxs_status> 之间的、同一条正则里的其他标签），
 // 用来确认陌生块的结构对得上
 // 2.6.11 tags.asked：条目、角色卡、世界书里写过的（要求模型输出的），不含只在正则里出现的，用来判断必需标签这张卡用不用。
-// 2.6.12 预设和角色卡一份、世界书一份，分开扫、分开缓存，用到时合起来
+// 2.6.12 预设和角色卡一份、世界书一份，分开扫、分开缓存，用到时合起来。
+// 2.6.16 tags.from：每个标签写在哪里（预设条目「名称」、世界书「书名」条目「名称」等），每个标签最多记 8 处，格式检查里列给玩家看
 function replyTagScanner(want) {
   const tags = new Set();
   const asked = new Set();
+  const from = new Map();
   const children = new Map(want.map((t) => [String(t).toLowerCase(), new Set()]));
   tags.children = children;
   tags.asked = asked;
+  tags.from = from;
   const tagRe = /<\s*\/?\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39})/gu;
   const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const scan = (text, ask = true) => {
+  const note = (key, label) => {
+    if (!label) return;
+    let set = from.get(key);
+    if (!set) from.set(key, set = new Set());
+    if (set.size < 8) set.add(label);
+  };
+  const scan = (text, ask = true, label = "") => {
     const str = String(text || "");
     if (!str.includes("<")) return;
     for (const m of str.matchAll(tagRe)) {
-      tags.add(m[1].toLowerCase());
-      if (ask) asked.add(m[1].toLowerCase());
+      const key = m[1].toLowerCase();
+      tags.add(key);
+      if (ask) asked.add(key);
+      note(key, label);
     }
     for (const [tag, set] of children) {
       if (!str.toLowerCase().includes(`<${tag}`)) continue;
@@ -57,15 +68,16 @@ function replyTagScanner(want) {
       }
     }
   };
-  const rules = (list) => {
+  const rules = (list, kind) => {
     for (const rule of Array.isArray(list) ? list : []) {
       if (!rule || rule.disabled) continue;
+      const label = `${kind}「${rule.scriptName || "未命名"}」`;
       try {
         const found = presetRegexAnchors(rule).tags;
-        for (const t of found) tags.add(t);
+        for (const t of found) { tags.add(t); note(t, label); }
         for (const [tag, set] of children) if (found.has(tag)) for (const t of found) if (t !== tag) set.add(t);
       } catch {}
-      scan(rule.replaceString, false);
+      scan(rule.replaceString, false, label);
     }
   };
   return { tags, scan, rules };
@@ -78,23 +90,29 @@ function replyPresetTags(name, want) {
   const { tags, scan, rules } = replyTagScanner(want);
   try {
     const d = getDraft(name);
-    for (const o of d.order) if (d.isActive(o.identifier)) scan(d.prompt(o.identifier)?.content);
-    try { rules(presetRegexList(d)); } catch {}
+    for (const o of d.order) {
+      if (!d.isActive(o.identifier)) continue;
+      const p = d.prompt(o.identifier);
+      scan(p?.content, true, `预设条目「${p?.name || o.identifier}」`);
+    }
+    try { rules(presetRegexList(d), "预设正则"); } catch {}
   } catch { return null; }
   try {
     const c = ctx();
     const ch = c.characters?.[Number(c.characterId)];
     if (ch) {
-      for (const f of [ch.description, ch.personality, ch.scenario, ch.first_mes, ch.mes_example, ch.data?.system_prompt, ch.data?.post_history_instructions, ...(ch.data?.alternate_greetings || [])]) scan(f);
-      rules(ch.data?.extensions?.regex_scripts);
+      const fields = [["描述", ch.description], ["性格", ch.personality], ["场景", ch.scenario], ["开场白", ch.first_mes], ["对话示例", ch.mes_example],
+        ["系统提示", ch.data?.system_prompt], ["历史后指令", ch.data?.post_history_instructions], ...(ch.data?.alternate_greetings || []).map((g) => ["备选开场白", g])];
+      for (const [label, text] of fields) scan(text, true, `角色卡${label}`);
+      rules(ch.data?.extensions?.regex_scripts, "角色卡正则");
     }
-    rules(c.extensionSettings?.regex);
+    rules(c.extensionSettings?.regex, "全局正则");
   } catch {}
   return tags;
 }
 function replyWorldTagsScan(world, want) {
   const { tags, scan } = replyTagScanner(want);
-  for (const t of world.texts) scan(t);
+  for (const t of world.texts) scan(t.text, true, t.from);
   return tags;
 }
 function replyMergeTags(a, b) {
@@ -102,6 +120,8 @@ function replyMergeTags(a, b) {
   const tags = new Set([...a, ...b]);
   tags.asked = new Set([...a.asked, ...b.asked]);
   tags.children = new Map([...a.children].map(([k, v]) => [k, new Set([...v, ...(b.children.get(k) || [])])]));
+  tags.from = new Map([...a.from]);
+  for (const [k, v] of b.from) tags.from.set(k, new Set([...(tags.from.get(k) || []), ...v]));
   return tags;
 }
 // 2.6.12 缓存按事件失效：换聊天（含换角色）、换预设、改世界书、改角色卡时重算，最长 10 分钟。
@@ -146,7 +166,9 @@ async function replyWorldTexts() {
   for (const n of JSON.parse(key)) {
     try {
       const data = cached(n) || await mods.wi?.loadWorldInfo?.(n);
-      for (const e of Object.values(data?.entries || {})) if (e && !e.disable && typeof e.content === "string" && e.content.includes("<")) texts.push(e.content);
+      for (const e of Object.values(data?.entries || {})) {
+        if (e && !e.disable && typeof e.content === "string" && e.content.includes("<")) texts.push({ text: e.content, from: `世界书「${n}」条目「${e.comment || e.uid}」` });
+      }
     } catch {}
   }
   return replyWorldCache = { key, epoch, at: Date.now(), texts };
@@ -173,26 +195,52 @@ function replyKnownTagsLazy(name, want, world = null) {
     return value = own && replyMergeTags(own, world ? replyWorldTags(world, want) : null);
   };
 }
-// 2.6.11 必需标签这张卡用不用得上：条目、角色卡、世界书里写过，或第 index 条之前最近 10 条 AI 回复（含开场白）里出现过。
-// 读不到预设时一律算用得上
-function replyRecentTags(chat, index) {
+// 2.6.11 必需标签这张卡用不用得上：预设条目、角色卡、世界书里写过，或聊天开头的开场白（第一条玩家消息之前的 AI 消息）里有。
+// 读不到预设时一律算用得上。
+// 2.6.16 不再看最近 10 条回复：模型写错一次 <状态栏>，它就一直算「用得上」，写对了的回复反被报缺 <状态栏>，
+// 点「下一轮提醒一次」又叫模型写 <状态栏>。开场白是卡的作者写的，照算
+function replyGreetingTags(chat) {
   const tags = new Set();
-  let n = 0;
-  for (let i = Math.min(index, Array.isArray(chat) ? chat.length : 0) - 1; i >= 0 && n < 10; i--) {
-    const m = chat[i];
-    if (!m || m.is_user || m.is_system || typeof m.mes !== "string") continue;
-    n++;
-    for (const t of replyTagTokens(replyCheckMask(m.mes))) tags.add(t.key);
+  for (const m of Array.isArray(chat) ? chat : []) {
+    if (!m || m.is_system) continue;
+    if (m.is_user) break;
+    if (typeof m.mes === "string") for (const t of replyTagTokens(replyCheckMask(m.mes))) tags.add(t.key);
   }
   return tags;
 }
-function replyApplicable(knownTags, chat, index) {
-  let recent;
+function replyApplicable(knownTags, chat) {
+  let greeting;
   return (key) => {
     const known = knownTags();
     if (!(known instanceof Set) || known.asked?.has(key)) return true;
-    return (recent ??= replyRecentTags(chat, index)).has(key);
+    return (greeting ??= replyGreetingTags(chat)).has(key);
   };
+}
+// 这张卡要的规则：去掉预设、角色卡、世界书都没要求的必需标签
+function replyCardRules(rules, isApplicable) {
+  const requiredTags = rules.requiredTags.filter((tag) => isApplicable(tag.toLowerCase()));
+  return requiredTags.length === rules.requiredTags.length ? rules : { ...rules, requiredTags };
+}
+// 2.6.16 标签出处：预设、角色卡、世界书、正则里写过的地方，作者注释、用户角色描述，以及第 index 条之前含这个标签的 AI 回复、玩家消息。
+// 只给玩家看，不算进「这张卡用不用」
+function replyTagOrigins(list, knownTags, chat, index) {
+  const known = typeof knownTags === "function" ? knownTags() : knownTags;
+  const c = ctx();
+  const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const notes = [["作者注释", c.chatMetadata?.note_prompt], ["用户角色描述", c.powerUserSettings?.persona_description]];
+  return list.map(({ key, name }) => {
+    const re = new RegExp(`<\\s*\\/?\\s*${esc(key)}(?=[\\s>/])`, "iu");
+    const from = [...(known instanceof Set && known.from?.get(key) || [])];
+    for (const [label, text] of notes) if (typeof text === "string" && re.test(text)) from.push(label);
+    let ai = 0, mine = 0;
+    for (let i = 0; i < Math.min(index, Array.isArray(chat) ? chat.length : 0); i++) {
+      const m = chat[i];
+      if (!m || m.is_system || typeof m.mes !== "string" || !re.test(m.mes)) continue;
+      if (m.is_user) mine++;
+      else ai++;
+    }
+    return { key, name, from, ai, mine };
+  });
 }
 // 检查一条聊天回复要用到的东西：前几条回复的布局、预设和世界书里的标签（用到时才算）、必需标签适用与否。
 // 2.6.12 世界书只在用得上时才读：先用读好的（没有就不带世界书）查一遍，查的过程中确实要用已知标签、世界书又没读好时，
@@ -204,7 +252,7 @@ function replyCheckExtras(chat, index, rules, name = currentPresetName(), world 
     if (!world) state.needWorld = true;
     return base();
   };
-  return { layout: replyLayoutLazy(chat, index, rules), knownTags, isApplicable: replyApplicable(knownTags, chat, index), needWorld: () => state.needWorld };
+  return { layout: replyLayoutLazy(chat, index, rules), knownTags, isApplicable: replyApplicable(knownTags, chat), needWorld: () => state.needWorld };
 }
 // 检查聊天里的一条回复（或粘贴的文字）：返回 { report, extra }，extra 可直接交给 planReplyFix
 async function replyCheckChat(text, rules, { chat, index, reasoning = "", name = currentPresetName() }) {
@@ -384,21 +432,23 @@ async function undoReplyFix(undo) {
   await writeReplyMessage(undo.index, undo.mes, undo.reasoning);
 }
 // 2.6.11 聊天里前面的回复也多包了同一层（如 <状态栏> 包住 <lxs_status>）：模型会照着前面的回复学，一并去掉。
-// 只看第 index 条之前最近 200 条 AI 回复当前显示的那一版；keys 是要去掉的外层标签
-// 2.6.12 先用便宜的规则筛：开始标签后面紧跟着正文或必需标签的回复才细查（「</content>」后跟 <lxs_status> 这种结束标签不算），
-// 每 20 条让出一次主线程
-async function replyWrappedEarlier(chat, index, rules, knownTags, keys = null) {
+// 2.6.16 也改正结构对得上的写错名（<状态栏> 顶替 <lxs_status>）。rules 用这张卡要的规则（replyCardRules）。
+// 只看第 index 条之前最近 200 条 AI 回复当前显示的那一版。
+// 2.6.12 先用便宜的规则筛：开始标签后面紧跟着正文或必需标签（「</content>」后跟 <lxs_status> 这种结束标签不算），
+// 或缺了必需标签的回复才细查；每 20 条让出一次主线程
+async function replyEarlierRepairs(chat, index, rules, knownTags) {
   const out = [];
   const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const quick = new RegExp(`<\\s*[A-Za-z_\\u3400-\\u9fff][^<>]*>\\s*<\\s*(?:${[rules.bodyTag, ...rules.requiredTags].map(esc).join("|")})(?=[\\s>/])`, "iu");
+  const has = rules.requiredTags.map((t) => new RegExp(`<\\s*${esc(t)}(?=[\\s>/])`, "iu"));
   let n = 0;
   for (let i = Math.min(index, Array.isArray(chat) ? chat.length : 0) - 1; i >= 0 && n < 200; i--) {
     const m = chat[i];
     if (!m || m.is_user || m.is_system || typeof m.mes !== "string") continue;
     if (++n % 20 === 0) await replyBreath();
-    if (!quick.test(m.mes)) continue;
-    const un = replyUnwrap(m.mes, rules, knownTags, keys);
-    if (un) out.push({ index: i, text: un.text, steps: un.steps, pairs: un.pairs });
+    if (!quick.test(m.mes) && has.every((re) => re.test(m.mes))) continue;
+    const fix = replyRepairEarlier(m.mes, rules, knownTags);
+    if (fix) out.push({ index: i, text: fix.text, steps: fix.steps, pairs: fix.pairs });
   }
   return out.reverse();
 }

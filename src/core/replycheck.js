@@ -150,26 +150,45 @@ function replyReasoningHasBody(reasoning, bodyTag) {
   return new RegExp(`<\\s*${name}(?:\\s+[^<>]*?)?\\s*>`, "iu").test(text);
 }
 
-// 2.6.11 必需标签按预设填，状态栏一类标签却随角色卡、世界书变。回复里没有、预设、角色卡、世界书和最近的回复也都没用到的
-// 必需标签，视为这张卡不用它：不报缺失、不进提醒、不拿来给别的块改名。isApplicable(小写标签名) 只对缺了的标签调用
+// 2.6.11 必需标签按预设填，状态栏一类标签却随角色卡、世界书变。预设、角色卡、世界书、开场白都没要求的必需标签，视为这张卡不用它：
+// 不报缺失、不进提醒、不拿来给别的块改名。isApplicable(小写标签名) 要扫预设和世界书，只在用得上时调用：缺了的标签都问。
+// 2.6.16 回复里有的必需标签也可能是模型写错的（<状态栏> 顶替或包住 <lxs_status>）：缺了这张卡要的必需标签，
+// 或它紧包着正文、别的必需标签时，同样要问
 function replyEffectiveRules(rules, masked, isApplicable) {
   if (typeof isApplicable !== "function" || !rules.requiredTags.length) return { rules, skipped: [] };
+  const key = (tag) => tag.toLowerCase();
   const present = new Set(replyTagTokens(masked).map((t) => t.key));
-  const skipped = rules.requiredTags.filter((tag) => !present.has(tag.toLowerCase()) && !isApplicable(tag.toLowerCase()));
-  return skipped.length ? { rules: { ...rules, requiredTags: rules.requiredTags.filter((tag) => !skipped.includes(tag)) }, skipped } : { rules, skipped };
+  const missing = rules.requiredTags.filter((tag) => !present.has(key(tag)));
+  const skip = new Set(missing.filter((tag) => !isApplicable(key(tag))));
+  let doubt;
+  if (missing.length > skip.size) doubt = rules.requiredTags.filter((tag) => present.has(key(tag)));
+  else {
+    const own = new Set([rules.bodyTag, ...rules.requiredTags].map(key));
+    const outer = new Set(replyWrapPairs(masked, (k) => own.has(k), (k) => own.has(k)).map((w) => w.outer.key));
+    doubt = rules.requiredTags.filter((tag) => outer.has(key(tag)));
+  }
+  for (const tag of doubt) if (!isApplicable(key(tag))) skip.add(tag);
+  const skipped = rules.requiredTags.filter((tag) => skip.has(tag));
+  return skipped.length ? { rules: { ...rules, requiredTags: rules.requiredTags.filter((tag) => !skip.has(tag)) }, skipped } : { rules, skipped };
+}
+// 紧包着一个块的外层成对标签：外层里面只有这一个块，前后只有空白。isInner、isOuter 按小写标签名筛
+function replyWrapPairs(masked, isInner, isOuter, pairs = replyPairRanges(masked)) {
+  const out = [];
+  for (const p of pairs) {
+    if (!isInner(p.key)) continue;
+    const outer = pairs.find((o) => o.start < p.start && o.end > p.end && o.key !== p.key && isOuter(o.key) &&
+      !masked.slice(masked.indexOf(">", o.start) + 1, p.start).trim() && !masked.slice(p.end, masked.lastIndexOf("<", o.end - 1)).trim());
+    if (outer) out.push({ inner: p, outer });
+  }
+  return out;
 }
 // 2.6.11 正文或必需标签外面紧包着一层预设、角色卡、世界书都没用到的标签（如 <状态栏><lxs_status>…</lxs_status></状态栏>）。
 // 只认里面只有这一个块（前后只有空白）的；knownTags 读不到时不判断
 function replyWrappers(source, masked, rules, knownTags) {
   const inner = new Map([rules.bodyTag, ...rules.requiredTags].map((t) => [t.toLowerCase(), t]));
   const thinking = new Set(rules.thinkingTags.map((t) => t.toLowerCase()));
-  const pairs = replyPairRanges(masked);
   const out = [];
-  for (const p of pairs) {
-    if (!inner.has(p.key)) continue;
-    const outer = pairs.find((o) => o.start < p.start && o.end > p.end && !inner.has(o.key) && !thinking.has(o.key) &&
-      !masked.slice(masked.indexOf(">", o.start) + 1, p.start).trim() && !masked.slice(p.end, masked.lastIndexOf("<", o.end - 1)).trim());
-    if (!outer) continue;
+  for (const { inner: p, outer } of replyWrapPairs(masked, (k) => inner.has(k), (k) => !inner.has(k) && !thinking.has(k))) {
     if (typeof knownTags === "function") knownTags = knownTags();
     if (!(knownTags instanceof Set)) return [];
     if (knownTags.has(outer.key)) continue;
@@ -186,7 +205,7 @@ function replyUnwrap(text, rules, knownTags, keys = null) {
   for (const w of replyWrappers(mes, replyCheckMask(mes), rules, knownTags).filter((x) => !keys || keys.has(x.key)).reverse()) {
     mes = mes.slice(0, w.start) + mes.slice(w.innerStart, w.innerEnd) + mes.slice(w.end);
     steps.unshift(`去掉 <${w.tag}> 外面多包的 <${w.name}>…</${w.name}>`);
-    pairs.unshift(`<${w.tag}> 外面的 <${w.name}>`);
+    pairs.unshift(`<${w.tag}> 外面多包的 <${w.name}>`);
   }
   return steps.length ? { text: mes, steps, pairs } : null;
 }
@@ -213,6 +232,30 @@ function replyMisnamed(source, rules, knownTags, masked = replyCheckMask(source)
     else if (strangers.length === 1) pairs = [{ tag: missing[0], block: strangers[0], sure: false }];
   }
   return { missing, suspects: strangers, pairs, knownTags };
+}
+// 把写错名的块改成必需标签的名字，内容不动；sureOnly 只改子标签结构对得上的
+function replyRename(text, rules, knownTags, sureOnly) {
+  let mes = String(text == null ? "" : text);
+  const steps = [], pairs = [];
+  for (const { tag, block, sure } of replyMisnamed(mes, rules, knownTags)?.pairs || []) {
+    if (sureOnly && !sure) continue;
+    const masked = replyCheckMask(mes);
+    const openEnd = masked.indexOf(">", block.start) + 1;
+    const closeStart = masked.lastIndexOf("<", block.end - 1);
+    if (openEnd <= 0 || closeStart < openEnd) continue;
+    mes = mes.slice(0, block.start) + `<${tag}>` + mes.slice(openEnd, closeStart) + `</${tag}>` + mes.slice(block.end);
+    steps.push(`把 <${block.name}>…</${block.name}> 改名为 <${tag}>…</${tag}>`);
+    pairs.push(`写成 <${block.name}> 的 <${tag}>`);
+  }
+  return steps.length ? { text: mes, steps, pairs } : null;
+}
+// 2.6.16 前面的回复：改正结构对得上的写错名，去掉多包的一层，其余不动
+function replyRepairEarlier(text, rules, knownTags) {
+  const renamed = replyRename(text, rules, knownTags, true);
+  const mes = renamed ? renamed.text : String(text == null ? "" : text);
+  const un = replyUnwrap(mes, rules, knownTags);
+  if (!renamed && !un) return null;
+  return { text: un ? un.text : mes, steps: [...(renamed?.steps || []), ...(un?.steps || [])], pairs: [...(renamed?.pairs || []), ...(un?.pairs || [])] };
 }
 
 function checkReplyFormat(text, inputRules, extra = {}) {
@@ -493,7 +536,8 @@ function replyStrandedBlocks(text, reasoning, inputRules, layout) {
 function replyBlockLabel(blocks) {
   return blocks.map((b) => b.key === REPLY_FENCE_KEY ? "代码块" : `<${b.name}>`).join("、");
 }
-// extra.auto（自动修正用，2.6.11）：不改标签名、不去掉多包的一层，这些要看过预览再改；extra.strict 只改结构对得上的写错名
+// extra.auto（自动修正用）：不改正文标签的别名；写错名的必需标签只改结构对得上的（与 extra.strict 相同），多包的一层照样去掉。
+// 2.6.11 起自动修正不改名、不去层，2.6.16 恢复：外层和写错的名字都是预设、角色卡、世界书、正则里没有的标签
 function planReplyFix(text, inputRules, extra = {}) {
   const { rules } = replyEffectiveRules(normalizeReplyRules(inputRules), replyCheckMask(String(text == null ? "" : text)), extra.isApplicable);
   const body = rules.bodyTag, bodyKey = body.toLowerCase();
@@ -552,22 +596,14 @@ function planReplyFix(text, inputRules, extra = {}) {
       steps.push(close ? `把 ${open.raw}…${close.raw} 改成 <${body}>…</${body}>` : `把 ${open.raw} 改成 <${body}>`);
     }
   }
-  // 2b.（2.5.6）必需标签写错了名字：只缺一个必需标签、回复里只多一个预设没用到的块时，把那个块改名，内容不动
-  if (!extra.auto) {
-    // extra.strict（自动修正用）：只改结构对得上的；手动修正有预览，配成一对就改
-    const mis = replyMisnamed(mes, rules, extra.knownTags);
-    for (const { tag, block, sure } of mis?.pairs || []) {
-      if (extra.strict && !sure) continue;
-      const masked = replyCheckMask(mes);
-      const openEnd = masked.indexOf(">", block.start) + 1;
-      const closeStart = masked.lastIndexOf("<", block.end - 1);
-      if (openEnd <= 0 || closeStart < openEnd) continue;
-      mes = mes.slice(0, block.start) + `<${tag}>` + mes.slice(openEnd, closeStart) + `</${tag}>` + mes.slice(block.end);
-      steps.push(`把 <${block.name}>…</${block.name}> 改名为 <${tag}>…</${tag}>`);
-    }
+  // 2b.（2.5.6）必需标签写错了名字：只缺一个必需标签、回复里只多一个预设没用到的块时，把那个块改名，内容不动。
+  //    自动修正和 extra.strict 只改结构对得上的；手动修正有预览，配成一对就改
+  {
+    const renamed = replyRename(mes, rules, extra.knownTags, extra.strict || extra.auto);
+    if (renamed) { mes = renamed.text; steps.push(...renamed.steps); }
   }
   // 2c.（2.6.11）正文或必需标签外面多包的一层：去掉这一层的开始、结束标签，里面不动
-  if (!extra.auto && extra.knownTags) {
+  if (extra.knownTags) {
     const un = replyUnwrap(mes, rules, extra.knownTags);
     if (un) { mes = un.text; steps.push(...un.steps); }
   }

@@ -2,6 +2,8 @@
 // 生成后只提示玩家、不提醒 AI；点提示打开检查；去掉这条和前面回复多包的一层（可撤销）；
 // 写错名的判断用上世界书里的结构；与这张卡不符的必需标签不检查；关掉提示、只有疑似问题时不提示。
 // 2.6.12 世界书不再每轮重读。
+// 2.6.16 必需标签里填了这张卡不用的 <状态栏>、前面的回复里又有它时，写对的回复不再被报缺 <状态栏>；列出标签出处；
+// 前面写错名的回复一并改回；自动修正去掉多包的一层。
 // 先构建并在仓库根目录运行 8765 静态服务。
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -91,12 +93,13 @@ try {
   assert.match(text, /去掉 <lxs_status> 外面多包的 <状态栏>…<\/状态栏>/);
   assert.match(await page.locator('.pa-sheet [data-r=remind-card] pre').textContent(), /<lxs_status>…<\/lxs_status> 直接输出，外面不要再包其他标签/);
   assert.doesNotMatch(await page.locator('.pa-sheet [data-r=remind-card] pre').textContent(), /状态栏/, '提醒不出现 <状态栏>');
-  assert.match(await page.locator('.pa-sheet [data-r=earlier-card]').innerText(), /前面还有 2 条回复也多包了一层（<lxs_status> 外面的 <状态栏>）。模型会照着前面的回复写/);
-  ok('点提示打开检查：列出问题、修正步骤和不含 <状态栏> 的提醒，并指出前面 2 条回复也多包了一层');
+  assert.match(await page.locator('.pa-sheet [data-r=earlier-card]').innerText(), /前面还有 2 条回复有同样的问题（<lxs_status> 外面多包的 <状态栏>）。模型会照着前面的回复写/);
+  assert.equal(await page.locator('.pa-sheet [data-r=origins] li').innerText(), '<状态栏>：聊天里前面 2 条 AI 回复', '标签出处：预设、世界书里没有，聊天里有');
+  ok('点提示打开检查：列出问题、修正步骤、标签出处和不含 <状态栏> 的提醒，并指出前面 2 条回复也多包了一层');
 
   // 3) 前面的回复一并去掉（只保存一次），可撤销；再修正这一条
   const saves = await page.evaluate(() => window.__chatSaves);
-  await page.click('.pa-sheet [data-r=unwrap-earlier]');
+  await page.click('.pa-sheet [data-r=fix-earlier]');
   await page.locator('.pa-sheet [data-r=undo-earlier]').waitFor();
   assert.deepEqual((await mes()).slice(1, 3), [clean(1), clean(2)]);
   assert.equal(await page.evaluate(() => window.__chatSaves) - saves, 1, '一并去掉只保存一次');
@@ -104,7 +107,7 @@ try {
   await page.click('.pa-sheet [data-r=undo-earlier]');
   await page.locator('.pa-sheet', { hasText: '已撤销 2 条回复的修改' }).waitFor();
   assert.deepEqual((await mes()).slice(1, 3), [wrapped(1), wrapped(2)]);
-  await page.click('.pa-sheet [data-r=unwrap-earlier]');
+  await page.click('.pa-sheet [data-r=fix-earlier]');
   await page.locator('.pa-sheet [data-r=undo-earlier]').waitFor();
   await page.click('.pa-sheet [data-r=fix]');
   await page.locator('.pa-sheet [data-r=undo-fix]').waitFor();
@@ -130,7 +133,8 @@ try {
   await page.click('.pa-sheet [data-r=latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
   await result.locator('text=这张卡没有用到').waitFor();
-  assert.match(await result.innerText(), /这张卡没有用到 <状态栏>：预设条目、角色卡、世界书和最近 10 条回复里都没有，未检查/);
+  assert.match(await result.innerText(), /这张卡没有用到 <状态栏>：预设条目、角色卡、世界书和开场白里都没有，未检查/);
+  assert.equal(await page.locator('.pa-sheet [data-r=origins]').count(), 0, '哪里都没有的不列出处');
   assert.match(await result.innerText(), /未发现配置范围内的格式问题/);
   assert.equal(await page.locator('.pa-sheet [data-r=remind]').count(), 0);
   await page.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '取消' }).click();
@@ -150,6 +154,49 @@ try {
   await turn(`${clean(7)}\n## 思考过程`);
   assert.deepEqual(await toasts(), [], '只有疑似问题时不提示');
   ok('关掉提示、只有疑似问题时不提示');
+
+  // 7) 2.6.16 必需标签里同时填了这张卡不用的 <状态栏>，前面的回复里又有它
+  const misnamed = (n) => `<content>\n第 ${n} 轮正文。\n</content>\n<状态栏>\n<时>亥时末</时>\n<地>东宫寝帐</地>\n</状态栏>`;
+  await page.evaluate(() => {
+    const s = window.SillyTavern.getContext().extensionSettings.presetAtelier;
+    s.replyGuard[window.__mock.live.preset_settings_openai] = { bodyTag: 'content', requiredTags: ['状态栏', 'lxs_status'] };
+  });
+  await turn(clean(8));
+  assert.deepEqual(await toasts(), [], '写对的回复不再报缺 <状态栏>');
+  await turn(wrapped(9));
+  t = await toasts();
+  assert.match(t[0]?.m || '', /^上一条回复：<lxs_status> 外面多包了一层 <状态栏>/, '<状态栏> 填在必需标签里也照样认出多包的一层');
+  ok('必需标签里有这张卡不用的 <状态栏>：写对的回复不提示，多包的一层照样提示');
+
+  // 前面写成 <状态栏> 的回复：子标签对得上，一并改回 <lxs_status>
+  await setChat(clean(10), [misnamed(1), wrapped(2)]);
+  await page.evaluate(() => window.__presetAtelier.open('cot'));
+  await page.click('[data-reply-format]');
+  await page.click('.pa-sheet [data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
+  assert.match(await result.innerText(), /未发现配置范围内的格式问题/);
+  assert.match(await result.innerText(), /这张卡没有用到 <状态栏>：预设条目、角色卡、世界书和开场白里都没有，未检查/);
+  assert.equal(await page.locator('.pa-sheet [data-r=origins] li').innerText(), '<状态栏>：聊天里前面 2 条 AI 回复');
+  assert.match(await page.locator('.pa-sheet [data-r=earlier-card]').innerText(), /前面还有 2 条回复有同样的问题（写成 <状态栏> 的 <lxs_status>、<lxs_status> 外面多包的 <状态栏>）/);
+  await page.click('.pa-sheet [data-r=fix-earlier]');
+  await page.locator('.pa-sheet [data-r=undo-earlier]').waitFor();
+  assert.deepEqual((await mes()).slice(1), [clean(1), clean(2), clean(10)]);
+  await page.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '取消' }).click();
+  ok('前面写成 <状态栏> 的回复改回 <lxs_status>，多包的一层去掉');
+
+  // 自动修正：多包的一层、写错的名字生成完就改回
+  await page.evaluate(() => {
+    const s = window.SillyTavern.getContext().extensionSettings.presetAtelier;
+    s.replyGuard[window.__mock.live.preset_settings_openai].autoFix = true;
+  });
+  await turn(wrapped(11));
+  assert.equal((await mes()).at(-1), clean(11));
+  t = await toasts();
+  assert.deepEqual([t.at(-1)?.type, t.at(-1)?.m], ['success', '已自动修正这条回复：去掉 <lxs_status> 外面多包的 <状态栏>…</状态栏>。可在「思维链 → 格式」里撤销']);
+  await turn(misnamed(12));
+  assert.equal((await mes()).at(-1), clean(12));
+  assert.match((await toasts()).at(-1)?.m || '', /^已自动修正这条回复：把 <状态栏>…<\/状态栏> 改名为 <lxs_status>…<\/lxs_status>/);
+  ok('开了自动修正：多包的一层、写错的 <状态栏> 生成完就改回');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();

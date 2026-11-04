@@ -1,9 +1,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix, learnReplyLayout } = new Function(
+const { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix, learnReplyLayout, replyRepairEarlier } = new Function(
   fs.readFileSync(path.join(__dirname, '../src/core/replycheck.js'), 'utf8') +
-  '\nreturn { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix, learnReplyLayout };'
+  '\nreturn { normalizeReplyRules, checkReplyFormat, buildReplyReminder, replyCheckMask, planReplyFix, learnReplyLayout, replyRepairEarlier };'
 )();
 let passed = 0;
 function test(name, run) {
@@ -174,9 +174,11 @@ test('among several strangers the one whose inner tags match is picked', () => {
   assert.deepEqual(report.misnamed.pairs.map((p) => [p.block.name, p.sure]), [['状态栏', true]]);
   assert.match(buildReplyReminder(report, rules), /上一轮的 <lxs_status> 标签名写错了/);
   assert.doesNotMatch(buildReplyReminder(report, rules), /状态栏|author_note/);
-  assert.equal(planReplyFix(reply, rules, { knownTags, auto: true }), null, '2.6.11 自动修正一律不改名，结构对得上也不改');
-  const plan = planReplyFix(reply, rules, { knownTags, strict: true });
-  assert.ok(plan.text.includes('<lxs_status>\n<时>未时</时>\n</lxs_status>') && plan.text.includes('<author_note>注</author_note>'), '只改结构对得上的那块');
+  // 2.6.16 自动修正与 strict 一样，改结构对得上的那块
+  for (const extra of [{ strict: true }, { auto: true }]) {
+    const plan = planReplyFix(reply, rules, { knownTags, ...extra });
+    assert.ok(plan.text.includes('<lxs_status>\n<时>未时</时>\n</lxs_status>') && plan.text.includes('<author_note>注</author_note>'), '只改结构对得上的那块');
+  }
 });
 test('misnamed tags are not guessed without preset tags or with several strangers', () => {
   const rules = { requiredTags: ['lxs_status'] };
@@ -232,7 +234,7 @@ test('a required block wrapped in an unknown tag is reported, reminded without t
   assert.deepEqual(plan.steps, ['去掉 <lxs_status> 外面多包的 <状态栏>…</状态栏>']);
   assert.equal(plan.text, '<content>\n正文。\n</content>\n<lxs_status>\n<时>亥时</时>\n<地>东宫</地>\n</lxs_status>');
   assert.deepEqual(plan.after.issues, []);
-  assert.equal(planReplyFix(reply, rules, { knownTags, auto: true }), null, '自动修正不去掉这一层');
+  assert.equal(planReplyFix(reply, rules, { knownTags, auto: true }).text, plan.text, '2.6.16 自动修正同样去掉这一层');
   // 外层是预设、角色卡或世界书用到的标签，或里面不止一个块：不算多包
   assert.deepEqual(checkReplyFormat(reply, rules, { knownTags: new Set([...knownTags, '状态栏']) }).issues, []);
   assert.deepEqual(checkReplyFormat(reply.replace('</lxs_status>', '</lxs_status>\n<note>附注</note>'), rules, { knownTags }).issues, []);
@@ -261,6 +263,50 @@ test('a required tag no source uses and no recent reply shows is skipped for thi
   knownTags.children = new Map([['状态栏', new Set(['时'])]]);
   assert.equal(planReplyFix(reply, { requiredTags: ['状态栏'] }, { knownTags, isApplicable: () => false }), null);
   assert.ok(planReplyFix(reply, { requiredTags: ['状态栏'] }, { knownTags }).steps[0].includes('改名为 <状态栏>'), '没有适用判断时照旧');
+});
+
+// 2.6.16 必需标签里填了这张卡不要的 <状态栏>，模型又照着前面写了它：它不再挡住多包一层、写错名的判断
+test('a required tag the card never asks for counts as a stray tag even when the reply has it', () => {
+  const rules = { requiredTags: ['状态栏', 'lxs_status'] };
+  const knownTags = new Set(['content', 'lxs_status', '时', '地']);
+  knownTags.children = new Map([['lxs_status', new Set(['时', '地'])], ['状态栏', new Set()]]);
+  const asked = [];
+  const isApplicable = (t) => (asked.push(t), knownTags.has(t));
+  const STATUS = '<lxs_status>\n<时>巳时</时>\n<地>望仙台</地>\n</lxs_status>';
+  // 写对了：不报缺 <状态栏>，不提醒；只问缺了的那个
+  const good = `<content>\n正文。\n</content>\n${STATUS}`;
+  const report = checkReplyFormat(good, rules, { knownTags, isApplicable });
+  assert.deepEqual([report.issues, report.skipped, asked], [[], ['状态栏'], ['状态栏']]);
+  // 多包一层 <状态栏>：报出来，自动修正去掉
+  const wrapped = `<content>\n正文。\n</content>\n<状态栏>\n${STATUS}\n</状态栏>`;
+  const w = checkReplyFormat(wrapped, rules, { knownTags, isApplicable });
+  assert.deepEqual([w.issues.map((i) => i.kind), w.skipped], [['wrapped'], ['状态栏']]);
+  assert.match(w.issues[0].text, /<lxs_status> 外面多包了一层 <状态栏>/);
+  assert.equal(planReplyFix(wrapped, rules, { knownTags, isApplicable, auto: true }).text, good);
+  // 写成 <状态栏>：子标签对得上，判为写错名，自动修正改回
+  const misnamed = `<content>\n正文。\n</content>\n<状态栏>\n<时>巳时</时>\n<地>望仙台</地>\n</状态栏>`;
+  const m = checkReplyFormat(misnamed, rules, { knownTags, isApplicable });
+  assert.match(m.issues.map((i) => i.text).join(), /<状态栏> 预设没有用到，多半是写错了名字的 <lxs_status>/);
+  assert.doesNotMatch(buildReplyReminder(m, rules), /状态栏/);
+  assert.equal(planReplyFix(misnamed, rules, { knownTags, isApplicable, auto: true }).text, good);
+  // 没缺标签、也没有标签包着别的必需标签：不去扫预设和世界书
+  asked.length = 0;
+  checkReplyFormat(`<content>\n正文。\n</content>\n${STATUS}\n<状态栏>独立的块</状态栏>`, rules, { knownTags, isApplicable });
+  assert.deepEqual(asked, []);
+  // 这张卡确实要的外层（预设要求 <output> 包住正文）不算多包
+  const nested = { requiredTags: ['output'] };
+  assert.deepEqual(checkReplyFormat('<output>\n<content>正文。</content>\n</output>', nested, { knownTags: new Set(['content', 'output']), isApplicable: () => true }).issues, []);
+});
+test('earlier replies: misnamed blocks whose inner tags match are renamed, wrappers removed, the rest left alone', () => {
+  const rules = normalizeReplyRules({ requiredTags: ['lxs_status'] });
+  const knownTags = new Set(['content', 'lxs_status', '时']);
+  knownTags.children = new Map([['lxs_status', new Set(['时'])]]);
+  const fix = replyRepairEarlier('<content>正文</content>\n<状态栏>\n<时>巳时</时>\n</状态栏>', rules, knownTags);
+  assert.equal(fix.text, '<content>正文</content>\n<lxs_status>\n<时>巳时</时>\n</lxs_status>');
+  assert.deepEqual(fix.pairs, ['写成 <状态栏> 的 <lxs_status>']);
+  assert.deepEqual(replyRepairEarlier('<content>正文</content>\n<状态栏>\n<lxs_status>\n<时>巳时</时>\n</lxs_status>\n</状态栏>', rules, knownTags).pairs, ['<lxs_status> 外面多包的 <状态栏>']);
+  assert.equal(replyRepairEarlier('<content>正文</content>\n<小剧场>甲</小剧场>', rules, knownTags), null, '子标签对不上不改');
+  assert.equal(replyRepairEarlier('<content>正文</content>', rules, knownTags), null, '没有可改的块');
 });
 
 test('analysis written before the body tag is reported with an excerpt', () => {
