@@ -366,7 +366,8 @@ function mountEntriesView(box) {
       e.stopPropagation();
       return peek(d, rowEl.dataset.id);
     }
-    if (st.mode && act === "fold" && head) {
+    // 选位置时：点组名＝放在这组后面，点组名旁的箭头才展开、收起
+    if (st.mode && act === "fold" && head && e.target.closest(".cw-ico")) {
       const gid = head.dataset.gid;
       setOpen(d, gid, st.collapsed.has(gid));
       return render();

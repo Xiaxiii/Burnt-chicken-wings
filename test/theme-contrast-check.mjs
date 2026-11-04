@@ -28,8 +28,8 @@ function actualSurfaces() {
     return value.startsWith('color(srgb') ? [nums[0] * 255, nums[1] * 255, nums[2] * 255, nums[3] ?? 1] : [...nums.slice(0, 3), nums[3] ?? 1];
   };
   const mix = (fg, bg, alpha = fg[3]) => [0, 1, 2].map(i => fg[i] * alpha + bg[i] * (1 - alpha));
-  const root = document.getElementById('pa-root');
-  return [...root.querySelectorAll('.pa-sheet .pa-item-on,.pa-sheet .pa-item-name,.pa-sheet .pa-hint,.pa-sheet .pa-mode.on b,.pa-sheet .pa-mode.on small,.pa-sheet .pa-snip,.pa-sheet .pa-input,.pa-sheet .pa-select')].map(node => {
+  const root = document.getElementById('cw-root');
+  return [...root.querySelectorAll('.cw-dlg .cw-item-on,.cw-dlg .cw-item-name,.cw-dlg .cw-hint,.cw-dlg .cw-mode.on b,.cw-dlg .cw-mode.on small,.cw-dlg .cw-snip,.cw-dlg .cw-input,.cw-dlg .cw-select')].map(node => {
     const chain = [];
     for (let current = node; current; current = current.parentElement) chain.unshift(current);
     let bg = [255, 255, 255];
@@ -67,18 +67,18 @@ try {
       m.presets.push(make(['古文文风', '古典白描'], 'src'), make(['目标正文规则'], 'dst'));
       m.live.preset_settings_openai = '对比度目标';
       Object.assign(m.live, structuredClone(m.presets.at(-1)));
-      window.__presetAtelier.open('suture');
+      window.__presetAtelier.open('stitch');
     });
-    await choose(page, '.pa-src-name', '对比度来源');
-    await choose(page, '.pa-dst-picker .pa-namebtn', '对比度目标');
-    await page.locator('.pa-src-list [data-act=gselect]').click();
-    await page.locator('.pa-dst-list .pa-gname').click();
-    await page.click('[data-st=go]');
-    await page.waitForSelector('.pa-item-on input');
-    assert.equal(await page.locator('.pa-item-on input').count(), 2);
-    await page.locator('.pa-item-head').first().click();
-    await page.locator('.pa-item').first().locator('.pa-body summary').click();
-    await page.locator('.pa-sheet').evaluate(async node => { await Promise.all(node.getAnimations().map(a => a.finished)); });
+    await choose(page, '.cw-src-pick .cw-pick-btn', '对比度来源');
+    await choose(page, '.cw-dst-pick .cw-pick-btn', '对比度目标');
+    await page.locator('.cw-pane-src .cw-list [data-act=gselect]').click();
+    await page.locator('.cw-pane-dst .cw-list .cw-gname').click();
+    await page.click('[data-act=st-go]');
+    await page.waitForSelector('.cw-item-on input');
+    assert.equal(await page.locator('.cw-item-on input').count(), 2);
+    await page.locator('.cw-item-head').first().click();
+    await page.locator('.cw-item').first().locator('.cw-body-edit summary').click();
+    await page.locator('.cw-dlg').evaluate(async node => { await Promise.all(node.getAnimations().map(a => a.finished)); });
 
     // 模拟截图中的外部美化：原生复选框被强制画成白色长方块。
     await page.addStyleTag({ content: 'body input[type=checkbox]{appearance:auto!important;width:44px!important;height:22px!important;padding:5px!important;border:1px solid white!important;background:white!important;box-shadow:0 0 10px white!important;filter:opacity(.2)!important;mask:linear-gradient(white,white)!important}body :is(input,select,textarea){color:white!important;-webkit-text-fill-color:white!important;background:white!important}body :is(label,span,b,small){color:#eee}body input[type=checkbox]::before{content:"x"!important;display:block!important}' });
@@ -89,16 +89,16 @@ try {
         for (const [key, value] of Object.entries({ SmartThemeBlurTintColor: `rgb(${theme.bg.join(',')})`, SmartThemeBodyColor: theme.text, SmartThemeQuoteColor: theme.accent, SmartThemeEmColor: theme.em })) document.body.style.setProperty('--' + key, value);
       }, theme);
       await page.waitForFunction(theme => {
-        const root = document.getElementById('pa-root');
-        return root.style.getPropertyValue('--pa-tint') === `rgb(${theme.bg.join(', ')})` && root._paThemeSignature.includes(theme.text);
+        const root = document.getElementById('cw-root');
+        return root.style.getPropertyValue('--cw-bg') === `rgb(${theme.bg.join(', ')})` && root._paThemeSignature.includes(theme.text);
       }, theme);
       const colors = await page.evaluate(() => {
-        const root = document.getElementById('pa-root'), label = root.querySelector('.pa-item-on'), input = label.querySelector('input');
-        const cs = getComputedStyle(root), ctl = getComputedStyle(input), button = getComputedStyle(root.querySelector('.pa-sheet-actions .pa-btn-primary'));
-        return { text: getComputedStyle(label).color, title: getComputedStyle(root.querySelector('.pa-item-name')).color, badge: getComputedStyle(root.querySelector('.pa-item-meta .pa-chip')).color, dim: cs.getPropertyValue('--pa-dim'), accent: ctl.backgroundColor, ink: button.color, primary: button.backgroundColor, border: ctl.borderColor, width: ctl.width, height: ctl.height, appearance: ctl.appearance, image: ctl.backgroundImage, shadow: ctl.boxShadow, filter: ctl.filter, mask: ctl.maskImage, pseudo: getComputedStyle(input, '::before').content, shellBlur: getComputedStyle(root.querySelector('.pa-shell')).backdropFilter, sheetBlur: getComputedStyle(root.querySelector('.pa-sheet')).backdropFilter };
+        const root = document.getElementById('cw-root'), label = root.querySelector('.cw-item-on'), input = label.querySelector('input');
+        const cs = getComputedStyle(root), ctl = getComputedStyle(input), button = getComputedStyle(root.querySelector('.cw-dlg-foot .cw-btn-primary'));
+        return { text: getComputedStyle(label).color, title: getComputedStyle(root.querySelector('.cw-item-name')).color, badge: getComputedStyle(root.querySelector('.cw-item-meta .cw-pill')).color, dim: cs.getPropertyValue('--cw-muted'), accent: ctl.backgroundColor, ink: button.color, primary: button.backgroundColor, border: ctl.borderColor, width: ctl.width, height: ctl.height, appearance: ctl.appearance, image: ctl.backgroundImage, shadow: ctl.boxShadow, filter: ctl.filter, mask: ctl.maskImage, pseudo: getComputedStyle(input, '::before').content, shellBlur: getComputedStyle(root.querySelector('.cw-app')).backdropFilter, sheetBlur: getComputedStyle(root.querySelector('.cw-dlg')).backdropFilter };
       });
       assert.ok(ratio(rgb(colors.text), theme.bg) >= 4.5, theme.name + ': 开启标签可读');
-      assert.equal(await page.evaluate(() => document.getElementById('pa-root').classList.contains('pa-guard')), true, theme.name + ': 检测到宿主强改字色');
+      assert.equal(await page.evaluate(() => document.getElementById('cw-root').classList.contains('cw-guard')), true, theme.name + ': 检测到宿主强改字色');
       assert.ok(ratio(rgb(colors.title), theme.bg) >= 4.5, theme.name + ': 标题不受宿主 span 字色污染');
       assert.ok(ratio(rgb(colors.badge), theme.bg) >= 4.5, theme.name + ': 标签保持自己的主题色');
       assert.ok(ratio(rgb(colors.dim), theme.bg) >= 4.5, theme.name + ': 次级说明可读');
@@ -115,15 +115,15 @@ try {
       assert.ok(actual.some(x => x.name.includes('/INPUT/')), '展开条目包含标题输入框');
       assert.ok(actual.some(x => x.name.includes('/TEXTAREA/')), '展开完整正文包含文本框');
       for (const surface of actual) assert.ok(ratio(surface.painted, surface.bg) >= 4.5, `${theme.name}: ${surface.name} 在实际叠加表面上的对比度 ${ratio(surface.painted, surface.bg).toFixed(3)}`);
-      const enabled = page.locator('.pa-item-on input').first();
+      const enabled = page.locator('.cw-item-on input').first();
       await enabled.uncheck();
       const off = await enabled.evaluate(e => ({ border: getComputedStyle(e).borderColor, image: getComputedStyle(e).backgroundImage }));
       assert.ok(ratio(rgb(off.border), theme.bg) >= 3, theme.name + ': 未选边框可分辨');
       assert.equal(off.image, 'none');
-      const total = page.locator('.pa-sheet [data-enable-toggle]');
+      const total = page.locator('.cw-dlg [data-enable-toggle]');
       assert.equal(await total.evaluate(e => e.indeterminate), true, '总开关表示部分开启');
       await page.waitForFunction(() => {
-        const track = document.querySelector('.pa-sheet [data-enable-toggle]')?.nextElementSibling;
+        const track = document.querySelector('.cw-dlg [data-enable-toggle]')?.nextElementSibling;
         return track && getComputedStyle(track, '::after').transform === 'matrix(1, 0, 0, 1, 8, 0)';
       });
       const mixed = await total.evaluate(e => {
@@ -142,32 +142,32 @@ try {
     for (const theme of ['night', 'goose']) {
       await page.evaluate(theme => {
         window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = theme;
-        window.__presetAtelier.open('suture');
+        window.__presetAtelier.open('stitch');
       }, theme);
       for (const surface of await page.evaluate(actualSurfaces)) assert.ok(ratio(surface.painted, surface.bg) >= 4.5, `${theme}: ${surface.name} 在实际表面上的对比度 ${ratio(surface.painted, surface.bg).toFixed(3)}`);
       const palette = await page.evaluate(() => {
-        const cs = getComputedStyle(document.getElementById('pa-root'));
-        return ['thread', 'on-accent'].map(k => cs.getPropertyValue('--pa-' + k));
+        const cs = getComputedStyle(document.getElementById('cw-root'));
+        return ['accent', 'on-accent'].map(k => cs.getPropertyValue('--cw-' + k));
       });
       assert.ok(ratio(rgb(palette[0]), rgb(palette[1])) >= 4.5);
     }
     await page.evaluate(() => {
       window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = 'follow';
-      window.__presetAtelier.open('suture');
+      window.__presetAtelier.open('stitch');
     });
     // 仅关闭预览，不确认缝合；主题变换不能修改预设数据。
-    await page.click('.pa-sheet-actions .pa-btn:not(.pa-btn-primary)');
+    await page.click('.cw-dlg-foot .cw-btn:not(.cw-btn-primary)');
     assert.equal(await page.evaluate(() => window.__saved || 0), 0);
-    await page.click('[data-g=close]');
+    await page.keyboard.press('Escape');
     await page.evaluate(() => {
-      const root = document.getElementById('pa-root');
+      const root = document.getElementById('cw-root');
       window.__themeHiddenBefore = root._paThemeSignature;
       document.body.style.setProperty('--SmartThemeBlurTintColor', 'rgb(249, 241, 228)');
     });
     await page.waitForTimeout(60);
-    assert.equal(await page.evaluate(() => document.getElementById('pa-root')._paThemeSignature === window.__themeHiddenBefore), true, '隐藏后不再测量和重算主题');
-    await page.evaluate(() => window.__presetAtelier.open('organize'));
-    await page.waitForFunction(() => document.getElementById('pa-root').style.getPropertyValue('--pa-tint') === 'rgb(249, 241, 228)');
+    assert.equal(await page.evaluate(() => document.getElementById('cw-root')._paThemeSignature === window.__themeHiddenBefore), true, '隐藏后不再测量和重算主题');
+    await page.evaluate(() => window.__presetAtelier.open('preset'));
+    await page.waitForFunction(() => document.getElementById('cw-root').style.getPropertyValue('--cw-bg') === 'rgb(249, 241, 228)');
     assert.deepEqual(errors, []);
     await page.close();
   }

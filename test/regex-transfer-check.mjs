@@ -118,21 +118,21 @@ async function boot(width, targetPreset = target) {
     const settings = window.SillyTavern.getContext().extensionSettings;
     settings.regex = [{ id: 'global-kept', scriptName: '全局规则保持原样' }];
     settings.preset_allowed_regex = { openai: ['其他授权预设'] };
-    window.__presetAtelier.open('suture');
+    window.__presetAtelier.open('stitch');
   }, { target: targetPreset, source, targetName, sourceName });
-  await choose(page, '.pa-src-name', sourceName);
-  await choose(page, '.pa-dst-picker .pa-namebtn', targetName);
+  await choose(page, '.cw-src-pick .cw-pick-btn', sourceName);
+  await choose(page, '.cw-dst-pick .cw-pick-btn', targetName);
   return page;
 }
 // 2.6.1：缝合正则在来源类型「正则」里（选中即打开）；之后点来源栏的「选择正则…」再打开。正则文件读入后自动打开
 async function clickRegex(page) {
   await page.waitForTimeout(150);
-  if (await page.locator('.pa-sheet-mask:not(.pa-out) .pa-regex-transfer').count()) return;
-  if (await page.locator('.pa-rx-src [data-st=regex]').isVisible()) return page.click('.pa-rx-src [data-st=regex]');
+  if (await page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out) .pa-regex-transfer').count()) return;
+  if (await page.locator('.pa-rx-src [data-act=st-regex]').isVisible()) return page.click('.pa-rx-src [data-act=st-regex]');
   return chooseSrcType(page, 'regex');
 }
 async function openRegex(page) {
-  assert.equal(await page.locator('[data-st=go]').isDisabled(), true, '无需选择提示词或位置');
+  assert.equal(await page.locator('[data-act=st-go]').isDisabled(), true, '无需选择提示词或位置');
   await clickRegex(page);
   await dialog(page).waitFor();
 }
@@ -212,7 +212,7 @@ try {
     assert.equal(await d.getByRole('button', { name: '确认缝合正则', exact: true }).isDisabled(), true);
     await d.locator('[data-rx-pick=display]').click();
     assert.equal(await d.locator('[data-rx-select]:checked').count(), 4);
-    const overflow = await d.evaluate(n => [...n.querySelectorAll('.pa-sheet-body, .pa-regex-transfer, .pa-card')].some(x => x.scrollWidth > x.clientWidth + 2));
+    const overflow = await d.evaluate(n => [...n.querySelectorAll('.cw-dlg-body, .pa-regex-transfer, .cw-card')].some(x => x.scrollWidth > x.clientWidth + 2));
     assert.equal(overflow, false, '手机与桌面预览均不横向溢出');
     fs.mkdirSync(path.join(root, 'test/shots'), { recursive: true });
     if (width < 500) await d.screenshot({ path: path.join(root, 'test/shots/regex-transfer-phone.png') });
@@ -239,13 +239,13 @@ try {
       const c = window.SillyTavern.getContext();
       c.extensionSettings.preset_allowed_regex.openai.push(targetName);
       c.extensionSettings.disabledExtensions = [];
-      window.__regexSourceNode = document.querySelector('.pa-src-name');
+      window.__regexSourceNode = document.querySelector('.cw-src-pick .cw-pick-btn');
       window.__nativeRegexEvents = [];
       // 模拟原生面板只监听实际事件、读取已同步的当前预设数据；不替换宿主保存和刷新实现。
       c.eventSource.on(c.eventTypes.PRESET_CHANGED, (event) => {
         window.__nativeRegexEvents.push({ event: structuredClone(event), rules: structuredClone(window.__mock.live.extensions.regex_scripts),
           sourceConnected: window.__regexSourceNode.isConnected,
-          sourceSame: window.__regexSourceNode === document.querySelector('.pa-src-name'),
+          sourceSame: window.__regexSourceNode === document.querySelector('.cw-src-pick .cw-pick-btn'),
           refreshName: window.__regexTransferTest.getRefreshName() });
       });
     }, { targetName });
@@ -259,8 +259,8 @@ try {
     equal(nativeEvents[0].rules, (await stored(page)).extensions.regex_scripts, '原生监听读取到保存后的新规则');
     assert.equal(nativeEvents[0].sourceConnected && nativeEvents[0].sourceSame, true, '自身刷新不重画来源 DOM');
     assert.equal(nativeEvents[0].refreshName, targetName, '自身事件派发期间持有精确预设标记');
-    assert.equal(await page.locator('.pa-src-name').innerText(), sourceName + '\n▾');
-    assert.equal(await page.locator('[data-st=go]').isDisabled(), true, '仍未选提示词或位置');
+    assert.equal(await page.locator('.cw-src-pick .cw-pick-btn').innerText(), sourceName + '\n▾');
+    assert.equal(await page.locator('[data-act=st-go]').isDisabled(), true, '仍未选提示词或位置');
     equal(await stored(page, sourceName), source, '刷新没有修改来源');
     await page.click('[data-g=undo]');
     await waitSaved(page, 3);
@@ -276,8 +276,8 @@ try {
       const c = window.SillyTavern.getContext();
       await c.eventSource.emit(c.eventTypes.PRESET_CHANGED, { apiId: 'openai', name: targetName });
     }, { sourceName, targetName, naturalSourceName });
-    // 用 textContent：.pa-loose 是 content-visibility: auto，刚重画、还没画到屏幕上时 innerText 会是空的
-    assert.equal(await page.locator('.pa-src-list [data-id="source-prompt"] .pa-name').textContent(), naturalSourceName, '随后真实预设变化照常重新读取来源');
+    // 用 textContent：.cw-loose 是 content-visibility: auto，刚重画、还没画到屏幕上时 innerText 会是空的
+    assert.equal(await page.locator('.cw-pane-src .cw-list [data-id="source-prompt"] .cw-row-name').textContent(), naturalSourceName, '随后真实预设变化照常重新读取来源');
     assert.equal(await page.evaluate(() => window.__regexSourceNode.isConnected), false, '自然事件仍正常刷新页面，而非被旧 guard 吞掉');
     nativeEvents = await page.evaluate(() => window.__nativeRegexEvents);
     assert.equal(nativeEvents.length, 3);
@@ -322,7 +322,7 @@ try {
     assert.equal(await d.getByRole('button', { name: '确认缝合正则', exact: true }).isDisabled(), false);
     assert.ok((await d.locator('[data-rx-group-preview]').innerText()).includes(customName));
     assert.equal(await d.locator('[data-rx-group-preview]').evaluate(node => node.scrollWidth > node.clientWidth + 2), false, '长中文分组预览完整换行，无横溢');
-    await d.evaluate(async node => { await Promise.all(node.closest('.pa-sheet-mask').getAnimations({ subtree: true }).map(animation => animation.finished)); });
+    await d.evaluate(async node => { await Promise.all(node.closest('#cw-root .cw-scrim').getAnimations({ subtree: true }).map(animation => animation.finished)); });
     const inputSurface = await d.locator('[data-rx-group-name]').evaluate(renderedTextSurface);
     const previewSurface = await d.locator('[data-rx-group-preview]').evaluate(renderedTextSurface);
     assert.ok(inputSurface.fontSize >= 14 && previewSurface.fontSize >= 14, '手机深色组名输入与预览保留14px基准字号');
@@ -412,7 +412,7 @@ try {
     const page = await boot(390);
     await chooseSrcType(page, 'file');
     const fileSource = { prompts: [], extensions: { regex_scripts: sourceRules } };
-    await page.locator('.pa-src-pick input[type=file]').setInputFiles({ name: '仅含正则的完整预设.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fileSource)) });
+    await page.locator('.cw-src-pick .cw-pick-btn input[type=file]').setInputFiles({ name: '仅含正则的完整预设.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fileSource)) });
     await openRegex(page);
     assert.equal(await dialog(page).locator('[data-rx-index]').count(), 6, '完整 JSON 文件无需提示词条目也能独立缝制');
     await dialog(page).getByRole('button', { name: '确认缝合正则', exact: true }).click();
@@ -428,7 +428,7 @@ try {
     await chooseSrcType(page, 'file');
     const malformed = { scriptName: { toString: null }, id: { toString: null }, findRegex: { toString: null }, replaceString: { toString: null }, placement: [{ toString: null }], markdownOnly: true };
     const fileSource = { prompts: [], extensions: { regex_scripts: [sourceRules[0], malformed] } };
-    await page.locator('.pa-src-pick input[type=file]').setInputFiles({ name: '包含损坏规则的预设.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fileSource)) });
+    await page.locator('.cw-src-pick .cw-pick-btn input[type=file]').setInputFiles({ name: '包含损坏规则的预设.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(fileSource)) });
     await openRegex(page);
     const d = dialog(page);
     assert.equal(await d.locator('[data-rx-select="1"]').isDisabled(), true, '损坏规则可以看到但不能搬运');
@@ -448,7 +448,7 @@ try {
     const page = await boot(390);
     await chooseSrcType(page, 'file');
     const duplicateOnly = { prompts: [], extensions: { regex_scripts: structuredClone(target.extensions.regex_scripts) } };
-    await page.locator('.pa-src-pick input[type=file]').setInputFiles({ name: '全部精确重复的来源.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(duplicateOnly)) });
+    await page.locator('.cw-src-pick .cw-pick-btn input[type=file]').setInputFiles({ name: '全部精确重复的来源.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(duplicateOnly)) });
     await openRegex(page);
     const d = dialog(page);
     assert.match(await d.locator('[data-rx-group-preview]').innerText(), /不创建分组/);

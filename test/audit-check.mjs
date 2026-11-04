@@ -30,13 +30,13 @@ async function open(mobile=false) {
     const texts=['{{getvar::audit_flow}}','{{setvar::audit_flow::内容}}','{{setvar::audit_flow::}}','{{getvar::audit_flow}}'];
     const live=window.__mock.live;
     texts.forEach((content,i)=>{const identifier='audit-'+i;live.prompts.push({identifier,name:'顺序测试'+i,content,role:'system'});live.prompt_order.find(x=>x.character_id===100001).order.push({identifier,enabled:true});});
-    window.__presetAtelier.open('cot');
+    window.__presetAtelier.open('preset', 'cot');
   });
   return page;
 }
 const pause=page=>page.waitForTimeout(220);
-const close=async(page,label)=>{await page.locator('.pa-sheet-actions .pa-btn').filter({hasText:label}).click();await pause(page);};
-const modelDetails=async page=>{await page.locator('.pa-sheet details').filter({hasText:'AI 语义审查（可选）'}).locator('summary').click();};
+const close=async(page,label)=>{await page.locator('.cw-dlg-foot .cw-btn').filter({hasText:label}).click();await pause(page);};
+const modelDetails=async page=>{await page.locator('.cw-dlg details').filter({hasText:'AI 语义审查（可选）'}).locator('summary').click();};
 try {
   const page=await open();
   await page.click('[data-variable-audit]');
@@ -85,7 +85,7 @@ try {
   assert.equal(await mobile.locator('[data-r=ai-paste]').isVisible(),true);
   await mobile.fill('[data-r=sample]','普通故事正文');await mobile.click('[data-r=ai-paste]');
   await mobile.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('未标记'));
-  const overflow=await mobile.locator('.pa-sheet').evaluate(e=>e.scrollWidth>e.clientWidth+2);assert.equal(overflow,false);
+  const overflow=await mobile.locator('.cw-dlg').evaluate(e=>e.scrollWidth>e.clientWidth+2);assert.equal(overflow,false);
   console.log('✓ 手机端变量和语义检查均可操作，无横向溢出');
   assert.deepEqual(errors,[]);
 } finally {await browser.close();}

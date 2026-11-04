@@ -13,12 +13,12 @@ const scan = (p, where) => p.evaluate((where) => {
   if (document.documentElement.scrollWidth > W + 1) out.push(`页面横向滚动 ${document.documentElement.scrollWidth}>${W}`);
   const root = document.getElementById('pa-root');
   const visible = (e) => { const r = e.getBoundingClientRect(); return r.width && r.height && getComputedStyle(e).visibility !== 'hidden'; };
-  for (const e of root.querySelectorAll('button, input, select, label, .pa-chip, h3, b, .pa-card')) {
-    if (!visible(e) || e.closest('.pa-tabs-scroll, .pa-seg, [style*="overflow"]')) continue;
+  for (const e of root.querySelectorAll('button, input, select, label, .cw-pill, h3, b, .cw-card')) {
+    if (!visible(e) || e.closest('.pa-tabs-scroll, .cw-seg, [style*="overflow"]')) continue;
     const r = e.getBoundingClientRect();
     if (r.right > W + 1 || r.left < -1) { out.push(`超出屏幕：${e.tagName.toLowerCase()}.${[...e.classList].join('.')} 「${(e.textContent || e.placeholder || '').trim().slice(0, 16)}」 ${Math.round(r.left)}..${Math.round(r.right)}`); }
   }
-  for (const box of root.querySelectorAll('.pa-sheet-body, .pa-scroll, .pa-page')) {
+  for (const box of root.querySelectorAll('.cw-dlg-body, .pa-scroll, .pa-page')) {
     if (!visible(box)) continue;
     if (box.scrollWidth > box.clientWidth + 2 && getComputedStyle(box).overflowX !== 'visible') out.push(`横向滚动：${[...box.classList].join('.')} ${box.scrollWidth}>${box.clientWidth}`);
   }
@@ -33,14 +33,14 @@ for (const [w, h, mobile] of sizes) {
   await p.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: 'sage' }; });
   const tag = `${w}×${h}`;
   const go = async (where, fn) => { try { await fn(); await p.waitForTimeout(350); problems.push(...await scan(p, `${tag} ${where}`)); } catch (e) { problems.push(`${tag} ${where}：打不开 ${e.message.split('\n')[0]}`); } };
-  await go('整理', async () => { await p.evaluate(() => window.__presetAtelier.open()); await p.click('#pa-root [data-tool=search]'); });
-  await go('缝合', () => p.evaluate(() => window.__presetAtelier.open('suture')));
+  await go('整理', async () => { await p.evaluate(() => window.__presetAtelier.open()); await p.click('#cw-root [data-tool=search]'); });
+  await go('缝合', () => p.evaluate(() => window.__presetAtelier.open('stitch')));
   for (const sec of ['schemes', 'look', 'health', 'clean']) await go(`更多/${sec}`, () => p.evaluate((s) => window.__presetAtelier.open('more', s), sec));
-  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('more', 'schemes')); await p.click('#pa-root [data-a=new]'); });
-  await go('添加站点·看密钥', async () => { await p.locator('.pa-sheet [data-f=keyeye]').first().click(); });
-  await p.evaluate(() => document.querySelectorAll('#pa-root .pa-sheet-mask').forEach((m) => m.remove()));
-  await go('思维链（待核对）', () => p.evaluate(({ cotPreset, NAME }) => { const m = window.__mock; m.names.splice(0, m.names.length, NAME); m.presets.splice(0, m.presets.length, cotPreset); m.live.preset_settings_openai = NAME; Object.assign(m.live, structuredClone(cotPreset)); window.__presetAtelier.open('cot'); }, { cotPreset, NAME }));
-  await go('格式窗口·报错', async () => { await p.click('[data-reply-format]'); const r = p.locator('.pa-sheet [data-r=required]'); await r.fill('1状态 lxs——status'); await r.blur(); });
+  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('more', 'schemes')); await p.click('#cw-root [data-a=new]'); });
+  await go('添加站点·看密钥', async () => { await p.locator('.cw-dlg [data-f=keyeye]').first().click(); });
+  await p.evaluate(() => document.querySelectorAll('#cw-root #cw-root .cw-scrim').forEach((m) => m.remove()));
+  await go('思维链（待核对）', () => p.evaluate(({ cotPreset, NAME }) => { const m = window.__mock; m.names.splice(0, m.names.length, NAME); m.presets.splice(0, m.presets.length, cotPreset); m.live.preset_settings_openai = NAME; Object.assign(m.live, structuredClone(cotPreset)); window.__presetAtelier.open('preset', 'cot'); }, { cotPreset, NAME }));
+  await go('格式窗口·报错', async () => { await p.click('[data-reply-format]'); const r = p.locator('.cw-dlg [data-r=required]'); await r.fill('1状态 lxs——status'); await r.blur(); });
   if (errs.length) problems.push(`${tag} 页面错误：${errs.join(' | ')}`);
   await p.close();
   console.log('✓', tag);

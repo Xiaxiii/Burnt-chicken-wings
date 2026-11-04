@@ -15,12 +15,12 @@ await page.evaluate(() => {
     extensions: { baibaiToolkit: { presetPromptGroups: { version: 1, groups: [{ id: "g1", name: "文风选择", order: 0 }], prompts: { a: { groupId: "g1" }, b: { groupId: "g1" } } } },
       entryGrouping: [{ id: "x1", name: "文风选择", startIdentifier: "a", endIdentifier: "b", mode: "inclusive" }] } };
   window.__mock.names.push("双层"); window.__mock.presets.push(p);
-  window.__presetAtelier.open("organize");
+  window.__presetAtelier.open("preset");
 });
 await page.waitForTimeout(300);
-await choose(page, ".pa-picker-slot .pa-namebtn", "双层");
+await choose(page, "#cw-root .cw-scope:visible", "双层");
 await page.waitForTimeout(400);
-assert.match(await page.$eval(".pa-list", (x) => x.innerText), /分组存了两份/);
+assert.match(await page.$eval(".cw-list", (x) => x.innerText), /分组存了两份/);
 await page.screenshot({ path: S + "d-1-banner.png" });
 await page.click("[data-dup=fix]"); await page.waitForTimeout(1200);
 assert.ok(!(await page.$("[data-dup=fix]")), "修复后提示消失");
@@ -43,9 +43,9 @@ await page.waitForTimeout(300);
 const w = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.mirrorWrites?.["双层"]);
 assert.equal(w?.by, "FakeGroupSync", "记下写回旧分组的扩展");
 await page.evaluate(() => { window.__presetAtelier.close?.(); });
-await page.evaluate(() => window.__presetAtelier.open("organize")); await page.waitForTimeout(300);
-await choose(page, ".pa-picker-slot .pa-namebtn", "双层"); await page.waitForTimeout(400);
-const txt = await page.$eval(".pa-list", (x) => x.innerText);
+await page.evaluate(() => window.__presetAtelier.open("preset")); await page.waitForTimeout(300);
+await choose(page, "#cw-root .cw-scope:visible", "双层"); await page.waitForTimeout(400);
+const txt = await page.$eval(".cw-list", (x) => x.innerText);
 assert.match(txt, /又被写回来了/);
 assert.match(txt, /FakeGroupSync/);
 assert.match(txt, /保留，不再提示/);
@@ -61,11 +61,11 @@ await page.evaluate(async (p) => {
 }, p2);
 await page.waitForTimeout(300);
 await page.evaluate(() => { window.__presetAtelier.close?.(); });
-await page.evaluate(() => window.__presetAtelier.open("organize")); await page.waitForTimeout(300);
-await choose(page, ".pa-picker-slot .pa-namebtn", "双层"); await page.waitForTimeout(400);
+await page.evaluate(() => window.__presetAtelier.open("preset")); await page.waitForTimeout(300);
+await choose(page, "#cw-root .cw-scope:visible", "双层"); await page.waitForTimeout(400);
 await page.click("[data-dup=keep]"); await page.waitForTimeout(300);
 assert.ok(!(await page.$(".pa-dupgroups")), "保留后不再提示");
-await page.locator(".pa-row", { hasText: "丙" }).locator("[data-act=toggle]").click({ force: true }); await page.waitForTimeout(1500);
+await page.locator(".cw-row", { hasText: "丙" }).locator("[data-act=toggle]").click({ force: true }); await page.waitForTimeout(1500);
 assert.ok(await page.evaluate(() => window.__mock.presets[window.__mock.names.indexOf("双层")].extensions.entryGrouping?.length === 1), "保存时保留 entryGrouping");
 console.log("✓ 保留，不再提示：保存时也不再动它");
 

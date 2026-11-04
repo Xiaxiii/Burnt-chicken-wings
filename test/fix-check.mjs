@@ -41,10 +41,10 @@ async function boot(ctx) {
     window.__nameA = a;
   });
   const nameA = await page.evaluate(() => window.__nameA);
-  await page.evaluate(() => window.__presetAtelier.open("organize"));
+  await page.evaluate(() => window.__presetAtelier.open("preset"));
   await page.waitForTimeout(400);
   await expandAll(page);
-  await page.locator(".pa-list .pa-row .pa-switch").first().click();
+  await page.locator(".cw-list .cw-row .cw-switch").first().click();
   await page.waitForTimeout(600); // 自动保存已发出，还没回来
   assert.ok(log.includes("save-start:" + nameA) && !log.includes("save-end:" + nameA), "保存正在进行");
   // 用户在酒馆里换到了别的预设，再去清理页删除甲
@@ -54,8 +54,8 @@ async function boot(ctx) {
   await page.click(`.pa-crow:has-text("${nameA}") input[data-c=pick]`);
   await page.click('[data-c="del"]'); await page.waitForTimeout(200);
   // 备份不强制：弹窗里有「下载备份」，不点就直接删
-  assert.ok(await page.$('.pa-sheet button:has-text("下载备份")'));
-  await page.click(".pa-sheet .pa-btn-danger");
+  assert.ok(await page.$('.cw-dlg button:has-text("下载备份")'));
+  await page.click(".cw-dlg .cw-btn-danger");
   await page.waitForTimeout(3500);
   assert.deepEqual(log.filter((x) => x === "delete" || x.endsWith(nameA)), ["save-start:" + nameA, "save-end:" + nameA, "delete"], "保存结束后才删除");
   await page.waitForTimeout(800);
@@ -137,11 +137,11 @@ async function boot(ctx) {
       if (!failed && String(k).startsWith("presetAtelier:recovery:v180:default-user:") && k !== m) { failed = true; throw new DOMException("full", "QuotaExceededError"); }
       return real.call(this, k, v);
     };
-    window.__presetAtelier.open("organize");
+    window.__presetAtelier.open("preset");
   }, [otherKey, mineKey]);
   await page.waitForTimeout(400);
   await expandAll(page);
-  await page.locator(".pa-list .pa-row .pa-switch").first().click();
+  await page.locator(".cw-list .cw-row .cw-switch").first().click();
   // 单次修改不再立刻整份写草稿（等自动保存）；关页面/切后台时才写，这里模拟关页面
   assert.equal(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("presetAtelier:recovery:v180:default-user:") && !k.endsWith(":旧预设")).length), 0, "点一下开关不立刻写整份草稿");
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));

@@ -274,7 +274,7 @@ html.cw-open body { overflow: hidden; }
 #cw-root .cw-switch i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--cw-text); opacity: .6; transition: transform .16s var(--cw-ease), opacity .16s var(--cw-ease); }
 #cw-root .cw-switch input:checked + i { background: var(--cw-accent); border-color: var(--cw-accent); }
 #cw-root .cw-switch input:checked + i::after { transform: translateX(16px); opacity: 1; background: var(--cw-on-accent); }
-#cw-root .cw-switch input:indeterminate + i, #cw-root .cw-switch input[data-mixed="1"] + i { background: var(--cw-raised); border-color: var(--cw-accent); }
+#cw-root .cw-switch input:indeterminate + i, #cw-root .cw-switch input[data-mixed="1"] + i { background: var(--cw-raised); border-color: var(--cw-accent); border-style: dashed; }
 #cw-root .cw-switch input:indeterminate + i::after, #cw-root .cw-switch input[data-mixed="1"] + i::after { transform: translateX(8px); opacity: 1; background: var(--cw-accent); }
 #cw-root .cw-switch input:focus-visible + i { outline: 2px solid var(--cw-accent); outline-offset: 2px; }
 #cw-root .cw-switch input:disabled + i { opacity: .45; }
@@ -1152,3 +1152,20 @@ html.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }
 #cw-root .cw-more-ver { text-align: center; margin-top: 16px; }
 /* 窄屏打开详情（编辑条目等）时收起底部页签，编辑区更高 */
 @media (max-width: 959px) { #cw-root .cw-main:has(> .cw-stage.cw-has-detail) > .cw-tabbar { display: none; } }
+/* 组名旁的箭头：放大点按区域（选位置时它单独管展开、收起） */
+#cw-root .cw-gname > .cw-ico { box-sizing: content-box; padding: 8px; margin: -8px; }
+/* 复选框防护：酒馆主题常给 input 强加外观、背景、宽度、遮罩，面板里的复选框一律用自己的样式 */
+#cw-root input[type=checkbox]:not(#cw-x) {
+    -webkit-appearance: none !important; appearance: none !important; flex: none; margin: 0 !important; padding: 0 !important; cursor: pointer;
+    width: 17px !important; height: 17px !important; min-width: 0 !important; min-height: 0 !important; border-radius: 5px !important;
+    border: 1.5px solid var(--cw-control, var(--cw-text)) !important; background: var(--cw-input) !important; box-shadow: none !important;
+    -webkit-mask: none !important; mask: none !important; filter: none !important; transform: none !important; opacity: 1 !important; vertical-align: -3px;
+}
+#cw-root input[type=checkbox]:not(#cw-x)::before, #cw-root input[type=checkbox]:not(#cw-x)::after { content: none !important; display: none !important; }
+#cw-root input[type=checkbox]:not(#cw-x):checked {
+    border-color: var(--cw-accent) !important; background: var(--cw-accent) center / 12px 12px no-repeat
+    var(--cw-check, url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")) !important;
+}
+#cw-root input[type=checkbox]:not(#cw-x):disabled { opacity: .35 !important; cursor: default; }
+#cw-root input[type=checkbox]:not(#cw-x):focus-visible { outline: 2px solid var(--cw-accent); outline-offset: 2px; }
+#cw-root .cw-switch > input[type=checkbox]:not(#cw-x) { position: absolute; inset: 0; width: 100% !important; height: 100% !important; opacity: 0 !important; border: 0 !important; background: none !important; }

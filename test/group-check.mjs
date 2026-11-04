@@ -30,26 +30,26 @@ await page.evaluate((T) => {
       window.__bbReset = (window.__bbReset || 0) + 1;
     }
   });
-  window.__presetAtelier.open("organize");
+  window.__presetAtelier.open("preset");
 }, T);
 await page.waitForTimeout(400);
-await choose(page, ".pa-picker-slot .pa-namebtn", T); await page.waitForTimeout(300);
+await choose(page, "#cw-root .cw-scope:visible", T); await page.waitForTimeout(300);
 const groups = () => page.evaluate((t) => { const i = window.__mock.names.indexOf(t); return window.__mock.presets[i].extensions?.baibaiToolkit?.presetPromptGroups?.groups?.map((x) => x.name); }, T);
 const fail = [];
 const check = (ok, msg) => { console.log(ok ? "✓" : "✗", msg); if (!ok) fail.push(msg); };
 console.log("before", JSON.stringify(await groups()));
 // 整理页：展开第一个分组，点选两条 → 建成分组
-await page.locator(".pa-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(200);
-await page.locator(".pa-list .pa-group").first().locator(".pa-row").nth(0).click();
-await page.locator(".pa-list .pa-group").first().locator(".pa-row").nth(1).click();
-await page.click('[data-sel="newgroup"]'); await page.waitForTimeout(300);
-await page.fill(".pa-sheet input.pa-input", "新组测试"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(2500);
+await page.locator(".cw-list .cw-ghead .cw-gname").first().click(); await page.waitForTimeout(200);
+await page.locator(".cw-list .cw-group").first().locator(".cw-row").nth(0).click();
+await page.locator(".cw-list .cw-group").first().locator(".cw-row").nth(1).click();
+await page.click('[data-act="sel-newgroup"]'); await page.waitForTimeout(300);
+await page.fill(".cw-dlg input.cw-input", "新组测试"); await page.click(".cw-dlg .cw-btn-primary"); await page.waitForTimeout(2500);
 check((await groups()).includes("新组测试"), "建成分组后保存仍在");
 // 缝合页：新建空白分组
 await page.click('[data-tab="suture"]'); await page.waitForTimeout(300);
-await page.click('[data-st="newgroup"]'); await page.waitForTimeout(300);
-await page.fill(".pa-sheet input.pa-input", "空白组"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(300);
-await page.locator(".pa-dst-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(2500);
+await page.click('[data-act="st-newgroup"]'); await page.waitForTimeout(300);
+await page.fill(".cw-dlg input.cw-input", "空白组"); await page.click(".cw-dlg .cw-btn-primary"); await page.waitForTimeout(300);
+await page.locator(".cw-pane-dst .cw-list .cw-ghead .cw-gname").first().click(); await page.waitForTimeout(2500);
 check((await groups()).includes("空白组"), "新建空白分组后保存仍在");
 check(await page.evaluate(() => window.__autoImportCalls === 0), "普通保存不触发导入自动迁移");
 console.log("after", JSON.stringify(await groups()), "百宝箱刷新次数", await page.evaluate(() => window.__bbReset));

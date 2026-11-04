@@ -35,7 +35,7 @@ try {
     m.presets.splice(0, m.presets.length, preset);
     m.live.preset_settings_openai = NAME;
     Object.assign(m.live, structuredClone(preset));
-    window.__presetAtelier.open('cot');
+    window.__presetAtelier.open('preset', 'cot');
   }, { preset, NAME });
   const cards = page.locator('.pa-dead');
   await cards.first().waitFor();
@@ -46,13 +46,13 @@ try {
   assert.match(await draft.innerText(), /思维链没读/);
   assert.equal(await draft.locator('[data-repair]').count(), 0, '片段变量不再给出会报「需人工核对」的通用修复');
   await draft.locator('[data-cotread]').click();
-  const sheet = page.locator('.pa-sheet');
+  const sheet = page.locator('.cw-dlg');
   await sheet.locator('[data-k=preview]').waitFor();
   assert.equal(await sheet.locator('[data-k=cot]').inputValue(), 'cot', '默认加到读取其他片段最多的思维链');
   assert.match(await sheet.locator('[data-k=preview]').innerText(), /\{\{getvar::TheaterCoT\}\}\n\{\{getvar::草稿检查小CoT\}\}\n2\. 安排本轮/, '默认紧跟最后一个片段读取');
   await sheet.locator('[data-k=line]').selectOption('1');
   assert.match(await sheet.locator('[data-k=preview]').innerText(), /^<thinking>\n\{\{getvar::草稿检查小CoT\}\}\n1\. 回顾剧情/, '可改放在哪一行之后');
-  await sheet.locator('.pa-sheet-actions .pa-btn-primary').click();
+  await sheet.locator('.cw-dlg-foot .cw-btn-primary').click();
   await page.waitForFunction((name) => window.__mock.presets[0].prompts.find((x) => x.identifier === 'cot').content.includes('{{getvar::草稿检查小CoT}}'), NAME);
   assert.equal(await cotText(page), '<thinking>\n{{getvar::草稿检查小CoT}}\n1. 回顾剧情\n{{getvar::文风cot}}\n{{getvar::TheaterCoT}}\n2. 安排本轮\n</thinking>');
   await page.waitForFunction(() => document.querySelectorAll('.pa-dead').length === 2);
@@ -74,21 +74,21 @@ try {
   await mis.locator('summary').click();
   assert.match(await mis.innerText(), /名字对不上/);
   await mis.locator('[data-rename]').click();
-  await sheet.locator('.pa-sheet-actions .pa-btn-primary').click();
+  await sheet.locator('.cw-dlg-foot .cw-btn-primary').click();
   await page.waitForFunction(() => window.__mock.presets[0].prompts.find((x) => x.identifier === 'mis').content.includes('{{setvar::TheaterCoT::'));
   await page.waitForFunction(() => document.querySelectorAll('.pa-dead').length === 2);
   assert.equal((await stored(page)).prompts.find((x) => x.identifier === 'mis').content, '{{setvar::TheaterCoT::\n- 小剧场怎么写\n}}');
   ok('写入与读取的变量名只差大小写时，可把写入改成读取用的名字');
-  assert.equal(await page.locator('.pa-cot .pa-card-warn', { hasText: '套思维链开头' }).count(), 0);
+  assert.equal(await page.locator('.pa-cot .cw-card-warn', { hasText: '套思维链开头' }).count(), 0);
   await page.evaluate(() => {
     const m = window.__mock.presets[0];
     m.prompts.push({ identifier: 'cot-nsfw', name: '开nsfw思考，关其他思考', content: '<ECoT>\n# 确认身份\n- 本轮如何写', role: 'system' });
     m.prompt_order[0].order.push({ identifier: 'cot-nsfw', enabled: true });
     Object.assign(window.__mock.live, structuredClone(m));
-    window.__presetAtelier.open('organize'); window.__presetAtelier.open('cot');
+    window.__presetAtelier.open('preset'); window.__presetAtelier.open('preset', 'cot');
   });
-  await page.locator('.pa-cot .pa-card-warn', { hasText: '同时开着 2 套思维链开头' }).waitFor();
-  assert.match(await page.locator('.pa-cot .pa-card-warn', { hasText: '套思维链开头' }).innerText(), /思维链主体.*开nsfw思考，关其他思考/s);
+  await page.locator('.pa-cot .cw-card-warn', { hasText: '同时开着 2 套思维链开头' }).waitFor();
+  assert.match(await page.locator('.pa-cot .cw-card-warn', { hasText: '套思维链开头' }).innerText(), /思维链主体.*开nsfw思考，关其他思考/s);
   ok('同时开着两套思维链开头时提醒');
   // 读取方不是思维链、但开着（如格式条目的部件清单），片段内容照样会发出，不算没读
   await page.evaluate(() => {
@@ -96,7 +96,7 @@ try {
     m.prompts.push({ identifier: 'fmt', name: '📌 格式强调', content: '部件：{{getvar::content}}({{getvar::草稿检查小CoT}})', role: 'system' });
     m.prompt_order[0].order.push({ identifier: 'fmt', enabled: true });
     Object.assign(window.__mock.live, structuredClone(m));
-    window.__presetAtelier.open('organize'); window.__presetAtelier.open('cot');
+    window.__presetAtelier.open('preset'); window.__presetAtelier.open('preset', 'cot');
   });
   await page.waitForFunction(() => ![...document.querySelectorAll('.pa-dead')].some((x) => x.textContent.includes('草稿检查小CoT')));
   ok('片段变量由开启的非思维链条目读取时不再报「思维链没读」');

@@ -529,7 +529,8 @@ function mountStitchPage(page) {
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "edit") return editPresetEntry(d, e.target.closest(".cw-row").dataset.id);
     const head = e.target.closest(".cw-ghead");
-    if (head && act === "fold") {
+    // 点组名＝放在这组后面，点箭头才展开、收起
+    if (head && act === "fold" && e.target.closest(".cw-ico")) {
       toggleOpen(d, st.dstFoldKey, head.dataset.gid);
       return renderDst();
     }
