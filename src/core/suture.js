@@ -462,7 +462,7 @@ function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new 
   const a = analysis || analyze(draft);
   const cotSet = new Set(a.cotIds);
   const cotIds = a.cotIds.filter((id) => id !== item.selfId);
-  if (!cotIds.length) return { status: "nocot", on: false, text: "目标中未识别到开启的思维链。如名称特殊，可在「思维链」页手动指定后再缝合" };
+  if (!cotIds.length) return { status: "nocot", on: false, text: "目标中未识别到开启的思维链。如名称特殊，可在「预设 → 思维链」手动指定后再缝合" };
   const varCots = cotIds.filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.op === "get" && m.name));
   const order = draft.order.map((o) => o.identifier);
   const idx = insertionIndex(draft, where);

@@ -350,7 +350,7 @@ function scheduleReplyAutoFix() {
           const rest = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));
           replyNoticed = undo.snapshot;
           if (rest.length && config.notice !== false) return replyNoticeToast(`已自动修正这条回复：${plan.steps.join("；")}。还有 ${rest.length} 个问题，${next}`);
-          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。${remind ? `下一轮将提醒用 <${status.tag}>。` : ""}可在「思维链 → 格式」里撤销`, left.length ? "warning" : "success");
+          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。${remind ? `下一轮将提醒用 <${status.tag}>。` : ""}可在「回复 → 格式设置」里撤销`, left.length ? "warning" : "success");
         }
       }
       const sure = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));

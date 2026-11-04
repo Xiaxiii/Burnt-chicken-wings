@@ -96,7 +96,7 @@ function profilePresetIndexed(draft) {
   const regexPrompt = regex.filter((r) => r.promptOnly || !r.markdownOnly);
   // 用大白话总结
   const lines = [];
-  if (cotStyle === "none") lines.push("未识别到开启的思维链。如名称特殊，可在「思维链」页手动指定。");
+  if (cotStyle === "none") lines.push("未识别到开启的思维链。如名称特殊，可在「预设 → 思维链」手动指定。");
   else {
     const how = cotStyle === "vars" ? "主要通过变量读取条目（{{getvar}}）" : cotStyle === "text" ? "通过文字提及条目的名称或标签，不读取变量" : "部分通过变量读取，部分通过文字提及";
     lines.push(`思维链 ${a.cotIds.length} 条（${namesOf(draft, a.cotIds, 2)}），${how}。`);

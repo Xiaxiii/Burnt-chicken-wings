@@ -12,7 +12,7 @@ var DEFAULTS = {
   followTargetInjection: true,
   theme: "follow",
   sutureSplit: 45,
-  moreTab: "schemes",
+  moreTab: "look",
   nameWithSource: false,
   noPullRefresh: true,
   floatBall: false,

@@ -103,7 +103,7 @@ await page.click('[data-f="arch"]');
 await page.waitForTimeout(200);
 await page.screenshot({ path: S + "c-4-archived.png" });
 // 套用方案 → 自动从归档恢复
-await page.click('[data-m="schemes"]');
+await page.click('[data-tab="conn"]');
 await page.waitForTimeout(200);
 const card = page.locator(".pa-srow", { hasText: "旧文风" });
 assert.match(await card.innerText(), /已归档/);

@@ -69,7 +69,7 @@ try {
 
   // 「格式」窗口：显示已自动修正；「下一轮提醒一次」按修正前的问题写，只用一次；可撤销自动修正
   await page.evaluate(() => window.__presetAtelier.open('cot'));
-  await page.click('[data-reply-format]');
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
   await page.locator('.pa-sheet [data-r=autofix]').waitFor();
   assert.equal(await page.locator('.pa-sheet [data-r=autofix]').isChecked(), true);
   assert.equal(await page.locator('.pa-sheet [data-r=enabled]').count(), 0, '没有「下一轮提醒 AI」勾选框');

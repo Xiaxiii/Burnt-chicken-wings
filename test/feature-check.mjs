@@ -99,7 +99,7 @@ await page.evaluate(() => {
   window.__mock.live.custom_model = "m-b";
 });
 await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
-await page.click('[data-m="schemes"]'); await page.waitForTimeout(400);
+await page.click('[data-tab="conn"]'); await page.waitForTimeout(400);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model), "m-a");
 await page.click('[data-a="keepmodel"]'); await page.waitForTimeout(300);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model), "m-b");

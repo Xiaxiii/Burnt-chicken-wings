@@ -768,6 +768,27 @@ function mountOrganize(page) {
     }
     drag.raf = requestAnimationFrame(autoScroll);
   }
+  // 2.6.22 落下后，位置变了的行和组头从原处滑到新位置（180ms），不再一闪就换
+  const flipKey = (x) => x.dataset.id ? "r" + x.dataset.id : "g" + x.dataset.gid;
+  function snapRows() {
+    const m = new Map();
+    list.querySelectorAll(".pa-row[data-id], .pa-ghead[data-gid]").forEach((x) => m.set(flipKey(x), x.getBoundingClientRect().top));
+    return m;
+  }
+  function playFlip(before) {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    requestAnimationFrame(() => {
+      const vh = window.innerHeight;
+      list.querySelectorAll(".pa-row[data-id], .pa-ghead[data-gid]").forEach((x) => {
+        const t0 = before.get(flipKey(x));
+        if (t0 == null) return;
+        const r = x.getBoundingClientRect();
+        const dy = t0 - r.top;
+        if (Math.abs(dy) < 1 || Math.abs(dy) > vh || r.bottom < 0 || r.top > vh) return;
+        x.animate?.([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 180, easing: "cubic-bezier(.23, 1, .32, 1)" });
+      });
+    });
+  }
   const endDrag = (commit) => {
     if (!drag) return;
     cancelAnimationFrame(drag.raf);
@@ -777,6 +798,7 @@ function mountOrganize(page) {
     drag = null;
     if (!commit || !target) return render();
     const d = draft();
+    const before = snapRows();
     if (group && !ids.length) {
       // 空分组：只改它跟在哪一条后面
       const w = target.where;
@@ -787,10 +809,12 @@ function mountOrganize(page) {
       mutate(d, "移动分组", (x) => {
         x.group(group).anchor = anchor;
       });
+      playFlip(before);
       return;
     }
     mutate(d, group ? "移动分组" : "拖动", (x) => x.place(ids, target.where, target.gid, { keep: group ? [group] : [] }));
     flash(ids);
+    playFlip(before);
   };
   list.addEventListener("pointermove", (e) => {
     if (drag && e.pointerId === drag.pid) {

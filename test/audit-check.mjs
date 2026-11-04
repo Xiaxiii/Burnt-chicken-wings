@@ -53,7 +53,7 @@ try {
   await page.click('[data-variable-audit]');await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();assert.match(await page.locator('[data-vf=result]').innerText(),/audit_zero.*变化/);await page.uncheck('[data-vf=watch]');await close(page,'关闭');
   console.log('✓ 顺序风险、变量快照、只读状态与默认关闭的生成前后对比');
 
-  await page.click('[data-reply-format]');await modelDetails(page);
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));await modelDetails(page);
   assert.equal(await page.locator('[data-r=semantic]').isChecked(),false);
   assert.equal(await page.locator('[data-r=ai-cancel]').isVisible(),false);
   assert.equal(await page.evaluate(()=>window.__auditCalls.length),0);
@@ -74,14 +74,14 @@ try {
   await page.check('[data-r=semantic]');await close(page,'保存设置');
   await page.evaluate(async()=>{const c=window.SillyTavern.getContext();c.chat.push({is_user:true,mes:'测试'},{is_user:false,mes:'我需要先检查用户要求。正文。'});await c.eventSource.emit(c.eventTypes.GENERATION_STARTED,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_ENDED);});
   await page.waitForFunction(()=>window.__auditCalls.length===3);
-  await page.click('[data-reply-format]');await modelDetails(page);await page.click('[data-r=ai-result]');
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));await modelDetails(page);await page.click('[data-r=ai-result]');
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('疑似内部分析'));
   assert.equal(await page.locator('[data-r=semantic]').isChecked(),true);await close(page,'取消');
   console.log('✓ 取消请求、按预设保存自动审查及最近结果展示');
 
   const mobile=await open(true);await mobile.click('[data-variable-audit]');
   assert.equal(await mobile.locator('[data-vf=snapshot]').isVisible(),true);await mobile.click('[data-vf=snapshot]');await close(mobile,'关闭');
-  await mobile.click('[data-reply-format]');await modelDetails(mobile);
+  await mobile.click('[data-tab=\"reply\"]').then(() => mobile.click('[data-reply-format]'));await modelDetails(mobile);
   assert.equal(await mobile.locator('[data-r=ai-paste]').isVisible(),true);
   await mobile.fill('[data-r=sample]','普通故事正文');await mobile.click('[data-r=ai-paste]');
   await mobile.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('未标记'));

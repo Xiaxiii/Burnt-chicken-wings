@@ -43,7 +43,7 @@ try {
     ];
     window.__presetAtelier.open('cot');
   });
-  await page.click('[data-reply-format]');
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
   await page.click('[data-r=latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
   const result = page.locator('[data-r=result]');
@@ -91,7 +91,7 @@ try {
     c.powerUserSettings.reasoning = { auto_parse: true, prefix: '<ECoT>', suffix: '</ECoT>' };
     c.chat[2] = { is_user: false, mes: '<ECoT>\n# 确认身份\n我是作者，开始仔细思考本轮剧情要怎么写，写够字数。\n</ECoT>\n<content>正文。</content>', extra: { reasoning: 'Processing Complex Instructions', reasoning_type: 'model' } };
   });
-  await page.click('[data-reply-format]');
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
   assert.equal(await page.locator('[data-r=thinking]').inputValue(), 'ECoT');
   await page.click('[data-r=latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');

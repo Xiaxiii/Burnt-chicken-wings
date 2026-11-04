@@ -54,7 +54,7 @@ try {
     c.chat = [{ is_user: false, mes: '开场白' }, { is_user: true, mes: '继续' }, { is_user: false, mes: wrong }, { is_user: true, mes: '再来' }, { is_user: false, mes: wrong, swipe_id: 0, swipes: [wrong], extra: { reasoning: '' } }];
     window.__presetAtelier.open('cot');
   }, { preset, NAME, wrong });
-  await page.click('[data-reply-format]');
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
   await page.click('[data-r=latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
   const result = page.locator('[data-r=result]');

@@ -32,6 +32,7 @@
  "ui/cotview.js",
  "ui/variableview.js",
  "ui/replyview.js",
+ "ui/replypage.js",
  "ui/schemes.js",
  "ui/apiview.js",
  "ui/theme.js",

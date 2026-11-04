@@ -185,15 +185,19 @@ function placePop(wrap, anchor) {
   box.style.width = w + "px";
   const left = Math.min(Math.max(a.right - host.left - w, edge), host.width - w - edge);
   box.style.left = left + "px";
+  // 2.6.22 弹出菜单从触发按钮所在的一角长出，不从中心放大
+  const ox = Math.min(Math.max(a.left + a.width / 2 - host.left - left, 0), w);
   const below = host.bottom - a.bottom - gap - edge;
   const above = a.top - host.top - gap - edge;
   const h = box.offsetHeight;
   if (h <= below || below >= above) {
     box.style.top = a.bottom - host.top + gap + "px";
     box.style.maxHeight = below + "px";
+    box.style.transformOrigin = `${ox}px top`;
   } else {
     box.style.bottom = host.bottom - a.top + gap + "px";
     box.style.maxHeight = above + "px";
+    box.style.transformOrigin = `${ox}px bottom`;
   }
 }
 async function confirmBox(title, text, okLabel = "确定", danger = false) {

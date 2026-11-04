@@ -151,7 +151,7 @@ await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
 await page.evaluate(async () => { const m = await import(new URL("scripts/secrets.js", document.baseURI).href); m.secret_state.api_key_custom.push({ id: "id1", value: "sk-…abcd", active: true }); });
 await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
 check(!(await page.locator('[data-m="api"]').count()), "「开关方案」和「API 站点」已合并");
-await page.click('[data-m="schemes"]'); await page.waitForTimeout(300);
+await page.click('[data-tab="conn"]'); await page.waitForTimeout(300);
 await page.click('[data-a="new"]'); await page.waitForTimeout(300);
 await page.fill('.pa-sheet [data-f="name"]', "测试站");
 await page.fill('.pa-sheet [data-f="url"]', "https://example.com/v1");

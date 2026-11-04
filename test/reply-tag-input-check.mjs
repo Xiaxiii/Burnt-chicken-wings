@@ -12,7 +12,7 @@ try {
   await page.goto(URL);
   await page.waitForFunction(() => window.__presetAtelier?.open);
   await page.evaluate(() => window.__presetAtelier.open('cot'));
-  await page.click('[data-reply-format]');
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
   const required = page.locator('.pa-sheet [data-r="required"]');
   const err = page.locator('.pa-sheet [data-err="required"]');
   await required.waitFor();

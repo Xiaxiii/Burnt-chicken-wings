@@ -51,7 +51,7 @@ console.log("E2E:", JSON.stringify(check));
 await page.screenshot({ path: out("7-after-stitch") });
 await page.click(".pa-sheet-actions .pa-btn-primary").catch(() => {});
 await page.waitForTimeout(200);
-await page.click('[data-tab="cot"]');
+await page.click('[data-tab="organize"]'); await page.click('[data-page="organize"] [data-view="cot"]');
 await page.waitForTimeout(400);
 await page.screenshot({ path: out("9-cot") });
 await page.click('[data-tab="more"]');

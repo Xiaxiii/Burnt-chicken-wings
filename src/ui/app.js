@@ -1,9 +1,14 @@
+// 2.7.0 五个一级页签：预设（条目 / 思维链两种视图）、缝合、回复、连接、更多
 var TABS = [
-  ["organize", "整理"],
+  ["organize", "预设"],
   ["suture", "缝合"],
-  ["cot", "思维链"],
+  ["reply", "回复"],
+  ["conn", "连接"],
   ["more", "更多"]
 ];
+var PAGES = ["organize", "cot", "suture", "reply", "conn", "more"];
+var PRESET_VIEWS = [["organize", "条目"], ["cot", "思维链"]];
+var tabOf = (page) => page === "cot" ? "organize" : page;
 var rootEl2;
 var pages = {};
 var current = "organize";
@@ -63,7 +68,7 @@ function buildRoot() {
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭">✕</button>
             </header>
             <nav class="pa-tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</nav>
-            <main class="pa-main">${TABS.map(([k]) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
+            <main class="pa-main">${PAGES.map((k) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
         </div>
     </div>`);
   document.body.append(rootEl2);
@@ -85,8 +90,19 @@ function buildRoot() {
     organize: mountOrganize(pageEl("organize"), app),
     suture: mountSuture(pageEl("suture"), app),
     cot: mountCot(pageEl("cot"), app),
+    reply: mountReply(pageEl("reply")),
+    conn: mountConn(pageEl("conn")),
     more: mountMore(pageEl("more"), app)
   };
+  // 「预设」页签下的两种视图：条目、思维链。两页共用当前预设，各自顶部一行切换
+  for (const k of ["organize", "cot"]) {
+    const head = el(`<div class="pa-more-head pa-viewhead"><div class="pa-seg pa-seg-s" role="tablist" aria-label="预设视图">${PRESET_VIEWS.map(([v, l]) => `<button type="button" role="tab" data-view="${v}" class="${v === k ? "on" : ""}" aria-selected="${v === k}">${l}</button>`).join("")}</div></div>`);
+    head.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-view]");
+      if (b && b.dataset.view !== current) show(b.dataset.view);
+    });
+    pageEl(k).prepend(head);
+  }
   applyTheme(rootEl2);
   // 键盘：在条目行、分组头上按回车或空格，等于点一下
   rootEl2.addEventListener("keydown", (e) => {
@@ -98,7 +114,10 @@ function buildRoot() {
   });
   rootEl2.querySelector(".pa-tabs").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab]");
-    if (t) show(t.dataset.tab);
+    if (!t) return;
+    // 「预设」页签回到上次看的视图
+    const v = settings().presetView;
+    show(t.dataset.tab === "organize" && (v === "cot" || v === "organize") ? v : t.dataset.tab);
   });
   rootEl2.querySelector(".pa-top").addEventListener("click", async (e) => {
     const g = e.target.closest("[data-g]")?.dataset.g;
@@ -161,8 +180,10 @@ function updateSavebar() {
   rootEl2.querySelector("[data-g=confirm]").hidden = !pending || err;
 }
 function show(tab) {
+  if (!pages[tab]) tab = "organize";
   current = tab;
-  rootEl2.querySelectorAll(".pa-tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  if (tab === "organize" || tab === "cot") settings().presetView = tab;
+  rootEl2.querySelectorAll(".pa-tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tabOf(tab))));
   rootEl2.querySelectorAll(".pa-page").forEach((p) => {
     p.hidden = p.dataset.page !== tab;
   });
@@ -175,6 +196,8 @@ function show(tab) {
   updateSavebar();
 }
 function open(tab, sub) {
+  // 2.7.0 方案、站点在「连接」页；旧的「更多 → 方案」「更多 → api」照样能打开
+  if (tab === "more" && (sub === "schemes" || sub === "api")) { tab = "conn"; sub = null; }
   if (sub && tab === "more") settings().moreTab = sub;
   if (!rootEl2) buildRoot();
   rootEl2.querySelectorAll(".pa-page").forEach((page) => { page.hidden = true; });
@@ -550,10 +573,13 @@ function applyFloatBall() {
     dx = dy = 0;
     settings().floatBallPos = { x: left + BALL / 2 < s0.w / 2 ? 0 : 1, y: Math.min(1, Math.max(0, (top - BALL_GAP) / Math.max(1, s0.h - BALL - BALL_GAP * 2))) };
     saveSettings();
-    // 先落在松手的位置并让浏览器算好，再去掉拖动标记贴边，才有从松手处滑过去的动画
-    void ball.offsetLeft;
+    // 2.6.22 贴边：先落到最终位置，再用 transform 从松手处滑过去（不逐帧改 left/top）
     ball.classList.remove("pa-ball-drag");
     placeBall(ball);
+    const fx = left - parseFloat(ball.style.left), fy = top - parseFloat(ball.style.top);
+    if ((fx || fy) && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      ball.animate?.([{ transform: `translate3d(${fx}px, ${fy}px, 0)` }, { transform: "none" }], { duration: 200, easing: "cubic-bezier(.23, 1, .32, 1)" });
+    }
   };
   ball.addEventListener("pointerup", drop);
   ball.addEventListener("pointercancel", drop);

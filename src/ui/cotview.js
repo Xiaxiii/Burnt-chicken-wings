@@ -80,17 +80,13 @@ async function hookExistingDialog(d, id) {
 function mountCot(page, app) {
   const st = { filter: "none" };
   page.innerHTML = `
-        <div class="pa-toolbar"><div class="pa-picker-slot"></div><button class="pa-btn pa-btn-soft" data-reply-format title="正文格式检查">格式</button><button class="pa-btn pa-btn-soft" data-variable-audit title="变量顺序与现状">变量</button><button class="pa-btn pa-btn-primary" data-repair-all title="修复变量问题">修复</button></div>
+        <div class="pa-toolbar"><div class="pa-picker-slot"></div><button class="pa-btn pa-btn-soft" data-variable-audit title="变量顺序与现状">变量</button><button class="pa-btn pa-btn-primary" data-repair-all title="修复变量问题">修复</button></div>
         <div class="pa-scroll pa-cot"></div>`;
   const box = page.querySelector(".pa-cot");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
   page.querySelector('[data-variable-audit]').addEventListener('click', async () => {
     try { await variableAuditDialog(getDraft(focusPreset())); }
     catch(err) { toast('变量检查失败：'+err.message,'error'); }
-  });
-  page.querySelector('[data-reply-format]').addEventListener('click', async () => {
-    try { await replyFormatDialog(focusPreset()); }
-    catch(err) { toast('格式检查失败：'+err.message,'error'); }
   });
   page.querySelector('[data-repair-all]').addEventListener('click', async () => {
     try { await repairAllVariables(getDraft(focusPreset()), manualFor(focusPreset())); }
@@ -158,7 +154,7 @@ function mountCot(page, app) {
         deadHtml += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main"><b class="pa-dead-name">${i.ids.map((id) => nm(id)).join("、")}</b><small class="pa-dead-var">变量「${vn}」</small></span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
                     <p class="pa-hint">${why}</p>${other.length ? `<p class="pa-hint">${other.join("；")}，与本条不矛盾：本条指变量「${vn}」。</p>` : ""}
                     <div class="pa-card-act">${similar.length ? similar.map((k) => `<button class="pa-btn pa-btn-soft pa-btn-s" data-rename="${esc(i.varName)}" data-to="${esc((i.varName.startsWith("全局:") ? "全局:" : "") + k)}">改成「${esc(k)}」</button>`).join("") : ""}${offIds.length ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(offIds.join("|"))}">开启读取它的条目</button>` : ""}
-                    ${forCot ? `<button class="pa-btn pa-btn-s" data-cotread="${esc(i.varName)}">加入思维链读取</button>` : `<button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button>`}<button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
+                    ${forCot ? `<button class="pa-btn pa-btn-s" data-cotread="${esc(i.varName)}">加入思维链读取</button>` : `<button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button>`}<button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在条目视图查看</button></div></details>`;
       }
     }
     // 2.5.0 标题和各项分开：标题一行不加框，每一项各自一个框
@@ -177,7 +173,7 @@ function mountCot(page, app) {
         </div>
         ${a.openers.length > 1 ? `<div class="pa-card pa-card-warn"><b>同时开着 ${a.openers.length} 套思维链开头</b>
             <p class="pa-hint">${a.openers.map((id) => `「${nm(id)}」`).join("")}均以思考标签开头，模型会连写多套思考，篇幅变长、易爆思维链。通常只开一套，以条目名称或作者说明为准。</p>
-            <div class="pa-card-act"><button class="pa-link" data-goto="${esc(a.openers.join("|"))}">在整理页查看</button></div></div>` : ""}`;
+            <div class="pa-card-act"><button class="pa-link" data-goto="${esc(a.openers.join("|"))}">在条目视图查看</button></div></div>` : ""}`;
     html += `<div class="pa-row-head"><h3 class="pa-h">思维链读取的变量</h3><button class="pa-link" data-markpick="1">手动指定思维链</button></div>`;
     html += '<div class="pa-cards">';
     for (const c2 of a.cot) {

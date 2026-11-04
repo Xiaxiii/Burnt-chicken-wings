@@ -75,7 +75,7 @@ try {
   const toasts = () => page.evaluate(() => window.__toasts.splice(0).map((t) => t.m));
   const openDialog = async () => {
     await page.evaluate(() => window.__presetAtelier.open('cot'));
-    await page.click('[data-reply-format]');
+    await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
     await page.waitForFunction(() => { const b = document.querySelector('.pa-sheet [data-r=status-body]'); return b && !b.textContent.includes('正在读取'); });
     return (await page.locator('.pa-sheet [data-r=status-body]').innerText()).replace(/\s+/g, ' ').trim();
   };

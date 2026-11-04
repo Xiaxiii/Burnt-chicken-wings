@@ -31,12 +31,12 @@ async function openPage({ interfaces = true, mobile = false } = {}) {
   });
   await page.goto(URL);
   await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-  await page.evaluate(() => window.__presetAtelier.open('cot'));
+  await page.evaluate(() => window.__presetAtelier.open('reply'));
   await page.locator('[data-reply-format]').waitFor({ state: 'visible' });
   return page;
 }
 const dialog = async (page) => {
-  await page.click('[data-reply-format]');
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
   await page.locator('.pa-sheet [data-r=body]').waitFor({ state: 'visible' });
 };
 const close = async (page, save = false) => {

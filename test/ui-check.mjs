@@ -34,14 +34,14 @@ assert.deepEqual(after.slice(ti + 1, ti + 3), [before[1], before[2]], "移到目
 console.log("✓ 选中两条并移到指定位置");
 
 // 2) 思维链页能打开，有手动指定入口
-await page.click('[data-tab="cot"]'); await page.waitForTimeout(400);
+await page.click('[data-tab="organize"]'); await page.click('[data-page="organize"] [data-view="cot"]'); await page.waitForTimeout(400);
 assert.ok(await page.$(".pa-cot .pa-verdict-top"));
 assert.equal(await page.locator("[data-markpick]").count(), 1);
 console.log("✓ 思维链页");
 
 // 3) API：当前连接换模型（带搜索的列表），站点记录跟着改
 await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
-await page.click('[data-m="schemes"]'); await page.waitForTimeout(300);
+await page.click('[data-tab="conn"]'); await page.waitForTimeout(300);
 await page.click('[data-a="livemodel"]'); await page.waitForTimeout(200);
 await page.click('.pa-mpick-item >> text=claude-sonnet'); await page.waitForTimeout(300);
 const m = await page.evaluate(() => [document.getElementById("custom_model_id").value, window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model]);

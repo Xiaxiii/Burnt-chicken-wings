@@ -171,7 +171,7 @@ try {
   // 前面写成 <状态栏> 的回复：子标签对得上，一并改回 <lxs_status>
   await setChat(clean(10), [misnamed(1), wrapped(2)]);
   await page.evaluate(() => window.__presetAtelier.open('cot'));
-  await page.click('[data-reply-format]');
+  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
   await page.click('.pa-sheet [data-r=latest]');
   await page.waitForSelector('[data-r=result]:not([aria-busy])');
   assert.match(await result.innerText(), /未发现配置范围内的格式问题/);
