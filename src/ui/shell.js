@@ -55,9 +55,8 @@ function buildShell() {
       </aside>
       <div class="cw-main">
         <header class="cw-top">
-          <span class="cw-logo cw-mobile-only">${iconHtml("logo")}</span>
+          <h1 class="cw-top-title"></h1>
           <button type="button" class="cw-scope cw-mobile-only" data-act="scope" aria-label="当前预设"><small>当前预设</small><span class="cw-scope-name"></span>${iconHtml("chevDown")}</button>
-          <h1 class="cw-top-title cw-desk-only"></h1>
           <span class="cw-top-gap"></span>
           <div class="cw-save" aria-live="polite"></div>
           ${ibtn("close", "关闭", { act: "close" })}

@@ -196,7 +196,7 @@ function applyTheme(root) {
   const signature = JSON.stringify([id, ...(id === "follow" ? hostColors : [])]);
   if (root._paThemeSignature === signature) return applyBackground(root);
   root._paThemeSignature = signature;
-  for (const key of ["text", "muted", "accent", "on-accent", "control", "check", "warn", "warn-hue", "ok"]) root.style.removeProperty(`--cw-${key}`);
+  for (const key of ["text", "muted", "accent", "on-accent", "control", "check", "warn", "warn-hue", "ok", "line"]) root.style.removeProperty(`--cw-${key}`);
   if (id !== "follow") {
     root.style.removeProperty("--cw-bg");
     root.style.removeProperty("--cw-input");
@@ -242,6 +242,8 @@ function applyTheme(root) {
     warn: readableThemeColor(requestedWarn, surfaces, 4.5),
     ok: readableThemeColor(color("ok", { r: 111, g: 179, b: 138 }), surfaces, 4.5)
   })) root.style.setProperty(`--cw-${key}`, themeRgb(value));
+  // 跟随酒馆时，酒馆的边框色多是半透明黑或白：换成不透明的浅一级线色，面板边框只作轻分隔
+  if (id === "follow") root.style.setProperty("--cw-line", themeRgb(themeMix(text, base, .14)));
   // 2.5.0 警告色为了字够清楚会被调亮、调暗（深色主题里接近白色），浅色底用主题原本的色相
   root.style.setProperty("--cw-warn-hue", themeRgb(requestedWarn));
   root.style.setProperty("--cw-on-accent", ink);
