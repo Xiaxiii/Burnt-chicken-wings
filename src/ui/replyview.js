@@ -36,8 +36,9 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     <div class="pa-whyrow"><p class="pa-hint">当前预设「${esc(name)}」</p>${whyBtn("preset")}</div>
     ${whyNote("preset", "每个预设分别设置。标签名须与预设的输出格式一致。")}
     <div class="pa-card" data-r="status-card"><div class="pa-whyrow"><b>${statusCard() ? `角色卡「${esc(statusCard().name)}」的状态栏` : "状态栏"}</b>${whyBtn("status")}</div>
-      ${whyNote("status", "状态栏标签随角色卡而变，按卡分别记录，与预设无关，改动立即生效。没选过的卡，从它生效的世界书、角色卡、预设条目和显示正则里自动识别；认不准时请选择。检查回复时当作必需标签，必需标签栏里不必再填状态栏。")}
+      ${whyNote("status", "状态栏标签随角色卡而变，按卡分别记录，与预设无关，改动立即生效。没选过的卡，从它生效的世界书、角色卡、预设条目和显示正则里自动识别；认不准时请选择。检查回复时当作必需标签，必需标签栏里不必再填状态栏。「写坏时自动改回」按状态栏的字段（如 <时>、<地>）认出写坏的一份：另写了一份的删去，写成别的名字的改名，缺外层或结尾的补上；正文和思考区不动，可撤销。")}
       <div data-r="status-body" aria-live="polite"><p class="pa-hint">正在读取世界书…</p></div>
+      <label class="pa-field-row"><input type="checkbox" data-r="status-fix" ${statusFixOn() ? "checked" : ""}>状态栏写坏时自动改回</label>
       <label class="pa-field-row"><input type="checkbox" data-r="status-remind" ${statusRemindOn() ? "checked" : ""}>状态栏掉了时，下一轮自动提醒一次</label></div>
     <label class="pa-field"><span>正文标签名（不填尖括号）${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
     ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
@@ -83,8 +84,15 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     return `<div class="pa-status-row"><p class="pa-p">世界书、角色卡、预设和显示正则里都没有找到状态栏。</p>${btn("选择")}</div>`;
   };
   const showStatus = async () => {
-    status = await statusFor(rulesNow(), name);
-    statusBox.innerHTML = statusLine(status);
+    const rules = rulesNow();
+    status = await statusFor(rules, name);
+    // 预设条目另要求一个状态栏块：模型会写两份
+    let warn = "";
+    if (status.tag) {
+      const clash = statusConflicts(status.tag, statusCandidates(rules, await replyWorldTexts(), name));
+      if (clash.length) warn = `<p class="pa-warn">${esc(clash.map((c) => `${c.from.filter((f) => f.startsWith("预设条目")).join("、")} 要求输出 <${c.name}>`).join("；"))}。与这张卡的 <${status.tag}> 并存时，模型会写两份状态栏；在这张卡上关掉这些条目即可。</p>`;
+    }
+    statusBox.innerHTML = statusLine(status) + warn;
     return status;
   };
   const pickStatus = async () => {
@@ -128,6 +136,11 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
   body.addEventListener("click", (e) => {
     if (!e.target.closest('[data-r="status-pick"]')) return;
     pickStatus().catch((err) => toast("设置状态栏失败：" + err.message, "error"));
+  });
+  body.querySelector('[data-r="status-fix"]').addEventListener("change", (e) => {
+    if (e.target.checked) delete settings().statusFix;
+    else settings().statusFix = false;
+    saveSettings();
   });
   body.querySelector('[data-r="status-remind"]').addEventListener("change", (e) => {
     if (e.target.checked) delete settings().statusRemind;
@@ -223,12 +236,16 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     const config = statusRules(base, cardStatus);
     const force = cardStatus.tag || null;
     let { report, extra } = await replyCheckChat(text, config, { chat, index: at, reasoning, name, force });
-    const reminder = buildReplyReminder(report, config);
-    const plan = report.issues.length ? planReplyFix(text, config, extra) : null;
+    // 2.6.18 状态栏按字段再查一遍：另写了一份、写成别的名字、缺外层或结尾
+    const checkRules = normalizeReplyRules(config);
+    const kids = force ? statusChildren(force, checkRules, await replyWorldTexts(), name) : null;
+    const statusFix = force ? statusCheck(report, text, force, kids, checkRules) : null;
+    const reminder = [buildReplyReminder(report, config), force ? statusReminder(report, force) : ""].filter(Boolean).join("\n");
+    const plan = report.issues.length ? statusPlan(text, checkRules, extra, statusFix, true) : null;
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
     const rules = normalizeReplyRules(config);
     // 前面的回复按这张卡要的必需标签查（预设、角色卡、世界书、开场白都没要求的不算）
-    const scanEarlier = () => replyEarlierRepairs(chat, latest.index, replyCardRules(rules, extra.isApplicable), extra.knownTags);
+    const scanEarlier = () => replyEarlierRepairs(chat, latest.index, replyCardRules(rules, extra.isApplicable), extra.knownTags, force ? statusEarlierFix(force, kids, rules) : null);
     earlier = latest ? await scanEarlier() : null;
     // 前面的回复要用已知标签、世界书却还没读：读完再查一遍（只查筛出来的那几条）
     if (latest && extra.needWorld()) {
@@ -238,6 +255,7 @@ async function replyFormatDialog(name, { check: autoCheck = false } = {}) {
     const asks = new Map();
     const ask = (key, label) => { if (key && key !== rules.bodyTag.toLowerCase() && !asks.has(key)) asks.set(key, label); };
     for (const w of report.wrapped || []) ask(w.key, w.name);
+    for (const i of report.issues) if (i.kind === "status" && i.other) ask(i.other.toLowerCase(), i.other);
     for (const b of report.misnamed?.suspects || []) ask(b.key, b.name);
     for (const i of report.issues) if (i.kind === "missing" && i.tag) ask(i.tag.toLowerCase(), i.tag);
     for (const t of report.skipped) ask(t.toLowerCase(), t);

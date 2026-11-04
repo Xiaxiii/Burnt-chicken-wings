@@ -148,10 +148,155 @@ function statusCandidates(rules, world, name = currentPresetName()) {
   if (statusCache?.key === key) return statusCache.list;
   let d = null;
   try { d = getDraft(name); } catch {}
-  const list = statusCandidatesFrom(statusSources(d, world), statusDisplayRules(d), rules);
-  statusCache = { key, list };
+  const sources = statusSources(d, world), display = statusDisplayRules(d);
+  const list = statusCandidatesFrom(sources, display, rules);
+  statusCache = { key, list, sources, display };
   return list;
 }
+// 这张卡状态栏的子标签（<时>、<地>……）：写着 <tag> 的条目里它后面出现的标签（到 </tag> 为止），以及美化它的正则里的其他标签
+function statusChildrenFrom(tag, sources, display, rules) {
+  const key = tag.toLowerCase();
+  const esc = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const reserved = new Set([rules.bodyTag, ...rules.thinkingTags, ...rules.requiredTags].map((t) => t.toLowerCase()));
+  const kids = new Set();
+  for (const src of sources) {
+    const open = new RegExp(`<\\s*${esc}(?:\\s[^<>]*)?>`, "iu").exec(src.text);
+    if (!open) continue;
+    let rest = src.text.slice(open.index + open[0].length);
+    const close = new RegExp(`<\\s*\\/\\s*${esc}\\s*>`, "iu").exec(rest);
+    if (close) rest = rest.slice(0, close.index);
+    for (const t of replyTagTokens(replyCheckMask(rest))) if (!t.closing && !STATUS_SKIP.has(t.key)) kids.add(t.key);
+  }
+  for (const r of display) if (r.tags.has(key)) for (const t of r.tags) if (!STATUS_SKIP.has(t)) kids.add(t);
+  for (const k of reserved) kids.delete(k);
+  kids.delete(key);
+  return kids;
+}
+function statusChildren(tag, rules, world, name = currentPresetName()) {
+  statusCandidates(rules, world, name);
+  return statusChildrenFrom(tag, statusCache.sources, statusCache.display, rules);
+}
+
+// 2.6.18 按子标签认出写坏的状态栏，改回这张卡的标签。子标签至少对上 2 个（定义里只有 1 个时对上它）才算：
+// 另写了一份（<lxs_status> 之外又有一份 <状态栏>，字段相同）删去那一份；没有 <tag>、写成别的名字的改名；
+// 只有开头的改名并补上结尾；外层整个漏掉、只剩一串字段的补上外层；外面多包一层像状态栏的标签的去掉这一层；
+// <tag> 只有开头的补上结尾。正文、思考区里面不动。一次做一处，做到没有可改的为止。
+// 返回 { text, steps, issues }，issues 是检查里要列出的问题（只点名这张卡的标签和写错的那个块）
+function statusRepair(text, tag, children, rules) {
+  let mes = String(text == null ? "" : text);
+  const steps = [], issues = [], others = [];
+  for (let n = 0; n < 6; n++) {
+    const one = statusRepairOnce(mes, tag, children, rules);
+    if (!one) break;
+    mes = one.text;
+    steps.push(one.step);
+    if (one.issue && !issues.includes(one.issue)) { issues.push(one.issue); others.push(one.other || ""); }
+  }
+  return steps.length ? { text: mes, steps, issues, others } : null;
+}
+function statusRepairOnce(mes, tag, children, rules) {
+  const key = tag.toLowerCase();
+  const kids = new Set([...children].map((k) => String(k).toLowerCase()).filter((k) => k !== key));
+  if (!kids.size) return null;
+  const need = Math.min(2, kids.size);
+  const masked = replyCheckMask(mes);
+  const tokens = replyTagTokens(masked);
+  const pairs = replyPairRanges(masked);
+  const thinking = new Set(rules.thinkingTags.map((t) => t.toLowerCase()));
+  const bodyKey = rules.bodyTag.toLowerCase();
+  // 不动正文、思考区和这张卡自己的状态栏；别的必需标签（含填在里面的泛称「状态栏」）照样按字段判断
+  const reserved = new Set([rules.bodyTag, ...rules.thinkingTags, tag].map((t) => t.toLowerCase()));
+  const guards = pairs.filter((p) => p.key === bodyKey || thinking.has(p.key) || p.key === key);
+  const guarded = (pos) => guards.some((g) => pos >= g.start && pos < g.end);
+  const distinct = (from, to) => new Set(tokens.filter((t) => t.start >= from && t.end <= to && kids.has(t.key)).map((t) => t.key)).size;
+  // 块里的子标签过半是状态栏字段才算（读者段评里偶尔有个 <言> 不算）
+  const mostly = (from, to, self) => {
+    const all = new Set(tokens.filter((t) => t.start >= from && t.end <= to && t.key !== self).map((t) => t.key));
+    const hit = [...all].filter((k) => kids.has(k)).length;
+    return hit >= need && hit * 2 >= all.size;
+  };
+  const label = (b) => `<${b.name}>`;
+  const cut = (start, end) => {
+    const before = mes.slice(0, start).replace(/\s+$/, ""), after = mes.slice(end).replace(/^\s+/, "");
+    return before + (before && after ? "\n" : "") + after;
+  };
+  const trimEnd = (end, from) => { while (end > from && /\s/.test(mes[end - 1])) end--; return end; };
+  const own = pairs.filter((p) => p.key === key);
+  // 外面多包一层像状态栏的标签
+  if (own.length) {
+    const w = replyWrapPairs(masked, (k) => k === key, (k) => !reserved.has(k) && !kids.has(k) && STATUS_HINT.test(k))[0];
+    if (w) {
+      const name = /^<\s*([^\s<>\/]+)/.exec(mes.slice(w.outer.start, w.outer.start + 60))?.[1] || w.outer.key;
+      return { text: mes.slice(0, w.outer.start) + mes.slice(w.inner.start, w.inner.end) + mes.slice(w.outer.end), step: `去掉 <${tag}> 外面多包的 <${name}>…</${name}>`, issue: `<${tag}> 外面多包了一层 <${name}>`, other: name };
+    }
+  }
+  // 写坏的状态栏：成对的别名块、只有开头的别名块、没有外层的一串字段
+  const top = replyTopBlocks(mes).filter((b) => b.key !== REPLY_FENCE_KEY);
+  const inTop = (pos) => top.some((b) => !kids.has(b.key) && pos >= b.start && pos < b.end);
+  const found = [];
+  for (const b of top) {
+    if (reserved.has(b.key) || kids.has(b.key) || guarded(b.start)) continue;
+    if (mostly(b.start, b.end, b.key)) found.push({ kind: "pair", start: b.start, end: b.end, name: b.name });
+  }
+  // 往后收字段，碰到别的标签停下；末尾的空白不算
+  const run = (from, i) => {
+    let j = i;
+    while (j < tokens.length && kids.has(tokens[j].key)) j++;
+    return { end: trimEnd(j < tokens.length ? tokens[j].start : mes.length, from), next: j };
+  };
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t.closing || t.selfClosing || reserved.has(t.key) || guarded(t.start) || inTop(t.start)) continue;
+    if (!kids.has(t.key)) {
+      if (tokens.some((u) => u.closing && u.key === t.key && u.start > t.start)) continue;
+      const r = run(t.end, i + 1);
+      if (mostly(t.end, r.end, t.key)) found.push({ kind: "open", start: t.start, openEnd: t.end, end: r.end, name: t.name });
+      i = r.next - 1;
+    } else {
+      const r = run(t.start, i);
+      if (distinct(t.start, r.end) >= need) found.push({ kind: "bare", start: t.start, end: r.end });
+      i = r.next - 1;
+    }
+  }
+  if (own.length) {
+    const f = found.at(-1);
+    if (!f) return null;
+    const what = f.kind === "bare" ? "一串状态栏字段" : f.kind === "pair" ? `<${f.name}>…</${f.name}>` : `<${f.name}> 开头的一段`;
+    return { text: cut(f.start, f.end), step: `删去另写的一份状态栏（${what}）`, issue: `状态栏写了两份：<${tag}> 之外还有${f.kind === "bare" ? "一串没有外层的状态栏字段" : `一份 ${label(f)}`}`, other: f.name };
+  }
+  // <tag> 只有开头：在字段末尾补上结尾
+  const openOwn = tokens.find((t) => t.key === key && !t.closing && !t.selfClosing && !guarded(t.start));
+  if (openOwn && !tokens.some((t) => t.key === key && t.closing)) {
+    const i = tokens.indexOf(openOwn);
+    const r = run(openOwn.end, i + 1);
+    if (distinct(openOwn.end, r.end) >= need) return { text: mes.slice(0, r.end) + `\n</${tag}>` + mes.slice(r.end), step: `在状态栏末尾补上 </${tag}>`, issue: `<${tag}> 没有结尾` };
+  }
+  const f = found.at(-1);
+  if (!f) return null;
+  if (f.kind === "pair") {
+    const openEnd = masked.indexOf(">", f.start) + 1, closeStart = masked.lastIndexOf("<", f.end - 1);
+    return { text: mes.slice(0, f.start) + `<${tag}>` + mes.slice(openEnd, closeStart) + `</${tag}>` + mes.slice(f.end), step: `把 <${f.name}>…</${f.name}> 改名为 <${tag}>…</${tag}>`, issue: `状态栏写成了 <${f.name}>…</${f.name}>，应为 <${tag}>`, other: f.name };
+  }
+  if (f.kind === "open") return { text: mes.slice(0, f.start) + `<${tag}>` + mes.slice(f.openEnd, f.end) + `\n</${tag}>` + mes.slice(f.end), step: `把 <${f.name}> 改为 <${tag}>，并补上 </${tag}>`, issue: `状态栏写成了 <${f.name}>，应为 <${tag}>…</${tag}>`, other: f.name };
+  return { text: mes.slice(0, f.start) + `<${tag}>\n` + mes.slice(f.start, f.end) + `\n</${tag}>` + mes.slice(f.end), step: `用 <${tag}>…</${tag}> 包住状态栏字段`, issue: `状态栏字段外面没有 <${tag}>` };
+}
+// 检查结果里补上状态栏的问题（kind "status"），和已有的问题不重复
+function statusCheck(report, text, tag, children, rules) {
+  const fix = statusRepair(text, tag, children, rules);
+  if (!fix) return null;
+  const key = tag.toLowerCase();
+  const had = report.issues.filter((i) => i.tag?.toLowerCase() === key && i.kind !== "missing");
+  fix.issues.forEach((t, n) => {
+    if (t.includes("多包了一层") && had.some((i) => i.kind === "wrapped")) return;
+    if (t.endsWith("没有结尾") && had.some((i) => i.kind === "missing" || i.kind === "order")) return;
+    report.issues.push({ kind: "status", tag, text: t, ...(fix.others[n] ? { other: fix.others[n] } : {}) });
+  });
+  // 状态栏改回后不再算缺；写错名字的「缺少」由这里的说法代替
+  if (fix.issues.some((t) => t.startsWith("状态栏写成了") || t.startsWith("状态栏字段外面"))) report.issues = report.issues.filter((i) => !(i.kind === "missing" && i.tag?.toLowerCase() === key));
+  return fix;
+}
+const statusFixOn = () => settings().statusFix !== false;
+
 // 这张卡的状态栏：state 为 manual（玩家选定）、auto（自动认出）、ambiguous（有候选、认不准）、none（没找到）、
 // off（玩家设为不检查）、nocard（没开角色卡）、pending（要读世界书才知道）
 function statusResolve(rules, world, name = currentPresetName()) {
@@ -195,7 +340,9 @@ function statusReminder(report, tag) {
   if (kinds.has("stranded") || kinds.has("swallowed")) parts.push(`上一轮的 <${tag}> 写进了思考区：思考标签先闭合，再输出正文和 ${t}。`);
   else if (mine.some((i) => i.kind === "missing" && i.text.startsWith("缺少完整的"))) parts.push(`上一轮回复没有 ${t}。本轮正文结束后照常输出，标签名一字不改。`);
   else if (kinds.has("missing") || kinds.has("order") || kinds.has("duplicate")) parts.push(`上一轮的 ${t} 不完整或重复。本轮完整输出一次，开头和结尾的标签名一字不改。`);
-  if (kinds.has("wrapped")) parts.push(`${t} 直接输出，外面不要再包其他标签。`);
+  if (kinds.has("wrapped") || mine.some((i) => i.kind === "status" && i.text.includes("多包了一层"))) parts.push(`${t} 直接输出，外面不要再包其他标签。`);
+  if (mine.some((i) => i.kind === "status" && i.text.startsWith("状态栏写了两份"))) parts.push(`状态栏只输出一份 ${t}，不要另写一份。`);
+  else if (!parts.length && mine.some((i) => i.kind === "status")) parts.push(`状态栏用 ${t} 包住，开头和结尾的标签名一字不改。`);
   return parts.length ? `【状态栏提醒】${parts.join("")}这条提醒只管状态栏格式，剧情照常接着写。` : "";
 }
 function armStatusReminder(text) {
@@ -229,4 +376,25 @@ function statusEntryTags(world, rules) {
     if (names.size) out.push({ from: t.from, tags: [...names.values()] });
   }
   return out;
+}
+// 状态栏修正和「修正这条回复」能做的合成一份方案（applyReplyFix 用）：先改状态栏；general 时再做一般修正
+function statusPlan(text, rules, extra, statusFix, general, opts = {}) {
+  const mes = statusFix ? statusFix.text : String(text == null ? "" : text);
+  const pre = statusFix ? statusFix.steps : [];
+  const plan = general ? planReplyFix(mes, rules, { ...extra, ...opts }) : null;
+  if (plan) return { ...plan, steps: [...pre, ...plan.steps] };
+  if (!pre.length) return null;
+  return { text: mes, reasoning: typeof extra.reasoning === "string" ? extra.reasoning : null, reasoningChanged: false, steps: pre, after: checkReplyFormat(mes, rules, extra) };
+}
+// 前面的回复里写坏的状态栏（一并修正用）
+function statusEarlierFix(tag, children, rules) {
+  const kids = [...children].map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  if (!kids.length) return null;
+  const test = new RegExp(`<\\s*(?:${kids.join("|")})(?=[\\s>/])`, "iu");
+  return { test, fix: (text) => { const f = statusRepair(text, tag, children, rules); return f && { text: f.text, steps: f.steps, pairs: f.issues }; } };
+}
+// 这张卡已有状态栏标签时，预设条目里另要求的状态栏块（会让模型写两份）
+function statusConflicts(tag, list) {
+  const key = String(tag || "").toLowerCase();
+  return (list || []).filter((c) => c.key !== key && c.hint && c.pair && c.from.some((f) => f.startsWith("预设条目")));
 }

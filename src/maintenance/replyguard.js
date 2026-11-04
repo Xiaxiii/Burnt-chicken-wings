@@ -284,7 +284,7 @@ var replyAutoFixPending = false;
 // 这一轮被手动停止过（停止和结束两个事件谁先到都不改）
 var replyAutoFixStopped = false;
 // 2.6.11 生成后提示玩家的问题：确定的问题才提示，「疑似推理标题」这类要人工判断的不提示；每条回复最多提示一次
-var REPLY_NOTICE_KINDS = new Set(["missing", "order", "duplicate", "swallowed", "reasoning", "stranded", "outside", "leak", "empty", "wrapped"]);
+var REPLY_NOTICE_KINDS = new Set(["missing", "order", "duplicate", "swallowed", "reasoning", "stranded", "outside", "leak", "empty", "wrapped", "status"]);
 var replyNoticed = null;
 function replyNoticeToast(text, type = "warning") {
   const t = globalThis.toastr;
@@ -309,7 +309,7 @@ function scheduleReplyAutoFix() {
   replyAutoFixPending = false;
   const first = replyGuardConfig();
   // 2.6.17 状态栏自动提醒开着时，提示和自动修正都关了也要查
-  if (!first?.bodyTag || !first.autoFix && first.notice === false && !statusRemindOn()) return;
+  if (!first?.bodyTag || !first.autoFix && first.notice === false && !statusRemindOn() && !statusFixOn()) return;
   const seq = replyGenSeq;
   // 等酒馆和其他扩展处理完这条消息（渲染、保存）、页面画完再看
   setTimeout(async () => {
@@ -327,14 +327,22 @@ function scheduleReplyAutoFix() {
       const { report, extra } = await replyCheckChat(latest.message.mes, rules, { chat: c.chat, index: latest.index, reasoning: latest.message.extra?.reasoning, force: status.tag });
       // 读世界书时又开始生成、或这条回复已被改动：不再处理
       if (seq !== replyGenSeq || replyMessageSnapshot(latest.index) !== snap) return;
-      // 状态栏掉了、写错、多包一层或进了思考区：下一轮提醒一次，只点名这张卡的状态栏标签
+      // 2.6.18 状态栏按子标签再查一遍：另写了一份、写成别的名字、没有外层或结尾
+      let statusFix = null;
+      if (status.tag) {
+        const world = await replyWorldTexts();
+        if (seq !== replyGenSeq || replyMessageSnapshot(latest.index) !== snap) return;
+        statusFix = statusCheck(report, latest.message.mes, status.tag, statusChildren(status.tag, rules, world), rules);
+      }
+      // 状态栏掉了、写错、写了两份、多包一层或进了思考区：下一轮提醒一次，只点名这张卡的状态栏标签
       const remind = status.tag && statusRemindOn() ? statusReminder(report, status.tag) : "";
       if (remind) armStatusReminder(remind);
       if (!report.issues.length) return;
-      const next = remind ? "下一轮已提醒补上状态栏。点此查看" : "点此查看，可提醒下一轮";
+      const next = remind ? `下一轮将提醒用 <${status.tag}>。点此查看` : "点此查看，可提醒下一轮";
       let left = report.issues;
-      if (config.autoFix) {
-        const plan = planReplyFix(latest.message.mes, rules, { ...extra, noTailClose: true, auto: true });
+      // 状态栏写坏了先改回（默认开），开了自动修正时再做一般修正
+      {
+        const plan = statusPlan(latest.message.mes, rules, extra, statusFixOn() ? statusFix : null, !!config.autoFix, { noTailClose: true, auto: true });
         if (plan) {
           const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
           replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
@@ -342,7 +350,7 @@ function scheduleReplyAutoFix() {
           const rest = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));
           replyNoticed = undo.snapshot;
           if (rest.length && config.notice !== false) return replyNoticeToast(`已自动修正这条回复：${plan.steps.join("；")}。还有 ${rest.length} 个问题，${next}`);
-          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。${remind ? "下一轮已提醒补上状态栏。" : ""}可在「思维链 → 格式」里撤销`, left.length ? "warning" : "success");
+          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。${remind ? `下一轮将提醒用 <${status.tag}>。` : ""}可在「思维链 → 格式」里撤销`, left.length ? "warning" : "success");
         }
       }
       const sure = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));
@@ -450,7 +458,7 @@ async function undoReplyFix(undo) {
 // 只看第 index 条之前最近 200 条 AI 回复当前显示的那一版。
 // 2.6.12 先用便宜的规则筛：开始标签后面紧跟着正文或必需标签（「</content>」后跟 <lxs_status> 这种结束标签不算），
 // 或缺了必需标签的回复才细查；每 20 条让出一次主线程
-async function replyEarlierRepairs(chat, index, rules, knownTags) {
+async function replyEarlierRepairs(chat, index, rules, knownTags, more = null) {
   const out = [];
   const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const quick = new RegExp(`<\\s*[A-Za-z_\\u3400-\\u9fff][^<>]*>\\s*<\\s*(?:${[rules.bodyTag, ...rules.requiredTags].map(esc).join("|")})(?=[\\s>/])`, "iu");
@@ -460,9 +468,11 @@ async function replyEarlierRepairs(chat, index, rules, knownTags) {
     const m = chat[i];
     if (!m || m.is_user || m.is_system || typeof m.mes !== "string") continue;
     if (++n % 20 === 0) await replyBreath();
-    if (!quick.test(m.mes) && has.every((re) => re.test(m.mes))) continue;
-    const fix = replyRepairEarlier(m.mes, rules, knownTags);
-    if (fix) out.push({ index: i, text: fix.text, steps: fix.steps, pairs: fix.pairs });
+    if (!quick.test(m.mes) && has.every((re) => re.test(m.mes)) && !more?.test.test(m.mes)) continue;
+    // 2.6.18 先改回写坏的状态栏，再做原有的改名、去层
+    const first = more ? more.fix(m.mes) : null;
+    const fix = replyRepairEarlier(first ? first.text : m.mes, rules, knownTags);
+    if (first || fix) out.push({ index: i, text: fix ? fix.text : first.text, steps: [...(first?.steps || []), ...(fix?.steps || [])], pairs: [...(first?.pairs || []), ...(fix?.pairs || [])] });
   }
   return out.reverse();
 }

@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const source = ['../src/core/regex.js', '../src/core/replycheck.js', '../src/maintenance/statusbar.js']
   .map((file) => fs.readFileSync(path.join(__dirname, file), 'utf8')).join('\n');
-const f = new Function('ctx', 'settings', 'saveSettings', source + '\nreturn { statusCandidatesFrom, statusAutoPick, statusReminder, statusRules, statusEntryTags, checkReplyFormat, normalizeReplyRules, presetRegexAnchors };')(
+const f = new Function('ctx', 'settings', 'saveSettings', source + '\nreturn { statusCandidatesFrom, statusAutoPick, statusReminder, statusRules, statusEntryTags, checkReplyFormat, normalizeReplyRules, presetRegexAnchors, statusRepair, statusCheck, statusChildrenFrom, statusConflicts };')(
   () => ({}), () => ({}), () => {}
 );
 let passed = 0;
@@ -83,5 +83,61 @@ test('the status reminder names only the card status tag, never a wrong name', (
   assert.match(f.statusReminder(stuck, 'lxs_status'), /写进了思考区/);
   assert.equal(f.statusReminder(f.checkReplyFormat('<content>正文</content>\n<lxs_status>x</lxs_status>', r), 'lxs_status'), '', '没问题不提醒');
   assert.equal(f.statusReminder(f.checkReplyFormat('正文\n<lxs_status>x</lxs_status>', r), 'lxs_status'), '', '只缺正文标签时不归状态栏提醒');
+});
+// 2.6.18 按字段认出写坏的状态栏
+const ENTRY = '#状态栏输出规则\n正文结束后严格按以下结构输出状态栏\n<lxs_status>\n  <时>{{年号}}</时>\n  <地>{{殿名}}</地>\n  <景>{{白描}}</景>\n  <欲>{{情欲}}</欲>\n  <言>{{起居注}}</言>\n</lxs_status>';
+const R = f.normalizeReplyRules({ bodyTag: 'content', requiredTags: ['lxs_status'] });
+const KIDS = f.statusChildrenFrom('lxs_status', [{ text: ENTRY }], [], R);
+const FIELDS = '<时>永熙二十年</时>\n<地>北麓断崖</地>\n<景>白刃坠地</景>\n<欲>惊怒未消</欲>\n<言>北麓深林传出破空之声。</言>';
+const BODY = '<content>\n正文里也写到 <时> 字样不算。\n</content>\n<段评>\n<评论>读者</评论>\n<言>读者也有一句言</言>\n</段评>';
+const GOOD = `${BODY}\n<lxs_status>\n${FIELDS}\n</lxs_status>`;
+test('status fields come from the entry that defines the card status tag', () => {
+  assert.deepEqual([...KIDS], ['时', '地', '景', '欲', '言']);
+  const open = f.statusChildrenFrom('lxs_status', [{ text: '<lxs_status>\n<时>x\n<地>y' }], [], R);
+  assert.deepEqual([...open], ['时', '地'], '定义没有结尾也认');
+});
+test('a broken status bar is put back by its fields, the body and other blocks untouched', () => {
+  const fix = (text) => f.statusRepair(text, 'lxs_status', KIDS, R);
+  const twice = fix(`${GOOD}\n\n<状态栏>\n${FIELDS}\n</状态栏>`);
+  assert.deepEqual([twice.text, twice.steps], [GOOD, ['删去另写的一份状态栏（<状态栏>…</状态栏>）']]);
+  assert.deepEqual([twice.issues, twice.others], [['状态栏写了两份：<lxs_status> 之外还有一份 <状态栏>'], ['状态栏']]);
+  assert.equal(fix(`${BODY}\n<状态栏>\n${FIELDS}\n</状态栏>`).text, GOOD, '写成别的名字：改名');
+  const listed = f.normalizeReplyRules({ bodyTag: 'content', requiredTags: ['状态栏', 'lxs_status', '摘要'] });
+  assert.equal(f.statusRepair(`${GOOD}\n<状态栏>\n${FIELDS}\n</状态栏>`, 'lxs_status', KIDS, listed).text, GOOD, '「状态栏」填在必需标签里也照样删去另写的一份');
+  assert.equal(f.statusRepair(`${GOOD}\n<摘要>本轮摘要</摘要>`, 'lxs_status', KIDS, listed), null, '别的必需标签不动');
+  const marker = FIELDS.replace(/<\/[^>]+>/g, '');
+  assert.equal(fix(`${BODY}\n<状态栏>\n${marker}`).text, `${BODY}\n<lxs_status>\n${marker}\n</lxs_status>`, '别名只有开头：改名并补结尾');
+  assert.equal(fix(`${BODY}\n${FIELDS}`).text, GOOD, '外层整个漏掉：补上外层');
+  assert.equal(fix(`${BODY}\n<状态栏>\n<lxs_status>\n${FIELDS}\n</lxs_status>\n</状态栏>`).text, GOOD, '外面多包一层：去掉');
+  assert.equal(fix(`${BODY}\n<lxs_status>\n${FIELDS}`).text, GOOD, '只有开头：补上结尾');
+  assert.equal(fix(GOOD), null, '写对了不改');
+  assert.equal(fix(`${GOOD}\n<小剧场>\n<角色>甲</角色>\n<言>一句</言>\n</小剧场>`), null, '只沾一个字段的别的块不动');
+  assert.equal(fix(`${GOOD}\n<彩蛋>\n<时>x</时>\n<地>y</地>\n<甲>1</甲>\n<乙>2</乙>\n<丙>3</丙>\n</彩蛋>`), null, '字段不过半的块不动');
+  assert.equal(f.statusRepair(`${BODY}\n<状态栏>\n${FIELDS}\n</状态栏>`, 'lxs_status', new Set(), R), null, '不知道字段时不动');
+});
+test('status issues join the report once, and the reminder never names the wrong block', () => {
+  const text = `${BODY}\n<状态栏>\n${FIELDS}\n</状态栏>`;
+  const report = f.checkReplyFormat(text, R);
+  f.statusCheck(report, text, 'lxs_status', KIDS, R);
+  assert.deepEqual(report.issues.map((i) => [i.kind, i.text]), [['status', '状态栏写成了 <状态栏>…</状态栏>，应为 <lxs_status>']], '代替「缺少 <lxs_status>」');
+  const reminder = f.statusReminder(report, 'lxs_status');
+  assert.match(reminder, /状态栏用 <lxs_status>…<\/lxs_status> 包住/);
+  assert.doesNotMatch(reminder, /<状态栏>/);
+  const dup = `${GOOD}\n<状态栏>\n${FIELDS}\n</状态栏>`;
+  const r2 = f.checkReplyFormat(dup, R);
+  f.statusCheck(r2, dup, 'lxs_status', KIDS, R);
+  assert.match(f.statusReminder(r2, 'lxs_status'), /状态栏只输出一份 <lxs_status>…<\/lxs_status>，不要另写一份/);
+  const ok = f.checkReplyFormat(GOOD, R);
+  assert.equal(f.statusCheck(ok, GOOD, 'lxs_status', KIDS, R), null);
+  assert.deepEqual(ok.issues, []);
+});
+test('a preset entry asking for another status block is reported as a clash', () => {
+  const sources = [
+    world('东宫', '状态栏', ENTRY),
+    { text: '每轮末尾输出状态栏：\n<状态栏>\n<时间>…</时间>\n</状态栏>', from: '预设条目「通用状态栏」', title: '通用状态栏', own: false }
+  ];
+  const list = f.statusCandidatesFrom(sources, [display('角色卡正则「起居注」', '<lxs_status>([\\s\\S]*?)<\\/lxs_status>')], R);
+  assert.equal(f.statusAutoPick(list).name, 'lxs_status');
+  assert.deepEqual(f.statusConflicts('lxs_status', list).map((c) => [c.name, c.from]), [['状态栏', ['预设条目「通用状态栏」']]]);
 });
 console.log(`${passed} status-bar tests passed`);

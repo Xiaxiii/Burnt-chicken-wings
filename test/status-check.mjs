@@ -90,7 +90,7 @@ try {
   assert.match(await page.locator('.pa-sheet [data-r=status-card] b').first().innerText(), /角色卡「东宫」的状态栏/);
   await closeDialog();
   await turn('<content>\n正文。\n</content>');
-  assert.deepEqual(await toasts(), ['上一条回复：缺少完整的 <lxs_status>…</lxs_status> 标签。下一轮已提醒补上状态栏。点此查看']);
+  assert.deepEqual(await toasts(), ['上一条回复：缺少完整的 <lxs_status>…</lxs_status> 标签。下一轮将提醒用 <lxs_status>。点此查看']);
   await before();
   const sent = await prompt();
   assert.match(sent, /^【状态栏提醒】上一轮回复没有 <lxs_status>…<\/lxs_status>。本轮正文结束后照常输出，标签名一字不改。/);
@@ -185,6 +185,43 @@ try {
   assert.match(await page.locator('.pa-sheet [data-r=remind-card] pre').textContent(), /<lxs_status>…<\/lxs_status>/);
   await closeDialog();
   ok('检查窗口把这张卡的状态栏一起查，「下一轮提醒一次」点名 <lxs_status>');
+
+  // 7) 2.6.18 状态栏写坏：另写了一份 <状态栏>、写成 <状态栏>，生成完自动改回（默认开）；正文不动
+  const DUP = `<content>\n正文。\n</content>\n${LXS}\n\n<状态栏>\n<时>巳时</时>\n<地>望仙台</地>\n</状态栏>`;
+  const GOOD = `<content>\n正文。\n</content>\n${LXS}`;
+  const last = () => page.evaluate(() => window.SillyTavern.getContext().chat.at(-1).mes);
+  await turn(DUP);
+  assert.equal(await last(), GOOD);
+  assert.ok((await toasts()).includes('已自动修正这条回复：删去另写的一份状态栏（<状态栏>…</状态栏>）。可在「思维链 → 格式」里撤销'));
+  await turn('<content>\n正文。\n</content>\n<状态栏>\n<时>巳时</时>\n<地>望仙台</地>\n</状态栏>');
+  assert.equal(await last(), GOOD);
+  assert.ok((await toasts()).some((m) => /^已自动修正这条回复：把 <状态栏>…<\/状态栏> 改名为 <lxs_status>…<\/lxs_status>/.test(m)));
+  ok('另写的一份 <状态栏> 生成完自动删去，写成 <状态栏> 的自动改名');
+
+  // 关掉自动改回：只提示；检查窗口列出问题和 <状态栏> 的出处，「修正这条回复」删去那一份，前面的回复一并修正
+  await openDialog();
+  await page.locator('.pa-sheet [data-r=status-fix]').uncheck();
+  await closeDialog();
+  await toasts();
+  await page.evaluate((dup) => {
+    window.SillyTavern.getContext().chat = [{ is_user: false, mes: '<content>开场。</content>' }, { is_user: true, mes: '甲' }, { is_user: false, mes: dup }, { is_user: true, mes: '乙' }, { is_user: false, mes: dup, swipe_id: 0, swipes: [dup] }];
+  }, DUP);
+  await openDialog();
+  await page.click('.pa-sheet [data-r=latest]');
+  await page.waitForSelector('[data-r=result]:not([aria-busy])');
+  const res = page.locator('.pa-sheet [data-r=result]');
+  assert.match(await res.innerText(), /状态栏写了两份：<lxs_status> 之外还有一份 <状态栏>/);
+  assert.match(await page.locator('.pa-sheet [data-r=origins]').innerText(), /<状态栏>：聊天里前面 1 条 AI 回复/);
+  assert.match(await page.locator('.pa-sheet [data-r=remind-card] pre').textContent(), /状态栏只输出一份 <lxs_status>…<\/lxs_status>，不要另写一份/);
+  assert.match(await page.locator('.pa-sheet [data-r=earlier-card]').innerText(), /前面还有 1 条回复有同样的问题（状态栏写了两份/);
+  await page.click('.pa-sheet [data-r=fix]');
+  await page.locator('.pa-sheet [data-r=undo-fix]').waitFor();
+  await page.click('.pa-sheet [data-r=fix-earlier]');
+  await page.locator('.pa-sheet [data-r=undo-earlier]').waitFor();
+  assert.deepEqual(await page.evaluate(() => window.SillyTavern.getContext().chat.filter((m) => !m.is_user).map((m) => m.mes)), ['<content>开场。</content>', GOOD, GOOD]);
+  await page.locator('.pa-sheet [data-r=status-fix]').check();
+  await closeDialog();
+  ok('关掉自动改回时只提示；检查窗口列出 <状态栏> 出处，可修正这条和前面的回复');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();
