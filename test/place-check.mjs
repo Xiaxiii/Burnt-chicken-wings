@@ -63,7 +63,7 @@ check((await where()) === "位置：「正文规则」组之后（组外）", "�
 await page.screenshot({ path: "test/shots/p-1-after-group.png" });
 await page.click('[data-act="st-go"]'); await page.waitForTimeout(600);
 check((await page.evaluate(() => document.querySelector('.cw-dlg [data-g="grp"]')?.value)) === "keep", "预览默认「保留原分组」");
-check((await page.locator(".cw-dlg .pa-explain .pa-sub", { hasText: "来源「F1」怎样让条目生效" }).count()) === 1, "预览里能看来源的写法（收在「更多选项」里）");
+check((await page.locator(".cw-dlg h4", { hasText: "来源「F1」怎样让条目生效" }).count()) === 1, "预览里能看来源的写法（收在「更多选项」里）");
 check(await page.evaluate(() => [...document.querySelectorAll(".cw-dlg .cw-item")].every((x) => x.querySelector(".cw-item-body").hidden)), "预览中每条默认收起");
 check(await page.evaluate(() => !document.querySelectorAll('.cw-dlg [data-c="hook"]:checked').length && !document.querySelector(".cw-dlg .cw-pill-cot.cw-item-hooked")), "默认不接入思维链");
 await page.locator(".cw-dlg .cw-item-head").first().click(); await page.waitForTimeout(200);
@@ -103,34 +103,35 @@ await page.screenshot({ path: "test/shots/p-4-suture-done.png" });
 // 4) 整理页：整组「顶部」用把手拖到「思维链」下半 ＝ 思维链之后，保持成组
 await page.locator('#cw-root [data-nav="preset"]:visible').first().click(); await page.waitForTimeout(300);
 await choose(page, "#cw-root .cw-scope:visible", T); await page.waitForTimeout(300);
-const dragTo = async (fromSel, toSel, frac) => {
-  const hb = await page.locator(fromSel).first().boundingBox();
-  const tb = await page.locator(toSel).first().boundingBox();
+const G = (name) => page.locator("#cw-root .cw-page[data-page=preset] .cw-list .cw-group").filter({ has: page.locator(".cw-gname", { hasText: new RegExp(`^${name}$`) }) }).first();
+const dragTo = async (from, to, frac) => {
+  const hb = await (typeof from === "string" ? page.locator(from) : from).first().boundingBox();
+  const tb = await (typeof to === "string" ? page.locator(to) : to).first().boundingBox();
   await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await page.mouse.down();
   await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height * frac, { steps: 8 });
   await page.waitForTimeout(150); await page.mouse.up(); await page.waitForTimeout(900);
 };
-await dragTo('.cw-list .cw-group:has(.cw-gname:text-is("顶部")) .cw-ghead .cw-handle', '.cw-list .cw-group:has(.cw-gname:text-is("思维链"))', 0.85);
+await dragTo(G("顶部").locator(".cw-ghead .cw-handle"), G("思维链"), 0.85);
 L = await layout();
 check(L[L.findIndex((x) => x.startsWith("[思维链:")) + 1] === "[顶部: 🎭身份、📜破限]", "拖动分组把手：顶部移到思维链之后");
 
 // 5) 整理页「＋ 新建分组」→ 点「正文规则」组名 → 选两条 → 移动 → 「放入此组」
 // 手机上「新建分组」在「＋」菜单里
 await page.click('[data-act="add"]'); await page.waitForTimeout(200);
-await page.click(".cw-menu-item >> text=＋ 新建分组"); await page.waitForTimeout(250);
+await page.click(".cw-menu-item >> text=新建分组"); await page.waitForTimeout(250);
 await fillPrompt("新组B");
 await page.screenshot({ path: "test/shots/p-5-organize-newgroup.png" });
-await clickHead("正文规则", ".cw-list");
+await clickHead("正文规则", "#cw-root .cw-page[data-page=preset] .cw-list");
 await page.waitForTimeout(800);
 L = await layout();
 check(L[L.indexOf("[新组B: ]") - 1]?.startsWith("[正文规则:"), "整理页空分组建在正文规则之后");
 // 折叠分组按需创建条目；像用户一样先展开目标组，再点实际可见的条目。
-const rules = page.locator('.cw-list .cw-group:has(.cw-gname:text-is("正文规则"))');
-if (await rules.evaluate((g) => g.classList.contains("pa-collapsed"))) await rules.locator('.cw-gname').click();
+const rules = G("正文规则");
+if (await rules.evaluate((g) => g.classList.contains("is-col"))) await rules.locator('.cw-gname').click();
 for (const n of ["字数", "禁词"]) await rules.locator('.cw-row').filter({ hasText: n }).click();
 await page.click('[data-act="sel-moveto"]'); await page.waitForTimeout(200);
-const newGroupB = page.locator('.cw-list .cw-group:has(.cw-gname:text-is("新组B"))');
-if (await newGroupB.evaluate((g) => g.classList.contains("pa-collapsed"))) await newGroupB.locator('[data-act="collapse"]').click();
+const newGroupB = G("新组B");
+if (await newGroupB.evaluate((g) => g.classList.contains("is-col"))) await newGroupB.locator('[data-act="collapse"]').click();
 await newGroupB.locator('[data-act="gstart"]').click();
 await page.waitForTimeout(800);
 L = await layout();
@@ -142,38 +143,38 @@ await page.screenshot({ path: "test/shots/p-6-organize.png" });
 check(await page.locator('.cw-top [data-act="confirm"]').isVisible(), "有修改时显示「完成」");
 await page.click('.cw-top [data-act="confirm"]'); await page.waitForTimeout(600);
 check(!(await page.locator('.cw-top [data-act="confirm"]').isVisible()), "点完成后收起撤销/完成");
-await page.click('.cw-top [data-g="backups"]'); await page.waitForTimeout(500);
-const nBk = await page.locator(".cw-dlg .cw-menu-item").count();
+await page.evaluate(() => { const r = document.getElementById("cw-root"); r.querySelector('[data-nav="backup"]')?.click(); });
+await page.waitForTimeout(800);
+const nBk = await page.locator("#cw-root .cw-page[data-page=backup] .cw-bkgroup.is-open .cw-bkrow").count();
 check(nBk >= 1 && nBk <= 10, `备份列表 ${nBk} 份（不超过 10）`);
-await page.click(".cw-dlg-x"); await page.waitForTimeout(300);
 
 // 7) 方案与 API：添加站点 → 获取模型列表 → 选择框里选模型 → 保存；方案记录站点
 await page.evaluate(async () => { const m = await import(new URL("scripts/secrets.js", document.baseURI).href); m.secret_state.api_key_custom.push({ id: "id1", value: "sk-…abcd", active: true }); });
 await page.evaluate(() => window.__presetAtelier.open('conn')); await page.waitForTimeout(200);
 check(!(await page.locator('[data-m="api"]').count()), "「开关方案」和「API 站点」已合并");
 await page.evaluate(() => window.__presetAtelier.open('conn')); await page.waitForTimeout(300);
-await page.click('[data-a="new"]'); await page.waitForTimeout(300);
+await page.click('#cw-root [data-act="new"]'); await page.waitForTimeout(300);
 await page.fill('.cw-dlg [data-f="name"]', "测试站");
 await page.fill('.cw-dlg [data-f="url"]', "https://example.com/v1");
 await page.fill('.cw-dlg [data-f="key"]', "sk-test-123456789");
-await page.click('.cw-dlg [data-f="fetch"]'); await page.waitForTimeout(800);
-const opts = await page.evaluate(() => [...document.querySelectorAll(".pa-mpick-item")].map((o) => o.textContent.trim()));
+await page.click('.cw-dlg [data-act="fetch"]'); await page.waitForTimeout(800);
+const opts = await page.evaluate(() => [...document.querySelectorAll(".cw-choice")].map((o) => o.textContent.trim()));
 check(opts.length === 2 && opts.includes("claude-sonnet"), "获取后弹出模型选择框：" + JSON.stringify(opts));
 await page.screenshot({ path: "test/shots/p-7-api.png" });
-await page.locator(".pa-mpick-item", { hasText: "claude-sonnet" }).click(); await page.waitForTimeout(300);
+await page.locator(".cw-choice", { hasText: "claude-sonnet" }).click(); await page.waitForTimeout(300);
 await page.locator(".cw-dlg-foot .cw-btn-primary").last().click(); await page.waitForTimeout(300);
 const site = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites.find((s) => s.name === "测试站"));
 check(site?.model === "claude-sonnet" && site.models.length === 2, "站点保存了模型和列表");
 // 切到这个站点，再存方案（API 默认不记录，选「当前连接」后记录 API 站点）
-await page.locator(".pa-site", { hasText: "测试站" }).locator('[data-a="use"]').click(); await page.waitForTimeout(2500);
+await page.locator(".cw-site", { hasText: "测试站" }).locator('[data-act="use"]').click(); await page.waitForTimeout(2500);
 await page.click('[data-s="new"]'); await page.waitForTimeout(300);
 await page.fill('.cw-dlg [data-f="name"]', "测试方案");
-check(/测试站/.test(await page.locator(".cw-dlg .pa-save-list").innerText()), "保存窗口列出将保存的 API");
+check(/测试站/.test(await page.locator(".cw-dlg [data-f=api]").innerText()), "保存窗口列出将保存的 API");
 await page.selectOption('.cw-dlg [data-f="api"]', "__live");
 await page.click(".cw-dlg-foot .cw-btn-primary"); await page.waitForTimeout(400);
 const sc = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.schemes.find((s) => s.name === "测试方案"));
 check(sc?.siteId === site.id && sc.conn?.siteId === site.id && !!sc.conn.model, "方案记录了 API（站点和模型）");
-check(/用于 /.test(await page.locator(".pa-plan-sites .pa-site", { hasText: "测试站" }).locator(".pa-site-model").textContent()), "站点那一行显示用于哪些预设");
+check(/用于 /.test(await page.locator("[data-r=sites] .cw-site", { hasText: "测试站" }).locator(".cw-site-main small").textContent()), "站点那一行显示用于哪些预设");
 await page.screenshot({ path: "test/shots/p-8-plan.png", fullPage: false });
 
 console.log(errs.length ? errs : "no page errors");

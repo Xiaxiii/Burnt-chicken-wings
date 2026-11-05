@@ -1189,3 +1189,11 @@ html.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }
 #cw-root .cw-menu-item.on:not(#cw-x) { background: var(--cw-accent-soft) !important; }
 @media (hover: hover) { #cw-root .cw-menu-item:not(#cw-x):not(:disabled):hover, #cw-root .cw-menu-item:not(#cw-x):focus-visible { background: var(--cw-raised) !important; } }
 #cw-root :is(.cw-chooser-list, .cw-mpick-list) > :is(p, div):not(#cw-x):not(.cw-krow.on):not(.cw-msec) { background: transparent !important; }
+/* 窄屏顶栏：有修改时只留状态点和按钮，「撤销」只留图标，预设名让出空间，关闭按钮始终在最右 */
+@media (max-width: 959px) {
+  #cw-root .cw-top > :not(.cw-scope):not(.cw-top-gap) { flex: none; }
+  #cw-root .cw-save:has(.cw-btn) .cw-save-text { display: none; }
+  #cw-root .cw-save [data-act="undo"] { padding: 0 8px; }
+  #cw-root .cw-save [data-act="undo"] span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  #cw-root .cw-top .cw-scope { flex: 1 1 auto; min-width: 0; }
+}
