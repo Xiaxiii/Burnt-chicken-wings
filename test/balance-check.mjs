@@ -165,7 +165,8 @@ try {
   await page.locator('.cw-live [data-act=balanceset]').waitFor();
   await page.click('.cw-live [data-act=balanceset]');
   await prompt('20');
-  await page.waitForFunction(() => /手填 \$20\.00/.test(document.querySelector('.cw-live .cw-bal')?.textContent || '') && !document.querySelector('.cw-live .cw-bal .cw-hint'));
+  // 两个分组的用量逐个查，等都查到再读
+  await page.waitForFunction(() => { const t = document.querySelector('.cw-live .cw-bal')?.textContent || ''; return /手填 \$20\.00/.test(t) && !/还没查到/.test(t) && !document.querySelector('.cw-live .cw-bal .cw-hint'); });
   assert.equal(await line(), '余额 $20.00 手填 $20.00 · 之后用了 $0.00 · 刚刚 改余额');
   multiUsage['sk-m1'] = 450;
   multiUsage['sk-m2'] = 160;
