@@ -1,7 +1,6 @@
 // 各种屏幕尺寸下，各页面和常用弹窗没有内容超出屏幕、没有横向滚动（320 小屏、标准手机、手机横屏、iPad 竖屏、电脑）。
-// 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/layout-sweep-check.mjs
+// 先构建并在仓库根目录运行 8765 静态服务。用法：node test/layout-sweep-check.mjs
 import assert from 'node:assert/strict';
-import "./choose.mjs";
 import { chromium } from 'playwright';
 const src = (await import('node:fs')).readFileSync('test/cot-fragment-check.mjs', 'utf8');
 const cotPreset = eval('(() => {' + src.slice(src.indexOf("const p = ("), src.indexOf("const stored")) + '; return preset; })()');
@@ -15,11 +14,11 @@ const scan = (p, where) => p.evaluate((where) => {
   const root = document.getElementById('cw-root');
   const visible = (e) => { const r = e.getBoundingClientRect(); return r.width && r.height && getComputedStyle(e).visibility !== 'hidden'; };
   for (const e of root.querySelectorAll('button, input, select, label, .cw-pill, h3, b, .cw-card')) {
-    if (!visible(e) || e.closest('.pa-tabs-scroll, .cw-seg, [style*="overflow"]')) continue;
+    if (!visible(e) || e.closest('.cw-seg, .cw-hscroll, [style*="overflow"]')) continue;
     const r = e.getBoundingClientRect();
-    if (r.right > W + 1 || r.left < -1) { out.push(`超出屏幕：${e.tagName.toLowerCase()}.${[...e.classList].join('.')} 「${(e.textContent || e.placeholder || '').trim().slice(0, 16)}」 ${Math.round(r.left)}..${Math.round(r.right)}`); }
+    if (r.right > W + 1 || r.left < -1) out.push(`超出屏幕：${e.tagName.toLowerCase()}.${[...e.classList].join('.')} 「${(e.textContent || e.placeholder || '').trim().slice(0, 16)}」 ${Math.round(r.left)}..${Math.round(r.right)}`);
   }
-  for (const box of root.querySelectorAll('.cw-dlg-body, .cw-body, .pa-page')) {
+  for (const box of root.querySelectorAll('.cw-dlg-body, .cw-body, .cw-page, .cw-detail-body')) {
     if (!visible(box)) continue;
     if (box.scrollWidth > box.clientWidth + 2 && getComputedStyle(box).overflowX !== 'visible') out.push(`横向滚动：${[...box.classList].join('.')} ${box.scrollWidth}>${box.clientWidth}`);
   }
@@ -34,14 +33,18 @@ for (const [w, h, mobile] of sizes) {
   await p.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: 'sage' }; });
   const tag = `${w}×${h}`;
   const go = async (where, fn) => { try { await fn(); await p.waitForTimeout(350); problems.push(...await scan(p, `${tag} ${where}`)); } catch (e) { problems.push(`${tag} ${where}：打不开 ${e.message.split('\n')[0]}`); } };
-  await go('整理', async () => { await p.evaluate(() => window.__presetAtelier.open()); await p.click('#cw-root [data-tool=search]'); });
-  await go('缝合', () => p.evaluate(() => window.__presetAtelier.open('stitch')));
-  for (const sec of ['schemes', 'look', 'health', 'clean']) await go(`更多/${sec}`, () => p.evaluate((s) => window.__presetAtelier.open('more', s), sec));
-  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('more', 'schemes')); await p.click('#cw-root [data-act=new]'); });
-  await go('添加站点·看密钥', async () => { await p.locator('.cw-dlg [data-f=keyeye]').first().click(); });
-  await p.evaluate(() => document.querySelectorAll('#cw-root #cw-root .cw-scrim').forEach((m) => m.remove()));
+  const esc = () => p.keyboard.press('Escape').then(() => p.waitForTimeout(250));
+  for (const pg of ['preset', 'stitch', 'reply', 'conn', 'clean', 'backup', 'health', 'look']) await go(pg, () => p.evaluate((x) => window.__presetAtelier.open(x), pg));
+  await go('预设·变量', () => p.evaluate(() => window.__presetAtelier.open('preset', 'vars')));
+  await go('编辑条目', async () => { await p.evaluate(() => window.__presetAtelier.open('preset', 'entries')); const row = p.locator('#cw-root .cw-page[data-page=preset] .cw-row [data-act=edit]').first(); if (!(await row.count())) await p.locator('#cw-root .cw-page[data-page=preset] .cw-group.is-col .cw-gname').first().click(); await row.click(); });
+  await p.evaluate(() => document.querySelector('#cw-root .cw-detail [data-act=detail-close]')?.click());
+  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('conn')); await p.click('#cw-root [data-act=new]'); });
+  await go('添加站点·看密钥', () => p.locator('#cw-root .cw-dlg [data-f=keyeye]').first().click());
+  await esc();
+  await go('保存为方案', () => p.click('#cw-root [data-s=new]'));
+  await esc();
   await go('思维链（待核对）', () => p.evaluate(({ cotPreset, NAME }) => { const m = window.__mock; m.names.splice(0, m.names.length, NAME); m.presets.splice(0, m.presets.length, cotPreset); m.live.preset_settings_openai = NAME; Object.assign(m.live, structuredClone(cotPreset)); window.__presetAtelier.open('preset', 'cot'); }, { cotPreset, NAME }));
-  await go('格式窗口·报错', async () => { await p.click('[data-reply-format]'); const r = p.locator('.cw-dlg [data-r=required]'); await r.fill('1状态 lxs——status'); await r.blur(); });
+  await go('回复·报错', async () => { await p.evaluate(() => window.__presetAtelier.open('reply')); const r = p.locator('#cw-root [data-f=required]'); await r.fill('1状态 lxs——status'); await r.blur(); });
   if (errs.length) problems.push(`${tag} 页面错误：${errs.join(' | ')}`);
   await p.close();
   console.log('✓', tag);
