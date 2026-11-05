@@ -15,10 +15,10 @@ let bundle = `var BUILD_KIND='extension',VERSION=${JSON.stringify(pkg.version)},
 for (const file of order) {
   if (file === 'main.js') bundle += `
     window.__perf = { renders: [], regions: 0, analyses: 0 };
-    const testRender = renderList, testRegion = cotRegion, testAnalyze = analyze;
-    renderList = function(d, options) {
-      const t = performance.now(), html = testRender(d, options);
-      window.__perf.renders.push({ name:d.name, mode:options.mode, ms:performance.now()-t, rows:(html.match(/class="pa-row/g)||[]).length });
+    const testRender = renderEntryList, testRegion = cotRegion, testAnalyze = analyze;
+    renderEntryList = function(d, options) {
+      const t = performance.now(), html = String(testRender(d, options));
+      window.__perf.renders.push({ name:d.name, mode:options.mode, ms:performance.now()-t, rows:(html.match(/class="cw-row/g)||[]).length });
       return html;
     };
     cotRegion = function(...args) { window.__perf.regions++; return testRegion(...args); };
@@ -75,7 +75,7 @@ try {
       Object.assign(m.live, structuredClone(original));
       window.__presetAtelier.open('preset');
     }, { original, source, targetName, sourceName });
-    await choose(page, '[data-page=preset] #cw-root .cw-scope:visible', targetName);
+    await choose(page, '#cw-root .cw-scope:visible', targetName);
     const list = page.locator('[data-page=preset] .cw-list');
     assert.equal(await list.locator('.cw-group').count(), 12);
     assert.equal(await list.locator('.cw-row').count(), 0, '全部折叠时不创建1200个隐藏条目');
@@ -96,7 +96,7 @@ try {
     await list.locator('[data-id="perf-1"] .cw-switch').click();
     await waitSaved(page, p => p.prompt_order[0].order[1].enabled === true);
     assert.equal(await page.evaluate(() => window.__perf.renders.length) - beforeToggle, 0, '单条开关不重建列表');
-    assert.equal(await list.locator('[data-id="perf-1"]').evaluate((r) => !r.classList.contains('pa-off') && r.querySelector('[data-act=toggle]').checked), true, '这一行就地改成开启');
+    assert.equal(await list.locator('[data-id="perf-1"]').evaluate((r) => !r.classList.contains('is-off') && r.querySelector('[data-act=toggle]').checked), true, '这一行就地改成开启');
     assert.equal(await page.evaluate(() => window.__perf.anchor.isConnected), true, '列表节点没有被替换');
     const expected = structuredClone(original); expected.prompt_order[0].order[1].enabled = true;
     let now = await saved(page);
@@ -112,21 +112,20 @@ try {
     assert.deepEqual(states(await saved(page)), chosen);
     await foldAll(page);
     assert.equal(await list.locator('.cw-row').count(), 0);
-    await page.locator('[data-page=preset] [data-tool=search]').click();
-    await page.locator('[data-page=preset] .pa-find').fill('性能条目 01199');
+    await page.locator('[data-page=preset] .cw-search input').fill('性能条目 01199');
     await page.waitForFunction(() => document.querySelectorAll('[data-page=preset] .cw-list .cw-row').length === 1);
     assert.equal(await list.locator('.cw-row').getAttribute('data-id'), 'perf-1199');
-    await page.locator('[data-page=preset] .pa-find').fill('body-only-needle');
+    await page.locator('[data-page=preset] .cw-search input').fill('body-only-needle');
     await page.waitForFunction(() => document.querySelector('[data-page=preset] .cw-qsum')?.textContent.includes('正文里还有 1 条'));
     assert.equal(await list.locator('.cw-row').count(), 0);
     await list.locator('[data-act=qbody]').click();
     assert.equal(await list.locator('.cw-row').getAttribute('data-id'), 'perf-37');
-    await page.locator('[data-page=preset] .pa-find').fill('');
+    await page.locator('[data-page=preset] .cw-search input').fill('');
     await page.waitForFunction(() => document.querySelectorAll('[data-page=preset] .cw-list .cw-row').length === 0);
 
     // 页签切换仅绘制可见页；缝合1200→1200仍只为选中4条生成预览。
     await page.click('[data-view=cot]');
-    await page.waitForSelector('[data-page=cot]:not([hidden])');
+    await page.locator('#cw-root .cw-page[data-page=preset] .cw-cot').waitFor({ state: 'visible' });
     const beforeContent = await page.evaluate(() => ({ renders: window.__perf.renders.length, analyses: window.__perf.analyses }));
     await page.evaluate(() => window.__perfContentNotify());
     assert.equal(await page.evaluate(() => window.__perf.renders.length) - beforeContent.renders, 0, '思维链可见时内容通知不会重画后台整理列表');
