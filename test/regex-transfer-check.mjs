@@ -309,6 +309,8 @@ try {
     const page = await boot(390);
     await page.evaluate(() => {
       for (const [key, value] of Object.entries({ SmartThemeBlurTintColor: 'rgb(32,33,38)', SmartThemeBodyColor: '#e4e1dc', SmartThemeQuoteColor: '#d0debd', SmartThemeEmColor: '#a9bfae' })) document.body.style.setProperty('--' + key, value);
+      window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = 'follow';
+      window.__presetAtelier.open('stitch');
     });
     await page.waitForFunction(() => document.getElementById('cw-root').style.getPropertyValue('--cw-bg') === 'rgb(32, 33, 38)');
     await openRegex(page);

@@ -1,6 +1,7 @@
 // 1.9.8 API 规则：换预设，API 不变；切方案，恢复方案记录的 API；没记 API 的方案不动 API；切方案不改「使用中」站点
 import { chromium } from "playwright";
 import assert from "node:assert";
+import { connView } from "./helpers.mjs";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const errs = [];
@@ -29,6 +30,7 @@ await page.evaluate(() => {
   };
 });
 await page.evaluate(() => window.__presetAtelier.open("conn")); await page.waitForTimeout(500);
+await connView(page, "schemes");
 const live = () => page.evaluate(() => ({ url: window.__mock.live.custom_url, model: window.__mock.live.custom_model, bind: window.__mock.live.bind_preset_to_connection }));
 const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier);
 
@@ -55,6 +57,7 @@ assert.equal((await live()).url, "https://mine/v1", "换预设 API 不变");
 ok("换预设：API 不变");
 
 // 4) 2.4.0：选项一行，只有方框管勾选；点这一行其他地方展开规则
+await connView(page, "opts");
 const row = page.locator("#cw-root .cw-setrow", { has: page.locator("input[data-act=chattoast]") });
 assert.equal(await row.locator("input[type=checkbox]").count(), 1);
 assert.match(await row.innerText(), /换预设时 API 不变/, "规则写在开关下面");

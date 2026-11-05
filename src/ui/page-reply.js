@@ -16,9 +16,17 @@ function nativeReasoningNote(message) {
 }
 function mountReplyPage(page) {
   page.innerHTML = String(html`
-    <div class="cw-body"><div class="cw-col cw-reply">
+    <div class="cw-body cw-reply-body"><div class="cw-col cw-reply">
+      <header class="cw-reply-heading">
+        <div><h2>回复检查</h2><p>核对输出标签，检查状态栏与正文格式。</p></div>
+        <div class="cw-reply-scope"><small>规则作用于预设</small><b data-r="scope-name"></b></div>
+      </header>
+      <div class="cw-reply-setup" data-r="setup" hidden><span>先设置这个预设使用的标签</span>${btn("设置格式规则", { act: "rp-setup", size: "sm" })}</div>
       <div data-r="for"></div>
-      <section class="cw-sec"><div class="cw-sec-h"><h3>检查</h3><span class="cw-gap"></span>${btn("检查最近回复", { act: "rp-latest", kind: "primary", icon: "play" })}</div>
+      <div class="cw-reply-workspace">
+      <div class="cw-reply-main">
+      <section class="cw-sec cw-reply-check"><div class="cw-sec-h"><h3>格式检查</h3><span class="cw-gap"></span>${btn("检查最近回复", { act: "rp-latest", kind: "primary", icon: "play" })}</div>
+        <p class="cw-reply-check-note">读取当前聊天的最近一条 AI 回复，或粘贴文字检查。</p>
         ${fold("检查粘贴的文字", String(html`<label class="cw-field"><span>粘贴一条 AI 回复，只在本页检测，不保存</span><textarea class="cw-input cw-reply-sample" data-r="sample" rows="4"></textarea></label><div class="cw-card-acts">${btn("检查这段文字", { act: "rp-paste", size: "sm" })}</div>`), { cls: "cw-reply-paste" })}
         <div class="cw-reply-result" data-r="result" aria-live="polite"></div>
         ${fold("检测范围", `<ul class="cw-bullets">
@@ -30,24 +38,29 @@ function mountReplyPage(page) {
           <li>必需标签整个没出现、回复里却多了预设、角色卡和世界书都没用到的块时，当作写错了名字：「修正这条回复」把它改名；自动修正只改子标签对得上的。</li>
           <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断。</li></ul>`)}
       </section>
-      <section class="cw-sec"><div class="cw-sec-h"><h3 data-r="status-title">状态栏</h3><span class="cw-gap"></span>${tipBtn()}</div>
+      <section class="cw-sec cw-reply-status"><div class="cw-sec-h"><h3 data-r="status-title">状态栏</h3><span class="cw-gap"></span>${tipBtn()}</div>
         ${tipNote("<p>状态栏标签随角色卡而变，按卡分别记录，与预设无关，改动立即生效。没选过的卡，从它生效的世界书、角色卡、预设条目和显示正则里自动识别；认不准时请选择。检查回复时当作必需标签，必需标签栏里不必再填状态栏。</p><p>「写坏时自动改回」按状态栏的字段（如 &lt;时&gt;、&lt;地&gt;）认出写坏的一份：另写了一份的删去，写成别的名字的改名，缺外层或结尾的补上；正文和思考区不动，可撤销。</p>")}
         <div class="cw-card" data-r="status-card"><div data-r="status-body" aria-live="polite"><p class="cw-hint">正在读取世界书…</p></div></div>
       </section>
-      <section class="cw-sec"><div class="cw-sec-h"><h3>格式规则</h3><small data-r="rules-state"></small><span class="cw-gap"></span>${tipBtn()}</div>
+      </div>
+      <aside class="cw-reply-config" aria-label="检查设置">
+      <section class="cw-sec cw-reply-rules"><div class="cw-sec-h"><h3>格式规则</h3><small data-r="rules-state"></small><span class="cw-gap"></span>${tipBtn()}</div>
         ${tipNote("<p>每个预设分别设置。标签名须与预设的输出格式一致。think、thinking 自动识别。必需标签按各出现一对检查，不适合允许同名标签重复多次的格式。</p>")}
         <div class="cw-card cw-form" data-r="rules"></div>
       </section>
-      <section class="cw-sec"><div class="cw-sec-h"><h3>生成后</h3></div>
+      <section class="cw-sec cw-reply-after"><div class="cw-sec-h"><h3>生成后</h3></div>
         <div class="cw-setlist" data-r="switches"></div>
         <p class="cw-warn-text" data-r="noapi" hidden>当前酒馆缺少生成前事件或临时提示接口，可以检查和修正，不能提醒下一轮。</p>
       </section>
-      <section class="cw-sec"><div class="cw-sec-h"><h3>AI 语义审查</h3><span class="cw-gap"></span>${tipBtn()}</div>
+      <section class="cw-sec cw-reply-semantic"><div class="cw-sec-h"><h3>AI 语义审查</h3><span class="cw-gap"></span>${tipBtn()}</div>
         ${tipNote("<p>通过酒馆当前连接发送这一条回复，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用；结果可能误判，仅供核对，不改动正文。最多 20000 字符，45 秒超时。</p>")}
+        <p class="cw-reply-check-note">通过当前模型核对内部分析，每次增加一次请求和费用。</p>
         <p class="cw-warn-text" data-r="nosem" hidden>当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。结构检查仍可使用。</p>
         <div class="cw-card-acts">${btn("审查最近回复", { act: "rp-ai-latest", size: "sm" })}${btn("审查粘贴文字", { act: "rp-ai-paste", size: "sm" })}${btn("取消审查", { act: "rp-ai-cancel", size: "sm", attrs: "hidden" })}<button type="button" class="cw-link" data-act="rp-ai-result">查看最近结果</button></div>
         <div data-r="semantic-result" aria-live="polite"></div>
       </section>
+      </aside>
+      </div>
     </div></div>`);
   const $ = (k) => page.querySelector(`[data-r="${k}"]`);
   const result = $("result");
@@ -171,6 +184,7 @@ function mountReplyPage(page) {
       if (clash.length) warn = String(html`<p class="cw-warn-text">${clash.map((c) => `${c.from.filter((f) => f.startsWith("预设条目")).join("、")} 要求输出 <${c.name}>`).join("；")}。与这张卡的 <${status.tag}> 并存时，模型会写两份状态栏；在这张卡上关掉这些条目即可。</p>`);
     }
     const s = status;
+    page.querySelector(".cw-reply-status").classList.toggle("is-empty", s.state === "nocard");
     const change = (label) => btn(label, { act: "rp-status-pick", size: "sm" });
     let line;
     if (s.state === "nocard") line = html`<p class="cw-hint">没有打开角色卡。</p>`;
@@ -351,6 +365,12 @@ function mountReplyPage(page) {
     if (!b) return;
     const a = b.dataset.act;
     try {
+      if (a === "rp-setup") {
+        const rules = page.querySelector(".cw-reply-rules");
+        rules.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+        rules.querySelector("input")?.focus({ preventScroll: true });
+        return;
+      }
       if (a === "rp-latest") return await check("latest", { scroll: true });
       if (a === "rp-paste") return await check("paste");
       if (a === "rp-status-pick") return await pickStatus();
@@ -423,6 +443,8 @@ function mountReplyPage(page) {
   });
   function render() {
     const n = name();
+    $("setup").hidden = !!cfg().bodyTag;
+    $("scope-name").textContent = n;
     $("for").innerHTML = n === currentPresetName() ? "" : String(html`<div class="cw-note cw-note-warn">${iconHtml("info")}<div>「${n}」未在使用。规则可以先设好；生成后的检查和下一轮提醒只按酒馆正在用的预设。</div></div>`);
     if (lastName !== n) {
       lastName = n;

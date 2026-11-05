@@ -4,6 +4,7 @@
 // 2.3.8：「芽体」「菌落」为清透油画底 + 毛玻璃面板（glass）；去掉「春芽」。
 // 自定义背景图存在本浏览器的 IndexedDB，不写进酒馆设置文件，不影响酒馆加载速度。
 var THEMES = [
+  { id: "atelier", name: "青序", sub: "冷绿灰工作台", dots: ["#eff4f0", "#1b6c80", "#243b31"] },
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
   { id: "bean", fg: "#45343f", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
   { id: "mist", fg: "#2f3a46", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
@@ -165,7 +166,7 @@ function themePrefs() {
     delete s.themeLight;
   }
   // 1.4.0 去掉了薰衣草、海盐，2.3.8 去掉了春芽，选过的回到默认
-  return { theme: valid(s.theme) ? s.theme : "follow", followSystem: s.followSystem === true };
+  return { theme: valid(s.theme) ? s.theme : "atelier", followSystem: s.followSystem === true };
 }
 
 function systemDark() {

@@ -2,6 +2,7 @@
 // 用法：PW_CHROME=/usr/bin/chromium node test/reasoning-follow-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { connView } from './helpers.mjs';
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
@@ -44,6 +45,7 @@ try {
   // 在界面上打开开关：记下当前预设（甲）现在的格式
   await page.evaluate((A) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(A); window.__presetAtelier.open('conn'); }, A);
   await page.waitForTimeout(1).catch(() => {});
+  await connView(page, 'opts');
   const box = page.locator('[data-act=reasoningfollow]');
   await box.waitFor({ state: 'attached' });
   await box.check({ force: true });

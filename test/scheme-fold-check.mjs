@@ -2,6 +2,7 @@
 // 没动过的方案分组按默认：当前角色那组展开。先构建并在仓库根目录运行 8765 静态服务。
 import { chromium } from "playwright";
 import assert from "node:assert";
+import { connView } from "./helpers.mjs";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errs = [];
 const ok = (m) => console.log("✓", m);
@@ -25,6 +26,7 @@ async function openPage(saved) {
     window.__presetAtelier.open("conn");
   }, saved);
   await page.waitForTimeout(500);
+  await connView(page, "schemes");
   return page;
 }
 const groups = (page) => page.evaluate(() => [...document.querySelectorAll(".cw-schemes .cw-sgroup")].map((g) => (g.classList.contains("is-open") ? "+" : "-") + g.querySelector(".cw-sghead-btn b").textContent).join(" "));
@@ -36,6 +38,7 @@ assert.equal(await groups(page), "+沈砚 -林栖", "没动过时当前角色那
 // 合上当前组、展开另一组；点开第一个选项和当前连接详情
 await page.locator(".cw-sgroup", { hasText: "沈砚" }).locator(".cw-sghead-btn").click(); await page.waitForTimeout(150);
 await page.locator(".cw-sgroup", { hasText: "林栖" }).locator(".cw-sghead-btn").click(); await page.waitForTimeout(150);
+await connView(page, "sites");
 await page.click("[data-act=livemore]"); await page.waitForTimeout(150);
 const g1 = await groups(page), l1 = await live(page);
 assert.equal(g1, "-沈砚 +林栖");

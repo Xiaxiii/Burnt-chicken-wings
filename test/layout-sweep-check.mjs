@@ -41,7 +41,7 @@ for (const [w, h, mobile] of sizes) {
   await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('conn')); await p.click('#cw-root [data-act=new]'); });
   await go('添加站点·看密钥', () => p.locator('#cw-root .cw-dlg [data-f=keyeye]').first().click());
   await esc();
-  await go('保存为方案', () => p.click('#cw-root [data-s=new]'));
+  await go('保存为方案', async () => { await p.click('#cw-root [data-connview="schemes"]'); await p.click('#cw-root [data-s=new]'); });
   await esc();
   await go('思维链（待核对）', () => p.evaluate(({ cotPreset, NAME }) => { const m = window.__mock; m.names.splice(0, m.names.length, NAME); m.presets.splice(0, m.presets.length, cotPreset); m.live.preset_settings_openai = NAME; Object.assign(m.live, structuredClone(cotPreset)); window.__presetAtelier.open('preset', 'cot'); }, { cotPreset, NAME }));
   await go('回复·报错', async () => { await p.evaluate(() => window.__presetAtelier.open('reply')); const r = p.locator('#cw-root [data-f=required]'); await r.fill('1状态 lxs——status'); await r.blur(); });

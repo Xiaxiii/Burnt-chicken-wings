@@ -31,7 +31,7 @@ export async function open(page, tab, sub) {
 }
 export const P = (k) => `#cw-root .cw-page[data-page="${k}"]`;
 // 窄屏上清理、备份、体检、外观收在「更多」里
-export async function nav(page, k) {
+export async function nav(page, k, view) {
   const direct = page.locator(`#cw-root [data-nav="${k}"]:visible`).first();
   if (!(await direct.count())) {
     await page.locator('#cw-root .cw-tabbar [data-nav="more"]').click();
@@ -39,6 +39,12 @@ export async function nav(page, k) {
   }
   await page.locator(`#cw-root [data-nav="${k}"]:visible`).first().click();
   await page.waitForTimeout(350);
+  if (k === "conn" && view) await connView(page, view);
+}
+// 连接管理的三个工作视图；通过可见页签进入，继续检验用户实际可达的操作。
+export async function connView(page, view) {
+  await page.locator(`#cw-root [data-connview="${view}"]`).click();
+  await page.waitForTimeout(150);
 }
 // 点弹出菜单（贴着按钮的或弹窗里的）中文字匹配的一项
 export async function menu(page, text) {

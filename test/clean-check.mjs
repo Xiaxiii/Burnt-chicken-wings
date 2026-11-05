@@ -101,7 +101,7 @@ await page.click('[data-filter="arch"]');
 await page.waitForTimeout(200);
 await page.screenshot({ path: S + "c-4-archived.png" });
 // 套用方案 → 自动从归档恢复
-await nav(page, "conn");
+await nav(page, "conn", "schemes");
 await page.waitForTimeout(200);
 const card = page.locator(".cw-scheme", { hasText: "旧文风" });
 assert.match(await card.innerText(), /已归档/);

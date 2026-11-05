@@ -34,7 +34,23 @@ body{margin:0;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-se
     chatMetadata: {}, powerUserSettings: { personas: { "u.png": "我" } }, mainApi: "openai", onlineStatus: "Valid", chatId: "c1"
   };
   window.SillyTavern = { getContext: () => ctx };
-  const s = document.createElement("script"); s.type = "module"; s.src = "../../index.js?" + Date.now(); document.head.append(s);
+  const s = document.createElement("script"); s.type = "module"; s.src = "../../index.js?" + Date.now();
+  // 设计检查使用同一份合成数据与真实构建，普通测试仍由各自的入口打开。
+  const preview = new URLSearchParams(location.search).get("preview");
+  if (["preset", "stitch", "reply", "conn", "clean", "backup", "health", "look"].includes(preview)) {
+    document.documentElement.classList.add("cw-preview");
+    const style = document.createElement("style");
+    style.textContent = '.cw-preview body > :not(#cw-root):not(script) { display: none !important; } .cw-preview body { background: #eff4f0; }';
+    document.head.append(style);
+    s.addEventListener("load", () => {
+      const openPreview = () => {
+        if (window.__presetAtelier?.open) window.__presetAtelier.open(preview);
+        else setTimeout(openPreview, 30);
+      };
+      openPreview();
+    });
+  }
+  document.head.append(s);
   // ?open=页面名：加载后直接打开面板（设计检查用）；&theme=配色
   const q = new URLSearchParams(location.search);
   if (q.get("theme")) ctx.extensionSettings.presetAtelier = { theme: q.get("theme") };

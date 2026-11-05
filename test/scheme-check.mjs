@@ -2,6 +2,7 @@
 // 用法同 clean-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert";
+import { connView } from "./helpers.mjs";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 const errs = [];
@@ -20,6 +21,7 @@ await page.evaluate(() => {
   window.__presetAtelier.open("conn");
 });
 await page.waitForTimeout(500);
+await connView(page, "schemes");
 
 // 1) 当前角色还没有这个预设的方案：顶上提示；保存时记到角色下面，并绑定本聊天
 assert.match(await page.$eval(".cw-scheme-nudge", (x) => x.textContent), /沈砚.*还没有/);

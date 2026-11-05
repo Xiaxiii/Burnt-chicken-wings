@@ -1,8 +1,9 @@
 // 「预设」页：视图 条目 / 思维链 / 变量，都作用于当前预设（focusPreset）。
 var PRESET_VIEWS = [["entries", "条目"], ["cot", "思维链"], ["vars", "变量"]];
 function mountPresetPage(page) {
+  page.classList.add("cw-preset-page");
   page.innerHTML = String(html`
-    <header class="cw-pagehead"><div class="cw-col">${segHtml(PRESET_VIEWS, "entries", { attr: "data-view", label: "预设视图" })}<span class="cw-gap"></span><span class="cw-viewtools"></span></div></header>
+    <header class="cw-pagehead cw-preset-head"><div class="cw-col">${segHtml(PRESET_VIEWS, "entries", { attr: "data-view", label: "预设视图" })}<span class="cw-gap"></span><span class="cw-viewtools"></span></div></header>
     ${PRESET_VIEWS.map(([k]) => html`<div class="cw-view" data-v="${k}" hidden></div>`)}`);
   const viewEl = (k) => page.querySelector(`.cw-view[data-v="${k}"]`);
   const tools = page.querySelector(".cw-viewtools");
@@ -62,12 +63,24 @@ function mountEntriesView(box) {
     mode: null,
     newName: "",
     keep: [],
-    highlight: new Set()
+    highlight: new Set(),
+    outlineOpen: false,
+    outlineGroup: null
   };
   box.innerHTML = String(html`
+    <div class="cw-entry-workbench">
+      <aside class="cw-outline" aria-label="当前预设的分组目录">
+        <header class="cw-outline-head"><div><h3>分组目录</h3><small class="cw-outline-caption">条目开启 / 总数</small></div>${ibtn("close", "收起目录", { act: "outline-close", cls: "cw-outline-close" })}</header>
+        <nav class="cw-outline-list" aria-label="定位分组"></nav>
+        <div class="cw-outline-foot">点击分组，定位到对应条目</div>
+      </aside>
+      <div class="cw-entry-paper">
+        <header class="cw-entry-heading"><div><h2>预设条目</h2><p class="cw-entry-summary" aria-live="polite"></p></div>
+          <button type="button" class="cw-btn cw-outline-toggle" data-act="outline-toggle" aria-expanded="false">${iconHtml("group")}<span>目录</span></button>
+        </header>
     <div class="cw-toolrow"><div class="cw-col">
       <label class="cw-search">${iconHtml("search")}<input type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜索条目名、标签、分组名" aria-label="搜索条目" data-q>${ibtn("close", "清空搜索", { act: "qclear", cls: "cw-search-x" })}</label>
-      ${btn("新建", { act: "add", icon: "plus" })}
+      ${btn("新建", { act: "add", icon: "plus", kind: "primary" })}
       ${ibtn("more", "工具", { act: "tools" })}
     </div></div>
     <div class="cw-placebar" hidden><div class="cw-col"><div class="cw-placebar-info"><b class="cw-place-n"></b><small class="cw-place-hint"></small></div>
@@ -77,15 +90,65 @@ function mountEntriesView(box) {
     <div class="cw-bar cw-selbar" hidden><div class="cw-col">
       <div class="cw-bar-info"><b class="cw-selcount"></b><span><button type="button" class="cw-link" data-act="sel-all">全选</button><button type="button" class="cw-link" data-act="sel-none">取消选择</button></span></div>
       <div class="cw-bar-acts">${btn("移动", { act: "sel-moveto", kind: "primary", icon: "move" })}${btn("建成分组", { act: "sel-newgroup", icon: "group" })}${btn("删除", { act: "sel-delete", kind: "danger", icon: "trash" })}${ibtn("more", "更多操作", { act: "sel-more" })}</div>
-    </div></div>`);
+    </div></div>
+      </div>
+    </div>`);
   const scroller = box.querySelector(".cw-listwrap");
   const list = box.querySelector(".cw-list");
   const banners = box.querySelector(".cw-banners");
   const selbar = box.querySelector(".cw-selbar");
   const placebar = box.querySelector(".cw-placebar");
   const search = box.querySelector("[data-q]");
+  const outline = box.querySelector(".cw-outline");
+  const outlineList = box.querySelector(".cw-outline-list");
+  const summary = box.querySelector(".cw-entry-summary");
   const draft = () => getDraft(focusPreset());
   let shownFor = null;
+  function setOutlineOpen(on) {
+    st.outlineOpen = on;
+    outline.classList.toggle("is-open", on);
+    box.querySelector('[data-act="outline-toggle"]').setAttribute("aria-expanded", String(on));
+    if (on) outlineList.querySelector("button")?.focus({ preventScroll: true });
+  }
+  outline.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !st.outlineOpen) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setOutlineOpen(false);
+    box.querySelector('[data-act="outline-toggle"]').focus({ preventScroll: true });
+  });
+  // 用一次顺序遍历统计目录；搜索命中复用已绘制的列表，不重复扫描正文。
+  function paintOutline(d) {
+    d.withReadIndex(() => {
+      const groups = new Map(d.groups.groups.map((g) => [g.id, { group: g, total: 0, on: 0 }]));
+      let totalOn = 0, looseN = 0, looseOn = 0;
+      for (const o of d.order) {
+        const on = o.enabled !== false;
+        if (on) totalOn++;
+        const g = groups.get(d.groupOf(o.identifier));
+        if (g) { g.total++; if (on) g.on++; }
+        else { looseN++; if (on) looseOn++; }
+      }
+      const query = st.query.trim();
+      const visible = new Set([...list.querySelectorAll(".cw-group[data-gid]")].map((g) => g.dataset.gid));
+      const matching = new Map();
+      if (query) for (const row of list.querySelectorAll(".cw-row[data-id]")) {
+        const gid = row.closest(".cw-group")?.dataset.gid || "";
+        matching.set(gid, (matching.get(gid) || 0) + 1);
+      }
+      const count = query ? [...matching.values()].reduce((n, v) => n + v, 0) : d.order.length;
+      summary.innerHTML = String(html`<span><b class="cw-num">${d.order.length}</b> 条条目</span><span><i aria-hidden="true"></i><b class="cw-num">${totalOn}</b> 条开启</span>${query ? html`<span>匹配 <b class="cw-num">${count}</b> 条</span>` : ""}`);
+      const button = (gid, name, on, total, icon = "folder") => html`<button type="button" class="cw-outline-item${st.outlineGroup === gid ? " is-current" : ""}" data-act="outline-group" data-outline-gid="${gid || ""}" data-outline-all="${String(gid === null)}"${st.outlineGroup === gid ? raw(' aria-current="location"') : ""} title="${name}">${iconHtml(icon)}<span>${name}${query && gid !== null ? html`<small>${matching.get(gid) || 0} 条匹配</small>` : ""}</span><small class="cw-num">${on}/${total}</small></button>`;
+      const ordered = [], seen = new Set();
+      for (const b of d.blocks()) if (b.groupId && !seen.has(b.groupId)) { seen.add(b.groupId); ordered.push(groups.get(b.groupId)); }
+      for (const [id, g] of groups) if (!seen.has(id)) ordered.push(g);
+      outlineList.innerHTML = String(html`${button(null, "全部条目", totalOn, d.order.length, "preset")}
+        ${query ? html`<div class="cw-outline-query"><span>搜索匹配的分组</span><button type="button" class="cw-link" data-act="outline-clear">清空</button></div>` : html`<p class="cw-outline-label">${groups.size} 个分组</p>`}
+        ${looseN && (!query || matching.has("")) ? button("", "未分组", looseOn, looseN, "preset") : ""}
+        ${ordered.filter((g) => g && (!query || visible.has(g.group.id))).map((g) => button(g.group.id, g.group.name || "未命名分组", g.on, g.total))}
+        ${query && !visible.size && !matching.has("") ? html`<p class="cw-outline-empty">没有匹配的分组</p>` : ""}`);
+    });
+  }
   // 分组折叠记住最后一次的状态（fold.org），没动过的组按预设里存的状态
   function setOpen(d, gid, on) {
     const k = groupFoldKeys(d).get(gid);
@@ -103,12 +166,16 @@ function mountEntriesView(box) {
     } catch (e) {
       banners.innerHTML = "";
       list.innerHTML = String(empty(e.message));
+      outlineList.innerHTML = String(html`<p class="cw-outline-empty">尚未选择预设</p>`);
+      summary.textContent = "选择预设后即可整理条目";
       return;
     }
     if (shownFor !== d.name) {
       shownFor = d.name;
       st.selected.clear();
       st.mode = null;
+      st.outlineGroup = null;
+      setOutlineOpen(false);
     }
     ensureCollapsed(d);
     for (const id of [...st.selected]) if (!d.order.some((o) => o.identifier === id)) st.selected.delete(id);
@@ -118,6 +185,7 @@ function mountEntriesView(box) {
     const fragments = placing || st.query ? [] : fragmentedGroups(d);
     banners.innerHTML = String(html`${dups.length ? dupBannerHtml(d, dups) : ""}${fragments.length ? html`<div class="cw-note cw-group-repair">${iconHtml("info")}<div><b>${fragments.length} 个分区被拆成多段</b><p class="cw-hint">${fragments.slice(0, 4).map((g) => `${g.name}（${g.parts} 段）`).join("、")}${fragments.length > 4 ? " 等" : ""}。可按已有归属收拢到各组首段，先预览再应用。</p><div class="cw-card-acts">${btn("归整分区", { act: "repair", size: "sm" })}</div></div></div>` : ""}`);
     list.innerHTML = renderEntryList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight });
+    paintOutline(d);
     scroller.scrollTop = top;
     list.classList.toggle("is-placing", placing);
     placebar.hidden = !placing;
@@ -201,7 +269,29 @@ function mountEntriesView(box) {
   box.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-act]")?.dataset.act;
     if (!a || list.contains(e.target) || banners.contains(e.target) && !a.startsWith("dup") && a !== "repair") return;
+    if (a === "outline-toggle") return setOutlineOpen(!st.outlineOpen);
+    if (a === "outline-close") { setOutlineOpen(false); return box.querySelector('[data-act="outline-toggle"]').focus({ preventScroll: true }); }
     const d = draft();
+    if (a === "outline-clear") {
+      st.outlineGroup = null;
+      setQuery("");
+      if (st.outlineOpen) outlineList.querySelector("button")?.focus({ preventScroll: true });
+      return;
+    }
+    if (a === "outline-group") {
+      const item = e.target.closest("[data-outline-gid]");
+      const gid = item.dataset.outlineAll === "true" ? null : item.dataset.outlineGid;
+      st.outlineGroup = gid;
+      if (gid) setOpen(d, gid, true);
+      render();
+      setOutlineOpen(false);
+      if (gid === null) scroller.scrollTop = 0;
+      else (gid ? list.querySelector(`.cw-group[data-gid="${CSS.escape(gid)}"]`) : list.querySelector(".cw-loose"))?.scrollIntoView({ block: "start" });
+      const nextFocus = isNarrow() ? box.querySelector('[data-act="outline-toggle"]')
+        : [...outlineList.querySelectorAll("[data-outline-gid]")].find((b) => b.dataset.outlineAll === String(gid === null) && b.dataset.outlineGid === (gid || ""));
+      nextFocus?.focus({ preventScroll: true });
+      return;
+    }
     if (a === "qclear") { setQuery(""); return search.focus(); }
     if (a === "add") {
       const v = await pickBox("", [
@@ -728,7 +818,7 @@ function mountEntriesView(box) {
     const p = patchNext;
     patchNext = null;
     if (kind !== "status" && name === focusPreset() && draftViewVisible(box)) {
-      if (p && kind === "content" && patchEntrySwitch(list, draft(), p)) return;
+      if (p && kind === "content" && patchEntrySwitch(list, draft(), p)) { paintOutline(draft()); return; }
       render();
     }
   });

@@ -2,6 +2,7 @@
 // 用法：npm run mock；在仓库根目录起静态服务（python3 -m http.server 8765）；node test/place-check.mjs
 import { chromium } from "playwright";
 import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
+import { connView } from "./helpers.mjs";
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
@@ -59,7 +60,7 @@ check(!(await page.locator('[data-gm="toggle"]').count()), "缝合页没有「�
 await page.evaluate(() => { const h = [...document.querySelectorAll(".cw-pane-src .cw-list .cw-ghead")].find((x) => x.textContent.includes("F1文风")); h.querySelector('[data-act="gselect"]').click(); });
 await page.waitForTimeout(200);
 await clickHead("正文规则");
-check((await where()) === "位置：「正文规则」组之后（组外）", "点组名的位置：" + (await where()));
+check((await where()) === "「正文规则」组之后（组外）", "点组名的位置：" + (await where()));
 await page.screenshot({ path: "test/shots/p-1-after-group.png" });
 await page.click('[data-act="st-go"]'); await page.waitForTimeout(600);
 check((await page.evaluate(() => document.querySelector('.cw-dlg [data-g="grp"]')?.value)) === "keep", "预览默认「保留原分组」");
@@ -80,7 +81,7 @@ await page.evaluate(() => [...document.querySelectorAll(".cw-pane-src .cw-list .
 await clickCaret("写作指导");
 await page.evaluate(() => { const sec = [...document.querySelectorAll(".cw-pane-dst .cw-list .cw-group")].find((s) => s.querySelector(".cw-gname").textContent.includes("写作指导")); sec.querySelector(".cw-row").click(); });
 await page.waitForTimeout(200);
-check((await where()) === "位置：「写作指导」组内，「🖋️人物塑造」之后", "组内位置：" + (await where()));
+check((await where()) === "「写作指导」组内，「🖋️人物塑造」之后", "组内位置：" + (await where()));
 await commit();
 check((await layout()).includes("[写作指导: 🖋️人物塑造、🎨开场白、🎬场景推进]"), "开场白进了写作指导组内");
 
@@ -93,7 +94,7 @@ await page.waitForTimeout(800);
 L = await layout();
 const iA = L.indexOf("[新组A: ]");
 check(iA > 0 && L[iA - 1].startsWith("[思维链:"), "空分组建在思维链之后：" + L.join(" | "));
-check((await where()) === "位置：「新组A」组内", "新建后位置在新组内：" + (await where()));
+check((await where()) === "「新组A」组内", "新建后位置在新组内：" + (await where()));
 await page.evaluate(() => [...document.querySelectorAll(".cw-pane-src .cw-list .cw-row")].find((r) => r.textContent.includes("收尾")).click());
 await commit();
 L = await layout();
@@ -105,9 +106,14 @@ await page.locator('#cw-root [data-nav="preset"]:visible').first().click(); awai
 await choose(page, "#cw-root .cw-scope:visible", T); await page.waitForTimeout(300);
 const G = (name) => page.locator("#cw-root .cw-page[data-page=preset] .cw-list .cw-group").filter({ has: page.locator(".cw-gname", { hasText: new RegExp(`^${name}$`) }) }).first();
 const dragTo = async (from, to, frac) => {
-  const hb = await (typeof from === "string" ? page.locator(from) : from).first().boundingBox();
-  const tb = await (typeof to === "string" ? page.locator(to) : to).first().boundingBox();
+  const source = (typeof from === "string" ? page.locator(from) : from).first();
+  const target = (typeof to === "string" ? page.locator(to) : to).first();
+  // 工作区高度随布局变化，拖拽前后都取实际可见坐标，避免往屏幕之外投放。
+  await source.scrollIntoViewIfNeeded();
+  const hb = await source.boundingBox();
   await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2); await page.mouse.down();
+  await target.scrollIntoViewIfNeeded();
+  const tb = await target.boundingBox();
   await page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height * frac, { steps: 8 });
   await page.waitForTimeout(150); await page.mouse.up(); await page.waitForTimeout(900);
 };
@@ -167,6 +173,7 @@ const site = await page.evaluate(() => window.SillyTavern.getContext().extension
 check(site?.model === "claude-sonnet" && site.models.length === 2, "站点保存了模型和列表");
 // 切到这个站点，再存方案（API 默认不记录，选「当前连接」后记录 API 站点）
 await page.locator(".cw-site", { hasText: "测试站" }).locator('[data-act="use"]').click(); await page.waitForTimeout(2500);
+await connView(page, "schemes");
 await page.click('[data-s="new"]'); await page.waitForTimeout(300);
 await page.fill('.cw-dlg [data-f="name"]', "测试方案");
 check(/测试站/.test(await page.locator(".cw-dlg [data-f=api]").innerText()), "保存窗口列出将保存的 API");

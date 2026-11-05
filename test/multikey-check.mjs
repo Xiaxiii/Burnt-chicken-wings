@@ -2,6 +2,7 @@
 // 选模型时一并选分组（按模型 / 按分组）、方案记下分组、删到只剩一个时写回站点上。先构建并在仓库根目录运行 8765 静态服务。
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
+import { connView } from "./helpers.mjs";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errs = [];
 const ok = (m) => console.log("✓", m);
@@ -164,6 +165,7 @@ try {
   ok("测试消息失败时点名分组");
 
   // 5) 方案记下分组
+  await connView(page, "schemes");
   await page.click("[data-s=new]"); await page.waitForTimeout(300);
   await page.fill(".cw-dlg [data-f=name]", "按量方案");
   await page.selectOption(".cw-dlg [data-f=api]", "__live");
@@ -173,13 +175,16 @@ try {
   assert.equal(sc.conn.keyId, site.keys[1].id, "方案记下用的分组");
   ok("方案记下站点、分组和模型");
   // 换回按次，再套用方案：连回方案记的按量分组
+  await connView(page, "sites");
   await page.locator("[data-r=sites] .cw-site.is-multi .cw-site-key", { hasText: "按次" }).locator("[data-act=use]").click();
   await page.waitForTimeout(2500);
   assert.equal(await vault(), "old,aaa*,bbb");
+  await connView(page, "schemes");
   await page.locator(".cw-scheme", { hasText: "按量方案" }).locator("[data-act=apply]").click(); await page.waitForTimeout(2500);
   assert.equal(await vault(), "old,aaa,bbb*", "套用方案连回它记的分组");
   ok("套用方案连回它记的分组");
   // 拖动 ⋮⋮ 调顺序
+  await connView(page, "sites");
   await page.locator("[data-r=sites] .cw-site.is-multi .cw-site-head b").click(); await page.waitForTimeout(200);
   // 看已保存的密钥：保存时本浏览器留了一份，直接用它；没有这份时问酒馆，不让看就在这一行下面说明
   const copyOf = (id) => page.evaluate((sid) => Object.entries(localStorage).find(([k]) => k.startsWith("presetAtelier:keycopy:") && k.endsWith(":" + sid))?.[1] || null, id);

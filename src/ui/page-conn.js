@@ -125,17 +125,49 @@ async function editReasoning(name, init, live) {
   });
 }
 function mountConnPage(page) {
-  page.innerHTML = String(html`<div class="cw-body"><div class="cw-col cw-conn">
-      <section class="cw-sec" data-r="live"></section>
+  // 站点资源和当前连接并列；方案、连接选项各有自己的工作区。
+  const CONN_VIEWS = [["sites", "站点"], ["schemes", "开关方案"], ["opts", "连接选项"]];
+  let connView = CONN_VIEWS.some(([k]) => k === settings().connView) ? settings().connView : "sites";
+  page.innerHTML = String(html`<div class="cw-body cw-conn-body"><div class="cw-col cw-conn">
+    <header class="cw-conn-heading"><div><h2>连接管理</h2><p class="cw-hint">站点、密钥与模型，按需要切换。</p></div><p class="cw-conn-summary cw-num"></p></header>
+    <nav class="cw-conn-tabs" aria-label="连接管理视图">${tabsHtml(CONN_VIEWS, connView, { attr: "data-connview" })}</nav>
+    <div class="cw-conn-workspace" data-cview="sites" role="tabpanel" aria-label="站点">
+      <div class="cw-conn-site-scroll"><section class="cw-sec" data-r="sites"></section></div>
+      <aside class="cw-conn-live-scroll" aria-label="当前连接"><section class="cw-sec" data-r="live"></section></aside>
+    </div>
+    <div class="cw-conn-panel" data-cview="schemes" role="tabpanel" aria-label="开关方案" hidden>
       <section class="cw-sec" data-r="schemes">
-        <div class="cw-sec-h"><h3>方案</h3><button type="button" class="cw-namebtn" data-s="view" title="方案的分组方式"><small>按</small><span></span>${iconHtml("chevDown")}</button><span class="cw-gap"></span>${tipBtn()}<span class="cw-scheme-tools"></span>${btn("保存为方案", { act: "s-new", kind: "primary", size: "sm", icon: "plus", attrs: 'data-s="new"' })}</div>
+        <div class="cw-sec-h"><h3>开关方案</h3><button type="button" class="cw-namebtn" data-s="view" title="方案的分组方式"><small>按</small><span></span>${iconHtml("chevDown")}</button><span class="cw-gap"></span>${tipBtn()}<span class="cw-scheme-tools"></span>${btn("保存为方案", { act: "s-new", kind: "primary", size: "sm", icon: "plus", attrs: 'data-s="new"' })}</div>
         ${tipNote("<p>方案保存预设和条目开关，可选记下人设、API 和模型。</p><p>「切换」：恢复方案保存时的全部状态。「自动套用」：绑定聊天或角色后，进入该聊天时切换一次，之后手动修改的内容保持不变。</p><p>换预设时 API 不变；切换方案时，方案记了 API 的才换 API。</p>")}
         <div class="cw-scheme-nudge"></div>
         <div class="cw-schemes"></div>
       </section>
-      <section class="cw-sec" data-r="sites"></section>
-      <section class="cw-sec" data-r="opts"><div class="cw-sec-h"><h3>选项</h3></div><div data-r="optsbody"></div></section>
-    </div></div>`);
+    </div>
+    <div class="cw-conn-panel" data-cview="opts" role="tabpanel" aria-label="连接选项" hidden>
+      <section class="cw-sec" data-r="opts"><div class="cw-sec-h"><h3>连接选项</h3></div><p class="cw-hint cw-conn-option-note">决定切换预设、角色或聊天时，哪些设置跟着变化。</p><div data-r="optsbody"></div></section>
+    </div>
+  </div></div>`);
+  function paintConnView() {
+    page.querySelectorAll("[data-connview]").forEach((b) => {
+      const on = b.dataset.connview === connView;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", String(on));
+      b.tabIndex = on ? 0 : -1;
+    });
+    page.querySelectorAll("[data-cview]").forEach((box) => { box.hidden = box.dataset.cview !== connView; });
+  }
+  function setConnView(view) {
+    if (!CONN_VIEWS.some(([k]) => k === view)) return;
+    connView = view;
+    settings().connView = view;
+    paintConnView();
+    saveSettings();
+  }
+  function paintConnSummary() {
+    const total = settings().sites.length;
+    const groups = settings().sites.filter(siteMulti).reduce((n, x) => n + x.keys.length, 0);
+    page.querySelector(".cw-conn-summary").textContent = `${total} 个站点${groups ? `，${groups} 个密钥分组` : ""}`;
+  }
   const $ = (k) => page.querySelector(`[data-r="${k}"]`);
   const liveBox = $("live"), sitesBox = $("sites"), optsBox = $("optsbody");
   const sites = () => settings().sites;
@@ -318,13 +350,14 @@ function mountConnPage(page) {
   function renderSites() {
     if (dragging) return;
     const n = sites().length;
+    paintConnSummary();
     if (!n) editing = false;
     const head = editing
       ? html`${fileBtn("导入", { attr: "data-import-sites", icon: "fileIn", kind: "sm" })}${btn("导出", { act: "exportsites", size: "sm", icon: "fileOut" })}${btn("完成", { act: "sitesdone", size: "sm", kind: "primary" })}`
       : html`${n ? ibtn("wallet", "查全部站点的余额", { act: "balanceall" }) : ""}${n ? ibtn("pencil", "编辑：排序、删除、导入导出", { act: "sitesedit" }) : ""}${ibtn("plus", "添加站点", { act: "new" })}`;
     sitesBox.innerHTML = String(html`<div class="cw-sec-h"><h3>站点</h3>${n ? html`<small>${n} 个</small>` : ""}<span class="cw-gap"></span>${n ? tipBtn() : ""}<span class="cw-sec-acts">${head}</span></div>
       ${n ? html`${tipNote(editing ? "按住左边的把手拖动排序，点垃圾桶删除。导出的站点文件可在重装、换设备后导入。" : "点站点名修改详情。点铅笔可排序、删除，导入或导出站点文件。")}<div class="cw-sites${editing ? " is-editing" : ""}">${sites().map(siteRow)}</div>`
-        : html`<div class="cw-empty-line">暂无站点。可点 ＋ 添加、${fileBtn("从文件导入", { attr: "data-import-sites", kind: "quiet" })}，或保存上方的当前连接。</div>`}`);
+        : html`<div class="cw-empty-line">暂无站点。可点 ＋ 添加、${fileBtn("从文件导入", { attr: "data-import-sites", kind: "quiet" })}，或保存当前连接。</div>`}`);
   }
   // ---------- 选项 ----------
   function renderOpts() {
@@ -900,6 +933,8 @@ function mountConnPage(page) {
     }
   });
   page.addEventListener("click", async (e) => {
+    const view = e.target.closest("[data-connview]");
+    if (view) return setConnView(view.dataset.connview);
     // 方案
     const sv = e.target.closest("[data-s]")?.dataset.s;
     if (sv === "new") return saveNewScheme();
@@ -957,6 +992,15 @@ function mountConnPage(page) {
     return act(a, site, actEl.closest("button"), e.target);
   });
   page.addEventListener("keydown", (e) => {
+    const tab = e.target.closest?.("[data-connview]");
+    if (tab && ["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+      e.preventDefault();
+      const i = CONN_VIEWS.findIndex(([k]) => k === connView);
+      const next = e.key === "Home" ? 0 : e.key === "End" ? CONN_VIEWS.length - 1 : (i + (e.key === "ArrowRight" ? 1 : -1) + CONN_VIEWS.length) % CONN_VIEWS.length;
+      setConnView(CONN_VIEWS[next][0]);
+      page.querySelector(`[data-connview="${connView}"]`)?.focus();
+      return;
+    }
     if ((e.key === "Enter" || e.key === " ") && e.target.matches?.("[data-act=testraw]")) { e.preventDefault(); e.target.click(); }
   });
   bindFileKeys(page);
@@ -982,7 +1026,7 @@ function mountConnPage(page) {
     const list = row.parentElement;
     const rows = [...list.children];
     const from = rows.indexOf(row);
-    const scroller = row.closest(".cw-body");
+    const scroller = isNarrow() ? row.closest(".cw-body") : row.closest(".cw-conn-site-scroll");
     const tops = rows.map((x) => x.offsetTop);
     const hs = rows.map((x) => x.offsetHeight);
     const mids = rows.map((x, i) => tops[i] + hs[i] / 2);
@@ -1064,7 +1108,8 @@ function mountConnPage(page) {
     renderSchemes();
     renderSites();
     renderOpts();
+    paintConnView();
   }
   cleanups.push(onDraftChange((name, kind) => { if (kind !== "status" && !page.hidden) renderSchemes(); }));
-  return { render };
+  return { render, setView: setConnView };
 }

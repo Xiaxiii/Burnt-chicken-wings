@@ -58,7 +58,7 @@ function renderEntryListNow(draft, o) {
     }
     const at = m?.at === "row" && m.id === id;
     const hit = hits.get(id);
-    const cls = ["cw-row", at && "is-at", sel.has(id) && "is-sel", !on && "is-off", empty && !marker && "is-sep", o.highlight?.has(id) && "cw-flash"].filter(Boolean).join(" ");
+    const cls = ["cw-row", tags && "has-tags", at && "is-at", sel.has(id) && "is-sel", !on && "is-off", empty && !marker && "is-sep", o.highlight?.has(id) && "cw-flash"].filter(Boolean).join(" ");
     return String(html`<div class="${cls}" data-id="${id}" tabindex="0" data-key-click role="listitem">
         ${place ? "" : raw('<span class="cw-row-sel" aria-hidden="true"></span>')}
         <span class="cw-row-main">${hit?.body ? html`<span class="cw-row-name">${name}</span><small class="cw-row-hit">正文：${raw(hit.snip)}</small>` : html`<span class="cw-row-name">${raw(markText(name, q))}</span>`}</span>

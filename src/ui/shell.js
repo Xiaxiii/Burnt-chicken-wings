@@ -1,4 +1,4 @@
-// 外壳：宽屏左侧导航栏，窄屏顶栏加底部页签；当前预设（全局）、保存状态、详情栏；打开、关闭、返回手势。
+// 横向工作台：全局预设与保存放在顶栏，任务导航横排；手机收为底部导航。
 var shellRoot = null;
 var pages = {};
 var currentPage = "preset";
@@ -46,21 +46,22 @@ function buildShell() {
   document.getElementById("cw-root")?.remove();
   shellRoot = el(html`<div id="cw-root" class="cw-root" hidden>
     <div class="cw-app">
-      <aside class="cw-side" aria-label="导航">
-        <div class="cw-brand"><span class="cw-logo">${iconHtml("logo")}</span><b class="cw-appname">${appName()}</b><small>by EC</small></div>
-        <button type="button" class="cw-scope" data-act="scope" aria-label="当前预设"><small>当前预设</small><span class="cw-scope-name"></span>${iconHtml("chevDown")}</button>
-        <nav class="cw-nav">${NAV_MAIN.map((x) => navBtn(x))}</nav>
-        <nav class="cw-nav">${NAV_SUB.map((x) => navBtn(x))}</nav>
-        <div class="cw-side-foot">${VERSION}</div>
-      </aside>
       <div class="cw-main">
         <header class="cw-top">
+          <div class="cw-brand"><span class="cw-logo">${iconHtml("logo")}</span><b class="cw-appname">${appName()}</b><small>by EC</small></div>
+          <span class="cw-top-slash" aria-hidden="true">/</span>
           <h1 class="cw-top-title"></h1>
-          <button type="button" class="cw-scope cw-mobile-only" data-act="scope" aria-label="当前预设"><small>当前预设</small><span class="cw-scope-name"></span>${iconHtml("chevDown")}</button>
+          <button type="button" class="cw-scope" data-act="scope" aria-label="当前预设"><small>当前预设</small><span class="cw-scope-name"></span>${iconHtml("chevDown")}</button>
           <span class="cw-top-gap"></span>
           <div class="cw-save" aria-live="polite"></div>
+          <button type="button" class="cw-ibtn cw-mobile-tools" data-act="utilities" aria-label="更多工具" title="清理、备份、体检与外观">${iconHtml("grid")}</button>
           ${ibtn("close", "关闭", { act: "close" })}
         </header>
+        <div class="cw-worknav">
+          <nav class="cw-tasknav" aria-label="工作区">${NAV_MAIN.map((x) => navBtn(x))}</nav>
+          <nav class="cw-utilitynav" aria-label="工具">${NAV_SUB.map((x) => navBtn(x))}</nav>
+          <span class="cw-version">v${VERSION}</span>
+        </div>
         <div class="cw-stage">
           <div class="cw-pages">${[...NAV_MAIN, ...NAV_SUB, ["more"]].map(([k]) => html`<section class="cw-page" data-page="${k}" hidden></section>`)}</div>
         </div>
@@ -101,8 +102,9 @@ function buildShell() {
   shellRoot.addEventListener("click", async (e) => {
     const nav = e.target.closest("[data-nav]");
     if (nav && !nav.closest(".cw-page")) return show(nav.dataset.nav);
-    const a = e.target.closest(".cw-top [data-act], .cw-side [data-act]")?.dataset.act;
+    const a = e.target.closest(".cw-top [data-act], .cw-worknav [data-act]")?.dataset.act;
     if (a === "close") return close();
+    if (a === "utilities") return show("more");
     if (a === "scope") return pickScope();
     if (a === "undo") {
       const d = getDraft(focusPreset());
@@ -167,7 +169,7 @@ function updateSaveStatus() {
   const blocked = d ? saveBlocked.get(d.name) : null;
   const pending = !!d?.history.length;
   const busy = !!d && (saveJobs.has(d.name) || d.dirty);
-  if (!d || !pending && !err && !busy) { box.innerHTML = ""; return; }
+  if (!d || !pending && !err && !busy) { box.innerHTML = String(html`<span class="cw-save-dot"></span><span class="cw-save-text">自动保存已开启</span>`); return; }
   const text = blocked ? (blocked.kind === "conflict" ? "已暂停：别处改过" : "已暂停：备份失败") : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : busy ? "保存中…" : "已保存";
   box.innerHTML = String(html`<span class="cw-save-dot${err || blocked ? " bad" : busy ? " busy" : ""}"></span><span class="cw-save-text${err || blocked ? " bad" : ""}" title="${text}">${text}</span>
     ${err || blocked ? btn(blocked ? "处理" : "重试", { act: "retry", size: "sm", kind: "primary" }) : ""}
@@ -181,7 +183,8 @@ function pageOf(tab, sub) {
   if (tab === "suture") return ["stitch"];
   if (tab === "more") {
     const m = sub || "";
-    if (m === "schemes" || m === "api") return ["conn"];
+    if (m === "schemes") return ["conn", "schemes"];
+    if (m === "api") return ["conn", "sites"];
     if (m === "health" || m === "look" || m === "clean") return [m];
     return ["more"];
   }
@@ -192,6 +195,7 @@ function show(page, view) {
   if (page === "more" && !isNarrow()) page = "clean";
   if (currentPage !== page) closeDetail();
   currentPage = page;
+  shellRoot.dataset.currentPage = page;
   settings().uiPage = page;
   shellRoot.querySelectorAll("[data-nav]").forEach((b) => {
     const on = b.dataset.nav === page || b.dataset.nav === "more" && NAV_SUB.some(([k]) => k === page);
@@ -251,6 +255,7 @@ function openDetail(opt) {
       detailState = null;
       box.remove();
       stage.classList.remove("cw-has-detail");
+      shellRoot.classList.remove("cw-detail-open");
       resolve(v);
     };
     for (const a of opt.actions || []) {
@@ -269,6 +274,7 @@ function openDetail(opt) {
     detailState = { box, done, key: opt.key || null };
     stage.append(box);
     stage.classList.add("cw-has-detail");
+    shellRoot.classList.add("cw-detail-open");
     opt.onMount?.(box);
     box.focus({ preventScroll: true });
   });

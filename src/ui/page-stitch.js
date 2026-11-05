@@ -59,32 +59,41 @@ function mountStitchPage(page) {
     pane: "src", srcBody: false, dstBody: false, highlight: null, lastWb: null
   };
   page.innerHTML = String(html`
-    <header class="cw-pagehead"><div class="cw-col cw-col-wide">
-      <span class="cw-mobile-flex">${segHtml([["src", "从"], ["dst", "到"]], "src", { attr: "data-pane", label: "从或到" })}</span>
-      <span class="cw-gap"></span>
-      ${btn("缝合正则", { act: "st-regex", icon: "regex" })}
-      ${btn("搬到新版", { act: "st-migrate", icon: "move", title: "来源选旧版、目标选新版，将旧版中缝入的条目按原位置搬到新版" })}
+    <header class="cw-pagehead cw-stitch-head"><div class="cw-col cw-col-wide">
+      <div class="cw-stitch-heading"><h2>跨预设缝合</h2><p class="cw-stitch-summary">选择要缝入的条目</p></div>
+      <div class="cw-stitch-utilities">${btn("正则", { act: "st-regex", icon: "regex", title: "缝合正则" })}
+      ${btn("迁移", { act: "st-migrate", icon: "move", title: "搬到新版：来源选旧版、目标选新版，将旧版中缝入的条目按原位置搬到新版" })}</div>
     </div></header>
+    <nav class="cw-stitch-flow" aria-label="缝合步骤">
+      <button type="button" class="cw-stitch-step" data-st-step="src" data-pane="src"><span class="cw-step-num" aria-hidden="true">1</span><span><b>选择材料</b><small data-step-note="src">未选条目</small></span></button>
+      <span class="cw-flow-line" aria-hidden="true"></span>
+      <button type="button" class="cw-stitch-step" data-st-step="dst" data-pane="dst"><span class="cw-step-num" aria-hidden="true">2</span><span><b>确定位置</b><small data-step-note="dst">未选位置</small></span></button>
+      <span class="cw-flow-line" aria-hidden="true"></span>
+      <button type="button" class="cw-stitch-step" data-st-step="review" disabled><span class="cw-step-num" aria-hidden="true">3</span><span><b>预览缝合</b><small data-step-note="review">等待材料与位置</small></span></button>
+    </nav>
     <div class="cw-stitch" data-show="src">
-      <section class="cw-pane cw-pane-src" aria-label="从">
+      <section class="cw-pane cw-pane-src" aria-label="来源材料" tabindex="-1">
         <div class="cw-pane-head">
-          <div class="cw-pane-row"><b class="cw-pane-ft">从</b>${segHtml(SRC_TYPES, "preset", { attr: "data-srctype", size: "sm", label: "来源类型" })}</div>
-          <div class="cw-pane-row"><span class="cw-src-pick"></span><label class="cw-search cw-search-sm" data-side="src">${iconHtml("search")}<input type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组、标签" aria-label="搜索来源条目" data-q="src">${ibtn("close", "清空搜索", { act: "qclear-src", cls: "cw-search-x" })}</label></div>
+          <div class="cw-pane-caption"><h3>来源材料</h3><span>选取要缝入的内容</span></div>
+          <div class="cw-pane-row">${segHtml(SRC_TYPES, "preset", { attr: "data-srctype", size: "sm", label: "来源类型" })}</div>
+          <div class="cw-pane-row cw-pane-pick-row"><span class="cw-src-pick"></span><label class="cw-search cw-search-sm" data-side="src">${iconHtml("search")}<input type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组、标签" aria-label="搜索来源条目" data-q="src">${ibtn("close", "清空搜索", { act: "qclear-src", cls: "cw-search-x" })}</label></div>
         </div>
         <div class="cw-body cw-pane-list" data-list="src"></div>
       </section>
       <div class="cw-divider" role="separator" tabindex="0" aria-label="拖动调整两栏宽度" title="拖动调整宽度"><span></span></div>
-      <section class="cw-pane cw-pane-dst" aria-label="到">
+      <section class="cw-pane cw-pane-dst" aria-label="目标预设或世界书" tabindex="-1">
         <div class="cw-pane-head">
-          <div class="cw-pane-row"><b class="cw-pane-ft">到</b>${segHtml(DST_TYPES, "preset", { attr: "data-dsttype", size: "sm", label: "目标类型" })}</div>
-          <div class="cw-pane-row"><span class="cw-dst-pick"></span><label class="cw-search cw-search-sm" data-side="dst">${iconHtml("search")}<input type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组、标签" aria-label="搜索目标条目" data-q="dst">${ibtn("close", "清空搜索", { act: "qclear-dst", cls: "cw-search-x" })}</label></div>
+          <div class="cw-pane-caption"><h3>缝合目标</h3><span>点选插入位置</span></div>
+          <div class="cw-pane-row">${segHtml(DST_TYPES, "preset", { attr: "data-dsttype", size: "sm", label: "目标类型" })}</div>
+          <div class="cw-pane-row cw-pane-pick-row"><span class="cw-dst-pick"></span><label class="cw-search cw-search-sm" data-side="dst">${iconHtml("search")}<input type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组、标签" aria-label="搜索目标条目" data-q="dst">${ibtn("close", "清空搜索", { act: "qclear-dst", cls: "cw-search-x" })}</label></div>
         </div>
         <div class="cw-body cw-pane-list" data-list="dst"></div>
       </section>
     </div>
     <div class="cw-bar cw-stitchbar"><div class="cw-col cw-col-wide">
-      <div class="cw-bar-info"><button type="button" class="cw-link cw-picked-n" data-act="st-picked">未选条目</button><small class="cw-where">未选位置</small></div>
-      <div class="cw-bar-acts">${btn("撤销", { act: "st-wbundo", attrs: "hidden" })}${btn("清空", { act: "st-clear", title: "清空已选的条目和缝合位置" })}${btn("预览", { act: "st-go", kind: "primary", disabled: true })}</div>
+      <div class="cw-stitch-tray"><div class="cw-tray-head"><span class="cw-tray-label">材料托盘</span><button type="button" class="cw-link cw-picked-n" data-act="st-picked">未选条目</button></div><div class="cw-tray-items" aria-live="polite"></div></div>
+      <div class="cw-stitch-destination"><span class="cw-tray-label">插入位置</span><small class="cw-where">未选位置</small></div>
+      <div class="cw-bar-acts">${btn("撤销", { act: "st-wbundo", attrs: "hidden" })}${btn("清空", { act: "st-clear", title: "清空已选的条目和缝合位置" })}${btn("预览缝合", { act: "st-go", kind: "primary", disabled: true })}</div>
     </div></div>
     <div class="cw-bar cw-ngbar" hidden><div class="cw-col cw-col-wide"><div class="cw-bar-info"><b class="cw-ng-n"></b><small>点组名或条目，新分组放在它后面</small></div>${btn("取消", { act: "st-ngcancel" })}</div></div>`);
   const stitchEl = page.querySelector(".cw-stitch");
@@ -131,14 +140,32 @@ function mountStitchPage(page) {
   function setPane(p) {
     st.pane = p;
     stitchEl.dataset.show = p;
-    page.querySelectorAll("[data-pane]").forEach((b) => { if (b.tagName === "BUTTON") { b.classList.toggle("on", b.dataset.pane === p); b.setAttribute("aria-selected", String(b.dataset.pane === p)); } });
+    page.querySelectorAll("[data-pane]").forEach((b) => { if (b.tagName === "BUTTON") { b.classList.toggle("on", b.dataset.pane === p); b.setAttribute("aria-pressed", String(b.dataset.pane === p)); } });
+    paintFlow();
   }
   function paintPaneSeg() {
+    paintFlow();
+  }
+  // 流程只呈现已有的材料和插入位置，不单独保存一份进度，避免切来源或目标后状态失真。
+  function paintFlow() {
     const n = st.picked.size;
-    const src = page.querySelector('[data-pane="src"]');
-    const dst = page.querySelector('[data-pane="dst"]');
-    if (src) src.textContent = n ? `从 · 已选 ${n}` : "从";
-    if (dst) dst.textContent = (st.dstType === "world" ? st.wbMarker : st.marker) ? "到 · 已选位置" : "到";
+    const placed = !st.newName && !!(st.dstType === "world" ? st.wbMarker : st.marker);
+    const ready = n > 0 && placed;
+    const current = !n ? "src" : !placed ? "dst" : "review";
+    page.querySelectorAll("[data-st-step]").forEach((b) => {
+      const step = b.dataset.stStep;
+      const done = step === "src" ? n > 0 : step === "dst" ? placed : false;
+      b.classList.toggle("is-done", done);
+      b.classList.toggle("is-focused", step === st.pane);
+      b.classList.toggle("is-ready", step === "review" && ready);
+      if (step === current) b.setAttribute("aria-current", "step");
+      else b.removeAttribute("aria-current");
+      if (step === "review") b.disabled = !ready;
+    });
+    page.querySelector('[data-step-note="src"]').textContent = n ? `已选 ${n} 条` : "未选条目";
+    page.querySelector('[data-step-note="dst"]').textContent = st.newName ? "为新分组定位置" : placed ? "已选插入位置" : "未选位置";
+    page.querySelector('[data-step-note="review"]').textContent = ready ? "检查写法与开关" : !n ? "等待选择材料" : "等待确定位置";
+    page.querySelector(".cw-stitch-summary").textContent = ready ? `${n} 条材料已就绪，预览后确认缝合` : !n ? "选择要缝入的条目" : st.newName ? `为新分组「${st.newName}」选择插入位置` : `已选 ${n} 条材料，接着确定插入位置`;
   }
   // ---- 来源
   const regexSource = () => st.srcType === "file" && st.fileKind === "regex";
@@ -560,7 +587,9 @@ function mountStitchPage(page) {
     const pn = bar.querySelector(".cw-picked-n");
     pn.textContent = n ? `已选 ${n} 条` : "未选条目";
     pn.disabled = !n;
-    bar.querySelector(".cw-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」里点条目选位置" : "在「到」里点组名或条目选位置";
+    const picks = [...st.picked.values()];
+    bar.querySelector(".cw-tray-items").innerHTML = String(n ? html`${picks.slice(0, 3).map((it) => html`<button type="button" class="cw-tray-chip" data-act="st-picked" title="${it.name || "（无名）"}，查看已选材料">${it.name || "（无名）"}</button>`)}${n > 3 ? html`<button type="button" class="cw-tray-more" data-act="st-picked">另 ${n - 3} 条</button>` : ""}` : html`<span class="cw-tray-empty">从来源中选取条目，材料会汇集到这里</span>`);
+    bar.querySelector(".cw-where").textContent = d && m ? `${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在目标里点条目选位置" : "在目标里点组名或条目选位置";
     bar.querySelector('[data-act="st-go"]').disabled = !(n && m);
     bar.querySelector('[data-act="st-clear"]').disabled = !(n || m);
     const undo = bar.querySelector('[data-act="st-wbundo"]');
@@ -600,6 +629,14 @@ function mountStitchPage(page) {
   });
   bindFileKeys(page);
   page.addEventListener("click", async (e) => {
+    const step = e.target.closest("[data-st-step]");
+    if (step) {
+      if (step.disabled) return;
+      if (step.dataset.stStep === "review") return st.dstType === "world" ? reviewWorld() : review();
+      setPane(step.dataset.stStep);
+      page.querySelector(step.dataset.stStep === "src" ? ".cw-pane-src" : ".cw-pane-dst").focus({ preventScroll: true });
+      return;
+    }
     const typeBtn = e.target.closest("[data-srctype], [data-dsttype], [data-pane]");
     if (typeBtn && typeBtn.tagName === "BUTTON") {
       if (typeBtn.dataset.pane) return setPane(typeBtn.dataset.pane);

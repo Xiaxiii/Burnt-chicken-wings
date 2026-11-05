@@ -1,4 +1,4 @@
-// 毛玻璃配色（芽体、菌落）：顶栏、页签、侧栏是毛玻璃，列表不做实时模糊，正文对比度足够；旧配色名回落到跟随酒馆
+// 毛玻璃配色（芽体、菌落）：顶栏、页签、侧栏是毛玻璃，列表不做实时模糊，正文对比度足够；旧配色名回落到默认工作台
 import assert from "node:assert";
 import { start, open, P, SHOTS } from "./helpers.mjs";
 const { page, done } = await start({ width: 390, height: 844, mobile: true });
@@ -34,5 +34,5 @@ assert.equal(await page.evaluate(() => {
   window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = "matcha";
   window.__presetAtelier.open("preset");
   return document.getElementById("cw-root").dataset.theme;
-}), "follow");
+}), "atelier");
 await done("毛玻璃配色检查全部通过");

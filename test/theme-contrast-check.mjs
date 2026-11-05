@@ -67,6 +67,7 @@ try {
       m.presets.push(make(['古文文风', '古典白描'], 'src'), make(['目标正文规则'], 'dst'));
       m.live.preset_settings_openai = '对比度目标';
       Object.assign(m.live, structuredClone(m.presets.at(-1)));
+      window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = 'follow';
       window.__presetAtelier.open('stitch');
     });
     await choose(page, '.cw-src-pick .cw-pick-btn', '对比度来源');
