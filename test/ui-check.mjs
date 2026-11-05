@@ -35,7 +35,7 @@ ok("当前连接换模型");
 // 4) 缝合位置：点展开的组里的条目＝放进组里，它的后面
 await nav(page, "stitch");
 const g = page.locator(`${P("stitch")} .cw-pane-dst .cw-group`).nth(1);
-if (await g.evaluate((x) => x.classList.contains("is-col"))) { await g.locator(".cw-gname").click(); await page.waitForTimeout(200); }
+if (await g.evaluate((x) => x.classList.contains("is-col"))) { await g.locator(".cw-gname > .cw-ico").click(); await page.waitForTimeout(200); } // 选位置时点组名＝放在组后，点箭头才展开
 const rowName = (await g.locator(".cw-row .cw-row-name").first().textContent()).trim();
 await g.locator(".cw-row").first().click(); await page.waitForTimeout(200);
 const where = await page.textContent(`${P("stitch")} .cw-where`);
