@@ -967,13 +967,13 @@ html.cw-open #cw-ball, #cw-ball[hidden] { display: none !important; }
 #cw-root .cw-sum-main b { font-size: 1em; font-variant-numeric: tabular-nums; }
 #cw-root .cw-sum .cw-card-acts { margin-top: 2px; }
 #cw-root .cw-sum .cw-hint { margin: 0; }
-#cw-root .cw-stack { display: flex; gap: 1px; height: 6px; border-radius: 999px; overflow: hidden; background: var(--cw-raised); }
-#cw-root .cw-stack i { flex-basis: 0; min-width: 1px; background: color-mix(in srgb, var(--cw-muted) 45%, transparent); }
-#cw-root .cw-stack i.is-sug, #cw-root .cw-stack-key i.is-sug { background: color-mix(in srgb, var(--cw-warn) 70%, transparent); }
-#cw-root .cw-stack i.is-sel, #cw-root .cw-stack-key i.is-sel { background: var(--cw-accent); }
-#cw-root .cw-stack-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; color: var(--cw-muted); font-size: var(--cw-fs-xs); }
-#cw-root .cw-stack-key span { display: inline-flex; align-items: center; gap: 5px; }
-#cw-root .cw-stack-key i { width: 10px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--cw-muted) 45%, transparent); }
+#cw-root .cw-sizebar { display: flex; gap: 1px; height: 6px; border-radius: 999px; overflow: hidden; background: var(--cw-raised); }
+#cw-root .cw-sizebar i { flex-basis: 0; min-width: 1px; background: color-mix(in srgb, var(--cw-muted) 45%, transparent); }
+#cw-root .cw-sizebar i.is-sug, #cw-root .cw-sizebar-key i.is-sug { background: color-mix(in srgb, var(--cw-warn) 70%, transparent); }
+#cw-root .cw-sizebar i.is-sel, #cw-root .cw-sizebar-key i.is-sel { background: var(--cw-accent); }
+#cw-root .cw-sizebar-key { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; color: var(--cw-muted); font-size: var(--cw-fs-xs); }
+#cw-root .cw-sizebar-key span { display: inline-flex; align-items: center; gap: 5px; }
+#cw-root .cw-sizebar-key i { width: 10px; height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--cw-muted) 45%, transparent); }
 #cw-root .cw-filterrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 #cw-root .cw-filterrow .cw-gap { flex: 1 1 auto; }
 #cw-root .cw-listhead { display: flex; justify-content: flex-end; margin: -6px 0 -6px; }

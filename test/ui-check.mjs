@@ -24,6 +24,9 @@ ok("选中两条并移到指定位置");
 // 2) 思维链视图：有结论、有手动指定入口
 await page.click(`${P("preset")} [data-view="cot"]`); await page.waitForTimeout(400);
 assert.ok(await page.isVisible(`${P("preset")} [data-act="cot-markpick"]`), "有手动指定思维链条目的入口");
+// 3.0.3 思维链卡片完整显示（此前与清理页容量条同名，被压成一道细条）
+const cards = await page.$$eval(`${P("preset")} .cw-cotcard`, (xs) => xs.map((x) => x.getBoundingClientRect().height));
+assert.ok(cards.length > 0 && cards.every((h) => h >= 30), "思维链卡片高度正常：" + cards.join(","));
 ok("思维链视图");
 // 3) 连接页：当前连接换模型（带搜索的列表），站点记录跟着改
 await nav(page, "conn");

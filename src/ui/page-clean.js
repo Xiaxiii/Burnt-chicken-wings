@@ -116,8 +116,8 @@ function mountCleanPage(page) {
       ${arch.length ? `<p>已归档 ${arch.length} 个（${fmtSize(archSize)}），打开时不再读取。</p>` : ""}
       <ul class="cw-legend"><li><span class="cw-pill cw-pill-warn">完全相同</span>与另一个预设一字不差，保留一个即可。</li><li><span class="cw-pill cw-pill-warn">有新版</span>名称相同、版本号更低。</li><li><span class="cw-pill cw-pill-line">同系列</span>名称只差「_json」「(1)」「副本」等后缀。</li><li><span class="cw-pill cw-pill-line">条目相同</span>与另一个预设的大部分条目相同。</li><li><span class="cw-pill cw-pill-accent">在用</span>被方案或连接配置使用。</li></ul>
       <p>归档：移出预设文件夹、存入服务器，打开酒馆时不再读取，可随时恢复。标签仅作提示；正在使用的预设不能勾选。</p>`;
-    const stack = html`<div class="cw-stack" aria-hidden="true">${[...all].sort((a, b) => (b.suggest - a.suggest) || (b.size - a.size)).map((r) => html`<i class="${sel.preset.has(r.name) ? "is-sel" : r.suggest ? "is-sug" : ""}" style="flex-grow:${r.size}" title="${r.name} ${fmtSize(r.size)}"></i>`)}</div>
-      <p class="cw-stack-key"><span><i class="is-sug"></i>可考虑清理</span><span><i></i>其余</span><span><i class="is-sel"></i>已勾选</span></p>`;
+    const stack = html`<div class="cw-sizebar" aria-hidden="true">${[...all].sort((a, b) => (b.suggest - a.suggest) || (b.size - a.size)).map((r) => html`<i class="${sel.preset.has(r.name) ? "is-sel" : r.suggest ? "is-sug" : ""}" style="flex-grow:${r.size}" title="${r.name} ${fmtSize(r.size)}"></i>`)}</div>
+      <p class="cw-sizebar-key"><span><i class="is-sug"></i>可考虑清理</span><span><i></i>其余</span><span><i class="is-sel"></i>已勾选</span></p>`;
     const visible = list.filter((r) => !r.current);
     const allOn = visible.length && visible.every((r) => sel.preset.has(r.name));
     body.innerHTML = String(html`
