@@ -14,13 +14,13 @@ async function openPage(saved) {
     const m = window.__mock;
     for (const p of [...m.presets, m.live].filter(Boolean)) for (const g of p.extensions?.baibaiToolkit?.presetPromptGroups?.groups || []) g.collapsed = g.name !== "写作指导";
     window.SillyTavern.getContext().extensionSettings.presetAtelier = saved ? structuredClone(saved) : {};
-    window.__presetAtelier.open("organize");
+    window.__presetAtelier.open("preset");
   }, saved);
   await page.waitForTimeout(500);
   return page;
 }
-const fold = (page) => page.evaluate(() => [...document.querySelectorAll(".pa-list .pa-group")].map((g) => (g.classList.contains("pa-collapsed") ? "-" : "+") + g.querySelector(".pa-gname")?.textContent.trim()).join(" "));
-const head = (page, name) => page.locator(".pa-list .pa-group", { hasText: name }).first().locator(".pa-ghead .pa-gname");
+const fold = (page) => page.evaluate(() => [...document.querySelectorAll(".cw-list .cw-group")].map((g) => (g.classList.contains("is-col") ? "-" : "+") + g.querySelector(".cw-gname")?.textContent.trim()).join(" "));
+const head = (page, name) => page.locator(".cw-list .cw-group", { hasText: name }).first().locator(".cw-ghead .cw-gname");
 
 let page = await openPage(null);
 assert.match(await fold(page), /\+写作指导/, "没动过时按预设里存的状态");

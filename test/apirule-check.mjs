@@ -28,12 +28,12 @@ await page.evaluate(() => {
     ]
   };
 });
-await page.evaluate(() => window.__presetAtelier.open("more", "schemes")); await page.waitForTimeout(500);
+await page.evaluate(() => window.__presetAtelier.open("conn")); await page.waitForTimeout(500);
 const live = () => page.evaluate(() => ({ url: window.__mock.live.custom_url, model: window.__mock.live.custom_model, bind: window.__mock.live.bind_preset_to_connection }));
 const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier);
 
 // 1) 切到记了 API 的方案：连到它记的站点和模型；「使用中」站点不变
-await page.locator(".pa-srow", { hasText: "记了API" }).locator("[data-a=apply]").click(); await page.waitForTimeout(1500);
+await page.locator(".cw-scheme", { hasText: "记了API" }).locator("[data-act=apply]").click(); await page.waitForTimeout(1500);
 let l = await live();
 assert.equal(l.url, "https://one/v1");
 assert.equal(l.model, "m1-pro");
@@ -42,7 +42,7 @@ ok("切到记了 API 的方案：恢复它的 API，不改使用中站点");
 
 // 2) 自己换一个 API，再切到没记 API 的方案：API 不变（不会被上一个方案的站点覆盖）
 await page.evaluate(() => { window.__mock.live.custom_url = "https://mine/v1"; window.__mock.live.custom_model = "mine"; $("#custom_api_url_text").val("https://mine/v1"); });
-await page.locator(".pa-srow", { hasText: "没记API" }).locator("[data-a=apply]").click(); await page.waitForTimeout(1500);
+await page.locator(".cw-scheme", { hasText: "没记API" }).locator("[data-act=apply]").click(); await page.waitForTimeout(1500);
 l = await live();
 assert.equal(l.url, "https://mine/v1", "没记 API 的方案不动 API");
 assert.equal(l.model, "mine");
@@ -55,15 +55,10 @@ assert.equal((await live()).url, "https://mine/v1", "换预设 API 不变");
 ok("换预设：API 不变");
 
 // 4) 2.4.0：选项一行，只有方框管勾选；点这一行其他地方展开规则
-const card = page.locator(".pa-optgroup[data-w=chattoast]");
-const box = card.locator("input[data-o=chattoast]");
-assert.equal(await card.locator("input[type=checkbox]").count(), 1);
-assert.equal(await card.locator(".pa-sgbody").count(), 0, "规则默认收起");
-const was = await box.isChecked();
-await card.locator(".pa-optlabel").click(); await page.waitForTimeout(150);
-assert.equal(await box.isChecked(), was, "点文字不改勾选");
-assert.match(await card.locator(".pa-sgbody").innerText(), /换预设\s*API 不变/);
-ok("设置只剩一项，点这一行展开规则");
+const row = page.locator("#cw-root .cw-setrow", { has: page.locator("input[data-act=chattoast]") });
+assert.equal(await row.locator("input[type=checkbox]").count(), 1);
+assert.match(await row.innerText(), /换预设时 API 不变/, "规则写在开关下面");
+ok("提示开关下面写明 API 规则");
 
 assert.deepEqual(errs, []);
 console.log("API 规则检查通过");

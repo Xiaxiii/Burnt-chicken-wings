@@ -46,10 +46,10 @@ try {
       { id: 's4', name: '公益站', source: 'custom', url: 'https://free.example.com/v1', model: 'm', models: [], localKey: true },
       { id: 's5', name: '坏站', source: 'custom', url: 'https://bad.example.com/v1', model: 'm', models: [], secretId: 'id2' }
     ] };
-    window.__presetAtelier.open('more', 'schemes');
+    window.__presetAtelier.open('conn');
   });
-  const bal = page.locator('.pa-live .pa-live-bal');
-  await page.waitForFunction(() => document.querySelector('.pa-live .pa-live-bal b'));
+  const bal = page.locator('.cw-live .cw-bal');
+  await page.waitForFunction(() => document.querySelector('.cw-live .cw-bal b'));
   assert.equal((await bal.innerText()).replace(/\s+/g, ' ').trim(), '余额 $37.66 总额度 $50.00，已用 $12.34 · 刚刚');
   assert.equal(asked.length, 2, '中转站问额度和用量两次');
   assert.ok(asked.every((b) => b.chat_completion_source === 'custom' && b.custom_url.endsWith('#')), '网址末尾带 #，酒馆接上的 /models 不发出去');
@@ -58,22 +58,22 @@ try {
   ok('打开方案页时查当前连接的余额：额度减用量，经酒馆后端、用这个站点的密钥');
 
   // 重新打开：10 分钟内不重复查；点 ↻ 重新查
-  await page.evaluate(() => { window.__presetAtelier.open('cot'); window.__presetAtelier.open('more', 'schemes'); });
-  await page.locator('.pa-live .pa-live-bal b').waitFor();
+  await page.evaluate(() => { window.__presetAtelier.open('cot'); window.__presetAtelier.open('conn'); });
+  await page.locator('.cw-live .cw-bal b').waitFor();
   await page.waitForTimeout(300);
   assert.equal(asked.length, 2, '10 分钟内不重复查');
-  await page.click('.pa-live [data-a=balance]');
-  await page.waitForFunction((n) => window.__presetAtelier && document.querySelector('.pa-live .pa-live-bal b'), 4);
+  await page.click('.cw-live [data-act=balance]');
+  await page.waitForFunction((n) => window.__presetAtelier && document.querySelector('.cw-live .cw-bal b'), 4);
   await page.waitForTimeout(300);
   assert.equal(asked.length, 4, '点 ↻ 重新查');
   ok('10 分钟内重新打开不重复查，点 ↻ 重新查');
 
   // 钱包：逐个查全部站点；官方接口跳过；没有副本的按密钥库编号用，查完换回原来的密钥
   asked.length = 0;
-  await page.click('[data-a=balanceall]');
+  await page.click('[data-act=balanceall]');
   await page.waitForFunction(() => window.__toasts.some((t) => t.includes('个余额')));
   assert.ok((await page.evaluate(() => window.__toasts)).includes('warning:已查 3 个余额，1 个没查到，1 个官方接口不提供'));
-  const info = (id) => page.locator(`.pa-plan-sites .pa-site[data-id=${id}] .pa-site-model`).innerText();
+  const info = (id) => page.locator(`[data-r=sites] .cw-site[data-id=${id}] .cw-site-main small`).innerText();
   assert.match(await info('s1'), /余额 \$37\.66/);
   assert.match(await info('s2'), /余额 ¥110\.00/);
   assert.match(await info('s4'), /余额 不限额/);
@@ -94,57 +94,57 @@ try {
   ok('钱包按钮逐个查全部站点：中转站、DeepSeek、不限额令牌；官方接口跳过；查完换回原来的密钥');
 
   // 不限额令牌：手填账户余额，按此后的用量扣减
-  const pick = (text) => page.locator('.pa-sheet .pa-pick-item', { hasText: text }).first().click();
-  const reopen = () => page.evaluate(() => { window.__presetAtelier.open('cot'); window.__presetAtelier.open('more', 'schemes'); });
+  const pick = (text) => page.locator('#cw-root .cw-layer .cw-menu-item', { hasText: text }).first().click();
+  const reopen = () => page.evaluate(() => { window.__presetAtelier.open('cot'); window.__presetAtelier.open('conn'); });
   await page.evaluate(() => {
     window.SillyTavern.getContext().extensionSettings.presetAtelier.activeSiteId = 's4';
     window.__mock.live.custom_url = 'https://free.example.com/v1';
   });
   await reopen();
-  await page.locator('.pa-live [data-a=balanceset]').waitFor();
+  await page.locator('.cw-live [data-act=balanceset]').waitFor();
   const line = async () => (await bal.innerText()).replace(/\s+/g, ' ').trim();
   assert.equal(await line(), '余额 不限额 这个密钥已用 $5.00；可手填账户余额 · 刚刚 填余额');
   const prompt = async (value) => {
-    const sheet = page.locator('.pa-sheet').last();
-    await sheet.locator('input.pa-input').fill(value);
-    await sheet.locator('.pa-btn-primary').click();
+    const sheet = page.locator('.cw-dlg').last();
+    await sheet.locator('input.cw-input').fill(value);
+    await sheet.locator('.cw-btn-primary').click();
   };
-  await page.click('.pa-live [data-a=balanceset]');
+  await page.click('.cw-live [data-act=balanceset]');
   await prompt('$50');
-  await page.waitForFunction(() => /手填 \$50\.00/.test(document.querySelector('.pa-live .pa-live-bal')?.textContent || '') && !document.querySelector('.pa-live .pa-live-bal .pa-hint'));
+  await page.waitForFunction(() => /手填 \$50\.00/.test(document.querySelector('.cw-live .cw-bal')?.textContent || '') && !document.querySelector('.cw-live .cw-bal .cw-hint'));
   assert.equal(await line(), '余额 $50.00 手填 $50.00 · 之后用了 $0.00 · 刚刚 改余额');
   freeUsage = 820;
-  await page.click('.pa-live [data-a=balance]');
-  await page.waitForFunction(() => /\$46\.80/.test(document.querySelector('.pa-live .pa-live-bal')?.textContent || ''));
+  await page.click('.cw-live [data-act=balance]');
+  await page.waitForFunction(() => /\$46\.80/.test(document.querySelector('.cw-live .cw-bal')?.textContent || ''));
   assert.equal(await line(), '余额 $46.80 手填 $50.00 · 之后用了 $3.20 · 刚刚 改余额');
   assert.match(await info('s4'), /余额 \$46\.80/);
   ok('不限额令牌手填 $50：之后用了 $3.20，余额 $46.80；站点小字同步');
 
   // 充值后改余额：按现在的用量重新起算；不再手填：回到查到的结果
-  await page.click('.pa-live [data-a=balanceset]');
+  await page.click('.cw-live [data-act=balanceset]');
   await pick('改余额');
   await prompt('100');
-  await page.waitForFunction(() => /手填 \$100\.00/.test(document.querySelector('.pa-live .pa-live-bal')?.textContent || '') && !document.querySelector('.pa-live .pa-live-bal .pa-hint'));
+  await page.waitForFunction(() => /手填 \$100\.00/.test(document.querySelector('.cw-live .cw-bal')?.textContent || '') && !document.querySelector('.cw-live .cw-bal .cw-hint'));
   assert.equal(await line(), '余额 $100.00 手填 $100.00 · 之后用了 $0.00 · 刚刚 改余额');
   freeUsage = 1000;
-  await page.click('.pa-live [data-a=balance]');
-  await page.waitForFunction(() => /\$98\.20/.test(document.querySelector('.pa-live .pa-live-bal')?.textContent || ''));
-  await page.click('.pa-live [data-a=balanceset]');
+  await page.click('.cw-live [data-act=balance]');
+  await page.waitForFunction(() => /\$98\.20/.test(document.querySelector('.cw-live .cw-bal')?.textContent || ''));
+  await page.click('.cw-live [data-act=balanceset]');
   await pick('不再手填');
-  await page.waitForFunction(() => /不限额/.test(document.querySelector('.pa-live .pa-live-bal')?.textContent || ''));
+  await page.waitForFunction(() => /不限额/.test(document.querySelector('.cw-live .cw-bal')?.textContent || ''));
   assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites.find((x) => x.id === 's4').manualBalance), undefined);
   ok('充值后改余额重新起算；不再手填后回到查到的结果');
 
   // 编辑窗口填账户余额：保存后按现在的用量起算；填的不是金额时不让保存
-  await page.click('.pa-plan-sites .pa-site[data-id=s4] [data-a=edit]');
-  const field = page.locator('.pa-sheet [data-f=manualbal]');
+  await page.click('[data-r=sites] .cw-site[data-id=s4] [data-act=edit]');
+  const field = page.locator('.cw-dlg [data-f=manualbal]');
   await field.fill('三十');
-  await page.locator('.pa-sheet .pa-btn-primary', { hasText: '保存' }).click();
+  await page.locator('.cw-dlg .cw-btn-primary', { hasText: '保存' }).click();
   await page.waitForTimeout(200);
   assert.equal(await field.count(), 1, '填的不是金额：窗口不关');
   await field.fill('30');
-  await page.locator('.pa-sheet .pa-btn-primary', { hasText: '保存' }).click();
-  await page.waitForFunction(() => /手填 \$30\.00/.test(document.querySelector('.pa-live .pa-live-bal')?.textContent || '') && !document.querySelector('.pa-live .pa-live-bal .pa-hint'));
+  await page.locator('.cw-dlg .cw-btn-primary', { hasText: '保存' }).click();
+  await page.waitForFunction(() => /手填 \$30\.00/.test(document.querySelector('.cw-live .cw-bal')?.textContent || '') && !document.querySelector('.cw-live .cw-bal .cw-hint'));
   const m = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites.find((x) => x.id === 's4').manualBalance);
   assert.deepEqual([m.amount, m.base.main.used], [30, 10]);
   assert.equal(await line(), '余额 $30.00 手填 $30.00 · 之后用了 $0.00 · 刚刚 改余额');
@@ -162,17 +162,17 @@ try {
     window.__mock.live.custom_url = 'https://multi.example.com/v1';
   });
   await reopen();
-  await page.locator('.pa-live [data-a=balanceset]').waitFor();
-  await page.click('.pa-live [data-a=balanceset]');
+  await page.locator('.cw-live [data-act=balanceset]').waitFor();
+  await page.click('.cw-live [data-act=balanceset]');
   await prompt('20');
-  await page.waitForFunction(() => /手填 \$20\.00/.test(document.querySelector('.pa-live .pa-live-bal')?.textContent || '') && !document.querySelector('.pa-live .pa-live-bal .pa-hint'));
+  await page.waitForFunction(() => /手填 \$20\.00/.test(document.querySelector('.cw-live .cw-bal')?.textContent || '') && !document.querySelector('.cw-live .cw-bal .cw-hint'));
   assert.equal(await line(), '余额 $20.00 手填 $20.00 · 之后用了 $0.00 · 刚刚 改余额');
   multiUsage['sk-m1'] = 450;
   multiUsage['sk-m2'] = 160;
-  await page.click('.pa-live [data-a=balance]');
-  await page.waitForFunction(() => /\$17\.90/.test(document.querySelector('.pa-live .pa-live-bal')?.textContent || ''));
+  await page.click('.cw-live [data-act=balance]');
+  await page.waitForFunction(() => /\$17\.90/.test(document.querySelector('.cw-live .cw-bal')?.textContent || ''));
   assert.equal(await line(), '余额 $17.90 手填 $20.00 · 之后用了 $2.10 · 刚刚 改余额');
-  assert.match(await page.locator('.pa-plan-sites .pa-site[data-id=s6] .pa-site-model').innerText(), /余额 \$17\.90/);
+  assert.match(await page.locator('[data-r=sites] .cw-site[data-id=s6] .cw-site-main small').innerText(), /余额 \$17\.90/);
   ok('多密钥站点：两个分组此后的用量一起扣（$1.50 + $0.60），余额 $17.90');
   assert.deepEqual(errors, []);
 } finally {

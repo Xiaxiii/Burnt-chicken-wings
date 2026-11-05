@@ -41,21 +41,21 @@ async function boot(ctx) {
     window.__nameA = a;
   });
   const nameA = await page.evaluate(() => window.__nameA);
-  await page.evaluate(() => window.__presetAtelier.open("organize"));
+  await page.evaluate(() => window.__presetAtelier.open("preset"));
   await page.waitForTimeout(400);
   await expandAll(page);
-  await page.locator(".pa-list .pa-row .pa-switch").first().click();
+  await page.locator(".cw-list .cw-row .cw-switch").first().click();
   await page.waitForTimeout(600); // 自动保存已发出，还没回来
   assert.ok(log.includes("save-start:" + nameA) && !log.includes("save-end:" + nameA), "保存正在进行");
   // 用户在酒馆里换到了别的预设，再去清理页删除甲
-  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("more"); });
-  await page.click('[data-m="clean"]'); await page.waitForTimeout(300);
-  await page.click('[data-f="all"]'); await page.waitForTimeout(200);
-  await page.click(`.pa-crow:has-text("${nameA}") input[data-c=pick]`);
-  await page.click('[data-c="del"]'); await page.waitForTimeout(200);
+  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("conn"); });
+  await page.evaluate(() => window.__presetAtelier.open('clean')); await page.waitForTimeout(300);
+  await page.click('[data-filter="all"]'); await page.waitForTimeout(200);
+  await page.click(`.cw-crow:has-text("${nameA}") input[data-act=pick]`);
+  await page.click('.cw-cleanbar [data-act="del"]'); await page.waitForTimeout(200);
   // 备份不强制：弹窗里有「下载备份」，不点就直接删
-  assert.ok(await page.$('.pa-sheet button:has-text("下载备份")'));
-  await page.click(".pa-sheet .pa-btn-danger");
+  assert.ok(await page.$('.cw-dlg button:has-text("下载备份")'));
+  await page.click(".cw-dlg .cw-btn-danger");
   await page.waitForTimeout(3500);
   assert.deepEqual(log.filter((x) => x === "delete" || x.endsWith(nameA)), ["save-start:" + nameA, "save-end:" + nameA, "delete"], "保存结束后才删除");
   await page.waitForTimeout(800);
@@ -83,7 +83,7 @@ async function boot(ctx) {
     window.__presetAtelier.open("conn");
   });
   await page.waitForTimeout(500);
-  const card = (n) => page.$eval(`.pa-srow:has-text("${n}") .pa-srow-main`, (x) => x.innerText);
+  const card = (n) => page.$eval(`.cw-scheme:has-text("${n}") .cw-scheme-main`, (x) => x.innerText);
   assert.match(await card("记着别的站点"), /开关一致/);
   assert.doesNotMatch(await card("记着别的站点"), /使用中/);
   assert.match(await card("只记开关"), /使用中/);
@@ -111,7 +111,7 @@ async function boot(ctx) {
   for (let i = 0; i < 2; i++) {
     await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier.activeSiteId = "s2"; window.__presetAtelier.open("conn"); });
     await page.waitForTimeout(300);
-    await page.click('.pa-site:has-text("中转甲") [data-a="use"]');
+    await page.click('.cw-site:has-text("中转甲") [data-act="use"]');
     await page.waitForTimeout(1500);
   }
   assert.equal(await vault(), before + 1, "只存进去一次");
@@ -137,11 +137,11 @@ async function boot(ctx) {
       if (!failed && String(k).startsWith("presetAtelier:recovery:v180:default-user:") && k !== m) { failed = true; throw new DOMException("full", "QuotaExceededError"); }
       return real.call(this, k, v);
     };
-    window.__presetAtelier.open("organize");
+    window.__presetAtelier.open("preset");
   }, [otherKey, mineKey]);
   await page.waitForTimeout(400);
   await expandAll(page);
-  await page.locator(".pa-list .pa-row .pa-switch").first().click();
+  await page.locator(".cw-list .cw-row .cw-switch").first().click();
   // 单次修改不再立刻整份写草稿（等自动保存）；关页面/切后台时才写，这里模拟关页面
   assert.equal(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("presetAtelier:recovery:v180:default-user:") && !k.endsWith(":旧预设")).length), 0, "点一下开关不立刻写整份草稿");
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));

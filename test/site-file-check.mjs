@@ -18,12 +18,12 @@ try {
     window.__toasts = [];
     window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
     window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [], activeSiteId: null };
-    window.__presetAtelier.open("more", "schemes");
+    window.__presetAtelier.open("conn");
   });
   await page.waitForTimeout(400);
   // 2.6.9 有站点时导入、导出在编辑模式里（标题右边的铅笔）；没有站点时导入在空列表的提示里
   const editMode = async () => {
-    if (await page.locator('[data-a="sitesedit"]').count()) { await page.click('[data-a="sitesedit"]'); await page.waitForTimeout(150); }
+    if (await page.locator('[data-act="sitesedit"]').count()) { await page.click('[data-act="sitesedit"]'); await page.waitForTimeout(150); }
   };
   const importFile = async (name, text) => {
     if (!await page.locator("[data-import-sites]").count()) await editMode();
@@ -32,18 +32,18 @@ try {
   };
 
   // 1) 别处的写法：数组、baseUrl / apiKey、api_url + keys
-  assert.equal(await page.locator('[data-a="exportsites"]').count(), 0, "没有站点时不显示导出");
-  assert.equal(await page.locator('.pa-empty [data-import-sites]').count(), 1, "没有站点时导入在空列表的提示里");
+  assert.equal(await page.locator('[data-act="exportsites"]').count(), 0, "没有站点时不显示导出");
+  assert.equal(await page.locator('.cw-empty-line [data-import-sites]').count(), 1, "没有站点时导入在空列表的提示里");
   await importFile("my-apis.json", JSON.stringify([
     { name: "A站", baseUrl: "https://a.example.com/v1", apiKey: "sk-aaaa1111", model: "m1", models: ["m1", "m2"], remark: "月卡" },
     { title: "B站", api_url: "https://b.example.com/v1/", keys: [{ name: "按次", key: "sk-bbbb0001" }, { name: "按量", key: "sk-bbbb0002" }] },
     { name: "不是站点", foo: 1 }
   ]));
-  const rows = await page.locator(".pa-imp-row").allTextContents();
+  const rows = await page.locator(".cw-implist-row").allTextContents();
   assert.equal(rows.length, 2, rows.join("|"));
-  assert.match(rows[0], /A站.*新增.*a\.example\.com.*1 个密钥/);
-  assert.match(rows[1], /B站.*新增.*2 个密钥/);
-  await page.click(".pa-sheet-actions >> text=导入"); await page.waitForTimeout(400);
+  assert.match(rows[0], /A站.*a\.example\.com.*1 个密钥.*新增/);
+  assert.match(rows[1], /B站.*2 个密钥.*新增/);
+  await page.click(".cw-dlg-foot >> text=导入"); await page.waitForTimeout(400);
   let s = await S();
   assert.equal(s.sites.length, 2);
   const [a, b] = s.sites;
@@ -54,10 +54,10 @@ try {
   ok("导入别处写法的文件：预览后新增两个站点，密钥存进密钥库");
 
   // 2) 导出（含密钥）：平时标题右边只有铅笔和 ＋，导出在编辑模式里
-  assert.equal(await page.locator('[data-a="exportsites"]').count(), 0, "平时不显示导出");
+  assert.equal(await page.locator('[data-act="exportsites"]').count(), 0, "平时不显示导出");
   await editMode();
-  await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
-  const [dl] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=含密钥")]);
+  await page.click('[data-act="exportsites"]'); await page.waitForTimeout(200);
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click(".cw-menu-item >> text=含密钥")]);
   assert.match(dl.suggestedFilename(), /^api-sites-\d{8}-\d{4}\.json$/);
   const text = fs.readFileSync(await dl.path(), "utf8");
   const file = JSON.parse(text);
@@ -67,8 +67,8 @@ try {
 
   // 3) 再导入同一个文件：同名同网址是更新，密钥一样不重复存
   await importFile("back.json", text);
-  assert.match((await page.locator(".pa-imp-row").allTextContents()).join("|"), /A站更新.*B站更新/);
-  await page.click(".pa-sheet-actions >> text=导入"); await page.waitForTimeout(400);
+  assert.match((await page.locator(".cw-implist-row").allTextContents()).join("|"), /A站.*更新.*B站.*更新/);
+  await page.click(".cw-dlg-foot >> text=导入"); await page.waitForTimeout(400);
   s = await S();
   assert.equal(s.sites.length, 2);
   assert.equal(await vault(), 3, "密钥一样，不重复存");
@@ -78,7 +78,7 @@ try {
   // 4) 站点丢了密钥（如更新后要重填）：导入补回来
   await page.evaluate(() => { const x = window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0]; x.secretId = null; x.keyMask = ""; });
   await importFile("back.json", text);
-  await page.click(".pa-sheet-actions >> text=导入"); await page.waitForTimeout(400);
+  await page.click(".cw-dlg-foot >> text=导入"); await page.waitForTimeout(400);
   s = await S();
   assert.ok(s.sites[0].secretId && s.sites[0].keyMask === "sk-…1111");
   assert.equal(await vault(), 4);
@@ -102,16 +102,16 @@ try {
       }]
     }
   }));
-  const row = (await page.locator(".pa-imp-row").allTextContents()).join("|");
-  assert.match(row, /🌲.*新增.*tree\.example\.ai.*1 个密钥.*2 个模型.*2 个分类/, row);
-  await page.click(".pa-sheet-actions >> text=导入"); await page.waitForTimeout(400);
+  const row = (await page.locator(".cw-implist-row").allTextContents()).join("|");
+  assert.match(row, /🌲.*tree\.example\.ai.*1 个密钥.*2 个模型.*2 个分类.*新增/, row);
+  await page.click(".cw-dlg-foot >> text=导入"); await page.waitForTimeout(400);
   s = await S();
   const t = s.sites.find((x) => x.name === "🌲");
   assert.deepEqual([t.url, t.model, t.models, t.keyMask, !!t.secretId], ["https://tree.example.ai/v1", "[AWS-A]Claude-opus-4-6", ["[AWS-A-S]Claude-opus-4-6", "[AWS-A]Claude-opus-4-6"], "sk-…1111", true]);
   assert.deepEqual(t.modelCats.map((c) => [c.name, c.models]), [["Claude", ["[AWS-A-S]Claude-opus-4-6", "[AWS-A]Claude-opus-4-6"]], ["常用", ["[AWS-A]Claude-opus-4-6"]]]);
   ok("别的扩展的分组格式：网址、密钥、模型（去掉站点前缀和占位）、当前模型、分类都导进来");
-  await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
-  const [dl2] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=不含密钥")]);
+  await page.click('[data-act="exportsites"]'); await page.waitForTimeout(200);
+  const [dl2] = await Promise.all([page.waitForEvent("download"), page.click(".cw-menu-item >> text=不含密钥")]);
   const f2 = JSON.parse(fs.readFileSync(await dl2.path(), "utf8"));
   const tree = f2.sites.find((x) => x.name === "🌲");
   assert.deepEqual(tree.cats.map((c) => c.name), ["Claude", "常用"]);

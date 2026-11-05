@@ -1,39 +1,36 @@
-// 扩展页设置框、防下拉刷新开关的检查。用法同 clean-check.mjs
-import { chromium } from "playwright";
+// 扩展页设置框、防下拉刷新开关、魔棒菜单位置
 import assert from "node:assert";
-const S = new URL("./shots/", import.meta.url).pathname;
-const exe = process.env.PW_CHROME || undefined;
-const browser = await chromium.launch({ executablePath: exe });
-const page = await browser.newPage({ viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
-const errs = [];
-page.on("pageerror", (e) => errs.push(e.message));
-await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForSelector("#pa-settings");
+import { start, ok, SHOTS } from "./helpers.mjs";
+const { page, done } = await start({ width: 820, height: 1180, mobile: true });
+await page.waitForSelector("#cw-settings");
 // 模拟酒馆把字号调大
 await page.addStyleTag({ content: ":root{--mainFontSize:22px} body{font-size:22px} code{background:#eee;color:#eee}" });
-assert.ok(await page.$("#pa-pull-guard"), "默认开启防下拉刷新");
+assert.ok(await page.$("#cw-pull-guard"), "默认开启防下拉刷新");
 assert.equal(await page.evaluate(() => getComputedStyle(document.body).overscrollBehaviorY), "none");
-const over = await page.$eval("#pa-settings", (b) => [...b.querySelectorAll(".pa-set-intro, .pa-set-foot, .pa-set-note")].some((x) => x.scrollWidth > x.clientWidth + 2));
+const over = await page.$eval("#cw-settings", (b) => [...b.querySelectorAll(".cw-set-intro, .cw-set-foot, .cw-set-note")].some((x) => x.scrollWidth > x.clientWidth + 2));
 assert.ok(!over, "说明文字不横向溢出");
-const foot = await page.$eval(".pa-set-foot", (x) => x.textContent);
-assert.match(foot, /\/atelier/);
-await page.$eval("#pa-settings", (b) => b.scrollIntoView());
-await page.click("#pa-settings summary");
-await page.screenshot({ path: S + "s-1-settings.png", fullPage: true });
+assert.match(await page.textContent(".cw-set-foot"), /\/atelier/);
+await page.$eval("#cw-settings", (b) => b.scrollIntoView());
+await page.click('#cw-settings [data-r="compat"] summary');
 await page.click("[data-opt=noPullRefresh]");
-assert.ok(!(await page.$("#pa-pull-guard")), "关闭后移除");
+assert.ok(!(await page.$("#cw-pull-guard")), "关闭后移除");
 await page.click("[data-opt=noPullRefresh]");
-assert.ok(await page.$("#pa-pull-guard"));
+assert.ok(await page.$("#cw-pull-guard"));
+ok("防下拉刷新开关");
+// 改名：原地改，面板和菜单同步
+await page.click('#cw-settings [data-a="rename"]');
+await page.fill("#cw-settings .cw-set-input", "鸡翅测试");
+await page.click('#cw-settings [data-a="rename-ok"]');
+assert.equal(await page.textContent('#cw-settings [data-r="name"] .cw-appname'), "鸡翅测试");
+assert.equal(await page.textContent("#cw-menu-entry .cw-appname"), "鸡翅测试");
+ok("改名同步到菜单");
 // 魔棒菜单：别的扩展晚加进来，本项也留在最下面
 const last = await page.evaluate(async () => {
   const m = document.getElementById("extensionsMenu");
-  if (!m) return "skip";
   const x = document.createElement("div"); x.textContent = "后加载的扩展"; m.append(x);
   await new Promise((r) => setTimeout(r, 50));
   return m.lastElementChild.id;
 });
-assert.ok(last === "skip" || last === "pa-menu-entry", "魔棒菜单里始终在最下面");
-await page.screenshot({ path: S + "s-2-settings.png", clip: await page.$eval("#pa-settings", (b) => { const r = b.getBoundingClientRect(); return { x: r.x, y: r.y + scrollY, width: r.width, height: Math.min(r.height, 1100) }; }) });
-assert.deepEqual(errs, []);
-console.log("设置框检查通过");
-await browser.close();
+assert.equal(last, "cw-menu-entry", "魔棒菜单里始终在最下面");
+await page.screenshot({ path: SHOTS + "s-settings.png", fullPage: true });
+await done("设置框检查通过");

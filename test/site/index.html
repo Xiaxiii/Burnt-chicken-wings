@@ -35,6 +35,11 @@ body{margin:0;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-se
   };
   window.SillyTavern = { getContext: () => ctx };
   const s = document.createElement("script"); s.type = "module"; s.src = "../../index.js?" + Date.now(); document.head.append(s);
+  // ?open=页面名：加载后直接打开面板（设计检查用）；&theme=配色
+  const q = new URLSearchParams(location.search);
+  if (q.get("theme")) ctx.extensionSettings.presetAtelier = { theme: q.get("theme") };
+  if (q.get("open")) document.head.insertAdjacentHTML("beforeend", "<style>.bg,#extensions_settings,#extensionsMenu{display:none}</style>");
+  if (q.get("open")) { const t = setInterval(() => { if (window.__presetAtelier?.open) { clearInterval(t); window.__presetAtelier.open(q.get("open")); } }, 50); }
 })();
 </script></head>
 <body><div class="bg">第3章｜两个音节摧毁了一个政客家族继承人二十三年来精心搭建的全部理性防线 少年没有立刻回答。</div>

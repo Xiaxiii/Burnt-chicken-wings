@@ -93,7 +93,7 @@ try {
     const c=window.SillyTavern.getContext();c.chat.push({is_user:true,mes:'测试输入'},{is_user:false,mes:text});c.variables.local.del('bcw_attack');
   },text);
   const chatBefore=await page.evaluate(()=>JSON.stringify(window.SillyTavern.getContext().chat));
-  await page.click('[data-tab=\"reply\"]').then(() => page.click('[data-reply-format]'));
+  await page.click('[data-reply-format]');
   await page.locator('.pa-sheet details').filter({hasText:'AI 语义审查（可选）'}).locator('summary').click();
   await page.click('[data-r=ai-latest]');
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('模型标记了疑似内部分析'),null,{timeout:15000});

@@ -25,14 +25,14 @@ await page.evaluate(async () => {
   window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
   (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.push({ id: "old", value: "old", active: true });
   window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [{ id: "x", name: "小汐", source: "custom", url: "https://x.example/v1", model: "m1", models: ["m1"], secretId: "old", keyMask: "sk-…oldd" }], activeSiteId: "x" };
-  window.__presetAtelier.open("more", "schemes");
+  window.__presetAtelier.open("conn");
 });
 await page.waitForTimeout(400);
 assert.equal(await active(), "old");
 // 编辑「小汐」，填新密钥，保存
-await page.locator(".pa-plan-sites .pa-site b", { hasText: "小汐" }).click(); await page.waitForTimeout(300);
-await page.fill(".pa-sheet [data-f=key]", "sk-new-key-abcd");
-await page.locator(".pa-sheet-mask:not(.pa-out) .pa-sheet-actions .pa-btn-primary").click();
+await page.locator("[data-r=sites] .cw-site b", { hasText: "小汐" }).click(); await page.waitForTimeout(300);
+await page.fill(".cw-dlg [data-f=key]", "sk-new-key-abcd");
+await page.locator("#cw-root .cw-layer > .cw-scrim:not(.cw-out) .cw-dlg-foot .cw-btn-primary").click();
 await page.waitForTimeout(2500);
 assert.equal(await active(), "bcd", "当前连接换上了新密钥（模拟密钥库只存末三位）");
 const site = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0]);

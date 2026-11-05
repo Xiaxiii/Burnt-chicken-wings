@@ -30,7 +30,7 @@ const check = await page.evaluate(() => {
   return { saved: !!e, prev, head: e?.content.slice(0, 40), tail: e?.content.slice(-60) };
 });
 console.log("E2E", JSON.stringify(check));
-await page.click('[data-tab="organize"]'); await page.click('[data-page="organize"] [data-view="cot"]'); await page.waitForTimeout(400);
+await page.click('[data-tab="cot"]'); await page.waitForTimeout(400);
 await page.screenshot({ path: "test/shots/real-5-cot-ariadne.png" });
 console.log(errs.join("\n") || "no page errors");
 await browser.close();

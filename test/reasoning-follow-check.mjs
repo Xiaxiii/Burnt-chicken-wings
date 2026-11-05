@@ -42,11 +42,11 @@ try {
   ok('默认关闭，切换预设不改推理格式、不记录');
 
   // 在界面上打开开关：记下当前预设（甲）现在的格式
-  await page.evaluate((A) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(A); window.__presetAtelier.open('more'); }, A);
-  await page.click('[data-tab="conn"]').catch(() => {});
-  const box = page.locator('[data-o=reasoningfollow]');
-  await box.waitFor();
-  await box.check();
+  await page.evaluate((A) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(A); window.__presetAtelier.open('conn'); }, A);
+  await page.waitForTimeout(1).catch(() => {});
+  const box = page.locator('[data-act=reasoningfollow]');
+  await box.waitFor({ state: 'attached' });
+  await box.check({ force: true });
   await switchTo(names[1]);
   assert.deepEqual(await now(), A, '乙没有记录时保持当前设置');
   await page.evaluate((B) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(B); }, B);
@@ -66,34 +66,33 @@ try {
     c.getPresetManager = (api) => api === 'reasoning' ? { getPresetList: () => ({ presets: templates }) } : orig(api);
   });
   const stored = (n) => page.evaluate((n) => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier.reasoningByPreset[n]), n);
-  const rows = page.locator('.pa-rrow');
-  const sheet = page.locator('.pa-sheet-mask:not(.pa-out)').last();
-  // 2.4.0：收起时只显示条数；点这一行（不是方框）展开记录列表，方框不变
-  const card = page.locator('.pa-optgroup[data-w=reasoning]');
-  assert.equal(await card.locator('.pa-rrow').count(), 0, '收起时不显示列表');
-  assert.equal(await card.locator('.pa-optcount').innerText(), '2');
-  await card.locator('.pa-optlabel').click();
+  const rows = page.locator('.cw-rrow');
+  const sheet = page.locator('#cw-root .cw-layer > .cw-scrim:not(.cw-out)').last();
+  // 开着时，开关下面直接列出每个预设的记录
+  const card = page.locator('#cw-root [data-r=optsbody]');
+  const reopen = async () => { await page.evaluate(() => window.__presetAtelier.open('conn')); await page.waitForTimeout(300); };
+  await reopen();
   await rows.first().waitFor();
-  assert.equal(await box.isChecked(), true, '点这一行只展开，不改勾选');
+  assert.equal(await box.isChecked(), true);
   assert.equal(await rows.count(), 2);
   assert.equal(await rows.nth(0).getAttribute('data-name'), names[1]);
   assert.match(await rows.nth(0).innerText(), /当前[\s\S]*<think>[\s\S]*不解析/);
-  assert.equal(await rows.nth(0).locator('[data-a=reasoningdel]').count(), 0, '当前预设不给删除');
+  assert.equal(await rows.nth(0).locator('[data-act=reasoningdel]').count(), 0, '当前预设不给删除');
   assert.match(await rows.nth(1).innerText(), /<ECoT>[\s\S]*自动解析/);
-  assert.match(await rows.nth(1).locator('.pa-rfmt').getAttribute('title'), /ECoT · <ECoT> … <\/ECoT> · 自动解析、显示隐藏内容/, '完整设置在悬停提示里');
-  ok('展开后列出每个预设记住的推理格式');
+  assert.match(await rows.nth(1).locator('.cw-rrow-main small').getAttribute('title'), /ECoT · <ECoT> … <\/ECoT> · 自动解析、显示隐藏内容/, '完整设置在悬停提示里');
+  ok('列出每个预设记住的推理格式');
 
   // 改其他预设的记录：只改记录，切过去才套用；换模板带出模板的前后缀
-  await rows.nth(1).locator('[data-a=reasoningedit]').click();
+  await rows.nth(1).locator('[data-act=reasoningedit]').click();
   await sheet.locator('textarea[data-k=separator]').waitFor();
   assert.equal(await sheet.locator('textarea[data-k=separator]').inputValue(), '\n', '开头的换行不丢');
-  assert.equal(await sheet.locator('.pa-field:has(textarea[data-k=separator]) .pa-rws').innerText(), '（↵）', '只有换行时标出来');
+  assert.equal(await sheet.locator('.cw-field:has(textarea[data-k=separator]) .cw-rws').innerText(), '（↵）', '只有换行时标出来');
   await sheet.locator('select[data-k=name]').selectOption('DeepSeek');
   assert.equal(await sheet.locator('textarea[data-k=prefix]').inputValue(), '<think>\n', '换模板带出前缀');
   await sheet.locator('textarea[data-k=suffix]').fill('</think>');
   await sheet.locator('input[data-k=auto_parse]').uncheck();
   await sheet.locator('input[data-k=max_additions]').fill('3');
-  await sheet.locator('.pa-btn-primary').click();
+  await sheet.locator('.cw-btn-primary').click();
   const edited = { ...A, name: 'DeepSeek', prefix: '<think>\n', suffix: '</think>', separator: '\n\n', auto_parse: false, max_additions: 3 };
   assert.deepEqual(await stored(names[0]), edited);
   assert.deepEqual(await now(), B, '改其他预设的记录不动酒馆现在的设置');
@@ -102,10 +101,10 @@ try {
   ok('修改其他预设的记录，切过去时套用');
 
   // 改当前预设：立即改酒馆设置并同步酒馆面板
-  await page.locator('.pa-rrow.pa-srow-on [data-a=reasoningedit]').click();
+  await page.locator('.cw-rrow.is-on [data-act=reasoningedit]').click();
   await sheet.locator('textarea[data-k=prefix]').fill('<cot>');
   await sheet.locator('input[data-k=show_hidden]').uncheck();
-  await sheet.locator('.pa-btn-primary').click();
+  await sheet.locator('.cw-btn-primary').click();
   assert.equal((await now()).prefix, '<cot>');
   assert.equal((await now()).show_hidden, false);
   assert.equal(await page.evaluate(() => document.getElementById('reasoning_prefix').value), '<cot>');
@@ -114,32 +113,30 @@ try {
 
   // 在酒馆面板里改过后，收起再展开显示新值
   await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning.prefix = '<fresh>'; });
-  assert.doesNotMatch(await page.locator('.pa-rrow.pa-srow-on').innerText(), /<fresh>/);
-  await card.locator('.pa-optlabel').click();
-  await card.locator('.pa-optlabel').click();
-  assert.match(await page.locator('.pa-rrow.pa-srow-on').innerText(), /<fresh>/);
+  assert.doesNotMatch(await page.locator('.cw-rrow.is-on').innerText(), /<fresh>/);
+  await reopen();
+  assert.match(await page.locator('.cw-rrow.is-on').innerText(), /<fresh>/);
   await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning.prefix = '<cot>'; });
-  await card.locator('.pa-optlabel').click();
-  await card.locator('.pa-optlabel').click();
-  ok('收起再展开显示酒馆里改过的设置');
+  await reopen();
+  ok('重新打开时显示酒馆里改过的设置');
 
   // 删除一条记录；给没记录的预设新建一条
-  await page.locator(`.pa-rrow[data-name="${names[1]}"] [data-a=reasoningdel]`).click();
-  await sheet.locator('.pa-btn-danger').click();
+  await page.locator(`.cw-rrow[data-name="${names[1]}"] [data-act=reasoningdel]`).click();
+  await sheet.locator('.cw-btn-danger').click();
   assert.equal(await stored(names[1]), undefined);
-  await page.locator('[data-a=reasoningadd]').click();
-  await sheet.locator('.pa-pick-item').filter({ hasText: names[1] }).click();
+  await page.locator('[data-act=reasoningadd]').click();
+  await sheet.locator('.cw-choice').filter({ hasText: names[1] }).click();
   await sheet.locator('textarea[data-k=prefix]').waitFor();
   assert.equal(await sheet.locator('textarea[data-k=prefix]').inputValue(), '<cot>', '新建时先填酒馆现在的设置');
   await sheet.locator('textarea[data-k=prefix]').fill('<new>');
-  await sheet.locator('.pa-btn-primary').click();
+  await sheet.locator('.cw-btn-primary').click();
   assert.equal((await stored(names[1])).prefix, '<new>');
   assert.equal((await now()).prefix, '<cot>');
   ok('可删除记录，也可给没记录的预设新建');
 
   await page.waitForTimeout(300);
-  await box.uncheck();
-  assert.equal(await card.locator('.pa-rrow').count(), 0, '关闭后不显示记录列表');
+  await box.uncheck({ force: true });
+  assert.equal(await card.locator('.cw-rrow[data-name]').count(), 0, '关闭后不显示记录列表');
   assert.match(await card.innerText(), /已记住 2 个预设/, '关闭后只显示记了几个、可清除');
   const before = await now();
   await switchTo(names[1]);

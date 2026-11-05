@@ -1,5 +1,5 @@
 // 只检查当前回复原文；格式提醒通过酒馆的临时提示接口加入，不改聊天或预设正文。
-// 2.6.11 不再自动提醒。检查发现问题后，玩家在「思维链 → 格式」点「下一轮提醒一次」，下一次生成加入一次，用完即清；
+// 2.6.11 不再自动提醒。检查发现问题后，玩家在「回复」页点「下一轮提醒一次」，下一次生成加入一次，用完即清；
 // 生成后发现问题时只弹提示给玩家看（不发给 AI），点提示打开检查
 var REPLY_GUARD_KEY = "presetAtelier:reply-format";
 function replyGuardConfig(name = currentPresetName()) {
@@ -278,7 +278,7 @@ function replyLayoutLazy(chat, index, rules) {
   return () => value ??= replyLayoutBefore(chat, index, rules);
 }
 // 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改（2.6.16 起去掉多包的一层、改回结构对得上的错名）。
-// 修正前的问题记在这里，点「下一轮提醒一次」时按修正前的问题写提醒；undo 供「格式」窗口撤销
+// 修正前的问题记在这里，点「下一轮提醒一次」时按修正前的问题写提醒；undo 供「回复」页撤销
 var replyAutoFixed = null;
 var replyAutoFixPending = false;
 // 这一轮被手动停止过（停止和结束两个事件谁先到都不改）
@@ -350,7 +350,7 @@ function scheduleReplyAutoFix() {
           const rest = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));
           replyNoticed = undo.snapshot;
           if (rest.length && config.notice !== false) return replyNoticeToast(`已自动修正这条回复：${plan.steps.join("；")}。还有 ${rest.length} 个问题，${next}`);
-          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。${remind ? `下一轮将提醒用 <${status.tag}>。` : ""}可在「回复 → 格式设置」里撤销`, left.length ? "warning" : "success");
+          return toast(`已自动修正这条回复：${plan.steps.join("；")}${left.length ? `。还有 ${left.length} 个问题要手动处理` : ""}。${remind ? `下一轮将提醒用 <${status.tag}>。` : ""}可在「回复」页撤销`, left.length ? "warning" : "success");
         }
       }
       const sure = left.filter((i) => REPLY_NOTICE_KINDS.has(i.kind));

@@ -60,30 +60,30 @@ async function boot() {
     m.presets.splice(0, m.presets.length, target, source);
     m.live.preset_settings_openai = targetName;
     Object.assign(m.live, structuredClone(target));
-    window.__presetAtelier.open('suture');
+    window.__presetAtelier.open('stitch');
   }, { target, source, targetName, sourceName });
-  await choose(page, '.pa-src-name', sourceName);
-  await choose(page, '.pa-dst-picker .pa-namebtn', targetName);
+  await choose(page, '.cw-src-pick .cw-pick-btn', sourceName);
+  await choose(page, '.cw-dst-pick .cw-pick-btn', targetName);
   return page;
 }
 async function selectFour(page) {
-  for (let i = 0; i < 4; i++) await page.locator(`.pa-src-list [data-id="source-${i}"] .pa-name`).click();
-  assert.match(await page.locator('.pa-picked-n').innerText(), /已选 4 条/);
+  for (let i = 0; i < 4; i++) await page.locator(`.cw-pane-src .cw-list [data-id="source-${i}"] .cw-row-name`).click();
+  assert.match(await page.locator('.cw-picked-n').innerText(), /已选 4 条/);
 }
 async function count(page, n) {
   assert.equal(await page.locator('[data-enable-count]').innerText(), `${n > 0 && n < 4 ? '部分开启' : '缝后开启'}：${n} / 4`);
-  assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), n);
+  assert.equal(await page.locator('.cw-review [data-c=on]:checked').count(), n);
   assert.deepEqual(await page.locator('[data-enable-toggle]').evaluate(x => [x.checked, x.indeterminate]), [n === 4, n > 0 && n < 4]);
 }
 try {
   for (const scenario of ['all-off', 'all-on', 'one-on']) {
     const page = await boot();
     await selectFour(page);
-    await page.locator('.pa-dst-list .pa-group').first().locator('.pa-gname').click();
-    await page.click('[data-st=go]');
-    await page.waitForSelector('.pa-review .pa-item');
+    await page.locator('.cw-pane-dst .cw-list .cw-group').first().locator('.cw-gname > span').click();
+    await page.click('[data-act=st-go]');
+    await page.waitForSelector('.cw-review .cw-item');
     await count(page, 2);
-    equal(await page.locator('.pa-review [data-c=on]').evaluateAll(xs => xs.map(x => x.checked)), [true, false, true, false], '缝后开关默认与来源条目一致');
+    equal(await page.locator('.cw-review [data-c=on]').evaluateAll(xs => xs.map(x => x.checked)), [true, false, true, false], '缝后开关默认与来源条目一致');
     // 部分开启时点总开关先全开，再点全关
     await page.locator('[data-enable-toggle]').check();
     await count(page, 4);
@@ -95,9 +95,9 @@ try {
     await page.locator('[data-enable-toggle]').uncheck();
     await count(page, 0);
     if (scenario === 'all-on') { await page.locator('[data-enable-toggle]').check(); await count(page, 4); }
-    if (scenario === 'one-on') { await page.locator('.pa-review [data-c=on]').nth(2).check(); await count(page, 1); }
+    if (scenario === 'one-on') { await page.locator('.cw-review [data-c=on]').nth(2).check(); await count(page, 1); }
     equal(await saved(page), target, `${scenario}：未确认只改变预览开关`);
-    await page.locator('.pa-sheet-actions .pa-btn-primary').click();
+    await page.locator('.cw-dlg-foot .cw-btn-primary').click();
     await page.waitForFunction(name => {
       const m = window.__mock;
       return m.presets[m.names.indexOf(name)].prompts.length === 7;
@@ -115,7 +115,7 @@ try {
     const enabled = added.map(p => result.prompt_order[0].order.find(o => o.identifier === p.identifier).enabled);
     equal(enabled, scenario === 'all-off' ? [false, false, false, false] : scenario === 'all-on' ? [true, true, true, true] : [false, false, true, false], '确认后仅为新增条目保存选择');
     equal(await page.evaluate(name => window.__mock.presets[window.__mock.names.indexOf(name)], sourceName), source, '来源预设不改变');
-    await page.click('[data-g=undo]');
+    await page.click('#cw-root .cw-top [data-act=undo]');
     await page.waitForFunction(name => {
       const m = window.__mock;
       return m.presets[m.names.indexOf(name)].prompts.length === 3;
@@ -128,22 +128,22 @@ try {
     const page = await boot();
     await selectFour(page);
     await chooseDstType(page, 'world');
-    await choose(page, '.pa-dst-wb', '示例世界书');
+    await choose(page, '.cw-dst-pick .cw-pick-btn', '示例世界书');
     const before = await page.evaluate(() => structuredClone(window.__wiStore['示例世界书']));
-    await page.locator('.pa-dst-list [data-act=top]').click();
-    await page.click('[data-st=go]');
-    await page.waitForSelector('.pa-review .pa-item');
+    await page.locator('.cw-pane-dst .cw-list [data-act=top]').click();
+    await page.click('[data-act=st-go]');
+    await page.waitForSelector('.cw-review .cw-item');
     await count(page, 2);
     await page.locator('[data-enable-toggle]').check(); await count(page, 4);
     await page.locator('[data-enable-toggle]').uncheck(); await count(page, 0);
     await page.locator('[data-enable-toggle]').check(); await count(page, 4);
     await page.locator('[data-enable-toggle]').uncheck(); await count(page, 0);
-    await page.locator('.pa-review [data-c=on]').nth(1).check(); await count(page, 1);
+    await page.locator('.cw-review [data-c=on]').nth(1).check(); await count(page, 1);
     await page.locator('[data-enable-toggle]').focus();
     await page.keyboard.press('Space'); await count(page, 4);
     await page.keyboard.press('Space'); await count(page, 0);
     equal(await page.evaluate(() => window.__wiStore['示例世界书']), before, '世界书预览开关也不提前保存');
-    await page.locator('.pa-sheet-actions .pa-btn-primary').click();
+    await page.locator('.cw-dlg-foot .cw-btn-primary').click();
     await page.waitForFunction(() => Object.values(window.__wiStore['示例世界书'].entries).length === 6);
     const after = await page.evaluate(() => window.__wiStore['示例世界书']);
     const added = Object.values(after.entries).filter(e => !(String(e.uid) in before.entries));
@@ -154,8 +154,8 @@ try {
       const { displayIndex: oldDisplay, ...oldRest } = old, { displayIndex: newDisplay, ...newRest } = after.entries[key];
       equal(newRest, oldRest, '原世界书正文、开关及触发设置不变，仅插入位置序号顺延');
     }
-    await page.click('[data-st=wbundo]');
-    await page.locator('.pa-sheet .pa-btn-danger').click();
+    await page.click('[data-act=st-wbundo]');
+    await page.locator('.cw-dlg .cw-btn-danger').click();
     await page.waitForFunction(() => Object.values(window.__wiStore['示例世界书'].entries).length === 2);
     equal(await page.evaluate(() => window.__wiStore['示例世界书']), before, '世界书撤销恢复原始条目和排列');
     equal(await saved(page), target, '世界书缝合不改变预设目标');

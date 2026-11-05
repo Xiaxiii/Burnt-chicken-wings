@@ -10,7 +10,7 @@ for (const mode of ["script", "both"]) {
   await page.goto(`http://127.0.0.1:8765/test/site/script.html?mode=${mode}`);
   await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
   await page.waitForTimeout(800);
-  const info = await page.evaluate(() => ({ kind: window.__presetAtelier.kind, version: window.__presetAtelier.version, menus: document.querySelectorAll("#pa-menu-entry").length, styles: document.querySelectorAll("#pa-style").length }));
+  const info = await page.evaluate(() => ({ kind: window.__presetAtelier.kind, version: window.__presetAtelier.version, menus: document.querySelectorAll("#cw-menu-entry").length, styles: document.querySelectorAll("#cw-style").length }));
   console.log(mode, JSON.stringify(info), logs.filter((l) => /焦香鸡翅|ERR/.test(l)).join(" | "));
   assert.equal(info.kind, mode === "script" ? "script" : "extension");
   assert.equal(info.menus, 1, "菜单入口只有一个");

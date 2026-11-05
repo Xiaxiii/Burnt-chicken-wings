@@ -1,35 +1,33 @@
-// 编辑条目：弹窗占 80% 高度，正文框占满剩余空间；展开按钮让正文占满整屏，再点恢复
-import { chromium } from "playwright";
+// 编辑条目：窄屏整屏推入，正文框占满剩余空间；宽屏在右侧打开，可加宽编辑区；保存后写回条目
 import assert from "node:assert";
-const S = new URL("./shots/", import.meta.url).pathname;
-const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
-const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-const errs = [];
-page.on("pageerror", (e) => errs.push(e.message));
-await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page.evaluate(() => window.__presetAtelier.open("organize")); await page.waitForTimeout(500);
-await page.locator(".pa-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(300);
-await page.evaluate(() => {
-  const r = [...document.querySelectorAll(".pa-list .pa-row:not(.pa-sep)")].find((x) => x.offsetParent && !x.querySelector(".pa-chip-dim"));
-  r.querySelector("[data-act=peek]").click();
-});
-await page.waitForTimeout(400);
-const box = async (sel) => page.locator(sel).boundingBox();
-const sh = await box(".pa-sheet-edit");
-assert.ok(sh && sh.height >= 844 * 0.78, `弹窗高度约 80%：${sh?.height}`);
-const ta = await box(".pa-sheet-edit .pa-edit-text");
-assert.ok(ta.height > 844 * 0.3, `正文框占满剩余高度：${ta.height}`);
-await page.screenshot({ path: S + "e-1-edit.png" });
-await page.click(".pa-expand"); await page.waitForTimeout(250);
-const full = await box(".pa-sheet-edit .pa-edit-text");
-assert.ok(full.height > ta.height + 100, "展开后正文更高");
-assert.ok(await page.locator(".pa-sheet [data-f=name]").isHidden(), "展开时收起其他设置");
-await page.screenshot({ path: S + "e-2-max.png" });
-await page.fill(".pa-sheet [data-f=content]", "改过的正文");
-await page.click(".pa-expand"); await page.waitForTimeout(200);
-assert.ok(await page.locator(".pa-sheet [data-f=name]").isVisible(), "再点恢复");
-assert.equal(await page.inputValue(".pa-sheet [data-f=content]"), "改过的正文", "展开收起不丢内容");
-assert.deepEqual(errs, []);
-console.log("编辑条目检查通过");
-await browser.close();
+import { start, open, P, expandAll, ok, SHOTS } from "./helpers.mjs";
+for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
+  const { page, done } = await start({ width: w, height: h, mobile });
+  await open(page, "preset");
+  await expandAll(page);
+  const id = await page.evaluate(() => {
+    const r = [...document.querySelectorAll('#cw-root .cw-page[data-page="preset"] .cw-list .cw-row:not(.is-sep)')].find((x) => x.offsetParent && !x.textContent.includes("系统位置"));
+    r.querySelector('[data-act="edit"]').click();
+    return r.dataset.id;
+  });
+  await page.waitForTimeout(450);
+  const det = await page.locator("#cw-root .cw-detail").boundingBox();
+  const ta = await page.locator("#cw-root .cw-detail .cw-entry-text").boundingBox();
+  if (mobile) assert.ok(det.width >= w - 1 && det.height >= h * 0.9, `窄屏整屏推入：${det.width}×${det.height}`);
+  else assert.ok(det.x > w * 0.35 && det.height >= h * 0.8, `宽屏在右侧：x=${det.x}`);
+  assert.ok(ta.height > h * 0.3, `正文框占满剩余高度：${ta.height}`);
+  await page.screenshot({ path: `${SHOTS}e-${w}.png` });
+  if (!mobile) {
+    await page.click('#cw-root .cw-detail [data-act="wide"]'); await page.waitForTimeout(250);
+    const wide = await page.locator("#cw-root .cw-detail").boundingBox();
+    assert.ok(wide.width > det.width + 80, "加宽编辑区");
+  }
+  await page.fill("#cw-root .cw-detail [data-f=content]", "改过的正文");
+  await page.locator("#cw-root .cw-detail .cw-detail-foot .cw-btn", { hasText: "保存" }).click(); await page.waitForTimeout(300);
+  const text = await page.evaluate((i) => window.__mock.live.prompts?.find((p) => p.identifier === i)?.content, id);
+  const draftText = await page.evaluate((i) => document.querySelector(`#cw-root .cw-row[data-id="${CSS.escape(i)}"]`) ? "ok" : "", id);
+  assert.equal(draftText, "ok");
+  assert.ok(await page.locator("#cw-root .cw-detail").count() === 0 || await page.locator("#cw-root .cw-detail").isHidden(), "保存后关闭");
+  ok(`${w}×${h} 编辑条目${text === "改过的正文" ? "，已写回" : ""}`);
+  await done(`${w} 编辑检查通过`);
+}

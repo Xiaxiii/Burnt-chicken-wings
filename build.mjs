@@ -25,7 +25,7 @@ const wrapper = `// 焦香鸡翅 ${VERSION}（脚本版）：把主程序注入�
     try { if (window.parent && window.parent !== window && window.parent.document) W = window.parent; } catch (e) { /* 跨域时留在当前页 */ }
     const cur = W.__presetAtelier;
     if (cur && cur.kind === "extension") { console.info("[焦香鸡翅] 已经装了扩展版，脚本版不再启动"); return; }
-    if (cur && cur.version === ${JSON.stringify(VERSION)} && W.document.getElementById('pa-style')) return;
+    if (cur && cur.version === ${JSON.stringify(VERSION)} && W.document.getElementById('cw-style')) return;
     const s = W.document.createElement('script');
     s.type = 'module';
     s.dataset.presetAtelier = ${JSON.stringify(VERSION)};
