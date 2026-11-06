@@ -67,6 +67,9 @@ try {
       m.presets.push(make(['古文文风', '古典白描'], 'src'), make(['目标正文规则'], 'dst'));
       m.live.preset_settings_openai = '对比度目标';
       Object.assign(m.live, structuredClone(m.presets.at(-1)));
+      // 2.7.1 默认配色为「素」，这里检查跟随酒馆主题
+      const st = window.SillyTavern.getContext().extensionSettings;
+      Object.assign(st.presetAtelier || (st.presetAtelier = {}), { theme: 'follow', ui271: true });
       window.__presetAtelier.open('suture');
     });
     await choose(page, '.pa-src-name', '对比度来源');

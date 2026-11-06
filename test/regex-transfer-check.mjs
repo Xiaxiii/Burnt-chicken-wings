@@ -310,6 +310,9 @@ try {
     const page = await boot(390);
     await page.evaluate(() => {
       for (const [key, value] of Object.entries({ SmartThemeBlurTintColor: 'rgb(32,33,38)', SmartThemeBodyColor: '#e4e1dc', SmartThemeQuoteColor: '#d0debd', SmartThemeEmColor: '#a9bfae' })) document.body.style.setProperty('--' + key, value);
+      // 2.7.1 默认配色为「素」，这一段检查跟随酒馆的深色主题
+      Object.assign(window.SillyTavern.getContext().extensionSettings.presetAtelier, { theme: 'follow', ui271: true });
+      if (!document.getElementById('pa-root').hidden) window.__presetAtelier.open();
     });
     await page.waitForFunction(() => document.getElementById('pa-root').style.getPropertyValue('--pa-tint') === 'rgb(32, 33, 38)');
     await openRegex(page);

@@ -16,7 +16,8 @@ try {
   await page.goto(URL);
   await page.waitForFunction(() => window.__presetAtelier?.open);
   await page.addStyleTag({ content: FOREIGN });
-  await page.evaluate(() => window.__presetAtelier.open());
+  // 2.7.1 默认配色「素」的输入框本来就是白底，这里用跟随酒馆主题（深色）区分
+  await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings; Object.assign(st.presetAtelier || (st.presetAtelier = {}), { theme: "follow", ui271: true }); window.__presetAtelier.open(); });
   await page.click('#pa-root [data-tool=search]');
   const q = page.locator('#pa-root .pa-findrow .pa-input');
   await q.waitFor();

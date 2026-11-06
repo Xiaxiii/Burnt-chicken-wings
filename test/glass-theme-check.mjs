@@ -47,13 +47,13 @@ for (const id of ["bud", "colony"]) {
 await page.click('[data-theme-id="dusk"]');
 await page.waitForTimeout(200);
 assert.ok(!(await page.evaluate(() => document.getElementById("pa-root").classList.contains("pa-glass"))));
-// 2.3.8 去掉了春芽：没有这个按钮，之前选过的回到跟随酒馆主题
+// 2.3.8 去掉了春芽：没有这个按钮，之前选过的回到默认配色（2.7.1 起为「素」）
 assert.equal(await page.locator('[data-theme-id="matcha"]').count(), 0);
 assert.equal(await page.evaluate(() => {
   window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = "matcha";
   window.__presetAtelier.open("organize");
   return document.getElementById("pa-root").dataset.theme;
-}), "follow");
+}), "su");
 assert.deepEqual(errs, []);
 console.log("毛玻璃配色检查全部通过");
 await browser.close();

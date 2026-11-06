@@ -10,7 +10,7 @@ var DEFAULTS = {
   variableWatch: false,
   keepClickOrder: true,
   followTargetInjection: true,
-  theme: "follow",
+  theme: "su",
   sutureSplit: 45,
   moreTab: "suture",
   nameWithSource: false,
