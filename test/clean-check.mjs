@@ -103,7 +103,7 @@ await page.click('[data-f="arch"]');
 await page.waitForTimeout(200);
 await page.screenshot({ path: S + "c-4-archived.png" });
 // 套用方案 → 自动从归档恢复
-await page.click('[data-m="schemes"]');
+await page.click('.pa-tabs [data-nav="schemes"]');
 await page.waitForTimeout(200);
 const card = page.locator(".pa-srow", { hasText: "旧文风" });
 assert.match(await card.innerText(), /已归档/);
@@ -114,6 +114,7 @@ assert.equal(calls.save[0].name, "【众生相】Claude-Lite-v1.7");
 assert.ok(Array.isArray(calls.save[0].preset.prompts), "恢复的是完整预设");
 assert.equal(files.size, 1, "恢复后归档文件删除");
 // 在清理页点「恢复」恢复另一份
+await page.click('.pa-tabs [data-nav="more"]');
 await page.click('[data-m="clean"]');
 await page.click('[data-f="arch"]');
 await page.waitForTimeout(200);

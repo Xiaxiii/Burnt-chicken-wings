@@ -9,7 +9,7 @@ await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.pr
 await page.waitForTimeout(500);
 await page.screenshot({ path: "test/shots/real-1-cot-zsx.png" });
 // 缝合：众生相 墟里春生 → Ariadne 笔法区
-await page.click('[data-tab="suture"]'); await page.waitForTimeout(300);
+await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(300);
 await choose(page, ".pa-dst-picker .pa-namebtn", "Ariadne_V1.3Beta"); await page.waitForTimeout(400);
 await choose(page, ".pa-src-name", "众生相-真实版"); await page.waitForTimeout(400);
 await page.evaluate(() => { for (const h of document.querySelectorAll(".pa-src-list .pa-ghead")) if (h.textContent.includes("文风设定")) h.click(); });

@@ -169,7 +169,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   await page.route("**/api/backends/chat-completions/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [{ id: "m1" }, { id: "m2" }] }) }));
   const state = () => page.evaluate(async () => (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.map((s) => `${s.id}${s.active ? "*" : ""}`).join(","));
   await page.evaluate(async () => { (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.push({ id: "old", value: "old", active: true }); });
-  await page.evaluate(() => window.__presetAtelier.open("more", "schemes"));
+  await page.evaluate(() => window.__presetAtelier.open("conn"));
   await page.waitForTimeout(500);
   // 保存一个带新密钥的站点
   await page.click("[data-a=new]"); await page.waitForTimeout(200);

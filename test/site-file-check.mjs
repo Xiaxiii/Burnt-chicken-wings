@@ -18,7 +18,7 @@ try {
     window.__toasts = [];
     window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
     window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [], activeSiteId: null };
-    window.__presetAtelier.open("more", "schemes");
+    window.__presetAtelier.open("conn");
   });
   await page.waitForTimeout(400);
   const importFile = async (name, text) => {

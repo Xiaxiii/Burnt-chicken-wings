@@ -13,7 +13,7 @@ await page.evaluate((t) => { window.SillyTavern.getContext().extensionSettings.p
 await page.waitForTimeout(400);
 await page.screenshot({ path: out("1-organize") });
 // 缝合页
-await page.click('[data-tab="suture"]');
+await page.evaluate(() => window.__presetAtelier.open("suture"));
 await page.waitForTimeout(300);
 await choose(page, ".pa-src-name", "Ako1.92-修复版");
 await page.waitForTimeout(300);
@@ -54,10 +54,10 @@ await page.waitForTimeout(200);
 await page.click('[data-tab="cot"]');
 await page.waitForTimeout(400);
 await page.screenshot({ path: out("9-cot") });
-await page.click('[data-tab="more"]');
+await page.evaluate(() => window.__presetAtelier.open("look"));
 await page.waitForTimeout(300);
 await page.screenshot({ path: out("10-more") });
-await page.click('[data-m="look"]');
+
 await page.waitForTimeout(200);
 await page.screenshot({ path: out("11-look") });
 console.log(errors.join("\n") || "no errors");

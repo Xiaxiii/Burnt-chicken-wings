@@ -35,7 +35,7 @@ try {
     window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
     (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.push({ id: "old", value: "old", active: true });
     window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [], activeSiteId: null };
-    window.__presetAtelier.open("more", "schemes");
+    window.__presetAtelier.open("conn");
   });
   await page.waitForTimeout(400);
 
@@ -140,6 +140,7 @@ try {
   ok("测试消息失败时点名分组");
 
   // 5) 方案记下分组
+  await page.evaluate(() => window.__presetAtelier.open("schemes")); await page.waitForTimeout(300);
   await page.click("[data-s=new]"); await page.waitForTimeout(300);
   await page.fill(".pa-sheet [data-f=name]", "按量方案");
   await page.selectOption(".pa-sheet [data-f=api]", "__live");
@@ -149,13 +150,16 @@ try {
   assert.equal(sc.conn.keyId, site.keys[1].id, "方案记下用的分组");
   ok("方案记下站点、分组和模型");
   // 换回按次，再套用方案：连回方案记的按量分组
+  await page.click('.pa-tabs [data-nav="conn"]'); await page.waitForTimeout(300);
   await page.locator(".pa-plan-sites .pa-site-multi .pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
   await page.waitForTimeout(2500);
   assert.equal(await vault(), "old,aaa*,bbb");
+  await page.click('.pa-tabs [data-nav="schemes"]'); await page.waitForTimeout(300);
   await page.locator(".pa-srow", { hasText: "按量方案" }).locator("[data-a=apply]").click(); await page.waitForTimeout(2500);
   assert.equal(await vault(), "old,aaa,bbb*", "套用方案连回它记的分组");
   ok("套用方案连回它记的分组");
   // 拖动 ⋮⋮ 调顺序
+  await page.click('.pa-tabs [data-nav="conn"]'); await page.waitForTimeout(300);
   await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
   // 看已保存的密钥：保存时本浏览器留了一份，直接用它；没有这份时问酒馆，不让看就在这一行下面说明
   const copyOf = (id) => page.evaluate((sid) => Object.entries(localStorage).find(([k]) => k.startsWith("presetAtelier:keycopy:") && k.endsWith(":" + sid))?.[1] || null, id);

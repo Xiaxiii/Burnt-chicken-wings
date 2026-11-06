@@ -1,12 +1,29 @@
-var TABS = [
-  ["organize", "整理"],
-  ["suture", "缝合"],
-  ["cot", "思维链"],
-  ["more", "更多"]
+// 2.7.0 导航：手机底部五栏「预设 · 方案 · 连接 · 回复 · 更多」；宽屏（≥1000px）改为左侧栏，「更多」里的工具直接列在侧栏
+var NAV_ICON = {
+  preset: '<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/>',
+  schemes: '<path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V4.5a1 1 0 0 1 1-1Z"/>',
+  conn: '<path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0V8Z"/><path d="M12 17v4"/>',
+  reply: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H9l-5 4V5.5Z"/><path d="M8 9h8M8 12h5"/>',
+  more: '<rect x="4" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5"/>',
+  suture: '<circle cx="6" cy="5.5" r="2.5"/><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 8v8"/><path d="M6 8c0 2.8 3.2 4 9.5 4"/>',
+  clean: '<rect x="3.5" y="4" width="17" height="4.5" rx="1"/><path d="M5.5 8.5V19a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V8.5"/><path d="M10 12.5h4"/>',
+  health: '<path d="M3 12h4l2.5-6 5 12 2.5-6h4"/>',
+  look: '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/>'
+};
+var NAV = [
+  ["preset", "预设", "work"], ["schemes", "方案", "work"], ["conn", "连接", "work"], ["reply", "回复", "work"],
+  ["more", "更多", "phone"],
+  ["suture", "缝合", "tool"], ["clean", "清理", "tool"], ["health", "体检", "tool"], ["look", "设置", "tool"]
 ];
+// 各页面所属栏目；「预设」「更多」在页头下方分页
+var SECTION_OF = { organize: "preset", cot: "preset", schemes: "schemes", conn: "conn", reply: "reply", suture: "more", clean: "more", health: "more", look: "more" };
+var SUBNAV = { preset: [["organize", "条目"], ["cot", "思维链"]], more: [["suture", "缝合"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
+var PAGE_TITLE = { organize: "预设", cot: "预设", schemes: "方案", conn: "连接", reply: "回复", suture: "缝合", clean: "清理", health: "体检", look: "设置" };
+var navSvg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${NAV_ICON[k]}</svg>`;
 var rootEl2;
 var pages = {};
 var current = "organize";
+var lastPresetPage = "organize";
 var cleanups = [];
 function injectStyle() {
   document.getElementById("pa-style")?.remove();
@@ -49,21 +66,29 @@ function syncViewport() {
 }
 function buildRoot() {
   document.getElementById("pa-root")?.remove();
+  const navBtn = ([k, l, grp]) => `<button type="button" class="pa-nav-${grp}" data-nav="${k}" aria-label="${l}">${navSvg(k)}<span>${l}</span></button>`;
   rootEl2 = el(`<div id="pa-root" class="pa-root" hidden>
         <div class="pa-shell">
+            <nav class="pa-tabs" aria-label="主导航">
+                <div class="pa-brand"><span class="pa-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span><span class="pa-brand-t"><b class="pa-appname">${esc(appName())}</b><small>v${esc(VERSION)} · by EC</small></span></div>
+                <span class="pa-navgl">工作</span>
+                ${NAV.filter((x) => x[2] !== "tool").map(navBtn).join("")}
+                <span class="pa-navgl">工具</span>
+                ${NAV.filter((x) => x[2] === "tool").map(navBtn).join("")}
+            </nav>
             <header class="pa-top">
-                <div class="pa-brand"><span class="pa-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span><b class="pa-appname">${esc(appName())}</b><small class="pa-by">by EC</small></div>
-                <div class="pa-savebar" hidden>
-                    <span class="pa-dirty-text"></span>
-                    <button class="pa-btn" data-g="undo">撤销</button>
-                    <button class="pa-btn pa-btn-primary" data-g="confirm" title="修改已自动保存。点「完成」结束这一批修改，之后不能再撤销">完成</button>
-                    <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
-                </div>
+                <div class="pa-head-t"><small class="pa-kicker pa-appname">${esc(appName())}</small><h2 class="pa-title"></h2></div>
                 <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份（只存在这个浏览器里）"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg></button>
-                <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭">✕</button>
+                <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </header>
-            <nav class="pa-tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</nav>
-            <main class="pa-main">${TABS.map(([k]) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
+            <div class="pa-subnav" role="tablist" hidden></div>
+            <main class="pa-main">${Object.keys(SECTION_OF).map((k) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
+            <div class="pa-savebar" role="status" hidden>
+                <span class="pa-dirty-text"></span>
+                <button class="pa-btn" data-g="undo">撤销</button>
+                <button class="pa-btn pa-btn-primary" data-g="confirm" title="修改已自动保存。点「完成」结束这一批修改，之后不能再撤销">完成</button>
+                <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
+            </div>
         </div>
     </div>`);
   document.body.append(rootEl2);
@@ -81,11 +106,17 @@ function buildRoot() {
     }
   };
   const pageEl = (k) => rootEl2.querySelector(`[data-page="${k}"]`);
+  const plan = mountPlan(pageEl("schemes"), pageEl("conn"));
   pages = {
     organize: mountOrganize(pageEl("organize"), app),
-    suture: mountSuture(pageEl("suture"), app),
     cot: mountCot(pageEl("cot"), app),
-    more: mountMore(pageEl("more"), app)
+    schemes: plan.schemes,
+    conn: plan.conn,
+    reply: mountReply(pageEl("reply")),
+    suture: mountSuture(pageEl("suture"), app),
+    clean: mountCleanup(pageEl("clean")),
+    health: mountHealth(pageEl("health"), { goClean: () => show("clean") }),
+    look: mountLook(pageEl("look"))
   };
   applyTheme(rootEl2);
   // 键盘：在条目行、分组头上按回车或空格，等于点一下
@@ -97,11 +128,16 @@ function buildRoot() {
     t.click();
   });
   rootEl2.querySelector(".pa-tabs").addEventListener("click", (e) => {
-    const t = e.target.closest("[data-tab]");
-    if (t) show(t.dataset.tab);
+    const t = e.target.closest("[data-nav]");
+    if (t) show(t.dataset.nav);
   });
-  rootEl2.querySelector(".pa-top").addEventListener("click", async (e) => {
-    const g = e.target.closest("[data-g]")?.dataset.g;
+  rootEl2.querySelector(".pa-subnav").addEventListener("click", (e) => {
+    const t = e.target.closest("[data-tab], [data-m]");
+    if (t) show(t.dataset.tab || t.dataset.m);
+  });
+  rootEl2.querySelector(".pa-shell").addEventListener("click", async (e) => {
+    const g = e.target.closest(".pa-top [data-g], .pa-savebar [data-g]")?.dataset.g;
+    if (!g) return;
     if (g === "close") return close();
     if (g === "undo") {
       const d = getDraft(focusPreset());
@@ -151,6 +187,7 @@ function updateSavebar() {
   const blocked = d ? saveBlocked.get(d.name) : null;
   const pending = !!d?.history.length;
   bar.hidden = !d || !pending && !err && !saveJobs.has(d.name);
+  bar.classList.toggle("pa-save-err", !!(err || blocked));
   rootEl2.querySelector(".pa-dirty-text").textContent = blocked
     ? (blocked.kind === "conflict" ? "已暂停保存：预设在别处被改过" : "已暂停保存：备份失败")
     : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty ? "保存中…" : "已自动保存";
@@ -160,14 +197,47 @@ function updateSavebar() {
   rootEl2.querySelector("[data-g=undo]").hidden = !pending;
   rootEl2.querySelector("[data-g=confirm]").hidden = !pending || err;
 }
-function show(tab) {
-  current = tab;
-  rootEl2.querySelectorAll(".pa-tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+// 页面键：organize cot schemes conn reply suture clean health look；栏目键 preset、more 打开上次所在的分页。
+// 兼容旧写法：open("more", "health") 等
+function resolvePage(key, sub) {
+  if (key === "more" && sub && SECTION_OF[sub]) return sub;
+  if (key === "api") return "conn";
+  if (key === "preset") return lastPresetPage;
+  if (key === "more") {
+    const m = settings().moreTab;
+    return SUBNAV.more.some(([k]) => k === m) ? m : "suture";
+  }
+  return SECTION_OF[key] ? key : "organize";
+}
+function show(key, sub) {
+  const k = resolvePage(key, sub);
+  const sec = SECTION_OF[k];
+  current = k;
+  if (sec === "preset") lastPresetPage = k;
+  if (sec === "more" && settings().moreTab !== k) {
+    settings().moreTab = k;
+    saveSettings();
+  }
+  rootEl2.dataset.paSec = sec;
+  rootEl2.querySelectorAll(".pa-tabs [data-nav]").forEach((b) => {
+    const on = b.dataset.nav === sec || b.dataset.nav === k;
+    if (on) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  const subnav = rootEl2.querySelector(".pa-subnav");
+  const subs = SUBNAV[sec];
+  subnav.hidden = !subs;
+  subnav.classList.toggle("pa-subnav-more", sec === "more");
+  if (subs) {
+    const attr = sec === "more" ? "data-m" : "data-tab";
+    subnav.innerHTML = subs.map(([sk, l]) => `<button type="button" role="tab" ${attr}="${sk}" aria-selected="${sk === k}" class="${sk === k ? "on" : ""}">${l}</button>`).join("");
+  }
+  rootEl2.querySelector(".pa-title").textContent = PAGE_TITLE[k];
   rootEl2.querySelectorAll(".pa-page").forEach((p) => {
-    p.hidden = p.dataset.page !== tab;
+    p.hidden = p.dataset.page !== k;
   });
   try {
-    pages[tab].render();
+    pages[k].render();
   } catch (e) {
     console.error(e);
     toast("出错：" + e.message, "error");
@@ -175,7 +245,6 @@ function show(tab) {
   updateSavebar();
 }
 function open(tab, sub) {
-  if (sub && tab === "more") settings().moreTab = sub;
   if (!rootEl2) buildRoot();
   rootEl2.querySelectorAll(".pa-page").forEach((page) => { page.hidden = true; });
   dropClean();
@@ -185,7 +254,7 @@ function open(tab, sub) {
   syncViewport();
   document.documentElement.classList.add("pa-open");
   document.getElementById("pa-ball")?.setAttribute("hidden", "");
-  show(tab || current);
+  show(tab || current, sub);
   pushBackState();
   setTimeout(flushAsks, 0);
 }
@@ -370,7 +439,7 @@ function addSettingsEntry() {
     </div>
   </div>`);
   // 维护模块的卡片自己处理点击（data-c），和这里的 data-a 分开
-  const card = mountCompatCard(box.querySelector(".pa-set-maint"), { openHealth: () => open("more", "health") });
+  const card = mountCompatCard(box.querySelector(".pa-set-maint"), { openHealth: () => open("health") });
   box.querySelector(".inline-drawer-toggle")?.addEventListener("click", () => setTimeout(() => card.refresh(), 0));
   const status = box.querySelector(".pa-set-status");
   const say = (html, cls = "") => {
@@ -381,7 +450,7 @@ function addSettingsEntry() {
   let busy = false;
   async function act(a, btn) {
     if (a === "open") return open();
-    if (a === "health") return open("more", "health");
+    if (a === "health") return open("health");
     if (a === "reload") return location.reload();
     if (a === "why") {
       const n = box.querySelector(".pa-set-whynote");
@@ -798,7 +867,7 @@ async function backupsSheet(name) {
   } catch (e) {
     return toast("读取备份失败：" + e.message, "error");
   }
-  if (!list.length) return toast(backupOn() ? `「${name}」暂无备份` : "自动备份已关闭，可在「更多 → 清理 → 本地备份」开启");
+  if (!list.length) return toast(backupOn() ? `「${name}」暂无备份` : "自动备份已关闭，可在「清理 → 本地备份」开启");
   const items = list.map((b) => ({ label: new Date(b.time).toLocaleString(), sub: b.reason, value: b.id }));
   const id = await pickBox(`「${name}」的备份（${list.length} 份）`, items, { hint: `${backupOn() ? "每批修改前自动备份一次。" : "自动备份已关闭。"}备份只存在本浏览器，换设备或清除数据后丢失，重要版本请下载。点一份可恢复或下载。` });
   if (!id) return;

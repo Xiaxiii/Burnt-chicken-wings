@@ -21,7 +21,8 @@ function nativeReasoningNote(message) {
   if (!new RegExp(`<\\s*${st.tag}\\s*>`, "iu").test(replyCheckMask(String(message.mes || "")))) return "";
   return `<div class="pa-card pa-card-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型回传了自己的思考，酒馆不再把 &lt;${esc(st.tag)}&gt; 解析进思考区，生成时它先出现在正文中，写完才被美化正则收起。只保留预设思维链：酒馆「AI 响应配置」关闭「请求思维链」。模型仍会思考，只是不再回传。</p></div>`;
 }
-async function replyFormatDialog(name) {
+// 2.7.0 表单拆出来：「回复」页直接嵌入，思维链页的「格式」仍以弹窗打开
+function replyForm(name, { inPage = false } = {}) {
   const saved = replyGuardConfig(name);
   const stTag = stReasoningTag();
   const thinkingDefault = saved.thinkingTag ?? (stTag && !/^think(ing)?$/i.test(stTag.tag) ? stTag.tag : "");
@@ -32,8 +33,8 @@ async function replyFormatDialog(name) {
   const semanticAvailable = semanticReviewAvailable();
   let reviewCancel = null;
   const body = el(`<div class="pa-form">
-    <div class="pa-whyrow"><p class="pa-hint">当前预设「${esc(name)}」</p>${whyBtn("preset")}</div>
-    ${whyNote("preset", "每个预设分别设置。标签名须与预设的输出格式一致。")}
+    ${inPage ? '<p class="pa-hint">按预设分别设置。标签名须与预设的输出格式一致。</p>' : `<div class="pa-whyrow"><p class="pa-hint">当前预设「${esc(name)}」</p>${whyBtn("preset")}</div>
+    ${whyNote("preset", "每个预设分别设置。标签名须与预设的输出格式一致。")}`}
     <label class="pa-field"><span>正文标签名（不填尖括号）${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
     ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
     <label class="pa-field"><span>额外必需标签（可选，逗号分隔）${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small></label>
@@ -188,14 +189,57 @@ async function replyFormatDialog(name) {
       body.querySelector('[data-r="ai-cancel"]').hidden = true;
     }
   });
-  const value = await sheet({ title: "正文格式检查", body, wide: true, noFocus: true, onMount: (wrap) => wrap.addEventListener("pa-closed", () => reviewCancel?.abort()), actions: [
-    { label: "取消", value: null },
-    { label: "保存设置", kind: "primary", validate: () => { try { read(); return true; } catch (e) { showError(e); return false; } }, value: read }
-  ] });
-  if (!value) return;
+  return { body, read, showError, abort: () => reviewCancel?.abort() };
+}
+function saveReplyConfig(name, value) {
   settings().replyGuard = { ...settings().replyGuard, [name]: value };
   saveSettings();
   clearReplyGuard();
   const on = [value.autoFix && "自动修正这条回复", value.enabled && "下一轮提醒 AI"].filter(Boolean);
   toast(on.length ? `已开启：发现正文格式问题时，${on.join("，并")}` : "已保存正文格式检查设置，自动修正和提醒都未开启", "success");
+}
+async function replyFormatDialog(name) {
+  const f = replyForm(name);
+  const value = await sheet({ title: "正文格式检查", body: f.body, wide: true, noFocus: true, onMount: (wrap) => wrap.addEventListener("pa-closed", f.abort), actions: [
+    { label: "取消", value: null },
+    { label: "保存设置", kind: "primary", validate: () => { try { f.read(); return true; } catch (e) { f.showError(e); return false; } }, value: f.read }
+  ] });
+  if (value) saveReplyConfig(name, value);
+}
+// 「回复」页：当前预设的正文格式检查、自动修正、语义审查
+function mountReply(page) {
+  page.innerHTML = `<div class="pa-toolbar"><div class="pa-picker-slot"></div></div>
+    <div class="pa-scroll pa-replypage"><div class="pa-replybox"></div></div>
+    <div class="pa-pagefoot"><button class="pa-btn pa-btn-primary" data-r="save">保存设置</button></div>`;
+  const box = page.querySelector(".pa-replybox");
+  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
+  let form = null, shown = null, savedSig = "";
+  const sigOf = (name) => JSON.stringify(replyGuardConfig(name) || {});
+  // 同一预设、设置未在别处改动时保留表单里尚未保存的输入
+  function render() {
+    const name = focusPreset();
+    picker.set(name);
+    if (form && shown === name && savedSig === sigOf(name)) return;
+    form?.abort();
+    shown = name;
+    if (!name) {
+      form = null;
+      box.innerHTML = '<p class="pa-empty">酒馆尚未选择预设。</p>';
+      return;
+    }
+    savedSig = sigOf(name);
+    form = replyForm(name, { inPage: true });
+    box.replaceChildren(form.body);
+  }
+  page.querySelector('[data-r="save"]').addEventListener("click", () => {
+    if (!form) return;
+    let value;
+    try { value = form.read(); } catch (e) { return form.showError(e); }
+    saveReplyConfig(shown, value);
+    savedSig = sigOf(shown);
+  });
+  const off = onDraftChange((name, kind) => {
+    if (kind === "focus" && draftViewVisible(page)) render();
+  });
+  return { render: () => { picker.refresh(); render(); }, destroy: () => { off(); form?.abort(); } };
 }

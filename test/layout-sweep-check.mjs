@@ -35,8 +35,8 @@ for (const [w, h, mobile] of sizes) {
   const go = async (where, fn) => { try { await fn(); await p.waitForTimeout(350); problems.push(...await scan(p, `${tag} ${where}`)); } catch (e) { problems.push(`${tag} ${where}：打不开 ${e.message.split('\n')[0]}`); } };
   await go('整理', async () => { await p.evaluate(() => window.__presetAtelier.open()); await p.click('#pa-root [data-tool=search]'); });
   await go('缝合', () => p.evaluate(() => window.__presetAtelier.open('suture')));
-  for (const sec of ['schemes', 'look', 'health', 'clean']) await go(`更多/${sec}`, () => p.evaluate((s) => window.__presetAtelier.open('more', s), sec));
-  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('more', 'schemes')); await p.click('#pa-root [data-a=new]'); });
+  for (const sec of ['schemes', 'conn', 'reply', 'look', 'health', 'clean']) await go(`更多/${sec}`, () => p.evaluate((s) => window.__presetAtelier.open('more', s), sec));
+  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('conn')); await p.click('#pa-root [data-a=new]'); });
   await go('添加站点·看密钥', async () => { await p.locator('.pa-sheet [data-f=keyeye]').first().click(); });
   await p.evaluate(() => document.querySelectorAll('#pa-root .pa-sheet-mask').forEach((m) => m.remove()));
   await go('思维链（待核对）', () => p.evaluate(({ cotPreset, NAME }) => { const m = window.__mock; m.names.splice(0, m.names.length, NAME); m.presets.splice(0, m.presets.length, cotPreset); m.live.preset_settings_openai = NAME; Object.assign(m.live, structuredClone(cotPreset)); window.__presetAtelier.open('cot'); }, { cotPreset, NAME }));

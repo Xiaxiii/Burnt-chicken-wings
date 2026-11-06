@@ -48,8 +48,8 @@ async function boot(ctx) {
   await page.waitForTimeout(600); // 自动保存已发出，还没回来
   assert.ok(log.includes("save-start:" + nameA) && !log.includes("save-end:" + nameA), "保存正在进行");
   // 用户在酒馆里换到了别的预设，再去清理页删除甲
-  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("more"); });
-  await page.click('[data-m="clean"]'); await page.waitForTimeout(300);
+  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("clean"); });
+  await page.waitForTimeout(300);
   await page.click('[data-f="all"]'); await page.waitForTimeout(200);
   await page.click(`.pa-crow:has-text("${nameA}") input[data-c=pick]`);
   await page.click('[data-c="del"]'); await page.waitForTimeout(200);
@@ -78,9 +78,8 @@ async function boot(ctx) {
         { id: "k1", name: "记着别的站点", preset: m.live.preset_settings_openai, scope: "all", states: {}, groupStates: {}, siteId: "s-oai" },
         { id: "k2", name: "只记开关", preset: m.live.preset_settings_openai, scope: "all", states: {}, groupStates: {} }
       ],
-      moreTab: "schemes"
     };
-    window.__presetAtelier.open("more");
+    window.__presetAtelier.open("schemes");
   });
   await page.waitForTimeout(500);
   const card = (n) => page.$eval(`.pa-srow:has-text("${n}") .pa-srow-main`, (x) => x.innerText);
@@ -100,16 +99,16 @@ async function boot(ctx) {
     const c = window.SillyTavern.getContext();
     c.extensionSettings.presetAtelier = {
       sites: [{ id: "s1", name: "中转甲", source: "custom", url: "https://a.example/v1", model: "m1", secretId: "gone", localKey: true }, { id: "s2", name: "中转乙", source: "custom", url: "https://b.example/v1", model: "m2" }],
-      activeSiteId: "s2", moreTab: "schemes"
+      activeSiteId: "s2"
     };
     localStorage.setItem("presetAtelier:key:default-user:s1", "sk-local-key-123");
-    window.__presetAtelier.open("more");
+    window.__presetAtelier.open("conn");
   });
   await page.waitForTimeout(400);
   const vault = () => page.evaluate(async () => (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.length);
   const before = await vault();
   for (let i = 0; i < 2; i++) {
-    await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier.activeSiteId = "s2"; window.__presetAtelier.open("more"); });
+    await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier.activeSiteId = "s2"; window.__presetAtelier.open("conn"); });
     await page.waitForTimeout(300);
     await page.click('.pa-site:has-text("中转甲") [data-a="use"]');
     await page.waitForTimeout(1500);

@@ -15,7 +15,7 @@ try {
     window.toastr = Object.fromEntries(['success', 'info', 'warning', 'error'].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
     const s = window.SillyTavern.getContext().extensionSettings;
     s.presetAtelier = { sites: [{ id: 's1', name: '中转A', source: 'custom', url: 'https://example.com/v1', model: 'claude-x', models: [], keyMask: 'sk-…L3a' }], activeSiteId: 's1' };
-    window.__presetAtelier.open('more', 'schemes');
+    window.__presetAtelier.open('conn');
   });
   const arrow = () => page.locator('.pa-live .pa-model-btn i').count();
   await page.locator('[data-a=livefetch]').waitFor();

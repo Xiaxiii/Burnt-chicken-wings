@@ -26,7 +26,7 @@ await page.evaluate(async () => {
   const m = await import("/test/site/scripts/secrets.js");
   m.secret_state.api_key_custom.push({ id: "k1", value: "aaa", active: true }, { id: "k2", value: "bbb", active: false });
   window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [{ id: "b", name: "B站", source: "custom", url: "https://b.example/v1", model: "", models: [], secretId: "k2", keyMask: "sk-…bbbb" }], activeSiteId: null };
-  window.__presetAtelier.open("more", "schemes");
+  window.__presetAtelier.open("conn");
 });
 await page.waitForTimeout(400);
 await page.locator(".pa-plan-sites .pa-site b", { hasText: "B站" }).click(); await page.waitForTimeout(300);

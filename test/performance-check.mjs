@@ -131,7 +131,7 @@ try {
     await page.evaluate(() => window.__perfContentNotify());
     assert.equal(await page.evaluate(() => window.__perf.renders.length) - beforeContent.renders, 0, '思维链可见时内容通知不会重画后台整理列表');
     assert.equal(await page.evaluate(() => window.__perf.analyses) - beforeContent.analyses, 1, '内容通知只重新分析可见思维链页一次');
-    await page.click('[data-tab=suture]');
+    await page.evaluate(() => window.__presetAtelier.open("suture"));
     await page.waitForSelector('.pa-src-list .pa-group');
     assert.equal(await page.locator('.pa-src-list .pa-row').count(), 0);
     await page.locator('.pa-src-list .pa-group').first().locator('.pa-gname').click();
@@ -187,6 +187,7 @@ try {
     await page.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '取消' }).click();
     assert.ok(JSON.stringify(await saved(page)) === JSON.stringify(beforePreview), '取消4条预览保持目标原值');
     assert.ok(JSON.stringify(await page.evaluate(name => window.__mock.presets[window.__mock.names.indexOf(name)], sourceName)) === JSON.stringify(source));
+    await page.click('.pa-tabs [data-nav="preset"]');
     await page.click('[data-tab=organize]');
     assert.equal(await list.locator('.pa-row').count(), 0, '返回整理保留折叠与搜索状态');
     const report = await page.evaluate(() => ({ renders: window.__perf.renders, regions: window.__perf.regions, analyses: window.__perf.analyses }));

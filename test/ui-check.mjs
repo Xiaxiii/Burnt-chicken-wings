@@ -40,8 +40,7 @@ assert.equal(await page.locator("[data-markpick]").count(), 1);
 console.log("✓ 思维链页");
 
 // 3) API：当前连接换模型（带搜索的列表），站点记录跟着改
-await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
-await page.click('[data-m="schemes"]'); await page.waitForTimeout(300);
+await page.click('.pa-tabs [data-nav="conn"]'); await page.waitForTimeout(300);
 await page.click('[data-a="livemodel"]'); await page.waitForTimeout(200);
 await page.click('.pa-mpick-item >> text=claude-sonnet'); await page.waitForTimeout(300);
 const m = await page.evaluate(() => [document.getElementById("custom_model_id").value, window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model]);
@@ -49,7 +48,7 @@ assert.deepEqual(m, ["claude-sonnet", "claude-sonnet"]);
 console.log("✓ 当前连接换模型");
 
 // 4) 缝合位置：点展开的组里的条目＝放进组里，它的后面
-await page.click('[data-tab="suture"]'); await page.waitForTimeout(300);
+await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(300);
 const g = page.locator(".pa-dst-list .pa-group").nth(1);
 await g.locator(".pa-caret").click(); await page.waitForTimeout(150);
 const rowName = (await g.locator(".pa-row .pa-name").first().textContent()).trim();

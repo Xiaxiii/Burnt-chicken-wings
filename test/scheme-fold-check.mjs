@@ -38,6 +38,7 @@ assert.equal(await groups(page), "+沈砚 -林栖", "没动过时当前角色那
 await page.locator(".pa-sgroup", { hasText: "沈砚" }).locator(".pa-sghead").click(); await page.waitForTimeout(150);
 await page.locator(".pa-sgroup", { hasText: "林栖" }).locator(".pa-sghead").click(); await page.waitForTimeout(150);
 await page.locator(".pa-opthead").first().locator(".pa-optlabel").click(); await page.waitForTimeout(150);
+await page.evaluate(() => window.__presetAtelier.open("conn")); await page.waitForTimeout(200);
 await page.click("[data-a=livemore]"); await page.waitForTimeout(150);
 const g1 = await groups(page), o1 = await opts(page), l1 = await live(page);
 assert.equal(g1, "-沈砚 +林栖");

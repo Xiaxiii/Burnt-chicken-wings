@@ -28,7 +28,7 @@ await page.evaluate(() => {
     ],
     activeSiteId: "a"
   };
-  window.__presetAtelier.open("more", "schemes");
+  window.__presetAtelier.open("conn");
 });
 await page.waitForTimeout(500);
 
@@ -43,7 +43,7 @@ await page.evaluate(() => {
   $("#model_custom_select").html('<option value="">None</option><option value="[B]m1">[B]m1</option><option value="[B]m2">[B]m2</option>');
   $("#custom_model_id").val("[A]old-model").trigger("input");
 });
-await page.evaluate(() => window.__presetAtelier.open("more", "schemes")); await page.waitForTimeout(300);
+await page.evaluate(() => window.__presetAtelier.open("conn")); await page.waitForTimeout(300);
 await page.click('[data-a="livemodel"]'); await page.waitForTimeout(300);
 const items = await page.locator(".pa-sheet .pa-mpick-item").allTextContents();
 assert.ok(items.length >= 2 && !items.some((t) => t.includes("[A]old-model")), items.join("|"));

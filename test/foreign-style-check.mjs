@@ -43,7 +43,7 @@ try {
   await page.click('.pa-sheet-mask:not(.pa-out) .pa-sheet-x'); await page.waitForTimeout(200);
   await page.evaluate(() => {
     document.body.insertAdjacentHTML('beforeend', '<select id="model_custom_select"><option value="m1">m1</option><option value="m2">m2</option></select><input id="custom_model_id">');
-    window.__presetAtelier.open('more', 'schemes');
+    window.__presetAtelier.open('conn');
   });
   await page.click('#pa-root [data-a=livemodel]');
   const mq = page.locator('.pa-sheet .pa-mfind .pa-input');
@@ -54,7 +54,7 @@ try {
   await page.click('.pa-sheet-mask:not(.pa-out) .pa-sheet-x'); await page.waitForTimeout(200);
   ok('选预设、选择模型的搜索框同样不受影响');
 
-  await page.evaluate(() => window.__presetAtelier.open('more'));
+  await page.evaluate(() => window.__presetAtelier.open('conn'));
   await page.click('#pa-root [data-a=new]');
   const key = page.locator('.pa-sheet [data-f=key]').first();
   await key.waitFor();

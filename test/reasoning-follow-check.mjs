@@ -42,8 +42,7 @@ try {
   ok('默认关闭，切换预设不改推理格式、不记录');
 
   // 在界面上打开开关：记下当前预设（甲）现在的格式
-  await page.evaluate((A) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(A); window.__presetAtelier.open('more'); }, A);
-  await page.click('[data-m="schemes"]').catch(() => {});
+  await page.evaluate((A) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(A); window.__presetAtelier.open('schemes'); }, A);
   const box = page.locator('[data-o=reasoningfollow]');
   await box.waitFor();
   await box.check();

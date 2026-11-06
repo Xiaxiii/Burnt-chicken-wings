@@ -62,7 +62,7 @@ assert.ok(copy && copy.content === "新条目的正文" && copy.identifier !== m
 ok("复制条目");
 
 // 3) 缝合：已选清单里可以逐条去掉；新建分组在目标列表里
-await page.click('[data-tab="suture"]'); await page.waitForTimeout(400);
+await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(400);
 await page.locator(".pa-src-list .pa-ghead").first().click(); await page.waitForTimeout(150);
 const rows = page.locator(".pa-src-list .pa-row:visible");
 await rows.nth(0).click(); await rows.nth(1).click(); await page.waitForTimeout(150);
@@ -98,8 +98,7 @@ await page.evaluate(() => {
   s.activeSiteId = "s1";
   window.__mock.live.custom_model = "m-b";
 });
-await page.click('[data-tab="more"]'); await page.waitForTimeout(200);
-await page.click('[data-m="schemes"]'); await page.waitForTimeout(400);
+await page.click('.pa-tabs [data-nav="conn"]'); await page.waitForTimeout(400);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model), "m-a");
 await page.click('[data-a="keepmodel"]'); await page.waitForTimeout(300);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model), "m-b");

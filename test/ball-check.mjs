@@ -18,7 +18,7 @@ assert.equal(await page.locator("[data-opt=entry]").inputValue(), "wand");
 // 以前开了悬浮球的设置（没有 entry）：算「两个都要」
 await page.evaluate(() => { const s = window.SillyTavern.getContext().extensionSettings.presetAtelier; s.floatBall = true; delete s.entry; window.__presetAtelier.open("more", "look"); });
 await page.waitForTimeout(300);
-assert.equal(await page.locator("[data-mp=look] [data-entry].on").innerText(), "两个都要", "旧设置开着悬浮球时算两个都要");
+assert.equal(await page.locator("[data-page=look] [data-entry].on").innerText(), "两个都要", "旧设置开着悬浮球时算两个都要");
 await page.evaluate(() => { const s = window.SillyTavern.getContext().extensionSettings.presetAtelier; s.floatBall = false; window.__presetAtelier.close?.(); });
 await page.locator("#pa-root .pa-close, #pa-root [aria-label=关闭]").first().click().catch(() => {});
 await page.waitForTimeout(300);
@@ -53,9 +53,9 @@ assert.equal(await page.evaluate(() => window.__htmlDown), 0, "点球不触发�
 ok("点一下打开面板");
 
 await page.evaluate(() => window.__presetAtelier.open("more", "look")); await page.waitForTimeout(300);
-const seg = (label) => page.locator("[data-mp=look] [data-entry]", { hasText: label });
-assert.equal(await page.$eval("[data-mp=look] .pa-scroll", (x) => x.firstElementChild.textContent), "入口", "入口在配色上面");
-assert.equal(await page.locator("[data-mp=look] [data-entry].on").innerText(), "悬浮球");
+const seg = (label) => page.locator("[data-page=look] [data-entry]", { hasText: label });
+assert.equal(await page.$eval("[data-page=look] .pa-scroll", (x) => x.firstElementChild.textContent), "入口", "入口在配色上面");
+assert.equal(await page.locator("[data-page=look] [data-entry].on").innerText(), "悬浮球");
 await seg("两个都要").click(); await page.waitForTimeout(100);
 assert.equal(await wandShown(), true, "两个都要：魔棒菜单里也有");
 assert.equal(await page.locator("[data-opt=entry]").inputValue(), "both", "设置框同步");
@@ -66,19 +66,19 @@ assert.equal(await page.locator("[data-opt=entry]").inputValue(), "wand", "设�
 ok("「更多 → 外观」里切换入口，设置框同步");
 
 const noteShown = (sel) => page.$eval(sel, (x) => !x.hidden && getComputedStyle(x).display !== "none");
-assert.equal(await noteShown("[data-mp=look] .pa-noentry"), false, "有入口时不写怎么打开");
+assert.equal(await noteShown("[data-page=look] .pa-noentry"), false, "有入口时不写怎么打开");
 await seg("都不要").click(); await page.waitForTimeout(100);
 assert.equal(await page.$("#pa-ball"), null, "都不要：没有悬浮球");
 assert.equal(await wandShown(), false, "都不要：魔棒菜单里不显示");
 assert.equal((await S()).floatBall, false);
 assert.equal(await page.locator("[data-opt=entry]").inputValue(), "none", "设置框同步");
-assert.equal(await noteShown("[data-mp=look] .pa-noentry"), true, "写出怎么打开");
-assert.match(await page.$eval("[data-mp=look] .pa-noentry", (x) => x.textContent), /\/atelier/);
+assert.equal(await noteShown("[data-page=look] .pa-noentry"), true, "写出怎么打开");
+assert.match(await page.$eval("[data-page=look] .pa-noentry", (x) => x.textContent), /\/atelier/);
 assert.equal(await noteShown("#pa-settings .pa-noentry"), true, "设置框也写");
 await page.selectOption("[data-opt=entry]", "wand"); await page.waitForTimeout(100);
 assert.equal(await wandShown(), true, "设置框里选回魔棒菜单");
 assert.equal(await noteShown("#pa-settings .pa-noentry"), false);
-assert.equal(await noteShown("[data-mp=look] .pa-noentry"), false);
+assert.equal(await noteShown("[data-page=look] .pa-noentry"), false);
 ok("都不要：魔棒菜单和悬浮球都没有，写出从设置框或 /atelier 打开");
 
 assert.deepEqual(errs, []);

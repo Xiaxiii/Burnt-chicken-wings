@@ -25,7 +25,7 @@ await page.evaluate(async () => {
   window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
   (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.push({ id: "old", value: "old", active: true });
   window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [{ id: "x", name: "小汐", source: "custom", url: "https://x.example/v1", model: "m1", models: ["m1"], secretId: "old", keyMask: "sk-…oldd" }], activeSiteId: "x" };
-  window.__presetAtelier.open("more", "schemes");
+  window.__presetAtelier.open("conn");
 });
 await page.waitForTimeout(400);
 assert.equal(await active(), "old");
