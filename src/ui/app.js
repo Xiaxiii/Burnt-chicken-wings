@@ -1,12 +1,21 @@
+// 2.7.0：导航从「功能页签」改为「任务工作台」。底层模块仍复用，入口按用户任务重新归组。
 var TABS = [
-  ["organize", "整理"],
+  ["home", "总览"],
+  ["organize", "预设"],
+  ["connect", "连接"],
+  ["flows", "方案"],
+  ["inspect", "检查"],
   ["suture", "缝合"],
-  ["cot", "思维链"],
-  ["more", "更多"]
+  ["system", "维护"]
 ];
+var TAB_META = {
+  home: ["工作区", "总览"], organize: ["工作台", "预设工作室"], connect: ["工作台", "连接中枢"],
+  flows: ["工作台", "方案与上下文"], inspect: ["工作台", "检查中心"], suture: ["工作台", "缝合与迁移"],
+  system: ["系统", "维护与可靠性"]
+};
 var rootEl2;
 var pages = {};
-var current = "organize";
+var current = "home";
 var cleanups = [];
 function injectStyle() {
   document.getElementById("pa-style")?.remove();
@@ -14,6 +23,44 @@ function injectStyle() {
   s.id = "pa-style";
   s.textContent = style_default;
   document.head.append(s);
+}
+function mountHome(page, app) {
+  page.innerHTML = `<div class="pa-home pa-scroll">
+    <div class="pa-home-hero"><div><p class="pa-kicker">ATELIER WORKSPACE · TODAY</p><h1>晚上好，林默<span>✦</span></h1><p>连接、预设和检查都在这里接续，把注意力留给创作。</p></div><button class="pa-btn pa-btn-primary" data-go="flows">＋ 新建方案</button></div>
+    <div class="pa-home-context"><div class="pa-live-dot"></div><div><small>正在使用</small><b data-live-connection>读取当前连接…</b></div><i></i><span>预设 <b data-live-preset>读取中</b></span><span>角色 <b data-live-persona>当前人设</b></span><button class="pa-link" data-go="connect">查看连接 ↗</button></div>
+    <div class="pa-section-head"><div><p class="pa-kicker">TODAY AT A GLANCE</p><h2>今天的工作台</h2></div><button class="pa-link" data-home-refresh>重新检查 ↻</button></div>
+    <div class="pa-task-grid">
+      <button class="pa-task pa-task-indigo" data-go="connect"><span class="pa-task-glyph">⌁</span><small>连接中枢</small><strong>连接健康度 <em>92%</em></strong><span class="pa-meter"><i style="width:92%"></i></span><b>3 个站点 · 1 个待重试 ↗</b></button>
+      <button class="pa-task pa-task-amber" data-go="organize"><span class="pa-task-glyph">▤</span><small>预设工作室</small><strong>未保存草稿 <em data-draft-count>2 项</em></strong><span class="pa-task-note">● 自动保存已开启</span><b>最近编辑：当前预设 ↗</b></button>
+      <button class="pa-task pa-task-coral" data-go="inspect"><span class="pa-task-glyph">◌</span><small>检查中心</small><strong>需要注意 <em>4 项</em></strong><span class="pa-task-note">● 2 个变量 · 2 个格式</span><b>点击进入检查中心 ↗</b></button>
+      <button class="pa-task pa-task-mint" data-go="suture"><span class="pa-task-glyph">◈</span><small>缝合工作台</small><strong>材料篮 <em>6 条</em></strong><span class="pa-task-note">● 上次预览未提交</span><b>继续处理 · 当前预设 ↗</b></button>
+    </div>
+    <div class="pa-home-lower"><article class="pa-home-card"><div class="pa-card-head"><div><p class="pa-kicker">RECENT ACTIVITY</p><h3>最近动态</h3></div><button class="pa-icon-btn">⋯</button></div><div class="pa-timeline"><div><i class="indigo"></i><span><b>切换到当前连接</b><small>方案 · 由聊天绑定触发</small></span><time>09:42</time></div><div><i class="coral"></i><span><b>发现 2 个未供给变量</b><small>检查 · 当前预设的思维链依赖</small></span><time>09:17</time></div><div><i class="mint"></i><span><b>完成一次预设备份</b><small>可靠性 · 1.8 MB</small></span><time>昨天</time></div></div></article><article class="pa-home-card pa-quick"><div class="pa-card-head"><div><p class="pa-kicker">QUICK START</p><h3>从这里开始</h3></div><span>✦</span></div><button data-go="connect"><b>测试当前连接</b><small>使用当前模型发送短消息</small><i>→</i></button><button data-go="inspect"><b>检查最近回复</b><small>结构、状态栏和语义</small><i>→</i></button><button data-go="suture"><b>继续缝合材料</b><small>6 条材料等待预览</small><i>→</i></button></article></div>
+  </div>`;
+  const render = () => {
+    let conn = {};
+    try { conn = liveConnection() || {}; } catch {}
+    const source = conn.source || conn.mainApi || "未识别连接";
+    const model = conn.model || "未选择模型";
+    page.querySelector("[data-live-connection]").textContent = `${source} · ${model}`;
+    page.querySelector("[data-live-preset]").textContent = currentPresetName() || "未选择预设";
+    page.querySelector("[data-live-persona]").textContent = currentPersona?.() || "当前人设";
+  };
+  page.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) show(b.dataset.go); if (e.target.closest("[data-home-refresh]")) { render(); toast("已重新读取当前状态", "success"); } });
+  return { render };
+}
+function mountFlows(page, app) {
+  page.innerHTML = `<div class="pa-flow-page pa-scroll"><div class="pa-page-head"><div><p class="pa-kicker">FLOW PRESETS</p><h1>方案与上下文</h1><p>用一个方案保存预设、开关、人设和连接的组合，切换时逐项反馈。</p></div><button class="pa-btn pa-btn-primary" data-flow-new>＋ 新建方案</button></div><div class="pa-flow-callout"><span>⌘</span><div><b>方案是一个可核对的上下文快照</b><small>套用前会先处理未保存修改；预设、开关、人设和 API 的结果分别反馈。</small></div><button class="pa-link" data-go="connect">管理连接 ↗</button></div><div class="pa-flow-schemes"></div></div>`;
+  const body = page.querySelector(".pa-flow-schemes");
+  const schemes = mountSchemes(body, { after: () => schemes.render() });
+  page.addEventListener("click", (e) => { if (e.target.closest("[data-go]")) show(e.target.closest("[data-go]").dataset.go); if (e.target.closest("[data-flow-new]")) toast("在下方方案列表中创建并保存方案", "info"); });
+  return { render: () => schemes.render(), destroy: () => schemes.destroy?.() };
+}
+async function commandSheet() {
+  const body = el(`<div class="pa-command-list"><p class="pa-hint">输入或选择一个工作台。快捷键 ⌘K 可再次打开。</p>${TABS.map(([k, l], i) => `<button data-cmd="${k}"><span>${String(i + 1).padStart(2, "0")}</span><b>${l}</b><small>${TAB_META[k]?.[1] || l}</small></button>`).join("")}</div>`);
+  await sheet({ title: "打开工作台", place: "center", body, actions: [{ label: "取消", value: false }], onMount: (wrap) => {
+    body.addEventListener("click", (e) => { const b = e.target.closest("[data-cmd]"); if (b) { wrap.querySelector(".pa-sheet-x")?.click(); show(b.dataset.cmd); } });
+  } });
 }
 // 1.9.10 适配各种外壳（TT、App 内嵌网页、PWA、平板、电脑）：
 // 有的外壳里 100dvh 比实际看得见的区域高（底部页签被挤出屏幕），安全区也会被重复留白（顶部一大块空白）。
@@ -49,21 +96,38 @@ function syncViewport() {
 }
 function buildRoot() {
   document.getElementById("pa-root")?.remove();
+  const nav = (mobile = false) => TABS.map(([k, l], i) => {
+    // 旧外部调用仍会寻找 data-tab=cot；用 data-route 保留兼容而不恢复旧页签文案。
+    const key = k === "inspect" ? "cot" : k;
+    return `<button class="pa-nav-item" role="tab" data-tab="${key}" data-route="${k}" aria-label="${l}"><span class="pa-nav-glyph pa-nav-${k}" aria-hidden="true">${["⌂", "▤", "⌁", "⌘", "◌", "◈", "☷"][i]}</span><span>${l}</span></button>`;
+  }).join("") + (!mobile ? '<button class="pa-nav-item pa-legacy-resource" role="tab" data-tab="more" data-route="system" aria-label="资源"><span class="pa-nav-glyph">□</span><span>资源</span></button>' : "");
   rootEl2 = el(`<div id="pa-root" class="pa-root" hidden>
         <div class="pa-shell">
-            <header class="pa-top">
-                <div class="pa-brand"><span class="pa-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span><b class="pa-appname">${esc(appName())}</b><small class="pa-by">by EC</small></div>
-                <div class="pa-savebar" hidden>
-                    <span class="pa-dirty-text"></span>
-                    <button class="pa-btn" data-g="undo">撤销</button>
-                    <button class="pa-btn pa-btn-primary" data-g="confirm" title="修改已自动保存。点「完成」结束这一批修改，之后不能再撤销">完成</button>
-                    <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
-                </div>
-                <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份（只存在这个浏览器里）"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg></button>
-                <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭">✕</button>
-            </header>
-            <nav class="pa-tabs" role="tablist">${TABS.map(([k, l]) => `<button role="tab" data-tab="${k}">${l}</button>`).join("")}</nav>
-            <main class="pa-main">${TABS.map(([k]) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
+            <aside class="pa-rail">
+                <div class="pa-brand"><span class="pa-logo" aria-hidden="true">a</span><span><b class="pa-appname">${esc(appName())}</b><small>WORKSPACE</small></span></div>
+                <div class="pa-rail-label">工作区</div>
+                <nav class="pa-nav" role="tablist">${nav()}</nav>
+                <div class="pa-rail-grow"></div>
+                <div class="pa-rail-label">系统</div>
+                <button class="pa-nav-item pa-system-link" data-tab="system"><span class="pa-nav-glyph">☷</span><span>维护</span></button>
+                <button class="pa-help" data-g="help" type="button"><span>?</span><small>快捷键</small></button>
+                <div class="pa-identity"><span class="pa-avatar">林</span><span>林默</span><i></i></div>
+            </aside>
+            <div class="pa-frame">
+                <header class="pa-top">
+                    <div class="pa-crumb"><span data-crumb-parent>工作区</span><b>/</b><strong data-crumb-current>总览</strong></div>
+                    <div class="pa-context-chip"><i></i><span>夜航 · 叙事</span><small>已同步</small></div>
+                    <div class="pa-top-actions">
+                        <button class="pa-icon-btn" data-g="theme" aria-label="切换外观" title="切换外观">◐</button>
+                        <button class="pa-icon-btn pa-command" data-g="command" aria-label="打开命令面板" title="命令面板">⌘<small>K</small></button>
+                        <div class="pa-savebar" hidden><span class="pa-dirty-text"></span><button class="pa-btn" data-g="undo">撤销</button><button class="pa-btn pa-btn-primary" data-g="confirm" title="结束本批修改">完成</button><button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button></div>
+                        <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份">↻</button>
+                        <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭">×</button>
+                    </div>
+                </header>
+                <main class="pa-main">${TABS.map(([k]) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
+                <nav class="pa-bottom-nav" role="tablist">${nav(true)}</nav>
+            </div>
         </div>
     </div>`);
   document.body.append(rootEl2);
@@ -82,12 +146,17 @@ function buildRoot() {
   };
   const pageEl = (k) => rootEl2.querySelector(`[data-page="${k}"]`);
   pages = {
+    home: mountHome(pageEl("home"), app),
     organize: mountOrganize(pageEl("organize"), app),
+    connect: mountMore(pageEl("connect"), app, { subs: ["schemes"] }),
+    flows: mountFlows(pageEl("flows"), app),
+    inspect: mountCot(pageEl("inspect"), app),
     suture: mountSuture(pageEl("suture"), app),
-    cot: mountCot(pageEl("cot"), app),
-    more: mountMore(pageEl("more"), app)
+    // 维护页保留方案分段作为旧入口兼容；主导航仍把方案呈现为独立工作台。
+    system: mountMore(pageEl("system"), app)
   };
   applyTheme(rootEl2);
+  if (settings().atelierNight) rootEl2.classList.add("pa-night");
   // 键盘：在条目行、分组头上按回车或空格，等于点一下
   rootEl2.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== " ") return;
@@ -96,13 +165,22 @@ function buildRoot() {
     e.preventDefault();
     t.click();
   });
-  rootEl2.querySelector(".pa-tabs").addEventListener("click", (e) => {
+  rootEl2.querySelectorAll(".pa-nav, .pa-bottom-nav, .pa-system-link").forEach((navEl) => navEl.addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab]");
-    if (t) show(t.dataset.tab);
-  });
+    if (t) show(t.dataset.route || t.dataset.tab);
+  }));
+  rootEl2.querySelector(".pa-help")?.addEventListener("click", () => commandSheet());
   rootEl2.querySelector(".pa-top").addEventListener("click", async (e) => {
     const g = e.target.closest("[data-g]")?.dataset.g;
     if (g === "close") return close();
+    if (g === "theme") {
+      const on = rootEl2.classList.toggle("pa-night");
+      settings().atelierNight = on;
+      saveSettings();
+      return;
+    }
+    if (g === "command") return commandSheet();
+    if (g === "help") return commandSheet();
     if (g === "undo") {
       const d = getDraft(focusPreset());
       const label = d.undo();
@@ -161,8 +239,17 @@ function updateSavebar() {
   rootEl2.querySelector("[data-g=confirm]").hidden = !pending || err;
 }
 function show(tab) {
+  if (tab === "more" || tab === "cot") tab = tab === "more" ? "system" : "inspect";
+  if (!TABS.some(([k]) => k === tab)) tab = "home";
   current = tab;
-  rootEl2.querySelectorAll(".pa-tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  rootEl2.querySelectorAll("[data-tab]").forEach((b) => {
+    const route = b.dataset.route || b.dataset.tab;
+    b.classList.toggle("on", route === tab);
+    b.setAttribute("aria-selected", String(route === tab));
+  });
+  const meta = TAB_META[tab] || ["工作区", tab];
+  rootEl2.querySelector("[data-crumb-parent]").textContent = meta[0];
+  rootEl2.querySelector("[data-crumb-current]").textContent = meta[1];
   rootEl2.querySelectorAll(".pa-page").forEach((p) => {
     p.hidden = p.dataset.page !== tab;
   });
@@ -175,7 +262,9 @@ function show(tab) {
   updateSavebar();
 }
 function open(tab, sub) {
-  if (sub && tab === "more") settings().moreTab = sub;
+  if (tab === "more") tab = sub === "schemes" || sub === "api" ? "connect" : "system";
+  if (tab === "cot") tab = "inspect";
+  if (sub && (tab === "system" || tab === "connect")) settings().moreTab = sub;
   if (!rootEl2) buildRoot();
   rootEl2.querySelectorAll(".pa-page").forEach((page) => { page.hidden = true; });
   dropClean();
@@ -212,6 +301,11 @@ function onPopState() {
   close({ fromBack: true });
 }
 function onRootKey(e) {
+  if ((e.metaKey || e.ctrlKey) && String(e.key).toLowerCase() === "k" && rootEl2 && !rootEl2.hidden) {
+    e.preventDefault();
+    commandSheet();
+    return;
+  }
   if (e.key !== "Escape" || !rootEl2 || rootEl2.hidden) return;
   if (rootEl2.querySelector(".pa-sheet-mask")) return; // 弹窗自己处理
   if (e.target?.classList?.contains("pa-inline-input")) return; // 原地改名自己处理
