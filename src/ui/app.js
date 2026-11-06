@@ -26,16 +26,16 @@ function injectStyle() {
 }
 function mountHome(page, app) {
   page.innerHTML = `<div class="pa-home pa-scroll">
-    <div class="pa-home-hero"><div><p class="pa-kicker">ATELIER WORKSPACE · TODAY</p><h1>晚上好，林默<span>✦</span></h1><p>连接、预设和检查都在这里接续，把注意力留给创作。</p></div><button class="pa-btn pa-btn-primary" data-go="flows">＋ 新建方案</button></div>
+    <div class="pa-home-hero"><div><p class="pa-kicker">ATELIER WORKSPACE · TODAY</p><h1>你的工作台<span>✦</span></h1><p>连接、预设和检查都在这里接续，把注意力留给创作。</p></div><button class="pa-btn pa-btn-primary" data-go="flows">＋ 新建方案</button></div>
     <div class="pa-home-context"><div class="pa-live-dot"></div><div><small>正在使用</small><b data-live-connection>读取当前连接…</b></div><i></i><span>预设 <b data-live-preset>读取中</b></span><span>角色 <b data-live-persona>当前人设</b></span><button class="pa-link" data-go="connect">查看连接 ↗</button></div>
     <div class="pa-section-head"><div><p class="pa-kicker">TODAY AT A GLANCE</p><h2>今天的工作台</h2></div><button class="pa-link" data-home-refresh>重新检查 ↻</button></div>
     <div class="pa-task-grid">
-      <button class="pa-task pa-task-indigo" data-go="connect"><span class="pa-task-glyph">⌁</span><small>连接中枢</small><strong>连接健康度 <em>92%</em></strong><span class="pa-meter"><i style="width:92%"></i></span><b>3 个站点 · 1 个待重试 ↗</b></button>
-      <button class="pa-task pa-task-amber" data-go="organize"><span class="pa-task-glyph">▤</span><small>预设工作室</small><strong>未保存草稿 <em data-draft-count>2 项</em></strong><span class="pa-task-note">● 自动保存已开启</span><b>最近编辑：当前预设 ↗</b></button>
-      <button class="pa-task pa-task-coral" data-go="inspect"><span class="pa-task-glyph">◌</span><small>检查中心</small><strong>需要注意 <em>4 项</em></strong><span class="pa-task-note">● 2 个变量 · 2 个格式</span><b>点击进入检查中心 ↗</b></button>
-      <button class="pa-task pa-task-mint" data-go="suture"><span class="pa-task-glyph">◈</span><small>缝合工作台</small><strong>材料篮 <em>6 条</em></strong><span class="pa-task-note">● 上次预览未提交</span><b>继续处理 · 当前预设 ↗</b></button>
+      <button class="pa-task pa-task-indigo" data-go="connect"><span class="pa-task-glyph">⌁</span><small>连接中枢</small><strong>站点与模型 <em>查看</em></strong><span class="pa-task-note">测试连接、管理密钥组与余额</span><b>打开连接中枢 ↗</b></button>
+      <button class="pa-task pa-task-amber" data-go="organize"><span class="pa-task-glyph">▤</span><small>预设工作室</small><strong>当前预设 <em>编辑</em></strong><span class="pa-task-note">条目、分组和排序</span><b>打开预设工作室 ↗</b></button>
+      <button class="pa-task pa-task-coral" data-go="inspect"><span class="pa-task-glyph">◌</span><small>检查中心</small><strong>回复质量 <em>检查</em></strong><span class="pa-task-note">思维链、变量和标签</span><b>打开检查中心 ↗</b></button>
+      <button class="pa-task pa-task-mint" data-go="suture"><span class="pa-task-glyph">◈</span><small>缝合工作台</small><strong>材料工作流 <em>开始</em></strong><span class="pa-task-note">选择来源、目标并预览写入</span><b>打开缝合工作台 ↗</b></button>
     </div>
-    <div class="pa-home-lower"><article class="pa-home-card"><div class="pa-card-head"><div><p class="pa-kicker">RECENT ACTIVITY</p><h3>最近动态</h3></div><button class="pa-icon-btn">⋯</button></div><div class="pa-timeline"><div><i class="indigo"></i><span><b>切换到当前连接</b><small>方案 · 由聊天绑定触发</small></span><time>09:42</time></div><div><i class="coral"></i><span><b>发现 2 个未供给变量</b><small>检查 · 当前预设的思维链依赖</small></span><time>09:17</time></div><div><i class="mint"></i><span><b>完成一次预设备份</b><small>可靠性 · 1.8 MB</small></span><time>昨天</time></div></div></article><article class="pa-home-card pa-quick"><div class="pa-card-head"><div><p class="pa-kicker">QUICK START</p><h3>从这里开始</h3></div><span>✦</span></div><button data-go="connect"><b>测试当前连接</b><small>使用当前模型发送短消息</small><i>→</i></button><button data-go="inspect"><b>检查最近回复</b><small>结构、状态栏和语义</small><i>→</i></button><button data-go="suture"><b>继续缝合材料</b><small>6 条材料等待预览</small><i>→</i></button></article></div>
+    <div class="pa-home-lower"><article class="pa-home-card"><div class="pa-card-head"><div><p class="pa-kicker">RECENT ACTIVITY</p><h3>最近动态</h3></div><button class="pa-icon-btn">⋯</button></div><div class="pa-timeline"><div><i class="indigo"></i><span><b>先确认当前上下文</b><small>工作台会读取当前连接、预设和人设</small></span><time>现在</time></div><div><i class="coral"></i><span><b>再选择一个任务</b><small>所有修改都沿用草稿、保存和撤销流程</small></span><time>提示</time></div></div></article><article class="pa-home-card pa-quick"><div class="pa-card-head"><div><p class="pa-kicker">QUICK START</p><h3>从这里开始</h3></div><span>✦</span></div><button data-go="connect"><b>测试当前连接</b><small>使用当前模型发送短消息</small><i>→</i></button><button data-go="inspect"><b>检查最近回复</b><small>结构、状态栏和语义</small><i>→</i></button><button data-go="suture"><b>继续缝合材料</b><small>选择材料后在这里预览写入</small><i>→</i></button></article></div>
   </div>`;
   const render = () => {
     let conn = {};
@@ -116,7 +116,7 @@ function buildRoot() {
             <div class="pa-frame">
                 <header class="pa-top">
                     <div class="pa-crumb"><span data-crumb-parent>工作区</span><b>/</b><strong data-crumb-current>总览</strong></div>
-                    <div class="pa-context-chip"><i></i><span>夜航 · 叙事</span><small>已同步</small></div>
+                    <div class="pa-context-chip"><i></i><span>当前上下文</span><small>已同步</small></div>
                     <div class="pa-top-actions">
                         <button class="pa-icon-btn" data-g="theme" aria-label="切换外观" title="切换外观">◐</button>
                         <button class="pa-icon-btn pa-command" data-g="command" aria-label="打开命令面板" title="命令面板">⌘<small>K</small></button>
