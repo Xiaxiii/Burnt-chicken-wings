@@ -1,16 +1,16 @@
 // 2.7.0：导航从「功能页签」改为「任务工作台」。底层模块仍复用，入口按用户任务重新归组。
 var TABS = [
   ["home", "总览"],
-  ["organize", "预设"],
+  ["organize", "预设台"],
   ["connect", "连接"],
-  ["flows", "方案"],
-  ["inspect", "检查"],
-  ["suture", "缝合"],
+  ["flows", "场景"],
+  ["inspect", "检查台"],
+  ["suture", "搬运台"],
   ["system", "维护"]
 ];
 var TAB_META = {
-  home: ["工作区", "总览"], organize: ["工作台", "预设工作室"], connect: ["工作台", "连接中枢"],
-  flows: ["工作台", "方案与上下文"], inspect: ["工作台", "检查中心"], suture: ["工作台", "缝合与迁移"],
+  home: ["工作区", "总览"], organize: ["工作台", "预设台"], connect: ["工作台", "连接中枢"],
+  flows: ["工作台", "场景方案"], inspect: ["工作台", "检查台"], suture: ["工作台", "搬运台"],
   system: ["系统", "维护与可靠性"]
 };
 var rootEl2;
@@ -23,6 +23,305 @@ function injectStyle() {
   s.id = "pa-style";
   s.textContent = style_default;
   document.head.append(s);
+}
+
+// 3.1.0：把旧模块降级成“高级编辑器”，主流程改成任务卡、对象选择和结果确认。
+// 旧模块仍然保留，避免已有外部入口失效；默认页面不再把酒馆原始长列表直接摊给用户。
+function legacySheet(kind, title, app) {
+  const labels = {
+    organize: "完整预设编辑器",
+    connect: "完整连接设置",
+    more: "完整维护工具",
+    cot: "完整检查编辑器",
+    suture: "完整材料篮"
+  };
+  const body = el(`<div class="pa-legacy-wrap"><div class="pa-legacy-note"><b>${esc(labels[kind] || title || "高级编辑器")}</b><span>这是完整编辑模式，适合处理逐条排序、字段和历史兼容设置。</span></div><section class="pa-legacy-mount"></section></div>`);
+  return sheet({
+    title: title || labels[kind] || "高级编辑器",
+    body,
+    wide: true,
+    noFocus: true,
+    actions: [{ label: "关闭", value: true }],
+    onMount: (wrap) => {
+      const target = wrap.querySelector(".pa-legacy-mount");
+      if (kind === "organize") mountOrganize(target, app);
+      else if (kind === "connect") mountMore(target, app, { subs: ["schemes"] });
+      else if (kind === "more") mountMore(target, app);
+      else if (kind === "cot") mountCot(target, app);
+      else if (kind === "suture") mountSuture(target, app);
+    }
+  });
+}
+
+function boardPresetPicker(onChange) {
+  const names = listPresets();
+  const currentName = focusPreset();
+  const box = el(`<label class="pa-board-picker"><span>正在编辑</span><select aria-label="选择预设">${names.map((n) => `<option value="${esc(n)}"${n === currentName ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>`);
+  const select = box.querySelector("select");
+  select.addEventListener("change", async () => {
+    try {
+      await selectPreset(select.value);
+      setFocusPreset(select.value);
+      onChange?.(select.value);
+    } catch (e) { toast(`切换预设失败：${e.message}`, "error"); }
+  });
+  return box;
+}
+
+function draftGroupStats(d) {
+  const groups = [];
+  const seen = new Set();
+  for (const g of d.groups?.groups || []) {
+    const ids = d.order.filter((o) => d.groupOf(o.identifier) === g.id).map((o) => o.identifier);
+    groups.push({ id: g.id, name: g.name || "未命名分组", ids, active: g.enabled !== false, count: ids.length, on: ids.filter((id) => d.isActive(id)).length });
+    seen.add(g.id);
+  }
+  const loose = d.order.filter((o) => !d.groupOf(o.identifier)).map((o) => o.identifier);
+  if (loose.length) groups.push({ id: "__loose__", name: "未分组条目", ids: loose, active: true, count: loose.length, on: loose.filter((id) => d.isActive(id)).length });
+  return groups;
+}
+
+function openPresetGroupDrawer(group, name, rerender, app) {
+  let d;
+  try { d = getDraft(name); } catch (e) { return toast(e.message, "error"); }
+  const body = el(`<div class="pa-group-drawer"><div class="pa-drawer-summary"></div><input class="pa-input" data-group-search placeholder="在这个分组里找条目" aria-label="搜索条目"><div class="pa-drawer-members"></div></div>`);
+  const summary = body.querySelector(".pa-drawer-summary");
+  const members = body.querySelector(".pa-drawer-members");
+  const search = body.querySelector("[data-group-search]");
+  const idsForGroup = () => group.id === "__loose__" ? d.order.filter((o) => !d.groupOf(o.identifier)).map((o) => o.identifier) : d.order.filter((o) => d.groupOf(o.identifier) === group.id).map((o) => o.identifier);
+  const render = () => {
+    const ids = idsForGroup();
+    const query = String(search.value || "").trim().toLowerCase();
+    const active = group.id === "__loose__" ? true : d.group(group.id)?.enabled !== false;
+    const on = ids.filter((id) => d.isActive(id)).length;
+    summary.innerHTML = `<div><b>${esc(group.name)}</b><small>${on}/${ids.length} 条目启用 · ${active ? "分组参与发送" : "分组已暂停"}</small></div>${group.id === "__loose__" ? "" : `<label class="pa-switch"><input type="checkbox" data-drawer-group ${active ? "checked" : ""}><span></span></label>`}`;
+    const filtered = ids.filter((id) => {
+      if (!query) return true;
+      const p = d.prompt(id);
+      return `${p?.name || ""} ${p?.content || ""}`.toLowerCase().includes(query);
+    });
+    members.innerHTML = filtered.length ? filtered.map((id) => {
+      const p = d.prompt(id) || {};
+      return `<label class="pa-member-row"><input type="checkbox" data-member="${esc(id)}" ${d.isActive(id) ? "checked" : ""}><span><b>${esc(p.name || id)}</b><small>${esc(String(p.content || "").replace(/\s+/g, " ").slice(0, 100) || "空条目")}</small></span></label>`;
+    }).join("") : `<p class="pa-empty">没有匹配的条目</p>`;
+  };
+  body.addEventListener("input", (e) => { if (e.target === search) render(); });
+  body.addEventListener("change", (e) => {
+    if (e.target.matches("[data-drawer-group]")) {
+      mutate(d, e.target.checked ? "开启分组" : "暂停分组", (x) => x.setGroupEnabled(group.id, e.target.checked));
+      render(); rerender?.();
+    }
+    const id = e.target.dataset.member;
+    if (id) {
+      mutate(d, e.target.checked ? "开启条目" : "关闭条目", (x) => x.setEnabled([id], e.target.checked));
+      render(); rerender?.();
+    }
+  });
+  render();
+  return sheet({ title: `${group.name} · 快速调整`, body, wide: true, actions: [
+    { label: "完整编辑", value: "advanced" },
+    { label: "关闭", value: true }
+  ], onMount: (wrap) => {
+    wrap.addEventListener("pa-closed", (e) => {
+      // sheet 的关闭事件没有携带 action 值；完整编辑按钮在下面单独监听。
+    });
+    wrap.querySelector(".pa-sheet-actions")?.addEventListener("click", (e) => {
+      const buttons = [...wrap.querySelectorAll(".pa-sheet-actions button")];
+      if (buttons[0] === e.target.closest("button")) {
+        wrap.querySelector(".pa-sheet-x")?.click();
+        setTimeout(() => legacySheet("organize", "完整预设编辑器", app), 170);
+      }
+    });
+  } });
+}
+
+function mountPresetBoard(page, app) {
+  page.innerHTML = `<div class="pa-board pa-preset-board pa-scroll"><div class="pa-board-head"><div><p class="pa-kicker">PRESET DESK</p><h1>预设台</h1><p>先选一个分组，再处理里面的条目。排序和复杂字段放进高级编辑。</p></div><button class="pa-btn pa-btn-soft" data-preset-advanced>打开完整编辑</button></div><div class="pa-board-tools"><div data-preset-picker></div><div class="pa-board-actions"><button class="pa-chip-btn" data-preset-all>全部启用</button><button class="pa-chip-btn" data-preset-none>全部停用</button></div></div><div class="pa-current-strip" data-preset-summary></div><div class="pa-group-grid" data-groups></div></div>`;
+  const picker = page.querySelector("[data-preset-picker]");
+  const groups = page.querySelector("[data-groups]");
+  const summary = page.querySelector("[data-preset-summary]");
+  let pickerEl;
+  const render = () => {
+    const names = listPresets();
+    if (!names.length) {
+      picker.innerHTML = '<p class="pa-empty">酒馆还没有可编辑的预设。</p>';
+      groups.innerHTML = '<p class="pa-empty">创建或选择预设后，这里会出现分组。</p>';
+      summary.innerHTML = "";
+      return;
+    }
+    const name = focusPreset();
+    if (!pickerEl || pickerEl.querySelector("select")?.value !== name) {
+      picker.innerHTML = "";
+      pickerEl = boardPresetPicker(() => render());
+      picker.append(pickerEl);
+    }
+    try {
+      const d = getDraft(name);
+      const stats = draftGroupStats(d);
+      const enabled = d.order.filter((o) => d.isActive(o.identifier)).length;
+      summary.innerHTML = `<span class="pa-status-dot"></span><b>${esc(name)}</b><span>${enabled}/${d.order.length} 条目启用</span><span>${stats.length} 个工作分组</span><button class="pa-link" data-preset-legacy>需要逐条排序？</button>`;
+      groups.innerHTML = stats.length ? stats.map((g, i) => `<button class="pa-group-card ${g.active ? "is-on" : "is-off"}" data-group-index="${i}"><span class="pa-group-index">${String(i + 1).padStart(2, "0")}</span><span class="pa-group-main"><b>${esc(g.name)}</b><small>${g.count ? `${g.on}/${g.count} 条目启用` : "空分组"}</small><em>${g.active ? "参与发送" : "已暂停"}</em></span><span class="pa-group-arrow">→</span></button>`).join("") : '<p class="pa-empty">这个预设还没有条目。</p>';
+    } catch (e) {
+      summary.innerHTML = `<p class="pa-warn">读取预设失败：${esc(e.message)}</p>`;
+      groups.innerHTML = "";
+    }
+  };
+  page.addEventListener("click", (e) => {
+    if (e.target.closest("[data-preset-advanced], [data-preset-legacy]")) return legacySheet("organize", "完整预设编辑器", app);
+    const card = e.target.closest("[data-group-index]");
+    if (!card) return;
+    try {
+      const stats = draftGroupStats(getDraft(focusPreset()));
+      const g = stats[Number(card.dataset.groupIndex)];
+      if (g) openPresetGroupDrawer(g, focusPreset(), render, app);
+    } catch (err) { toast(err.message, "error"); }
+    if (e.target.closest("[data-preset-all], [data-preset-none]")) {
+      const d = getDraft(focusPreset());
+      const on = !!e.target.closest("[data-preset-all]");
+      mutate(d, on ? "全部启用" : "全部停用", (x) => x.setEnabled(x.order.map((o) => o.identifier), on));
+      render();
+    }
+  });
+  page.querySelector("[data-preset-all]").addEventListener("click", () => {
+    const d = getDraft(focusPreset()); mutate(d, "全部启用", (x) => x.setEnabled(x.order.map((o) => o.identifier), true)); render();
+  });
+  page.querySelector("[data-preset-none]").addEventListener("click", () => {
+    const d = getDraft(focusPreset()); mutate(d, "全部停用", (x) => x.setEnabled(x.order.map((o) => o.identifier), false)); render();
+  });
+  return { render };
+}
+
+function connectionLabel(site) {
+  const source = SOURCES[site?.source]?.label || site?.source || "未命名连接";
+  return site?.name || source;
+}
+
+function mountConnectionBoard(page, app) {
+  page.innerHTML = `<div class="pa-board pa-connect-board pa-scroll"><div class="pa-board-head"><div><p class="pa-kicker">CONNECTION HUB</p><h1>连接中枢</h1><p>把“当前正在用什么”和“可以切换到什么”分开，点击卡片即可切换。</p></div><button class="pa-btn pa-btn-soft" data-connect-advanced>编辑连接资料</button></div><div class="pa-live-card" data-live-card></div><div class="pa-section-head pa-board-section"><div><p class="pa-kicker">SAVED CONNECTIONS</p><h2>已保存连接</h2></div><button class="pa-link" data-connect-refresh>刷新状态 ↻</button></div><div class="pa-site-grid" data-sites></div><div class="pa-advanced-callout"><div><b>需要改网址、密钥或模型？</b><small>完整连接设置会保留酒馆的原生字段和密钥库流程。</small></div><button class="pa-btn" data-connect-advanced>打开完整设置</button></div></div>`;
+  const live = page.querySelector("[data-live-card]"), sites = page.querySelector("[data-sites]");
+  const render = () => {
+    let c = {};
+    try { c = liveConnection() || {}; } catch {}
+    const source = SOURCES[c.source]?.label || c.source || "未连接";
+    live.innerHTML = `<div class="pa-live-mark ${c.online ? "online" : "offline"}">${c.online ? "●" : "○"}</div><div class="pa-live-main"><small>当前发送通道</small><b>${esc(source)}</b><span>${esc(c.model || "尚未选择模型")}${c.url ? ` · ${esc(c.url)}` : ""}</span></div><div class="pa-live-state">${c.online ? "已连接" : "未连接"}</div><button class="pa-btn pa-btn-primary" data-connect-test>重新连接</button>`;
+    const list = settings().sites || [];
+    sites.innerHTML = list.length ? list.map((site, i) => {
+      const multi = siteMulti(site);
+      const view = multi ? keyView(site) : site;
+      const active = settings().activeSiteId === site.id;
+      return `<article class="pa-site-tile ${active ? "selected" : ""}"><div class="pa-site-top"><span class="pa-site-number">${String(i + 1).padStart(2, "0")}</span><span class="pa-site-source">${esc(SOURCES[site.source]?.label || site.source || "自定义")}</span>${active ? '<span class="pa-site-active">上次使用</span>' : ""}</div><h3>${esc(connectionLabel(site))}</h3><p>${esc(view.model || "未指定模型")}${multi ? ` · ${site.keys.length} 组密钥` : ""}</p><button class="pa-btn" data-site-id="${esc(site.id)}">切换到这里</button></article>`;
+    }).join("") : '<div class="pa-empty-card"><b>还没有保存连接</b><span>先打开完整设置，保存一个站点后就能在这里一键切换。</span><button class="pa-btn pa-btn-primary" data-connect-advanced>添加第一个连接</button></div>';
+  };
+  page.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-connect-advanced]")) return legacySheet("more", "完整连接设置", app);
+    if (e.target.closest("[data-connect-refresh]")) return render();
+    if (e.target.closest("[data-connect-test]")) {
+      const c = liveConnection();
+      if (!c.source) return toast("酒馆还没有选择连接来源", "warning");
+      try { await applyConnection({ source: c.source, url: c.url, model: c.model, secretId: c.secretId }, { connect: true }); render(); toast("已重新连接", "success"); } catch (err) { toast(`连接失败：${err.message}`, "error"); }
+      return;
+    }
+    const button = e.target.closest("[data-site-id]");
+    if (!button) return;
+    const site = settings().sites.find((x) => x.id === button.dataset.siteId);
+    if (!site) return;
+    button.disabled = true; button.textContent = "连接中…";
+    try {
+      const view = siteMulti(site) ? keyView(site) : site;
+      const result = await applyConnection(view, { connect: true });
+      settings().activeSiteId = site.id; saveSettings(); render();
+      toast(result?.online === false ? "已切换设置，但酒馆未连上" : `已切换到「${connectionLabel(site)}」`, result?.online === false ? "warning" : "success");
+    } catch (err) { toast(`切换失败：${err.message}`, "error"); button.disabled = false; button.textContent = "切换到这里"; }
+  });
+  return { render };
+}
+
+function mountSchemeBoard(page, app) {
+  page.innerHTML = `<div class="pa-board pa-scheme-board pa-scroll"><div class="pa-board-head"><div><p class="pa-kicker">SCENE SWITCHER</p><h1>场景方案</h1><p>把预设、开关、人设和连接作为一个场景保存。套用前先看清楚它会改什么。</p></div><button class="pa-btn pa-btn-soft" data-scheme-advanced>管理完整方案</button></div><div class="pa-scene-guide"><span>01</span><div><b>选择一个场景</b><small>应用后会逐项反馈预设、条目和连接的变化。</small></div><span>02</span><div><b>确认当前上下文</b><small>当前预设和连接会显示在卡片上。</small></div><span>03</span><div><b>套用并继续</b><small>任何条目修改仍可从顶栏撤销。</small></div></div><div class="pa-scene-grid" data-schemes></div></div>`;
+  const box = page.querySelector("[data-schemes]");
+  const render = () => {
+    const schemes = settings().schemes || [];
+    const current = currentPresetName();
+    box.innerHTML = schemes.length ? schemes.map((s, i) => {
+      const conn = s.conn || (s.siteId ? settings().sites.find((x) => x.id === s.siteId) : null);
+      const states = Object.keys(s.states || {}).length + Object.keys(s.groupStates || {}).length;
+      return `<article class="pa-scene-card"><div class="pa-scene-number">${String(i + 1).padStart(2, "0")}</div><div class="pa-scene-main"><div class="pa-scene-tags"><span>${esc(s.preset || "未选择预设")}</span>${s.persona ? `<span>人设 · ${esc(s.personaName || s.persona)}</span>` : ""}</div><h3>${esc(s.name || "未命名方案")}</h3><p>${states ? `${states} 个开关状态` : "保持当前条目状态"}${conn ? ` · ${esc(connLabel(conn, { model: false }))}` : ""}</p></div><button class="pa-btn pa-btn-primary" data-apply-scheme="${esc(String(i))}">${s.preset === current ? "套用此场景" : "切换到此场景"}</button></article>`;
+    }).join("") : '<div class="pa-empty-card"><b>还没有场景方案</b><span>打开完整方案管理，保存一个“预设 + 开关 + 连接”的组合。</span><button class="pa-btn pa-btn-primary" data-scheme-advanced>创建第一个场景</button></div>';
+  };
+  page.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-scheme-advanced]")) return legacySheet("connect", "完整方案管理", app);
+    const b = e.target.closest("[data-apply-scheme]");
+    if (!b) return;
+    const s = settings().schemes?.[Number(b.dataset.applyScheme)];
+    if (!s) return;
+    b.disabled = true; b.textContent = "套用中…";
+    try { await applyScheme(s); render(); } catch (err) { toast(`套用失败：${err.message}`, "error"); b.disabled = false; b.textContent = "重试"; }
+  });
+  return { render };
+}
+
+function mountQualityBoard(page, app) {
+  page.innerHTML = `<div class="pa-board pa-quality-board pa-scroll"><div class="pa-board-head"><div><p class="pa-kicker">QUALITY CHECK</p><h1>检查台</h1><p>先看风险摘要，再打开对应检查器。检查不会自动改动预设。</p></div><button class="pa-btn pa-btn-soft" data-quality-cot>打开完整检查</button></div><div class="pa-quality-context" data-quality-context></div><div class="pa-quality-grid"><button class="pa-quality-card pa-quality-indigo" data-quality="variables"><span>01</span><b>变量顺序</b><small>检查先读后写、清空后读取和未读覆盖。</small><em>开始检查 →</em></button><button class="pa-quality-card pa-quality-coral" data-quality="format"><span>02</span><b>回复格式</b><small>检查正文、思考和状态标签是否掉落或错位。</small><em>检查最近回复 →</em></button><button class="pa-quality-card pa-quality-mint" data-quality="cot"><span>03</span><b>思维链结构</b><small>查看条目覆盖、变量读取和可修复问题。</small><em>查看结构 →</em></button></div><div class="pa-quality-result" data-quality-result></div></div>`;
+  const context = page.querySelector("[data-quality-context]"), result = page.querySelector("[data-quality-result]");
+  const render = () => {
+    try {
+      const d = getDraft(focusPreset());
+      const a = analyze(d, settings().cotManual?.[d.name] || {});
+      const severe = a.issues.filter((x) => x.kind === "dead" || x.kind === "cotfrag").length;
+      context.innerHTML = `<span class="pa-status-dot"></span><b>${esc(d.name)}</b><span>${d.order.length} 条目</span><span>${a.cotIds?.length || 0} 个思维链条目</span><strong class="${a.issues.length ? "has-issues" : "ok"}">${a.issues.length ? `${a.issues.length} 项风险` : "暂未发现结构风险"}</strong>`;
+      result.innerHTML = a.issues.length ? `<div class="pa-result-card pa-result-warn"><b>建议先处理 ${severe || a.issues.length} 项结构风险</b><span>${esc(a.issues.slice(0, 3).map((x) => x.text).join("；"))}</span><button class="pa-link" data-quality-cot>打开结构检查 ↗</button></div>` : `<div class="pa-result-card pa-result-ok"><b>当前预设没有发现结构风险</b><span>仍可以检查最近回复的格式和变量运行时状态。</span></div>`;
+    } catch (e) { context.innerHTML = `<p class="pa-warn">读取检查对象失败：${esc(e.message)}</p>`; result.innerHTML = ""; }
+  };
+  page.addEventListener("click", async (e) => {
+    if (e.target.closest("[data-quality-cot]")) return legacySheet("cot", "完整检查编辑器", app);
+    const b = e.target.closest("[data-quality]");
+    if (!b) return;
+    try {
+      if (b.dataset.quality === "variables") await variableAuditDialog(getDraft(focusPreset()));
+      if (b.dataset.quality === "format") await replyFormatDialog(focusPreset());
+      if (b.dataset.quality === "cot") return legacySheet("cot", "完整检查编辑器", app);
+      render();
+    } catch (err) { toast(`检查失败：${err.message}`, "error"); }
+  });
+  return { render };
+}
+
+function mountTransferBoard(page, app) {
+  page.innerHTML = `<div class="pa-board pa-transfer-board pa-scroll"><div class="pa-board-head"><div><p class="pa-kicker">MATERIAL TRANSFER</p><h1>搬运台</h1><p>先确定从哪里取、写到哪里，再打开材料篮处理具体条目。</p></div><button class="pa-btn pa-btn-soft" data-transfer-advanced>打开完整材料篮</button></div><div class="pa-stepper"><span class="on">1 选择来源</span><i></i><span>2 选择目标</span><i></i><span>3 核对摘要</span><i></i><span>4 写入</span></div><div class="pa-transfer-selects"><label class="pa-transfer-select"><span>来源预设</span><select data-transfer-source></select><small>从这个预设读取要搬运的条目。</small></label><label class="pa-transfer-select"><span>目标预设</span><select data-transfer-target></select><small>材料篮会把选中内容写入这个预设。</small></label></div><div class="pa-transfer-review" data-transfer-review></div><div class="pa-transfer-actions"><button class="pa-btn" data-transfer-advanced>进入材料篮</button><button class="pa-btn pa-btn-primary" data-transfer-review-btn>生成核对摘要</button></div></div>`;
+  const source = page.querySelector("[data-transfer-source]"), target = page.querySelector("[data-transfer-target]"), review = page.querySelector("[data-transfer-review]");
+  const fill = () => {
+    const names = listPresets();
+    const selectedSource = source.value || currentPresetName();
+    const selectedTarget = target.value || currentPresetName();
+    source.innerHTML = names.map((n) => `<option value="${esc(n)}"${n === selectedSource ? " selected" : ""}>${esc(n)}</option>`).join("");
+    target.innerHTML = names.map((n) => `<option value="${esc(n)}"${n === selectedTarget ? " selected" : ""}>${esc(n)}</option>`).join("");
+    if (!names.length) review.innerHTML = '<p class="pa-empty-card">还没有两个可用预设。先在酒馆创建预设，再回来使用搬运台。</p>';
+  };
+  const render = () => {
+    fill();
+    if (!source.value || !target.value) return;
+    try {
+      const a = getDraft(source.value), b = getDraft(target.value);
+      const sourceOn = a.order.filter((x) => a.isActive(x.identifier)).length;
+      const targetOn = b.order.filter((x) => b.isActive(x.identifier)).length;
+      review.innerHTML = `<div class="pa-transfer-summary"><div><span>来源</span><b>${esc(source.value)}</b><small>${a.order.length} 条目 · ${sourceOn} 条启用</small></div><strong>→</strong><div><span>目标</span><b>${esc(target.value)}</b><small>${b.order.length} 条目 · ${targetOn} 条启用</small></div></div><p class="pa-hint">下一步在材料篮中选择具体条目、位置和写入方式。这里不会偷偷移动任何内容。</p>`;
+    } catch (e) { review.innerHTML = `<p class="pa-warn">读取预设失败：${esc(e.message)}</p>`; }
+  };
+  source.addEventListener("change", render); target.addEventListener("change", render);
+  page.addEventListener("click", (e) => {
+    if (e.target.closest("[data-transfer-advanced], [data-transfer-review-btn]")) {
+      if (e.target.closest("[data-transfer-review-btn]")) { render(); toast("摘要已生成，请确认来源和目标后进入材料篮", "success"); return; }
+      if (source.value) setFocusPreset(target.value || source.value);
+      return legacySheet("suture", "完整材料篮", app);
+    }
+  });
+  return { render };
+}
+
+function mountSystemBoard(page, app) {
+  page.innerHTML = `<div class="pa-board pa-system-board pa-scroll"><div class="pa-board-head"><div><p class="pa-kicker">MAINTENANCE</p><h1>维护与可靠性</h1><p>把低频的设置、体检和清理集中在这里，日常操作不再被它们打断。</p></div><button class="pa-btn pa-btn-soft" data-system-advanced>打开维护工具</button></div><div class="pa-maint-grid"><button class="pa-maint-card" data-system-advanced><span>01</span><b>外观与入口</b><small>主题、字号、入口位置和背景图。</small></button><button class="pa-maint-card" data-system-advanced><span>02</span><b>加载体检</b><small>检查酒馆接口和扩展兼容状态。</small></button><button class="pa-maint-card" data-system-advanced><span>03</span><b>清理与备份</b><small>处理旧草稿、归档和备份。</small></button></div><div class="pa-maint-note"><b>快捷原则</b><span>主工作台只负责当前任务；需要逐项字段时，再进入完整维护工具。</span></div></div>`;
+  page.addEventListener("click", (e) => { if (e.target.closest("[data-system-advanced]")) legacySheet("more", "完整维护工具", app); });
+  return { render: () => {} };
 }
 function mountHome(page, app) {
   page.innerHTML = `<div class="pa-home pa-scroll">
@@ -147,13 +446,12 @@ function buildRoot() {
   const pageEl = (k) => rootEl2.querySelector(`[data-page="${k}"]`);
   pages = {
     home: mountHome(pageEl("home"), app),
-    organize: mountOrganize(pageEl("organize"), app),
-    connect: mountMore(pageEl("connect"), app, { subs: ["schemes"] }),
-    flows: mountFlows(pageEl("flows"), app),
-    inspect: mountCot(pageEl("inspect"), app),
-    suture: mountSuture(pageEl("suture"), app),
-    // 维护页保留方案分段作为旧入口兼容；主导航仍把方案呈现为独立工作台。
-    system: mountMore(pageEl("system"), app)
+    organize: mountPresetBoard(pageEl("organize"), app),
+    connect: mountConnectionBoard(pageEl("connect"), app),
+    flows: mountSchemeBoard(pageEl("flows"), app),
+    inspect: mountQualityBoard(pageEl("inspect"), app),
+    suture: mountTransferBoard(pageEl("suture"), app),
+    system: mountSystemBoard(pageEl("system"), app)
   };
   applyTheme(rootEl2);
   if (settings().atelierNight) rootEl2.classList.add("pa-night");
