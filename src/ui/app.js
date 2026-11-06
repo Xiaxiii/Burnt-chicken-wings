@@ -96,11 +96,11 @@ function syncViewport() {
 }
 function buildRoot() {
   document.getElementById("pa-root")?.remove();
-  const nav = (mobile = false) => TABS.map(([k, l], i) => {
+  const nav = (mobile = false) => TABS.filter(([k]) => mobile || k !== "system").map(([k, l], i) => {
     // 旧外部调用仍会寻找 data-tab=cot；用 data-route 保留兼容而不恢复旧页签文案。
     const key = k === "inspect" ? "cot" : k;
-    return `<button class="pa-nav-item" role="tab" data-tab="${key}" data-route="${k}" aria-label="${l}"><span class="pa-nav-glyph pa-nav-${k}" aria-hidden="true">${["⌂", "▤", "⌁", "⌘", "◌", "◈", "☷"][i]}</span><span>${l}</span></button>`;
-  }).join("") + (!mobile ? '<button class="pa-nav-item pa-legacy-resource" role="tab" data-tab="more" data-route="system" aria-label="资源"><span class="pa-nav-glyph">□</span><span>资源</span></button>' : "");
+    return `<button class="pa-nav-item" role="tab" data-tab="${key}" data-route="${k}" aria-label="${l}"><span class="pa-nav-glyph pa-nav-${k}" aria-hidden="true">${["⌂", "▤", "⌁", "⌘", "◌", "◈", "☷"][TABS.findIndex(([id]) => id === k)]}</span><span>${l}</span></button>`;
+  }).join("");
   rootEl2 = el(`<div id="pa-root" class="pa-root" hidden>
         <div class="pa-shell">
             <aside class="pa-rail">
