@@ -204,11 +204,18 @@ function mountHealth(sec, { goClean } = {}) {
 function jankHtml(extData) {
   const j = jankSummary();
   const mins = j.minutes < 1 ? "不到 1 分钟" : `${Math.round(j.minutes)} 分钟`;
-  const how = j.mode === "longtask" ? "单次占住页面超过 50 毫秒记为一次卡顿" : "按计时器晚到的时间估算（本浏览器不提供更准确的记录）";
+  const how = j.mode === "loaf" ? "一帧画面超过 50 毫秒才画出记为一次卡顿，并记下这一帧里各来源脚本的耗时" : j.mode === "longtask" ? "单次占住页面超过 50 毫秒记为一次卡顿（本浏览器不提供按来源归类的记录）" : "按计时器晚到的时间估算（本浏览器不提供更准确的记录）";
+  const top = j.scripts[0];
   const mine = extData?.find((x) => x.key === "presetAtelier");
   let verdict;
   if (j.mode === "none") verdict = "本浏览器不提供卡顿记录。";
   else if (!j.count) verdict = "记录期间没有出现卡顿。卡顿再出现时，回到这一页查看。";
+  else if (top) {
+    verdict = `卡顿帧里耗时最多的是${esc(top.who)}（共 ${fmtMs(top.ms)}）。`;
+    if (j.layout.ms > top.ms) verdict += `浏览器重新计算样式和排版共 ${fmtMs(j.layout.ms)}，页面元素多或特效重时常见。`;
+    verdict += j.overlapped ? `${esc(appName())}参与 ${j.overlapped} 次，主要是「${esc(j.blame[0][0])}」。` : `${esc(appName())}没有参与。`;
+    if (!top.who.includes("（本扩展）") && top.who.startsWith("扩展")) verdict += "可停用它对比。";
+  }
   else if (!j.overlapped) verdict = `卡顿发生时${esc(appName())}都没有在处理，原因在酒馆本身或其他扩展。可看下方「扩展在设置文件中的数据」，存得多的扩展每次保存设置都要整份上传；也可逐个停用扩展对比。`;
   else verdict = `有 ${j.overlapped} 次卡顿发生在${esc(appName())}处理期间，主要是「${esc(j.blame[0][0])}」。导出报告发给作者可帮助定位。`;
   const ms = (v) => v < 10 ? `${v.toFixed(1)} 毫秒` : fmtMs(v);
@@ -217,7 +224,8 @@ function jankHtml(extData) {
     <div class="pa-card pa-jank">
       <p><b>${j.mode === "none" ? "无法记录" : j.count ? `页面卡顿 ${j.count} 次` : "没有卡顿"}</b>${j.count ? `，最长 ${fmtMs(j.longest)}${j.severe ? `，其中 ${j.severe} 次超过 0.2 秒` : ""}；与${esc(appName())}处理重叠 ${j.overlapped} 次。` : ""}</p>
       <p class="pa-hint">${verdict}${mine ? `本扩展在设置文件中的数据 ${fmtSize(mine.size)}。` : ""}</p>
-      ${j.recent.length ? `<details><summary>最近的卡顿</summary><ul class="pa-notes">${j.recent.map((x) => `<li>${ago(x.at)}，${fmtMs(x.ms)}${x.own.length ? `，同时在处理：${esc(x.own.join("、"))}` : ""}</li>`).join("")}</ul></details>` : ""}
+      ${j.scripts.length || j.layout.n ? `<details${top ? " open" : ""}><summary>卡顿时在运行的脚本（按来源）</summary><div class="pa-rank">${j.scripts.slice(0, 8).map((x) => `<div><span>${esc(x.who)}</span><em>${x.n} 次 · 共 ${fmtMs(x.ms)}${x.forced >= 5 ? ` · 其中强制排版 ${fmtMs(x.forced)}` : ""}</em></div>`).join("")}${j.layout.n ? `<div><span>浏览器计算样式和排版</span><em>${j.layout.n} 次 · 共 ${fmtMs(j.layout.ms)}</em></div>` : ""}</div></details>` : ""}
+      ${j.recent.length ? `<details><summary>最近的卡顿</summary><ul class="pa-notes">${j.recent.map((x) => `<li>${ago(x.at)}，${fmtMs(x.ms)}${x.owners?.length ? `，脚本来源：${esc(x.owners.join("、"))}` : ""}${x.own.length ? `，${esc(appName())}在处理：${esc(x.own.join("、"))}` : ""}</li>`).join("")}</ul></details>` : ""}
       ${j.own.length ? `<details><summary>${esc(appName())}各项处理耗时</summary><div class="pa-rank">${j.own.slice(0, 12).map((x) => `<div><span>${esc(x.label)}</span><em>${x.n} 次 · 最长 ${ms(x.max)} · 平均 ${ms(x.avg)}</em></div>`).join("")}</div></details>` : ""}
       <div class="pa-card-act"><button type="button" class="pa-btn pa-btn-s" data-h="jankclear">清空记录</button></div>
       ${tip(`${how}。只记时间和处理名称，不记内容，只保存在本页内存中，刷新页面后重新开始。「重叠」指卡顿期间${esc(appName())}有一项处理超过 16 毫秒。`)}
