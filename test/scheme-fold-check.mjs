@@ -1,4 +1,4 @@
-// 2.6.6 方案页能展开、收起的地方（方案分组、选项、当前连接详情）记住最后一次的状态，重新打开后保持；
+// 2.6.6 方案页能展开、收起的地方（方案分组、选项）记住最后一次的状态，重新打开后保持；
 // 没动过的方案分组按默认：当前角色那组展开。先构建并在仓库根目录运行 8765 静态服务。
 import { chromium } from "playwright";
 import assert from "node:assert";
@@ -29,21 +29,17 @@ async function openPage(saved) {
 }
 const groups = (page) => page.evaluate(() => [...document.querySelectorAll(".pa-schemes .pa-sgroup")].map((g) => (g.classList.contains("open") ? "+" : "-") + g.querySelector(".pa-sghead b").textContent).join(" "));
 const opts = (page) => page.evaluate(() => [...document.querySelectorAll(".pa-opthead")].map((h) => h.getAttribute("aria-expanded")).join(","));
-const live = (page) => page.evaluate(() => document.querySelector("[data-a=livemore]")?.getAttribute("aria-expanded"));
 const saved = (page) => page.evaluate(() => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier));
 
 let page = await openPage(null);
 assert.equal(await groups(page), "+沈砚 -林栖", "没动过时当前角色那组展开");
-// 合上当前组、展开另一组；点开第一个选项和当前连接详情
+// 合上当前组、展开另一组；点开第一个选项
 await page.locator(".pa-sgroup", { hasText: "沈砚" }).locator(".pa-sghead").click(); await page.waitForTimeout(150);
 await page.locator(".pa-sgroup", { hasText: "林栖" }).locator(".pa-sghead").click(); await page.waitForTimeout(150);
 await page.locator(".pa-opthead").first().locator(".pa-optlabel").click(); await page.waitForTimeout(150);
-await page.evaluate(() => window.__presetAtelier.open("conn")); await page.waitForTimeout(200);
-await page.click("[data-a=livemore]"); await page.waitForTimeout(150);
-const g1 = await groups(page), o1 = await opts(page), l1 = await live(page);
+const g1 = await groups(page), o1 = await opts(page);
 assert.equal(g1, "-沈砚 +林栖");
 assert.match(o1, /^true/);
-assert.equal(l1, "true");
 const s1 = await saved(page);
 await page.close();
 
@@ -51,8 +47,7 @@ await page.close();
 page = await openPage(s1);
 assert.equal(await groups(page), g1, "方案分组保持最后一次");
 assert.equal(await opts(page), o1, "选项保持最后一次");
-assert.equal(await live(page), l1, "当前连接详情保持最后一次");
-ok("方案页：分组、选项、当前连接详情记住最后一次的展开、收起");
+ok("方案页：分组、选项记住最后一次的展开、收起");
 await page.close();
 assert.deepEqual(errs, []);
 await browser.close();

@@ -168,11 +168,13 @@ try {
   assert.ok(!(await page.evaluate(() => window.__toasts.some((t) => /测试失败|可以用/.test(t)))), '不另弹提示');
   ok('点测试发送测试消息，结果写在模型下面一行');
 
-  await page.click('[data-a=livemore]');
-  assert.equal(await page.locator('.pa-sheet').count(), 0, '⋯ 在卡片里展开，不弹窗');
-  const acts = await page.locator('.pa-live-acts button').allInnerTexts();
-  assert.deepEqual(acts, ['删除', '编辑'], '⋯ 里不再放重新连接和获取模型列表');
-  ok('⋯ 里只留编辑、删除');
+  assert.equal(await page.locator('.pa-live [data-a=livemore]').count(), 0, '没有 ⋯');
+  await page.click('.pa-live [data-a=edit]');
+  await page.locator('.pa-sheet').waitFor();
+  const acts = await page.locator('.pa-sheet-actions button').allInnerTexts();
+  assert.ok(acts.includes('删除'), '编辑窗口里可删除');
+  await page.click('.pa-sheet-x');
+  ok('点铅笔直接打开站点编辑窗口');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();

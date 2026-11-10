@@ -575,7 +575,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   // 2.5.0 测试结果：写在模型那一行下面；换了模型就不显示
   let liveTest = null;
   // 2.5.0 ⋯ 在卡片里原地展开详情，不再弹窗
-  const liveOpen = () => foldGet("live", "detail");
   // 酒馆实际在用的模型（测试用的就是它）
   const usingModel = (live = liveConnection()) => {
     const c = ctx();
@@ -595,25 +594,20 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const today = new Date().toDateString() === d.toDateString();
     return `${today ? "" : `${d.getMonth() + 1}-${d.getDate()} `}${p2(d.getHours())}:${p2(d.getMinutes())}`;
   };
+  // 2.8.1 余额并入当前连接卡片：一行小字，查询前只显示「尚未查询」
   function balCard(live) {
     const b = balanceSummary(live);
     if (!b.supported) return "";
     const cur = b.last?.cur || "$";
     const win = (w) => w.pairs ? fmtMoney(w.sum, cur) : "—";
-    const part = b.d2.since ? `<p class="pa-hint pa-bal-note">记录自 ${hm(b.d2.since)} 起，之前的用量未计入</p>` : "";
-    const total = b.last ? b.last.unl ? "不限额度" : fmtMoney(b.last.bal, cur) : "—";
-    return `<section class="pa-card pa-bal" aria-label="余额">
-        <div class="pa-bal-head"><b>余额</b><span class="pa-bal-time">${b.busy ? "正在查询…" : b.last ? `${hm(b.last.t)} 更新` : "尚未查询"}</span><button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额"${b.busy ? " disabled" : ""}>${ICON.refresh}</button></div>
-        ${b.last ? `<div class="pa-bal-total pa-num">${esc(total)}</div>
-        <dl class="pa-bal-kv">
-          <div><dt>${b.round && !b.round.gen ? "距上次查询" : "上一轮"}</dt><dd class="pa-num">${b.round ? fmtMoney(b.round.v, cur) : "—"}</dd></div>
-          <div><dt>近 24 小时</dt><dd class="pa-num">${win(b.d1)}</dd></div>
-          <div><dt>近 48 小时</dt><dd class="pa-num">${win(b.d2)}</dd></div>
-        </dl>` : ""}
-        ${part}
+    const total = b.last ? b.last.unl ? "不限额度" : fmtMoney(b.last.bal, cur) : "";
+    const used = b.last ? [`${b.round && !b.round.gen ? "距上次查询" : "上一轮"} ${b.round ? fmtMoney(b.round.v, cur) : "—"}`, `近 24 小时 ${win(b.d1)}`, `近 48 小时 ${win(b.d2)}`] : [];
+    return `<div class="pa-bal" aria-label="余额">
+        <div class="pa-bal-line">${total ? `<b class="pa-bal-total pa-num">${esc(total)}</b>` : ""}<span class="pa-bal-time">${b.busy ? "正在查询…" : b.last ? `${hm(b.last.t)} 更新` : "尚未查询"}</span><button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额"${b.busy ? " disabled" : ""}>${ICON.refresh}</button><label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
+        ${used.length ? `<small class="pa-bal-used pa-num">${used.map(esc).join(" · ")}</small>` : ""}
+        ${b.d2.since ? `<small class="pa-bal-note">记录自 ${hm(b.d2.since)} 起，之前的用量未计入</small>` : ""}
         ${b.err ? `<p class="pa-live-res bad">${RES_BAD}${esc(b.err)}</p>` : ""}
-        <label class="pa-bal-auto"><span>每轮生成后自动查询</span><span class="pa-switch"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}><i></i></span></label>
-      </section>`;
+      </div>`;
   }
   function render() {
     const live = liveConnection();
@@ -640,22 +634,23 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const modelDiff = ak && live.model && ak.model && live.model !== ak.model;
     const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => schemeConn(sc)?.siteId === id).map((sc) => sc.preset))];
     const dot = `<span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span>`;
-    // 2.4.0：当前连接只留名称、网址、模型；类型、密钥、备注和操作收进 ⋯
-    // 2.4.1：模型旁放「拉取」（中转站）和「测试」；拉取到列表后模型框才出现 ▾
+    // 2.8.1 当前连接：名称、网址、模型、余额；测试、拉取、编辑为标题行的小图标，编辑一步打开站点窗口
     const sub = live.url || src?.label || "";
+    const bal = balCard(live);
     liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">酒馆当前连接</h3></div>
         <article class="pa-card pa-site pa-site-on pa-live"${active ? ` data-id="${esc(active.id)}"` : ""}>
-            <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more${liveOpen() ? " on" : ""}" data-a="livemore" aria-expanded="${liveOpen()}" aria-label="连接详情" title="连接详情">⋯</button></header>
+            <header>${dot}<b title="${esc(src?.label || live.source || "")}">${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">保存为站点</button>'}<span class="pa-live-ic">
+              <button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button>
+              ${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}
+              ${active ? `<button class="pa-icon-btn pa-live-edit" data-a="edit" type="button" aria-label="编辑站点" title="编辑站点（网址、密钥、备注、删除）">${ICON.pencil}</button>` : ""}</span></header>
             <dl class="pa-kv pa-live-kv">
-              <dt>类型</dt><dd>${esc(src?.label || live.source || "—")}</dd>
               ${sub && sub !== src?.label ? `<dt>网址</dt><dd class="pa-live-url pa-mono" title="${esc(sub)}">${esc(sub)}</dd>` : ""}
               <dt>模型</dt><dd class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}</dd>
+              ${bal ? `<dt class="pa-bal-dt">余额</dt><dd>${bal}</dd>` : ""}
             </dl>
-            <div class="pa-live-btns"><button class="pa-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}测试</button>${live.source === "custom" ? `<button class="pa-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}拉取模型</button>` : ""}</div>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
-        ${liveOpen() ? liveDetails(live, active) : ""}
-        </article>${balCard(live)}`;
+        </article>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
     const siteRow = (x) => {
       const used = usedBy(x.id);
@@ -721,21 +716,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           <div class="pa-srow-main"><b title="${esc(x.name)}">${esc(x.name)}</b>${x.cur ? '<span class="pa-chip">当前</span>' : ""}<small class="pa-rfmt" title="${esc(reasoningSummary(x.r))}"><code class="pa-rtag">${esc(tag || "无前缀")}</code><span class="pa-rauto${x.r.auto_parse ? " on" : ""}">${x.r.auto_parse ? "自动解析" : "不解析"}</span></small></div>
           <button class="pa-btn pa-btn-s" data-a="reasoningedit">修改</button>${x.cur ? "" : '<button class="pa-btn pa-btn-s pa-btn-danger-soft" data-a="reasoningdel">删除</button>'}
         </div>`;
-  }
-  // ⋯：当前连接的完整信息和操作
-  // ⋯ 展开的详情：类型、密钥、备注和操作（网址上面已经有了）
-  function liveDetails(live, active) {
-    const source = active ? active.source : live.source;
-    const mask = (x) => x.keyMask || (x.secretId ? "已保存" : "使用当前密钥");
-    const ak = active ? siteKey(active) : null;
-    const key = active ? siteMulti(active) ? `${keyName(active, ak)}：${mask(ak)}（共 ${active.keys.length} 个分组）` : mask(active) : live.secretMask;
-    const acts = active
-      ? '<button class="pa-swpill pa-danger-pill" data-a="del" type="button">删除</button><button class="pa-swpill" data-a="edit" type="button">编辑</button>'
-      : '<button class="pa-swpill" data-a="capture" type="button">保存为站点</button>';
-    return `<div class="pa-live-detail"><dl class="pa-site-dl">
-          ${key ? `<dt>密钥</dt><dd>${esc(key)}</dd>` : ""}
-          ${active?.note ? `<dt>备注</dt><dd>${esc(active.note)}</dd>` : ""}
-        </dl><div class="pa-live-acts">${acts}</div></div>`;
   }
   async function getModels(site) {
     return withSiteKey(site, () => fetchModelList(site));
@@ -1372,10 +1352,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       if (btn.querySelector("svg")) btn.classList.add("pa-busy");
       else btn.textContent = t;
     };
-    if (a === "livemore") {
-      foldSet("live", "detail", !liveOpen());
-      return render();
-    }
     if (a === "reasoningclear") {
       if (!await confirmBox("清除推理格式记录", "清除所有预设记住的推理格式？当前酒馆设置不变。", "清除")) return;
       settings().reasoningByPreset = {};
