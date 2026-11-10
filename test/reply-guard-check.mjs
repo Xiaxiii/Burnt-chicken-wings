@@ -103,6 +103,12 @@ try {
   assert.equal(await page.evaluate(() => window.__saved || 0), original.saves);
   ok('支持自定义正文、必需和思考标签；非法标签阻止保存，样本不持久化，预设不改动');
 
+  // 2.8.2 必需标签要在当前对话用到才检查：写进全局启用的世界书，改世界书后重读
+  await page.evaluate(async () => {
+    globalThis.__wiStore['示例世界书'].entries[9] = { uid: 9, comment: '格式', content: '正文后输出 <摘要>概述</摘要> 和 <状态>天气</状态>。', disable: false, key: [], constant: true };
+    const c = window.SillyTavern.getContext();
+    await c.eventSource.emit(c.eventTypes.CHAT_CHANGED);
+  });
   await reply(page, '本轮丢标签');
   await generate(page);
   assert.match(await reminder(page), /<正文>…<\/正文>/);

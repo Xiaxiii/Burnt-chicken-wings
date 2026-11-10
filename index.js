@@ -1,6 +1,6 @@
-// 焦香鸡翅 2.8.1（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
+// 焦香鸡翅 2.8.2（扩展版）— 由 build.mjs 生成，请改 src/ 里的源码
 var BUILD_KIND = "extension";
-var VERSION = "2.8.1";
+var VERSION = "2.8.2";
 var CHANGELOG = "焦香鸡翅 2.8.1\n\n用于整理、缝合聊天补全预设，并提供思维链检查、方案、加载体检和预设清理。\n打开方式：魔棒菜单 →「焦香鸡翅」，或悬浮球（「设置 → 入口」里选）；或在输入框发送 /atelier、/焦香鸡翅。名称可在扩展页设置框中修改。\n修改即时自动保存。每批修改开始前自动备份（可关闭）。扩展版与脚本版同时安装时，只启动扩展版。\n\n2.8.1\n- 必需标签写错名时，下一轮格式提醒只写正确的标签名，不再写出错误的名字。此前提醒写「不要输出 <状态栏>」，位置紧贴本轮生成，模型反而照抄；开启自动修正时每轮都会提醒，错名因此一直延续。\n\n2.8.0\n- 手机底部导航改为「预设、缝合、检查、连接、更多」。缝合单列一栏；「检查」下分「回复」「思维链」「变量」；方案移入「更多」，与清理、体检、设置并列。宽屏侧栏同步调整。\n- 缝合页新增两种布局，点页头右侧的布局按钮切换，选择记在设置里：「分栏」从、到同屏，可拖动分隔条；「切换」一次显示一栏，顶部切换「从」「到」，「从」旁显示已选条数，「到」选好位置后标 ✓。\n- 「检查 → 回复」改为单页：检查按钮与粘贴框在上，其下依次为标签、发现问题时的处理方式，AI 语义审查收在页尾，默认折叠。\n- 「连接」页新增余额卡片：显示总余额、上一轮用量、近 24 小时与近 48 小时用量，可手动刷新，可开启「每轮生成后自动查询」。支持 OneAPI / NewAPI 类中转站、OpenRouter、DeepSeek。查询记录只存在当前浏览器，保留 7 天；用量按相邻两次记录相减，充值不计入。\n- 模型选择框：长模型名换行显示；搜索时各段默认展开，可逐段收起，换搜索词后重新展开。\n- 面板打开时，提示浮在面板之上，点按即关闭。\n- 「体检 → 运行中的卡顿」的说明按钮移到标题同一行。\n- 「方案」页工具栏：删除按钮紧靠「保存方案」，不再停在中间。\n\n2.7.9\n- 「体检 → 运行中的卡顿」可把卡顿归到具体来源：新版 Chrome、Edge、安卓浏览器记录卡住的每一帧里各个脚本文件的耗时，按扩展目录名、酒馆内置扩展、酒馆本身归类，另列浏览器计算样式和排版的时间；结论写明耗时最多的来源。只取脚本文件地址，不读脚本内容。Safari 不提供这项记录。\n\n2.7.8\n- 「体检」新增「运行中的卡顿」：打开酒馆以来页面卡顿的次数和最长时间，卡顿时本扩展是否在处理、在处理什么，以及本扩展各项处理的次数和耗时。Chrome、Edge、安卓浏览器按长任务记录，Safari 按计时器晚到估算；只记时间和名称，只在本页内存中。\n- 变量顺序检查、正文标签推测、思维链分析按预设改动缓存，没改动时切页不重算；查条目改用索引。1200 条的预设、四倍降速模拟手机：切到「变量」页由约 150 毫秒降到约 20 毫秒，切到「回复」页由约 100 毫秒降到约 10 毫秒，再次切到「思维链」页由约 170 毫秒降到约 40 毫秒。\n- 思维链页的条目关联列表，屏幕外的组跳过排版。\n- 宿主反复写入相同的 class、style 时，不再重算配色。\n\n2.7.7\n- 缝合归入「预设」，与条目、思维链、变量并列；「更多」和宽屏侧栏的「工具」组只留清理、体检、设置。\n- 思维链页去掉「格式」「变量」两个按钮：变量检查只在「预设 → 变量」页，正文格式检查只在「回复」页。\n- 「回复」页的粘贴框在「检查」「语义审查」两页共用；「检测范围」说明放在检查页末尾。\n- 自动修正、语义审查的提示改为指向「回复」页。\n- 进入「回复」页时，设置没改过就按最新状态重建表单（酒馆推理前缀等可能已变）；在四个分页之间切换保留检查结果。\n\n2.7.6\n- 「墨」配色的开关开启时为蓝色轨道、白色圆钮，与关闭状态区分更明显。\n- 警示段落改为淡色底的提示框，不再整段红字。\n\n2.7.5\n- 「回复」页分为「检查」「规则」「自动」「语义审查」四页，记住上次所在的页。规则页填正文、必需、思考标签；自动页设置下一轮提醒和自动修正；检查页检查最近回复或粘贴的文字；语义审查页发起 AI 审查、设置生成后自动审查。「检查」页不显示保存按钮；在其他页保存时标签填错，自动切到规则页标出输入框。\n- 清理页、体检页的摘要和列表行改为白底细边卡片，状态用圆点表示；宽屏下内容限宽。\n\n2.7.4\n- 条目名下增加一行：角色（系统、用户、AI）、插入聊天记录时的深度、变量标签和 CoT 标记。整理页、缝合页同时生效。\n\n2.7.3\n- 方案页顶部新增「当前状态」卡：酒馆现在的预设、人设、连接，与哪个方案一致；绑定了自动套用的，注明本聊天或本角色进入时套用哪个方案。\n- 方案页工具行改为「分组 [角色卡▾]」「＋ 保存方案」；方案按组装在卡片里，行内显示预设、人设、时间和 API。下方选项单列「选项」。\n- 连接页「酒馆当前连接」卡改为类型、网址、模型逐行列出，下方「测试」「拉取模型」两个按钮；站点逐个成卡。\n- 宽屏下方案页、连接页内容限宽 760px。\n\n2.7.2\n- 宽屏（1000px 以上）点条目的查看按钮，在列表右侧的编辑栏里编辑，列表不被遮住；点「保存」才写入，正在编辑的条目高亮。换条目时若有未保存的修改，先确认是否放弃。手机仍用弹窗。\n- 条目行改为拖动手柄在最左、开关在最右，分组行同样排列。\n- 「预设」下新增「变量」页：变量顺序检查、读取当前变量状态、记录生成前后变化直接在页内进行。思维链页的「变量」按钮仍可打开同一内容。\n\n2.7.1\n- 视觉改版，各页同时生效。新增配色「素」（暖灰白底、近黑强调色）及其深色版「墨」，「素」为默认；原用「跟随酒馆主题」的改为「素」，选过其他配色的不变，均可在「设置 → 配色」改回。\n- 去掉缝线虚线装饰。条目改为通栏、行间细线；分组为浅灰色带；选中为浅蓝底、实心圆点。\n- 开关改为实底胶囊、白色圆钮；按钮、输入框、分段控件、标签、卡片、弹层统一圆角和描边。\n- 开启「跟随系统」时，系统为深色：「素」换成「墨」，其他配色换成夜雾。\n\n2.7.0\n- 界面改版。手机底部导航为「预设、方案、连接、回复、更多」五栏；屏幕宽度 1000px 以上（iPad 横屏、电脑）改为左侧栏，分「工作」「工具」两组，缝合、清理、体检、设置直接列出。\n- 「预设」下分「条目」「思维链」两页；「更多」下分「缝合」「清理」「体检」「设置」四页，记住上次所在的页。\n- 「方案」「连接」分为两页：方案页放方案与换角色、切换预设时的选项；连接页放当前连接和站点。\n- 新增「回复」页：当前预设的正文格式检查、自动修正、下一轮提醒和 AI 语义审查直接在页内设置和检查，不再经弹窗。思维链页的「格式」按钮仍可打开同一设置。\n- 自动保存状态、「撤销」「完成」移到底部批次栏；备份、关闭留在页头右侧。\n\n2.6.8\n- 修复「整理」页分组收起后又自动展开的问题。此前折叠状态只在面板打开期间记录，重新加载或切换预设后恢复为预设中保存的状态，分组编号变化时也会失效。现按预设名和分组名记录最后一次的展开、收起，未操作过的分组按预设中保存的状态显示。\n- 选择模型窗口的分类、分组段落，以及「清理 → 本地备份」的自动备份设置，同样记录最后一次的展开、收起。\n\n2.6.7\n- 修复更换当前站点的密钥后，当前连接仍使用旧密钥的问题。此前保存新密钥后会切回原来的密钥，测试消息因此报「401 密钥无效」，而「获取模型列表」临时使用新密钥，可以正常拉取。现保存后立即换上新密钥并重新连接。\n- 测试结果与当时使用的密钥绑定，更换密钥后不再显示旧结果。\n\n2.6.6\n- 「方案」页同样记录最后一次的展开、收起状态，包括方案分组、「换角色或聊天时」「切换预设时」两个选项、多密钥站点的分组和「当前连接」的详情。重新打开或重新加载后保持不变。未操作过的方案分组按默认显示，当前角色所在的组展开。\n\n2.6.5\n- 缝合页记录每个预设分组的最后一次展开、收起状态，重新打开焦香鸡翅或重新加载酒馆后保持不变。缝合完成后自动展开的分组，收起后不再展开。\n\n2.6.4\n- 修复缝合页分组反复展开的问题。预设重新读取后，部分分组的编号会变化，原先按编号记录的折叠状态失效，所有分组显示为展开，收起后再次进入仍会展开。现按分组名记录展开的分组，其余保持收起。\n\n2.6.3\n- 拉取模型列表、连接站点时，切换密钥不再触发酒馆重新加载预设，带正则的预设不再重复弹出「包含被启用的正则」提示。\n- 删除世界书时，酒馆名单中找不到的世界书改由接口直接删除，已不存在的视为删除成功；确实无法删除时写明原因。多本删除失败时合并为一条提示。\n\n2.6.2\n- 切换到未记录模型的站点时，不再沿用上一个站点的模型，由酒馆从新站点的模型列表中选取。选择模型列表不再列出当前站点没有的模型，并注明当前模型不在列表中。\n- 缝合页「文件」可读取聊天补全预设、世界书和正则文件。世界书支持酒馆导出格式及角色卡内嵌的世界书；正则文件读入后直接打开缝合正则窗口。\n- 缝合正则移至来源类型菜单（「预设 ▾」）中的「正则」，选择后打开缝合正则窗口，来源类型不变。预设文件中的正则从「⋯」中的「缝合文件中的正则…」缝入。\n- 缝合正则、站点编辑等弹窗的内容区不再被其他主题或扩展铺上白底；所有输入框、下拉框保持圆角。\n\n2.6.1\n- 「入口」新增「都不要」：魔棒菜单和悬浮球均不显示，可在扩展页设置框点击「打开」或发送 /atelier 打开。设置位于「更多 → 外观 → 入口」及扩展页设置框。\n- 「清理 → 世界书」检查新增「已删除角色卡留下的」一类。导入带世界书的角色卡时，酒馆另存一本世界书，删除角色卡时不随之删除。未被现有角色、全局或当前聊天使用，且名为「某某's Lorebook」、文件中有角色卡导入记录或属于已删角色的附加世界书，均予列出并标明原角色名，可一键勾选。角色的附加世界书计为在用。按钮改称「检查全部世界书」。\n- 「清理」中删除世界书、扩展数据、预设不再强制下载备份。按钮为「删除」，弹窗提示删除后不可恢复，可点击「下载备份」（弹窗保留并写明文件名），也可直接删除。\n- 下一轮格式提醒只点名正文标签及「必需标签」中填写的标签，不再依据前几条回复点名状态栏、小剧场等其他块；未填写时不予提及。无问题时不提醒。\n\n2.6.0\n本版汇总 2.5.0 发布以来的全部更新。\n\n站点与模型\n- 新增站点导入、导出。导出为 JSON 文件，可选择是否包含密钥；导入前列出新增、更新的站点及其密钥、模型、分类数量，确认后保存。名称、网址相同的站点按文件更新，相同密钥不重复保存，缺失的密钥由文件补齐。兼容其他扩展导出的 grouped-api-configs-export 格式，以及 url、baseUrl、apiKey、api_key 等常见字段。\n- 新增模型分类。选择模型时可按分类查看；多选模型后可新建分类或加入已有分类，一个模型可属于多个分类；未归类的模型按名称归入 Claude、Gemini、GPT、DeepSeek 等系列。分类保存在站点上，可编辑、改名、删除。\n- 已保存的密钥可查看、复制。保存密钥时在本浏览器留存副本，点击眼睛按钮显示全文，旁设复制按钮，经 http 访问的酒馆同样可用；显示后未改动的密钥不重复保存。无法查看时，在该行写明原因和办法。酒馆密钥库中已删除的密钥，本地副本同步清除。\n- 多密钥站点点击「N 组 ▸」展开分组，点击其他位置打开编辑窗口。\n- 「当前连接」的 ⋯ 在卡片内展开；模型名字号调小。\n\n外观\n- 新增「入口」设置，可选魔棒菜单、悬浮球或两者，取代「显示悬浮球」开关。\n- 「跟随系统」改为配色标题旁的开关：系统为深色时使用夜雾，为浅色时使用所选配色，随系统即时切换。原「跟随手机系统」设置自动沿用。\n- 油画、毛玻璃配色下，弹窗与面板使用同一画面；设置背景图时，弹窗显示背景图及遮罩。弹窗内列表、搜索框底色调淡。\n- 「夜雾」，以及深色酒馆主题下的「跟随酒馆主题」，正文、次要文字、强调色分层显示。\n- 搜索框、下拉框、密钥框和弹窗列表的外观写在元素上，不再被其他主题、扩展改为方角白底。\n- 表情符号图标统一换为线条图标；「方案」页只保留一个实心主按钮；不可用的主按钮显示为描边灰字。\n\n操作\n- 菜单贴近所点按钮弹出，点击外部关闭；确认、命名等小窗口居中偏上，不被键盘遮挡。\n- 方案、模型分类原地改名，回车保存，Esc 取消。\n- 长列表窗口高度固定，仅列表滚动，搜索框始终在顶部。\n- 整理页多选底栏为移动、建成分组、删除、更多，全部开启、全部关闭移入「更多」。分组菜单新增组内全部开启、组内全部关闭。\n- 窗口宽度不足 1100px 时（含 iPad），整理页工具收入「＋」「⋯」，预设名完整显示。\n- 选择模型多选新增「清空」。本地备份的自动备份设置默认收起。\n\n思维链与回复检查\n- 思维链页结论并入「N 项变量读取待核对」，逐条列出待核对条目，统计数字置于其下，图例收入 ⓘ。\n- 正文格式检查：标签有误时在对应输入框下方提示；标签名自动规范，全角转半角，去除不可见字符和多余尖括号；必需标签可用分号分隔。\n- 必需标签名称写错时，按子标签结构识别误写的块，提醒中直接纠正，不再沿用错误名称；确认无误时，「修正这条回复」及自动修正将其改为正确名称。\n\n性能与兼容\n- 搜索在停止输入后筛选，拼音未选字时不筛选。在 1200 条目的预设中连续输入 5 字，卡顿由 5 次（170～355 毫秒）降为 1 次（56 毫秒）。\n- 电脑端中文输入法按回车选字，不再触发确认。\n- 支持 iOS 15.4 及以上版本，修复 iOS 15.4～16.3 无法加载的问题；iOS 16.2 以前的系统设置背景图时，补充不透明底色。\n- 修复 iPad、iPhone 上弹出菜单选项重叠的问题。\n\n2.5.0\n- 一个站点可以填多个密钥，用于同一个站子的不同分组（例如 Gemini 的按次、按量）：\n  - 编辑窗口「密钥」旁点 ＋ 加一行；也可以往密钥框里一次粘贴多行，一行一个，自动拆开。只有一个密钥时和以前一样，就一个框。\n  - 两个以上密钥时，每行左边可填分组名，不填就叫「密钥 1」「密钥 2」。按住 ⋮⋮ 拖动调顺序，排在上面的优先。\n  - 「获取模型列表」每个密钥各拉一次，行尾显示拉到几个模型。\n  - 站点列表里，点多密钥站点那一行就展开（右边的小胶囊写着「3 组 ▸」），每个分组一行，点「切换」直接用这个分组连接；「编辑」在展开后的最后一行。正在用时小字显示当前分组和模型。每个分组记住自己上次用的模型。\n  - 选模型时一并选分组，选择框顶上可选「按模型」或「按分组」，默认按模型，选过记在站点上。按模型：每个模型列一次，后面标出哪些分组有它，点模型名用排在上面的分组，点标签换；超过 2 个标签时只显示一个和「+N」，点开全部。按分组：一个分组一段，只展开第一段，搜索时每段都展开。\n  - 「当前连接」模型框里，模型名后面跟分组名；选了另一个分组的模型，就换成那个分组的密钥重新连接。\n  - 方案记 API 时也记下分组，套用时连回这个分组。\n  - 连接或拉取失败时提示「『按次』密钥请求失败（额度用完或已失效）」，不自动换分组。\n  - 删到只剩一个密钥时，站点变回普通的单密钥站点。\n- 「当前连接」的「测试」（闪电）改成和酒馆的「测试消息」一样：用选中的模型发一句「Hi」。结果写在模型下面一行，如「✓ Successful」「! 503 暂无可用渠道」；认不出的写「未知错误」，点这一行看报错原文。不再先重新套用站点。\n- 站点列表的「切换」改成小胶囊按钮，按下时轻轻一缩；手机上点按范围不变。\n\n2.4.2\n- 「更多 → 清理 → 本地备份」新增「自动备份」开关，默认开启。关闭后修改预设前不再备份。\n- 每个预设保留的备份份数可选 1–30，默认 10。\n- 以上两项同样适用于世界书缝合、编辑前的备份。\n- 「每个预设只留最近 3 份」改为「立即精简」，按设定份数删除多余备份。\n\n2.4.1\n- 「思维链 → 格式」新增「发现问题时，自动修正这条回复」（按预设开关，默认关闭）：每次生成结束后自动做「修正这条回复」能做的修改，改了弹提示，可在「格式」窗口撤销；下一轮提醒照常按修正前的问题提醒。手动停止、续写的回复不改；末尾只缺结束标签可能是被截断，不自动补，方便继续生成。\n- 「修正这条回复」新增一种修法：正文前一大段没被标签包住的思考（爆思维链）原样移进思考区，开头的注释、后面的锚定注释和标题留在原处，不增删文字。\n- 正文被吞进思考区时，紧挨着正文的状态栏、小剧场等完整标签块（代码块也算）一起搬出来。正文后面的块直接搬；正文前面的块照前几条回复（开场白也算）有没有放在正文前来判断，免得把思考里的步骤块搬出来。\n- 上次只搬出了正文、状态栏等还留在思考区末尾的，检查会标出来，修正时照前几条回复放回正文前或正文后。\n- 下一轮格式提醒改了措辞，免得和预设打架：去掉「无需展示思考过程」（预设要求写思考、又预填了思考开头时，模型可能不写思考、直接在思考区里写正文）和「不要复述上一轮内容」（会和转述用户输入冲突）；「正文写完即结束」改成「正文结束后不追加说明或总结」。提醒里会点名前几条回复里正文前后的状态栏、小剧场等，让它们照常输出，思考标签要在第一个输出块之前闭合。\n- 「格式」窗口和「站点」标题旁的解释句默认收起，点旁边的 ⓘ 才显示；警告照常直接显示。\n- ⓘ 改成画出来的图标，在各种字体下都和文字对齐（原来的字符在一些字体里偏上）；「自动修正这条回复」旁的 ⓘ 不再偏高。\n- 「清理」页相近预设卡片的展开箭头回到标题左边，不再单独占一行。\n\n2.4.0\n- 「更多 → 方案」的 API 部分重新排版，变短很多：\n  - 「当前连接」只留站点名、小字网址和模型三行；类型、密钥、备注，以及编辑、删除，收进右上角 ⋯。没存成站点时，点「未保存为站点」直接保存（这个标签在手机上不再被截断）。\n  - 站点列表每个站点一个独立的框：名称、模型和用于哪些预设，右边是「切换」，正在用的显示「使用中」。点站点名打开编辑窗口，删除也在里面；列表里不再展开详情。\n  - 模型框旁边放了「拉取」（圆圈箭头，中转站类型才有）和「测试」（闪电，重新连接看能不能连上）。拉取到模型列表后，模型框右边才出现 ▾，点开就是全部模型；没有列表时点模型框可以直接填写。\n- 两个选项（换角色或聊天时提示、切换预设时同时切换推理格式）挪到方案列表下面，站点那块只放站点。只有点方框才勾选或取消，点这一行其他地方展开。原来的 ⓘ 去掉，规则直接列在展开的行里。\n- 「记住的推理格式」不再单独开窗口，展开就能看到：每个预设一行，前缀放在小方框里，实心绿点表示自动解析、空心圈表示不解析；「修改」「删除」并排在右边，当前预设只能修改。收起时行尾的小数字是记了几个预设。\n- 卡顿：大预设（400 多条）展开所有分组、展开后滑动、点选条目、从别的页回到整理页、清空搜索都明显变快。屏幕外的分组不再参与排版和绘制（需 iOS 18、安卓 Chrome 85 及以上，旧系统照常显示）。在模拟中端手机的条件下：展开后滑动的卡顿帧从 22 帧降到 2 帧，回到整理页从约 1.3 秒降到 0.4 秒，点选条目不再卡顿。\n- 「清理」「加载体检」先切过去、显示「正在…」，再在后台计算；清理页分段计算，1 分钟内再打开直接用上次的结果。\n- 手机、平板：开关、ⓘ、排序、「去清理」、「未保存为站点」的点按范围放大到约 44px（外观不变），选项行的方框外加了一圈可点区域；点过的行不再一直留着灰底（悬停效果只给有鼠标的设备）。\n- 缝合页「从」那一行在手机和平板竖屏上把「正则」收进 ⋯，预设名能多显示一倍；电脑上照常。思维链页读取的变量名完整显示。\n\n2.3.9\n- 思维链页顶部三个按钮改短为「格式」「变量」「修复」，手机上预设名不再被挤得看不见。打开后的窗口标题仍是完整名称。\n\n2.3.8\n- 「更多 → 外观 → 配色」新增「芽体」「菌落」：清透的油画渐变底，配毛玻璃质感的面板。芽体是生命青和浅珊瑚，菌落是冷雾蓝、淡紫和灰绿。顶栏、标签栏是真的毛玻璃；列表里的分组和卡片用半透明玻璃质感，不做实时模糊，滑动不卡。\n- 去掉「春芽」配色。之前选了春芽的，回到默认的「跟随酒馆主题」。\n\n2.3.7\n- 「更多 → 外观 → 配色」新增「跟随手机系统」：手机是深色模式时用「夜雾」，浅色模式时用切换前选的配色（之前没选过就跟随酒馆主题）。手机切换深浅色时面板立即跟着变。\n\n2.3.6\n- 保存方案时人设可选：默认记当前人设，也可选「不记录」（切换方案时人设不变）或其他人设；✏️ 里新增「人设」可随时改。「用现在的状态覆盖」里人设和 API 都可勾选是否更新。\n- 「条目开关的保存范围」前加小三角，提示可以展开；「保存全部条目」注明是整个预设每条的开关都按方案恢复。\n- 悬浮球开关移到「更多 → 外观」最上面，改成右侧的开关。拖动、点击悬浮球不再收起酒馆正在打开的面板（如扩展页）；面板打开时悬浮球隐藏。\n- 「记住的推理格式（N）」改成开关下方一行小字，点开在单独的窗口里查看、修改，不再铺在卡片里。\n- 「换角色或聊天时提示」「切换预设时同时切换推理格式」的说明改成每行右边小小的 ⓘ，点开才显示；背景图的说明放到「背景图」标题同一行最右边。\n- 面板标题和扩展页设置框的版本号旁加上作者名。\n- 更流畅：整理页点选条目、整组选择、单条和分组开关不再重画整个列表；清理、加载体检页的预设大小不再每次重算；拖动悬浮球按帧移动，不触发重新排版。\n\n2.3.5\n- 保存方案时 API 默认不记录，可改选当前连接或某个站点，并另选模型；下次保存沿用这次的选择。\n- 方案 ✏️ 里「用现在的状态覆盖」只更新条目开关和人设，勾选后 API 才换成当前连接；「API 和模型」可改记录的站点和模型。\n- 新增悬浮球（默认关闭）：点一下打开，按住拖动，松手贴边。在扩展页设置框或「更多 → 外观」里开关。\n\n2.3.4\n- 推理格式记录列表可折叠：点「记住的推理格式（N）」收起或展开，下次打开保持。\n\n2.3.3\n- 「切换预设时，同时切换推理格式」开启后，下方列出每个预设记住的推理格式（模板、前后缀、开关），可点「修改」手动改模板、前缀、后缀、分隔符、各开关和最大条数，也可删除单条、给还没记录的预设新建。当前预设显示酒馆现在的设置，修改后立即生效。在酒馆面板里改过后，点列表下方「刷新」显示新值。\n\n2.3.2\n- 缝合页点 👁 打开的条目可以直接修改，和整理页一样：打开时不弹键盘，点正文后才弹。来源预设、目标预设保存后写入预设（可撤销）；世界书条目写回世界书（写前备份）；预设文件只改本次读入的内容。已选的条目同步更新。\n- 编辑条目时点「展开正文」，触屏上不再自动弹出键盘。\n\n2.3.1\n- 新增「切换预设时，同时切换推理格式」（更多 → 方案，默认关闭）：离开预设时记下酒馆「推理内容格式化」的设置，切回该预设时自动恢复。\n\n2.3.0\n- 精简说明文字：思维链页、正文格式检查、缝合预览、清理页的说明改为短句；正文格式检查的检测范围收进折叠栏。\n\n2.2.9\n- 思维链页：同时开着几套思维链开头（单独一行的 <thinking>、<ECoT> 等）时提醒，列出是哪几条。\n- 以 cot 结尾的变量只要有开启的条目读取，不再报「思维链没读」。\n- 「加入思维链读取」默认放进与思维链开头同组、带分步标题的条目；没有结束标签时放在最后一个分步标题前。\n- 正文格式检查自动把酒馆推理前缀（如 <ECoT>）当作思考标签；模型自带的思考占了思考区、<ECoT> 留在正文里时，说明原因和关闭「请求思维链」的位置。\n\n2.2.8\n- 思维链片段显示「思维链没读」时，卡片上可点「加入思维链读取」：选思维链和插入行，预览后加入，可撤销。\n- 写入与读取的变量名只差大小写或空格时标为「名字对不上」，可一键改名。读取它的是另一套关着的思维链时，不提供「开启」。\n- 缝合预览的「缝后开启」默认与来源一致，新增「按来源」一键恢复；缝进世界书同样适用。\n- 「推荐接入」只算缝后开启的条目；超过 10 条时提醒思考会变长。\n- 缝来的状态栏、正文尾等格式条目依赖来源预设的显示正则、目标没有对应正则时，预览里提醒；确认缝合后可直接缝正则，已预选需要的几条。\n- 正文格式检查按预设识别正文标签并填入，找不到时提醒不要开启下一轮提醒；建议把显示正则用到的状态栏标签填进必需标签。\n- 清理 → 预设的「可清理」按相近的两份折叠成组，两份都列出，标出建议保留哪份及原因；组多时先显示 8 组。\n- 美化用 !important 强改普通文字颜色时，面板改回自己的配色。\n\n2.2.7\n- 正文格式检查新增「爆思维链」：正文标签前后有大段未包裹的文字时列出原文片段；正文被解析进思考区时也能查出。\n- 新增「修正这条回复」：正文标签写错名或用了方括号、只有开头或结尾、思考标签没闭合把正文裹进去、正文被解析进思考区，可预览后一键修正，只动标签，可撤销。\n- 下一轮提醒按上一轮的具体问题补一句针对性要求。\n- 变量检查识别 {{getvar 名}} 空格写法和 hasvar/varexists；只用 hasvar 判断的变量视为开关，不建议补读取。\n- 修复「间接读到」与「思维链没读」同时出现；一条写多个变量时，注明说的是哪个变量。\n- 减少卡顿：面板开着时自动保存不再每次让酒馆试生成、重画条目列表，关面板时合并通知一次；读取预设只复制一遍；本地草稿只在保存失败、切后台或关页面时写入。\n\n2.2.6\n- 确认缝合正则时自动归组，默认用来源预设名，可改名；同名组继续使用。\n- 分组使用柏宝箱的预设正则分组格式，在柏宝箱正则分组面板查看。\n\n2.2.5\n- 缝合页新增「正则」：从已安装预设或预设文件选择内置正则，默认选显示美化。\n- 预览查找与替换内容、冲突处理及最终顺序；完全重复自动跳过，同名或同 ID 可保留两份、跳过或替换。可撤销。\n\n2.2.4\n- 大预设的列表、分析和缝合预览提速；折叠分组按需生成条目。\n- 主题按实际底色调整文字、强调色和控件颜色，修复浅底浅字和看不见的控件。\n- 缝合预览新增总开关：右边全开、左边全关。\n\n2.2.3\n- 分组开关只修改分组自身，不再联动内部条目。\n\n2.2.2\n- 识别「↓ 一键开关 ↓」等箭头标题、框线标题和装饰分隔线。\n- 智能分组可将未分组条目移入已有分区；同名或冲突时手动选择。\n\n2.2.1\n- 整理页提示被拆成多段的分区；「智能分组」可批量归整，可撤销。\n- 普通保存不再广播「预设导入完成」，避免误触发其他扩展的导入迁移。\n\n2.2.0\n- 思维链页新增「变量顺序与现状」：检查先读后写、清空后读取、未读即覆盖。\n- 可查看当前聊天与全局变量的状态摘要，按需开启生成前后对比。\n- 正文格式检查新增可选 AI 语义审查，使用酒馆当前连接，手动或生成后自动审查，默认关闭。\n\n2.1.0\n- 思维链页新增「正文格式检查」：自定义正文与必需标签，检查缺失、重复、不闭合、正文与思考标签嵌套。\n- 可按预设开启「发现问题时，下一轮提醒 AI」，问题消失后停止提醒。\n- 思维链片段、计数和动态变量名不再通过通用修复新增读取。\n\n2.0.1\n- 编辑条目：弹窗占屏幕高度八成，正文框填满剩余空间。\n- 「写法」右侧新增展开按钮。展开后正文占满整个弹窗，再点一次恢复。\n\n2.0.0\n- 适配 TT 等 App 内嵌网页：面板高度按实际可见区域计算，底部页签不再被挤出屏幕。\n- 网页未覆盖状态栏或底部横条时，不再重复留出安全区空白。全屏网页（如添加到主屏幕）保留安全区。\n- 适用于 iPhone、iPad、安卓手机、平板和电脑。Safari 浏览器收起工具栏时，保留底部横条位置。\n\n1.9.9\n- 清理 → 角色卡：按需加载的同名角色卡，自动向服务器读取完整内容后比较。比较结果列出不同之处，如「描述、开场白」。\n- 「重新检测」重新读取角色卡内容并比较。\n- 扩展页：「更新」「刷新页面」按钮靠右；更新说明显示最近两个版本。\n\n1.9.8\nAPI 规则\n- 换预设时，API 不变。\n- 切换方案时，恢复方案保存时的预设、条目开关、人设和 API。\n- 切换方案不再修改「使用中」站点，各方案的 API 互不覆盖。\n- 未记录 API 的方案，切换时 API 不变。方案列表标注「未记录 API」，可在 ✏️ 中补充。\n- 删除「切换预设后，自动连回『使用中』的站点」「切换预设时，不让预设带着的连接设置覆盖当前连接」两项。升级后自动关闭酒馆的「预设绑定连接」。\n方案\n- 保存方案时自动记录预设、条目开关、人设和 API，窗口内列出将保存的内容。API 无需先存为站点。\n- 方案列表每条显示 API（站点名或网址，以及模型）。\n- ✏️ 菜单：「换 API 站点」改为「更换 API」，可选当前连接、已存站点或不记录；「用现在的状态覆盖」同时更新人设和 API。\n文字\n- 设置项、说明和提示改为简明表述。设置项的补充说明收入「说明」，点击展开。\n\n1.9.7\n- 缝合页搜索改为在列表中筛选。点击 🔍 输入关键词，「从」「到」列表即时显示匹配条目，分组自动展开。\n- 搜索词保留至手动清除。列表上方可修改或清除。\n\n1.9.6\n- 缝合页「从」「到」两栏新增 🔍 搜索，可搜名称、分组名、标签和正文。\n\n1.9.5\n- 双层分组提示新增「保留，不再提示」。部分扩展（如转移工具 preset-transfer）会持续写回自己的分组数据。选择保留后，该预设不再提示，保存时也不再删除这份数据。\n\n1.9.4\n- 扩展页设置框重新排版。「加载与兼容」「更新说明」默认收起，标题右侧显示概况。删除不可用的「应用推荐配置」「停用加速」和重复的「加载体检」按钮。\n- 检查更新显示「已是最新版本（版本号）」或「检测到新版本（版本号）」。已更新未刷新时，提示刷新页面。\n- 魔棒菜单中「焦香鸡翅」固定在最下方。\n- 方案列表显示 API 站点名。\n- ✏️ 菜单完成一项操作后返回菜单，点击 ✕ 关闭。\n- 改归属角色：新增「取消归属」按钮。\n\n1.9.3\n- 换角色或聊天时，提示当前预设和模型，3 秒后关闭。可在「更多 → 方案」底部关闭。\n- 双层分组：与柏宝箱分组同编号的旧副本一并去除。\n- 双层分组被写回时，记录写回的扩展并在提示中注明。\n- 保存预设时原地更新酒馆内存中的预设，防止其他扩展用旧数据覆盖。\n\n1.9.2\n- 方案按角色卡分组，点击箭头展开。当前角色排在最前；可改为按预设或人设分组。\n- 方案列表每条显示名称、预设、人设和时间，右侧为「切换」和 ✏️。\n- 保存方案时可归到当前角色，可设置进入聊天时自动切换。\n- 当前角色没有当前预设的方案时，列表上方提示保存。\n- 新增 🗑️ 批量删除，可整组勾选。\n- 删除方案区的预设选择框，删除「当前连接」中的「用于」一行。\n- 修复：同一聊天内手动换预设后被自动换回。自动套用改为仅在进入聊天时执行一次。\n- 自动套用可绑定单个聊天或某个角色的全部聊天。\n\n1.9.1\n- 整理页搜索分两层：先列名称、标签、分组名匹配的条目；仅正文匹配的条目点击「正文里还有 N 条」后列出，并显示匹配句。\n- 思维链页：「变量未被读取」改为「没发出去的内容」，每条注明条目、变量和原因，详情折叠。\n- 缝合预览：条目标题固定为两行，修复 iPhone 上的错位。\n- 清理 → 扩展数据：正确识别酒馆助手和柏宝箱的数据，补充酒馆内置数据的识别。\n- 清理 → 预设：无可勾选预设时不显示「取消全选」。\n- 大小为 0 时显示「0 B」。\n\n1.9.0\n手机排版（更紧凑）\n- 预设、世界书的选择改成小按钮「名称 ▾」，点开是可搜索的列表，预设多的时候好找；手机上省掉「预设」二字。\n- 缝合页：来源、目标各一行，「从 [预设 ▾] [名称 ▾] ⋯」「到 [预设 ▾] [名称 ▾]」，不再另放搜索框（点 ▾ 弹出的列表本身可以搜索）；去掉目标上方的提示句，位置提示放进底栏。\n- 预设、世界书的选择列表不论多少项都带搜索。\n- 整理页工具栏收成一行：预设、🔍 搜索、＋ 新建（条目或分组）、⋯ 工具。\n- 说明文字默认收起成一行「ⓘ 说明」：清理各栏、方案、连接选项、背景图。清理各栏顶部只留一行数字摘要。\n- 加载体检：顶部一行摘要（启动用时、预设、扩展数据、角色卡），建议只显示一句结论，原因收进「为什么」，「去清理 ›」和它放在同一行；时间线、请求表、排行等都收进「详细数据」。\n- 配色改成小色块，只留圆点和名称（说明放在长按 / 悬停提示里）。\n- 思维链页五个统计在手机上排成一行。\n- 清理页排序改成小字「↕ 大小」，点开选排序方式。\n- 复选框不再沿用酒馆的实心方块样式，改成细边框，勾选后填色。\n- 扩展数据：「实际检测」「勾选疑似残留」改成小字，和「ⓘ 说明」放在同一行。\n- 加载体检：每条建议只显示一句短结论，带数字的完整说明和原因收进「ⓘ 详情」。\n- 角色卡：同名组可以「忽略」（或「全部忽略」），这次打开酒馆期间不再提示；点「重新检测」或下次打开酒馆重新检测时会再列出。\n- 方案页「保存当前状态为方案」「＋ 添加站点」按钮改小。\n- 修正缝合预览在手机上显示不全、平板上左右乱滑：长名称（分组下拉框、条目名）不再把弹窗撑宽。\n- 手机基础字号回到 14px，触屏按钮和输入框高度收紧。\n\n数据安全\n- 删除世界书、扩展数据、预设前的备份是交给浏览器下载的，浏览器可能拦截或下载失败。现在下载后先停下来，确认文件已经保存再删除；可以重新下载或取消删除。\n- 预设正在自动保存时删除或归档它，会先等这次保存结束再删除，删完不会被晚到的保存写回来。\n- 关闭面板时先等正在进行的保存结束。「放弃修改」改为「放弃没存上的部分」，并说明已经自动保存的不会撤回。\n- 浏览器存储写满、需要清理旧草稿时，只清当前账号的草稿，不动同一浏览器里其他账号的。\n- 站点密钥在酒馆密钥库里没了、本浏览器里还有时，重新存进去后记下新编号，之后连接不会每次再存一把。\n\n功能\n- 方案卡片的「使用中」要求预设正在用、开关一致、人设和 API 站点也对得上；只有开关一致时标「开关一致」。\n- 分组上的「关闭」标记只有柏宝箱运行时才会挡住组内条目。没有柏宝箱时，整组开关和条目是否生效按条目自己的开关显示。\n- 世界书比对改称「条目完全相同」，写明比较范围；读取失败的世界书单独列出，不再悄悄跳过。\n- 角色卡「内容相同」改为「文字设定相同（头像图片未比较）」，并写明比较了哪些内容。\n- 扩展数据「多半是卸载残留」改为「疑似卸载残留，删除前请核对」：没找到使用者不等于可以安全删除。\n- 1.8.0 误把「柏宝箱」改成了「百宝箱」，改回「柏宝箱」。\n\n加载体检\n- 时间点分开显示：页面 DOM 就绪、酒馆启动完成、启动完成后仍在进行的请求。「聊天可操作」测不到时写「未测得」，不再用启动完成的时间代替。\n- 请求按类别统计：全部角色列表和单张角色详情分开，不再当成重复下载；柏宝库、鸡尾酒+ 的快速接口归到对应类别并注明。\n- 体积分为实际传输、压缩后、解压后；跨域拿不到的写「未取得」，不再用压缩后的大小冒充实际传输。\n- 同类请求同时进行时按时间段并集计算，不相加。\n- 去掉「小请求耗时长＝排队」的判断；「实测服务器下载速度」改为「接收速率估计」，并说明不是服务器带宽上限。\n- 设置读取不止一次、启动时有设置保存时，只说明记录到的事实，不再指认是哪个扩展。\n- 新增「每笔请求明细」（等待首字节、接收阶段）和「导出诊断报告」（脱敏，不上传）。\n- 清理页的「打开约快 X 秒」改为「设置下载约少 X（估计）」。\n\n加载与兼容（扩展页设置框）\n- 新增「加载与兼容」：显示已在运行的柏宝箱、鸡尾酒、鸡尾酒+、酒馆助手，柏宝库、鸡尾酒+ 的启动桥接，页面由谁的 Service Worker 控制，以及本次设置读取实际走了谁的接口。平时只看页面上已有的信息，不发请求。\n- 「检查兼容性」：读取扩展列表、探测柏宝库和鸡尾酒+ 的后端，把「安装」「开启」「后端可用」「运行中」「版本」分开显示；版本标「已识别但未验证」或「未知」。\n- 按方面列出由谁负责：设置／预设读取、角色列表、扩展清单与预加载这三项，两个功能都开着时提示重叠，建议只保留一个。本扩展不改其他扩展的开关。\n- 本扩展目前没有自己的读取加速，「应用推荐配置」「停用加速」显示为不可用，并写明原因。\n- 设置框「检查更新」同时显示当前分支和提交号，装测试分支时可以确认装的是哪一版。\n\n说明\n- 本版本没有开发启动读取加速。要先用新的体检比较开关现有加速（柏宝库、鸡尾酒+）前后的实际传输，确认仍有缺口再决定；测量步骤见 docs/implementation-1.9.0.md。\n- 以上改动只在模拟页面里测试过，还没有在真实酒馆和真机上验证。\n\n1.8.0\n数据安全\n- 保存前先核对酒馆里的预设有没有被别处改过（酒馆、百宝箱、其他设备）。改过就暂停自动保存，由你选择：下载两个版本、放弃自己的修改，或覆盖。\n- 页面重载后发现未保存的草稿：服务器上的预设没变过才自动接着保存；变过就先问你，不再直接覆盖。\n- 自动备份失败时不再照常写入，会让你选择：下载修改前的版本后保存、不备份直接保存，或暂不保存。\n- 归档：上传后读回来逐字核对，核对不上或读不到都不删原预设。归档文件名带上预设名。\n- 添加站点、获取模型列表时不再换掉酒馆正在用的密钥；密钥保存失败会提示，不再显示成功。取消添加时，刚存进密钥库的密钥一并删掉。\n- 删除预设时提示它正被哪些方案、连接配置使用。\n- 世界书「内容完全相同」改为比较条目的全部设置（启用、概率、位置、深度等）。\n- 删除世界书时，读取失败、没有备份下来的那本不再删除。\n- 扩展数据：任何一个文件没读到都算「没查完」；去掉「一键清理」，改为「勾选疑似残留」，逐项确认后再删。\n- 缝进世界书前先备份整本世界书；缝完可在底栏撤销刚缝进去的条目。\n- 套用方案前，先保存这个预设上没存完的修改，不再直接丢掉。\n\n功能\n- 整组开关会同时开关组内条目（酒馆只认条目开关），再开组时只开回原来开着的条目。\n- 「去掉重复的一层」只去掉成员完全相同的同名分组，成员只是一部分的分组保留。\n- 「全选」只选看得见的条目，不再选中折叠分组里的条目。\n- 接入思维链：条目排在思维链之后、或预设没有每轮清空变量的初始化条目时，给出提醒。\n- 「修复变量问题」先列出要改的内容，确认后才修改。「变量未被读取」的说法改为「没有找到读取它的开启条目，可能不会发送」。\n- 绑定聊天的方案会核对 API 站点；恢复站点时也比较密钥。自动恢复连接失败时不再提示「已恢复」。\n- 快速切换世界书时，不会再把旧书的内容显示或缓存到新书名下；重新选择世界书时重新读取。\n- 去掉「后台中断补救」：实际使用中几乎不起作用。设置框里的开关一并去掉。\n- 思维链识别更准：名称里的英文要整词匹配（Scott、mascot 不再算），正文里顺口提到的 <thinking> 不算。\n- 「使用中」站点不再悄悄跟着酒馆里换的模型改；不一致时提示，可点「改记为当前模型」。\n- 旧版酒馆（没有密钥库）：站点密钥改为只存在本浏览器，不再明文写进会上传到服务器的设置文件；以前存进去的会自动挪出来。\n- 搜索同时匹配名称和正文。\n- 整理页的预设列表会随归档、删除、恢复、切换预设刷新。\n- 获取模型列表、检查更新、读取扩展列表改用相对路径，酒馆部署在子路径下也能用。\n- 加载体检「请求记录满了」的判断修正。\n- 大预设的撤销记录少留几份，减少手机上的内存占用。\n- 缝合记录不再写入来源预设名，分享预设时不会带出你缝过哪些预设。\n\n新增\n- 整理页「工具 → ＋ 新建条目」：放在选中的条目之后，建好直接编辑。\n- 多选后「更多 → 复制」：副本放在原条目后面。\n- 编辑条目可以改角色、插入位置（按顺序 / 按深度插入聊天记录）、深度。\n- 缝合底栏点「已选 N 条」查看全部已选条目，可逐条去掉。\n- 斜杠命令只保留 /atelier 和 /焦香鸡翅，去掉 /裁缝铺。\n\n按钮与界面\n- 名称统一为「焦香鸡翅」（扩展页设置框里的小铅笔可以改成自己喜欢的名字，留空恢复默认）；改名改为在设置框里直接输入，不再弹浏览器的输入框。\n- 缝合页：「新建分组」挪到目标列表顶上，「搬到新版」挪到来源旁的「⋯」里；预览里的两个选项和两边写法分析收进「更多选项」；「单选」「setvar / addvar」等说法改为「多选一」「可叠加」。\n- 「排列方式」从多选菜单挪到「工具」里，改名为「多选排列」；「按标签排序」改名为「按变量名排序」并说明按什么分类。\n- 整理页的眼睛图标标为「查看或编辑」。\n- 「防止下拉误刷新」说明改为对所有设备生效。\n- 备份按钮和备份列表注明「备份只存在这个浏览器里」。\n- 顶栏「确认」改名为「完成」（修改本来就已自动保存）。\n- 编辑条目改为点「保存」才生效，点「取消」或 ✕ 不改动。\n- 缝合底栏「取消」改名为「清空」；移动模式的退出按钮不再是主色。\n- 缝合预览每条前的开关加上文字「缝后开启」。\n- Esc、返回手势只关最上面的弹窗；弹窗内按 Tab 不会跑到弹窗外；没有弹窗时，Esc 或安卓返回手势关闭面板。\n- 条目行、分组头可以用键盘选中和操作；魔棒菜单项支持回车。\n- 手机字号最小 15px，触屏上的按钮、复选框加大；iOS 点进文本框不再放大页面。\n- 「已连接 / 未连接」恢复圆点和颜色。\n- 「柏宝箱」改为「百宝箱」。\n- 版本号接着 1.7.4 往后排（上一版误标为 1.1.0）。\n\n开发\n- 变量修复、按变量名排序的逻辑移到单独文件并整理格式。\n- 新增合成测试预设，原来依赖 Ako 真实预设才能跑的场景在干净环境也能测；新增新功能、数据安全的浏览器检查；bash test/run-browser.sh 一次跑完全部浏览器检查；GitHub Actions 自动测试。\n\n1.7.5（误标为 1.1.0）\n- 修复「分组里又套了一层同名分组」：有的预设同时存了百宝箱分组和另一种分组格式（entryGrouping），两个扩展各显示一层。在「整理」中打开这类预设时，顶部会提示，点「去掉重复的一层」即可；之后用本扩展保存时也会自动去掉重复的一层。\n";
 
 // src/ui/dom.js
@@ -4761,7 +4761,107 @@ function replyLayoutBefore(chat, index, rules) {
   }
   return learnReplyLayout(texts, rules);
 }
-// 2.5.6 预设开着的条目、预设正则、角色卡文字和正则、全局正则里出现过的标签名（小写）。
+// 2.8.2 当前对话生效的世界书：角色主世界书、附加世界书、聊天绑定、人设绑定、全局启用。
+// 生成前读一次（酒馆有缓存），记下开着的条目正文；换聊天、改世界书、改角色卡后重读。
+// 角色卡的主世界书不在世界书列表里（导入时没有接受内嵌世界书）时，用卡里内嵌的世界书。
+var replyWorld = { key: null, texts: [], dirty: true };
+function replyWi() {
+  return typeof mods === "object" ? mods?.wi || null : null;
+}
+function replyCurrentChar(c = ctx()) {
+  const id = c.characterId;
+  return id === undefined || id === null || id === "" ? null : c.characters?.[Number(id)] || null;
+}
+function replyWorldNames(c = ctx()) {
+  const names = new Set();
+  const add = (n) => { if (typeof n === "string" && n.trim()) names.add(n); };
+  const ch = replyCurrentChar(c);
+  if (ch) {
+    add(ch.data?.extensions?.world);
+    const file = String(ch.avatar || "").replace(/\.[^.]+$/, "");
+    const lore = (replyWi()?.world_info?.charLore || []).find((x) => x?.name === file);
+    for (const n of lore?.extraBooks || []) add(n);
+  }
+  add(c.chatMetadata?.world_info);
+  add(c.powerUserSettings?.persona_description_lorebook);
+  for (const n of replyWi()?.selected_world_info || []) add(n);
+  const exist = replyWi()?.world_names;
+  return [...names].filter((n) => !Array.isArray(exist) || exist.includes(n));
+}
+function replyWorldKey(c = ctx()) {
+  return JSON.stringify([c.characterId ?? null, c.chatId ?? c.getCurrentChatId?.() ?? null, replyWorldNames(c)]);
+}
+function replyEmbeddedBook(c = ctx()) {
+  const ch = replyCurrentChar(c);
+  const world = ch?.data?.extensions?.world;
+  if (!ch || (world && replyWorldNames(c).includes(world))) return [];
+  return (ch.data?.character_book?.entries || []).filter((e) => e && e.enabled !== false).map((e) => e.content);
+}
+function replyWorldFresh(c = ctx()) {
+  return !replyWorld.dirty && replyWorld.key === replyWorldKey(c);
+}
+// 没有要读的世界书时同步完成、返回 null；要读时返回 Promise
+function refreshReplyWorld(c = ctx()) {
+  const key = replyWorldKey(c);
+  if (!replyWorld.dirty && replyWorld.key === key) return null;
+  const names = JSON.parse(key)[2], wi = replyWi();
+  const done = (texts) => {
+    texts.push(...replyEmbeddedBook(c));
+    replyWorld = { key, texts, dirty: false };
+    replyKnownTagsCache = null;
+    replyInUseCache = null;
+  };
+  if (!names.length || typeof wi?.loadWorldInfo !== "function") { done([]); return null; }
+  return (async () => {
+    const texts = [];
+    for (const n of names) {
+      try {
+        const data = await wi.loadWorldInfo(n);
+        for (const e of Object.values(data?.entries || {})) if (e && !e.disable) texts.push(e.content);
+      } catch {}
+    }
+    done(texts);
+  })();
+}
+function replyWorldTexts(c = ctx()) {
+  return replyWorldFresh(c) ? replyWorld.texts : replyEmbeddedBook(c);
+}
+function markReplyWorldDirty() {
+  replyWorld.dirty = true;
+  replyKnownTagsCache = null;
+  replyInUseCache = null;
+}
+// 2.8.2 必需标签只对用到它的对话生效：预设开着的条目、角色卡文字、当前对话生效的世界书里写着这个标签，才检查、提醒、修正。
+// 一套预设配多张角色卡时，各卡的状态栏标签可以一起填，各卡只按自己的标签检查，不会让这张卡输出另一张卡的标签。
+// 正则不算：显示正则只管美化，不要求模型输出。
+var replyInUseCache = null;
+function replyTagsInUse(name = currentPresetName()) {
+  const c = ctx();
+  const key = JSON.stringify([name, replyWorldFresh(c) ? replyWorld.key : null, c.characterId ?? null]);
+  if (replyInUseCache?.key === key && Date.now() - replyInUseCache.at < 60000) return replyInUseCache.value;
+  const tags = new Set();
+  const tagRe = /<\s*\/?\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39})/gu;
+  const scan = (text) => { for (const m of String(text || "").matchAll(tagRe)) tags.add(m[1].toLowerCase()); };
+  try {
+    const d = getDraft(name);
+    for (const o of d.order) if (d.isActive(o.identifier)) scan(d.prompt(o.identifier)?.content);
+  } catch { return null; }
+  const ch = replyCurrentChar(c);
+  if (ch) for (const f of [ch.description, ch.personality, ch.scenario, ch.first_mes, ch.mes_example, ch.data?.system_prompt, ch.data?.post_history_instructions, ...(ch.data?.alternate_greetings || [])]) scan(f);
+  for (const t of replyWorldTexts(c)) scan(t);
+  replyInUseCache = { key, at: Date.now(), value: tags };
+  return tags;
+}
+// 返回只含当前对话用到的必需标签的规则，unused 是填了但这次没用到的；读不到预设时不筛
+function replyRulesInUse(config, name = currentPresetName()) {
+  const rules = normalizeReplyRules(config);
+  if (!rules.requiredTags.length) return { rules, unused: [] };
+  const used = replyTagsInUse(name);
+  if (!used) return { rules, unused: [] };
+  const unused = rules.requiredTags.filter((t) => !used.has(t.toLowerCase()));
+  return { rules: { ...rules, requiredTags: rules.requiredTags.filter((t) => used.has(t.toLowerCase())) }, unused };
+}
+// 2.5.6 预设开着的条目、预设正则、角色卡文字和正则、全局正则里出现过的标签名（小写）。2.8.2 加上当前对话生效的世界书。
 // 判断回复里多出来的块是不是写错了名字的必需标签（如把 <lxs_status> 写成 <状态栏>）；读不到预设时返回 null，不判断。
 // 2.5.7 tags.children：want 里每个必需标签内部写过哪些子标签（条目里 <lxs_status>…</lxs_status> 之间的、同一条正则里的其他标签），
 // 用来确认陌生块的结构对得上
@@ -4804,6 +4904,7 @@ function replyKnownTags(name = currentPresetName(), want = []) {
       for (const f of [ch.description, ch.personality, ch.scenario, ch.first_mes, ch.mes_example, ch.data?.system_prompt, ch.data?.post_history_instructions, ...(ch.data?.alternate_greetings || [])]) scan(f);
       rules(ch.data?.extensions?.regex_scripts);
     }
+    for (const t of replyWorldTexts(c)) scan(t);
     rules(c.extensionSettings?.regex);
   } catch {}
   return tags;
@@ -4813,7 +4914,7 @@ var replyKnownTagsCache = null;
 function replyKnownTagsLazy(name, want) {
   return () => {
     const c = ctx();
-    const key = JSON.stringify([name, want, c.characterId ?? null]);
+    const key = JSON.stringify([name, want, c.characterId ?? null, replyWorldFresh(c) ? replyWorld.key : null]);
     if (replyKnownTagsCache?.key === key && Date.now() - replyKnownTagsCache.at < 60000) return replyKnownTagsCache.value;
     const value = replyKnownTags(name, want);
     replyKnownTagsCache = { key, at: Date.now(), value };
@@ -4838,11 +4939,12 @@ function scheduleReplyAutoFix() {
   // 等酒馆和其他扩展处理完这条消息（渲染、保存）再改
   setTimeout(async () => {
     try {
+      await refreshReplyWorld();
       const found = jankTime("生成结束：自动修正检查", () => {
         const config = replyGuardConfig();
         const latest = latestReplyForCheck(ctx().chat);
         if (!config?.autoFix || !latest || replyAutoFixStopped) return null;
-        const rules = normalizeReplyRules(config);
+        const { rules } = replyRulesInUse(config);
         const reasoning = latest.message.extra?.reasoning;
         const layout = replyLayoutLazy(ctx().chat, latest.index, rules);
         const knownTags = replyKnownTagsLazy(currentPresetName(), rules.requiredTags);
@@ -4878,10 +4980,20 @@ function prepareReplyGuard(type, _options, dryRun) {
     // 续写需要延续已有标签，要求再输出一整对可能制造重复，留给手动检查。
     if (!replyGuardAvailable(c) || !config?.enabled || dryRun || ["quiet", "impersonate", "first_message", "continue"].includes(type)) return;
     if (c.mainApi && c.mainApi !== "openai") return;
-    // 按当前 mes 重算，编辑、删除、滑动后不会沿用旧问题。extra.reasoning 只在可见回复没有正文标签时本地查标签位置。
     const latest = latestReplyForCheck(c.chat);
     if (!latest) return;
-    const rules = normalizeReplyRules(config);
+    // 填了必需标签时要知道当前对话用到哪些：世界书没读好就先读（酒馆等生成前事件处理完才组装提示词）
+    const loading = normalizeReplyRules(config).requiredTags.length ? refreshReplyWorld(c) : null;
+    if (loading) return loading.then(() => injectReplyGuard(c, config, latest), (e) => console.warn("[焦香鸡翅] 正文格式检查失败", e));
+    injectReplyGuard(c, config, latest);
+  } catch (e) {
+    console.warn("[焦香鸡翅] 正文格式检查失败", e);
+  }
+}
+function injectReplyGuard(c, config, latest) {
+  try {
+    // 按当前 mes 重算，编辑、删除、滑动后不会沿用旧问题。extra.reasoning 只在可见回复没有正文标签时本地查标签位置。
+    const { rules } = replyRulesInUse(config);
     // 已自动修正过的回复，按修正前的问题提醒
     const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules), knownTags: replyKnownTagsLazy(currentPresetName(), rules.requiredTags) });
     const reminder = buildReplyReminder(report, rules);
@@ -4901,6 +5013,7 @@ function bindReplyGuard(on, events) {
   // 手动停止的回复不完整，不自动改
   on(events.GENERATION_STOPPED, () => { replyAutoFixPending = false; replyAutoFixStopped = true; });
   on(events.CHAT_CHANGED, () => { replyAutoFixPending = false; replyAutoFixed = null; });
+  for (const ev of [events.CHAT_CHANGED, events.WORLDINFO_UPDATED, events.WORLDINFO_SETTINGS_UPDATED, events.CHARACTER_EDITED]) on(ev, markReplyWorldDirty);
   for (const ev of [events.CHAT_CHANGED, events.PRESET_CHANGED, events.GENERATION_STARTED, events.GENERATION_ENDED, events.GENERATION_STOPPED]) on(ev, clearReplyGuard);
   cleanups.push(clearReplyGuard);
 }
@@ -10191,6 +10304,7 @@ function replyForm(name) {
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和下面填的必需标签，不提其他标签。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
       <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
+      <li>必需标签只对用到它的对话生效：当前预设开着的条目、角色卡或当前对话生效的世界书里写着这个标签时，才检查、提醒、修正。几张卡的状态栏标签可以一起填，每张卡只按自己的标签检查。</li>
       <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;lxs_status&gt; 写成 &lt;状态栏&gt;）时，当作写错了名字：提醒只写正确的标签名，不写出错误的名字；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
       <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断。</li></ul>`, "检测范围")}</div>
     <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复，点「检查下方文字」（只在本页检测，不保存）"></textarea>
@@ -10198,7 +10312,7 @@ function replyForm(name) {
     <h3 class="pa-h">标签 <small class="pa-dim">按预设分别保存，须与预设的输出格式一致</small></h3>
     <div class="pa-rtags">
     <label class="pa-field"><span>正文标签${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="content" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
-    <label class="pa-field"><span>必需标签${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，如 状态栏、摘要" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small></label>
+    <label class="pa-field"><span>必需标签${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，填卡里的原标签名，几张卡的可一起填" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small><small class="pa-hint" data-r="unused" hidden></small></label>
     <label class="pa-field"><span>思考标签${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" placeholder="可选，已识别 think" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
     </div>
     ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
@@ -10255,9 +10369,20 @@ function replyForm(name) {
     if (!["body", "required", "thinking"].includes(key)) return;
     try { read(); } catch (err) { if (err.field === key) fieldError(key, err.message); }
   });
+  // 2.8.2 填了但当前对话没用到的必需标签：写在输入框下面，检查、提醒、修正都跳过
+  const unusedNote = body.querySelector('[data-r="unused"]');
+  const unusedText = (unused) => unused.length ? `当前对话的预设、角色卡和世界书里没有 ${unused.map((t) => `<${t}>`).join("、")}，这次不检查、不提醒、不修正。` : "";
+  const showUnused = () => {
+    try { const text = unusedText(replyRulesInUse(read(), name).unused); unusedNote.textContent = text; unusedNote.hidden = !text; } catch {}
+  };
+  Promise.resolve(refreshReplyWorld()).then(showUnused, () => {});
+  body.addEventListener("change", (e) => { if (e.target.dataset?.r === "required") showUnused(); });
   let pending = null, undo = null;
-  const check = (mode) => {
-    const config = read();
+  // 世界书已读好时同步完成；没读好（刚换聊天）先读再查
+  const check = (mode) => { const loading = refreshReplyWorld(); return loading ? loading.then(() => checkNow(mode)) : checkNow(mode); };
+  const checkNow = (mode) => {
+    const { rules: config, unused } = replyRulesInUse(read(), name);
+    showUnused();
     let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字", reasoning = "", latest = null;
     if (mode === "latest") {
       latest = latestReplyForCheck(ctx().chat);
@@ -10280,7 +10405,8 @@ function replyForm(name) {
       ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不写回聊天，可复制上面的预览。</p>'}</div>` : "";
     const auto = latest && replyAutoFixFor(latest.index);
     const note = (auto ? `<div class="pa-card"><p class="pa-p">这条回复已自动修正：${esc(auto.steps.join("；"))}。<button class="pa-link" data-r="undo-auto">撤销</button></p></div>` : "") + (latest ? nativeReasoningNote(latest.message) : "");
-    result.innerHTML = note + `<div class="pa-whyrow"><p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? "" : whyBtn("clean")}</div>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : whyNote("clean", "这不代表正文语义、所有变量或其他输出格式已验证。")}`;
+    const skipped = unused.length ? `<p class="pa-hint">${esc(unusedText(unused))}</p>` : "";
+    result.innerHTML = note + skipped + `<div class="pa-whyrow"><p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? "" : whyBtn("clean")}</div>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : whyNote("clean", "这不代表正文语义、所有变量或其他输出格式已验证。")}`;
   };
   body.addEventListener("click", async (e) => {
     const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"], [data-r="undo-auto"]');
@@ -10290,7 +10416,7 @@ function replyForm(name) {
         if (!pending) return;
         button.disabled = true;
         undo = await applyReplyFix(pending.index, pending.plan, pending.snapshot);
-        check("latest");
+        await check("latest");
         result.insertAdjacentHTML("afterbegin", `<p class="pa-p">已修正聊天第 ${undo.index + 1} 条消息的标签。<button class="pa-link" data-r="undo-fix">撤销</button></p>`);
         return;
       }
@@ -10298,7 +10424,7 @@ function replyForm(name) {
         if (!replyAutoFixed) return;
         await undoReplyFix(replyAutoFixed.undo);
         replyAutoFixed = null;
-        check("latest");
+        await check("latest");
         result.insertAdjacentHTML("afterbegin", '<p class="pa-p">已撤销自动修正。</p>');
         return;
       }
@@ -10306,11 +10432,11 @@ function replyForm(name) {
         if (!undo) return;
         await undoReplyFix(undo);
         undo = null;
-        check("latest");
+        await check("latest");
         result.insertAdjacentHTML("afterbegin", '<p class="pa-p">已撤销修正。</p>');
         return;
       }
-      check(button.dataset.r);
+      await check(button.dataset.r);
     } catch (e) { showError(e); }
   });
   const semanticResult = body.querySelector('[data-r="semantic-result"]');

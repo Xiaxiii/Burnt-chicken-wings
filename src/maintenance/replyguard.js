@@ -27,7 +27,107 @@ function replyLayoutBefore(chat, index, rules) {
   }
   return learnReplyLayout(texts, rules);
 }
-// 2.5.6 预设开着的条目、预设正则、角色卡文字和正则、全局正则里出现过的标签名（小写）。
+// 2.8.2 当前对话生效的世界书：角色主世界书、附加世界书、聊天绑定、人设绑定、全局启用。
+// 生成前读一次（酒馆有缓存），记下开着的条目正文；换聊天、改世界书、改角色卡后重读。
+// 角色卡的主世界书不在世界书列表里（导入时没有接受内嵌世界书）时，用卡里内嵌的世界书。
+var replyWorld = { key: null, texts: [], dirty: true };
+function replyWi() {
+  return typeof mods === "object" ? mods?.wi || null : null;
+}
+function replyCurrentChar(c = ctx()) {
+  const id = c.characterId;
+  return id === undefined || id === null || id === "" ? null : c.characters?.[Number(id)] || null;
+}
+function replyWorldNames(c = ctx()) {
+  const names = new Set();
+  const add = (n) => { if (typeof n === "string" && n.trim()) names.add(n); };
+  const ch = replyCurrentChar(c);
+  if (ch) {
+    add(ch.data?.extensions?.world);
+    const file = String(ch.avatar || "").replace(/\.[^.]+$/, "");
+    const lore = (replyWi()?.world_info?.charLore || []).find((x) => x?.name === file);
+    for (const n of lore?.extraBooks || []) add(n);
+  }
+  add(c.chatMetadata?.world_info);
+  add(c.powerUserSettings?.persona_description_lorebook);
+  for (const n of replyWi()?.selected_world_info || []) add(n);
+  const exist = replyWi()?.world_names;
+  return [...names].filter((n) => !Array.isArray(exist) || exist.includes(n));
+}
+function replyWorldKey(c = ctx()) {
+  return JSON.stringify([c.characterId ?? null, c.chatId ?? c.getCurrentChatId?.() ?? null, replyWorldNames(c)]);
+}
+function replyEmbeddedBook(c = ctx()) {
+  const ch = replyCurrentChar(c);
+  const world = ch?.data?.extensions?.world;
+  if (!ch || (world && replyWorldNames(c).includes(world))) return [];
+  return (ch.data?.character_book?.entries || []).filter((e) => e && e.enabled !== false).map((e) => e.content);
+}
+function replyWorldFresh(c = ctx()) {
+  return !replyWorld.dirty && replyWorld.key === replyWorldKey(c);
+}
+// 没有要读的世界书时同步完成、返回 null；要读时返回 Promise
+function refreshReplyWorld(c = ctx()) {
+  const key = replyWorldKey(c);
+  if (!replyWorld.dirty && replyWorld.key === key) return null;
+  const names = JSON.parse(key)[2], wi = replyWi();
+  const done = (texts) => {
+    texts.push(...replyEmbeddedBook(c));
+    replyWorld = { key, texts, dirty: false };
+    replyKnownTagsCache = null;
+    replyInUseCache = null;
+  };
+  if (!names.length || typeof wi?.loadWorldInfo !== "function") { done([]); return null; }
+  return (async () => {
+    const texts = [];
+    for (const n of names) {
+      try {
+        const data = await wi.loadWorldInfo(n);
+        for (const e of Object.values(data?.entries || {})) if (e && !e.disable) texts.push(e.content);
+      } catch {}
+    }
+    done(texts);
+  })();
+}
+function replyWorldTexts(c = ctx()) {
+  return replyWorldFresh(c) ? replyWorld.texts : replyEmbeddedBook(c);
+}
+function markReplyWorldDirty() {
+  replyWorld.dirty = true;
+  replyKnownTagsCache = null;
+  replyInUseCache = null;
+}
+// 2.8.2 必需标签只对用到它的对话生效：预设开着的条目、角色卡文字、当前对话生效的世界书里写着这个标签，才检查、提醒、修正。
+// 一套预设配多张角色卡时，各卡的状态栏标签可以一起填，各卡只按自己的标签检查，不会让这张卡输出另一张卡的标签。
+// 正则不算：显示正则只管美化，不要求模型输出。
+var replyInUseCache = null;
+function replyTagsInUse(name = currentPresetName()) {
+  const c = ctx();
+  const key = JSON.stringify([name, replyWorldFresh(c) ? replyWorld.key : null, c.characterId ?? null]);
+  if (replyInUseCache?.key === key && Date.now() - replyInUseCache.at < 60000) return replyInUseCache.value;
+  const tags = new Set();
+  const tagRe = /<\s*\/?\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39})/gu;
+  const scan = (text) => { for (const m of String(text || "").matchAll(tagRe)) tags.add(m[1].toLowerCase()); };
+  try {
+    const d = getDraft(name);
+    for (const o of d.order) if (d.isActive(o.identifier)) scan(d.prompt(o.identifier)?.content);
+  } catch { return null; }
+  const ch = replyCurrentChar(c);
+  if (ch) for (const f of [ch.description, ch.personality, ch.scenario, ch.first_mes, ch.mes_example, ch.data?.system_prompt, ch.data?.post_history_instructions, ...(ch.data?.alternate_greetings || [])]) scan(f);
+  for (const t of replyWorldTexts(c)) scan(t);
+  replyInUseCache = { key, at: Date.now(), value: tags };
+  return tags;
+}
+// 返回只含当前对话用到的必需标签的规则，unused 是填了但这次没用到的；读不到预设时不筛
+function replyRulesInUse(config, name = currentPresetName()) {
+  const rules = normalizeReplyRules(config);
+  if (!rules.requiredTags.length) return { rules, unused: [] };
+  const used = replyTagsInUse(name);
+  if (!used) return { rules, unused: [] };
+  const unused = rules.requiredTags.filter((t) => !used.has(t.toLowerCase()));
+  return { rules: { ...rules, requiredTags: rules.requiredTags.filter((t) => used.has(t.toLowerCase())) }, unused };
+}
+// 2.5.6 预设开着的条目、预设正则、角色卡文字和正则、全局正则里出现过的标签名（小写）。2.8.2 加上当前对话生效的世界书。
 // 判断回复里多出来的块是不是写错了名字的必需标签（如把 <lxs_status> 写成 <状态栏>）；读不到预设时返回 null，不判断。
 // 2.5.7 tags.children：want 里每个必需标签内部写过哪些子标签（条目里 <lxs_status>…</lxs_status> 之间的、同一条正则里的其他标签），
 // 用来确认陌生块的结构对得上
@@ -70,6 +170,7 @@ function replyKnownTags(name = currentPresetName(), want = []) {
       for (const f of [ch.description, ch.personality, ch.scenario, ch.first_mes, ch.mes_example, ch.data?.system_prompt, ch.data?.post_history_instructions, ...(ch.data?.alternate_greetings || [])]) scan(f);
       rules(ch.data?.extensions?.regex_scripts);
     }
+    for (const t of replyWorldTexts(c)) scan(t);
     rules(c.extensionSettings?.regex);
   } catch {}
   return tags;
@@ -79,7 +180,7 @@ var replyKnownTagsCache = null;
 function replyKnownTagsLazy(name, want) {
   return () => {
     const c = ctx();
-    const key = JSON.stringify([name, want, c.characterId ?? null]);
+    const key = JSON.stringify([name, want, c.characterId ?? null, replyWorldFresh(c) ? replyWorld.key : null]);
     if (replyKnownTagsCache?.key === key && Date.now() - replyKnownTagsCache.at < 60000) return replyKnownTagsCache.value;
     const value = replyKnownTags(name, want);
     replyKnownTagsCache = { key, at: Date.now(), value };
@@ -104,11 +205,12 @@ function scheduleReplyAutoFix() {
   // 等酒馆和其他扩展处理完这条消息（渲染、保存）再改
   setTimeout(async () => {
     try {
+      await refreshReplyWorld();
       const found = jankTime("生成结束：自动修正检查", () => {
         const config = replyGuardConfig();
         const latest = latestReplyForCheck(ctx().chat);
         if (!config?.autoFix || !latest || replyAutoFixStopped) return null;
-        const rules = normalizeReplyRules(config);
+        const { rules } = replyRulesInUse(config);
         const reasoning = latest.message.extra?.reasoning;
         const layout = replyLayoutLazy(ctx().chat, latest.index, rules);
         const knownTags = replyKnownTagsLazy(currentPresetName(), rules.requiredTags);
@@ -144,10 +246,20 @@ function prepareReplyGuard(type, _options, dryRun) {
     // 续写需要延续已有标签，要求再输出一整对可能制造重复，留给手动检查。
     if (!replyGuardAvailable(c) || !config?.enabled || dryRun || ["quiet", "impersonate", "first_message", "continue"].includes(type)) return;
     if (c.mainApi && c.mainApi !== "openai") return;
-    // 按当前 mes 重算，编辑、删除、滑动后不会沿用旧问题。extra.reasoning 只在可见回复没有正文标签时本地查标签位置。
     const latest = latestReplyForCheck(c.chat);
     if (!latest) return;
-    const rules = normalizeReplyRules(config);
+    // 填了必需标签时要知道当前对话用到哪些：世界书没读好就先读（酒馆等生成前事件处理完才组装提示词）
+    const loading = normalizeReplyRules(config).requiredTags.length ? refreshReplyWorld(c) : null;
+    if (loading) return loading.then(() => injectReplyGuard(c, config, latest), (e) => console.warn("[焦香鸡翅] 正文格式检查失败", e));
+    injectReplyGuard(c, config, latest);
+  } catch (e) {
+    console.warn("[焦香鸡翅] 正文格式检查失败", e);
+  }
+}
+function injectReplyGuard(c, config, latest) {
+  try {
+    // 按当前 mes 重算，编辑、删除、滑动后不会沿用旧问题。extra.reasoning 只在可见回复没有正文标签时本地查标签位置。
+    const { rules } = replyRulesInUse(config);
     // 已自动修正过的回复，按修正前的问题提醒
     const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules), knownTags: replyKnownTagsLazy(currentPresetName(), rules.requiredTags) });
     const reminder = buildReplyReminder(report, rules);
@@ -167,6 +279,7 @@ function bindReplyGuard(on, events) {
   // 手动停止的回复不完整，不自动改
   on(events.GENERATION_STOPPED, () => { replyAutoFixPending = false; replyAutoFixStopped = true; });
   on(events.CHAT_CHANGED, () => { replyAutoFixPending = false; replyAutoFixed = null; });
+  for (const ev of [events.CHAT_CHANGED, events.WORLDINFO_UPDATED, events.WORLDINFO_SETTINGS_UPDATED, events.CHARACTER_EDITED]) on(ev, markReplyWorldDirty);
   for (const ev of [events.CHAT_CHANGED, events.PRESET_CHANGED, events.GENERATION_STARTED, events.GENERATION_ENDED, events.GENERATION_STOPPED]) on(ev, clearReplyGuard);
   cleanups.push(clearReplyGuard);
 }

@@ -44,6 +44,7 @@ function replyForm(name) {
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和下面填的必需标签，不提其他标签。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
       <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
+      <li>必需标签只对用到它的对话生效：当前预设开着的条目、角色卡或当前对话生效的世界书里写着这个标签时，才检查、提醒、修正。几张卡的状态栏标签可以一起填，每张卡只按自己的标签检查。</li>
       <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;lxs_status&gt; 写成 &lt;状态栏&gt;）时，当作写错了名字：提醒只写正确的标签名，不写出错误的名字；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
       <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断。</li></ul>`, "检测范围")}</div>
     <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复，点「检查下方文字」（只在本页检测，不保存）"></textarea>
@@ -51,7 +52,7 @@ function replyForm(name) {
     <h3 class="pa-h">标签 <small class="pa-dim">按预设分别保存，须与预设的输出格式一致</small></h3>
     <div class="pa-rtags">
     <label class="pa-field"><span>正文标签${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="content" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
-    <label class="pa-field"><span>必需标签${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，如 状态栏、摘要" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small></label>
+    <label class="pa-field"><span>必需标签${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，填卡里的原标签名，几张卡的可一起填" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small><small class="pa-hint" data-r="unused" hidden></small></label>
     <label class="pa-field"><span>思考标签${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" placeholder="可选，已识别 think" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
     </div>
     ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
@@ -108,9 +109,20 @@ function replyForm(name) {
     if (!["body", "required", "thinking"].includes(key)) return;
     try { read(); } catch (err) { if (err.field === key) fieldError(key, err.message); }
   });
+  // 2.8.2 填了但当前对话没用到的必需标签：写在输入框下面，检查、提醒、修正都跳过
+  const unusedNote = body.querySelector('[data-r="unused"]');
+  const unusedText = (unused) => unused.length ? `当前对话的预设、角色卡和世界书里没有 ${unused.map((t) => `<${t}>`).join("、")}，这次不检查、不提醒、不修正。` : "";
+  const showUnused = () => {
+    try { const text = unusedText(replyRulesInUse(read(), name).unused); unusedNote.textContent = text; unusedNote.hidden = !text; } catch {}
+  };
+  Promise.resolve(refreshReplyWorld()).then(showUnused, () => {});
+  body.addEventListener("change", (e) => { if (e.target.dataset?.r === "required") showUnused(); });
   let pending = null, undo = null;
-  const check = (mode) => {
-    const config = read();
+  // 世界书已读好时同步完成；没读好（刚换聊天）先读再查
+  const check = (mode) => { const loading = refreshReplyWorld(); return loading ? loading.then(() => checkNow(mode)) : checkNow(mode); };
+  const checkNow = (mode) => {
+    const { rules: config, unused } = replyRulesInUse(read(), name);
+    showUnused();
     let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字", reasoning = "", latest = null;
     if (mode === "latest") {
       latest = latestReplyForCheck(ctx().chat);
@@ -133,7 +145,8 @@ function replyForm(name) {
       ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不写回聊天，可复制上面的预览。</p>'}</div>` : "";
     const auto = latest && replyAutoFixFor(latest.index);
     const note = (auto ? `<div class="pa-card"><p class="pa-p">这条回复已自动修正：${esc(auto.steps.join("；"))}。<button class="pa-link" data-r="undo-auto">撤销</button></p></div>` : "") + (latest ? nativeReasoningNote(latest.message) : "");
-    result.innerHTML = note + `<div class="pa-whyrow"><p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? "" : whyBtn("clean")}</div>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : whyNote("clean", "这不代表正文语义、所有变量或其他输出格式已验证。")}`;
+    const skipped = unused.length ? `<p class="pa-hint">${esc(unusedText(unused))}</p>` : "";
+    result.innerHTML = note + skipped + `<div class="pa-whyrow"><p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? "" : whyBtn("clean")}</div>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : whyNote("clean", "这不代表正文语义、所有变量或其他输出格式已验证。")}`;
   };
   body.addEventListener("click", async (e) => {
     const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"], [data-r="undo-auto"]');
@@ -143,7 +156,7 @@ function replyForm(name) {
         if (!pending) return;
         button.disabled = true;
         undo = await applyReplyFix(pending.index, pending.plan, pending.snapshot);
-        check("latest");
+        await check("latest");
         result.insertAdjacentHTML("afterbegin", `<p class="pa-p">已修正聊天第 ${undo.index + 1} 条消息的标签。<button class="pa-link" data-r="undo-fix">撤销</button></p>`);
         return;
       }
@@ -151,7 +164,7 @@ function replyForm(name) {
         if (!replyAutoFixed) return;
         await undoReplyFix(replyAutoFixed.undo);
         replyAutoFixed = null;
-        check("latest");
+        await check("latest");
         result.insertAdjacentHTML("afterbegin", '<p class="pa-p">已撤销自动修正。</p>');
         return;
       }
@@ -159,11 +172,11 @@ function replyForm(name) {
         if (!undo) return;
         await undoReplyFix(undo);
         undo = null;
-        check("latest");
+        await check("latest");
         result.insertAdjacentHTML("afterbegin", '<p class="pa-p">已撤销修正。</p>');
         return;
       }
-      check(button.dataset.r);
+      await check(button.dataset.r);
     } catch (e) { showError(e); }
   });
   const semanticResult = body.querySelector('[data-r="semantic-result"]');
