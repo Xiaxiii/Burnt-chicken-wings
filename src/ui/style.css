@@ -1629,7 +1629,7 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
    分组为浅灰色带；开关、按钮、输入框、卡片、弹层统一样式。颜色只取 --pa-* 变量。
    ===================================================================== */
 #pa-root[data-theme="su"] { --pa-tint:#FFFFFF; --pa-text:#1B1A18; --pa-thread:#1B1A18; --pa-em:#3D3B37; --pa-line:#E2E0DA; --pa-line-strong:#CBC8C0; --pa-input-bg:#FFFFFF; --pa-warn:#AE2A20; --pa-ok:#1D6F45; --pa-on-accent:#FFFFFF; --pa-card:#F4F3EF; --pa-card-2:#EAE8E2; --pa-sel:#E5EDFA; --pa-side:#F4F3EF; --pa-info:#1B58B5; }
-#pa-root[data-theme="mo"] { --pa-tint:#121211; --pa-text:#EDEBE6; --pa-thread:#EDEBE6; --pa-em:#D2CFC8; --pa-line:#33322E; --pa-line-strong:#4B4943; --pa-input-bg:#1C1B19; --pa-warn:#F3908A; --pa-ok:#72CB9A; --pa-on-accent:#151513; --pa-card:#1C1B19; --pa-card-2:#272623; --pa-sel:rgba(141,184,247,.16); --pa-side:#1A1918; --pa-info:#8DB8F7; }
+#pa-root[data-theme="mo"] { --pa-tint:#121211; --pa-text:#EDEBE6; --pa-thread:#EDEBE6; --pa-em:#D2CFC8; --pa-line:#33322E; --pa-line-strong:#4B4943; --pa-input-bg:#1C1B19; --pa-warn:#F3908A; --pa-ok:#72CB9A; --pa-on-accent:#151513; --pa-card:#1C1B19; --pa-card-2:#272623; --pa-sel:rgba(141,184,247,.16); --pa-side:#1A1918; --pa-info:#8DB8F7; --pa-switch-on:#3E7BD9; --pa-switch-knob:#FFFFFF; }
 #pa-root[data-theme="su"] .pa-sheet-mask { background: rgba(20, 19, 17, .44); }
 #pa-root[data-theme="mo"] .pa-sheet-mask { background: rgba(0, 0, 0, .62); }
 #pa-root { --pa-r: 10px; }
@@ -1673,8 +1673,8 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-switch, #pa-root .pa-switch-s { width: 42px; height: 26px; }
 #pa-root .pa-switch i, #pa-root .pa-switch-s i { border: 0; border-radius: 13px; background: var(--pa-line-strong, var(--pa-control-border, var(--pa-card-2))); transition: background .15s ease-out; }
 #pa-root .pa-switch i::after, #pa-root .pa-switch-s i::after { top: 3px; left: 3px; width: 20px; height: 20px; opacity: 1; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s ease-out; }
-#pa-root .pa-switch input:checked + i, #pa-root .pa-switch-s input:checked + i { background: var(--pa-thread); border: 0; }
-#pa-root .pa-switch input:checked + i::after, #pa-root .pa-switch-s input:checked + i::after { transform: translateX(16px); background: var(--pa-on-accent); }
+#pa-root .pa-switch input:checked + i, #pa-root .pa-switch-s input:checked + i { background: var(--pa-switch-on, var(--pa-thread)); border: 0; }
+#pa-root .pa-switch input:checked + i::after, #pa-root .pa-switch-s input:checked + i::after { transform: translateX(16px); background: var(--pa-switch-knob, var(--pa-on-accent)); }
 /* 部分开启：虚线框、居中滑块 */
 #pa-root .pa-switch input[data-enable-toggle]:indeterminate + i { background: transparent; border: 1.5px dashed var(--pa-thread); }
 #pa-root .pa-switch input[data-enable-toggle]:indeterminate + i::after { top: 1.5px; left: 1.5px; transform: translateX(8px); background: var(--pa-thread); box-shadow: none; }
@@ -1881,3 +1881,5 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root [data-page="reply"] [data-r="latest"] { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }
 #pa-root .pa-sum.pa-good, #pa-root .pa-sum.pa-bad { border-left-color: var(--pa-line); }
 @media (min-width: 1000px) { #pa-root [data-page="clean"] > .pa-scroll, #pa-root [data-page="health"] .pa-scroll, #pa-root [data-page="look"] .pa-scroll, #pa-root [data-page="reply"] .pa-scroll, #pa-root [data-page="vars"] .pa-scroll { padding-left: 20px; } #pa-root [data-page="reply"] > .pa-toolbar, #pa-root [data-page="vars"] > .pa-toolbar { padding-left: 20px; } }
+/* 2.7.6 提示段落：淡色底的提示框，不再整段红字 */
+#pa-root p.pa-warn { margin: 0; padding: 9px 12px; border-radius: 10px; background: color-mix(in srgb, var(--pa-warn) 8%, transparent); color: color-mix(in srgb, var(--pa-warn) 70%, var(--pa-text)); line-height: 1.5; font-size: .92em; }
