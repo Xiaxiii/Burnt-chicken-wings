@@ -175,6 +175,32 @@ function replyMisnamed(source, rules, knownTags, masked = replyCheckMask(source)
   return { missing, suspects: strangers, pairs, knownTags };
 }
 
+// 2.8.3 必需标签外面多套了一层预设没用到的标签（如 <状态栏><lxs_status>…</lxs_status></状态栏>）：
+// 外层块里除了必需标签没有别的文字时才算。外层标签在预设、角色卡、世界书或正则里出现过的不算（可能是预设要求的容器）；读不到这些时不判断
+function replyWrapped(source, rules, knownTags, masked = replyCheckMask(source)) {
+  if (!knownTags || !rules.requiredTags.length) return [];
+  const required = new Set(rules.requiredTags.map((tag) => tag.toLowerCase()));
+  const skip = new Set([rules.bodyTag, ...rules.thinkingTags].map((tag) => tag.toLowerCase()));
+  const found = [];
+  for (const b of replyTopBlocks(source)) {
+    if (b.key === REPLY_FENCE_KEY || required.has(b.key) || skip.has(b.key)) continue;
+    const openEnd = masked.indexOf(">", b.start) + 1, closeStart = masked.lastIndexOf("<", b.end - 1);
+    if (openEnd <= 0 || closeStart < openEnd) continue;
+    const inner = masked.slice(openEnd, closeStart);
+    const lead = inner.search(/\S/);
+    if (lead < 0) continue;
+    const head = /^<\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]*)/u.exec(inner.slice(lead));
+    const tag = head && rules.requiredTags.find((t) => t.toLowerCase() === head[1].toLowerCase());
+    if (!tag) continue;
+    const pair = replyPairRanges(inner).find((r) => r.start === lead && r.key === tag.toLowerCase());
+    if (!pair || inner.slice(pair.end).trim()) continue;
+    if (typeof knownTags === "function") knownTags = knownTags();
+    if (!(knownTags instanceof Set)) return [];
+    if (knownTags.has(b.key)) continue;
+    found.push({ tag, block: b, openEnd, closeStart });
+  }
+  return found;
+}
 function checkReplyFormat(text, inputRules, extra = {}) {
   const rules = normalizeReplyRules(inputRules);
   const source = String(text == null ? "" : text);
@@ -236,6 +262,8 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     if (open.key === bodyKey || thinking.has(open.key)) scopeRanges.push({ start: open.start, end: source.length, key: open.key });
   }
   const misnamed = replyMisnamed(source, rules, extra.knownTags, masked);
+  const wrapped = replyWrapped(source, rules, extra.knownTags, masked);
+  for (const w of wrapped) add("wrapped", `<${w.tag}> 外面多套了一层 <${w.block.name}>，预设、角色卡和世界书都没有用到 <${w.block.name}>`, w.tag);
   for (const [key, tag] of required) {
     const stat = stats.get(key);
     const pair = misnamed?.pairs.find((p) => p.tag === tag);
@@ -283,7 +311,7 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     }
     offset += line.length;
   }
-  return { issues, rules, layout: issues.length ? layoutOf() : null, misnamed: issues.length ? misnamed : null };
+  return { issues, rules, layout: issues.length ? layoutOf() : null, misnamed: issues.length ? misnamed : null, wrapped: issues.length ? wrapped : [] };
 }
 
 function buildReplyReminder(report, inputRules) {
@@ -306,6 +334,8 @@ function buildReplyReminder(report, inputRules) {
   // 2.8.1 不写出错误的标签名：提醒在最后一条消息的位置，写出「不要输出 <状态栏>」反而让模型照抄，自动修正后每轮都提醒，错名一直延续
   if (sure.length) for (const { tag } of sure) extra.push(`上一轮 <${tag}> 的标签名写错了：外层标签必须写作 <${tag}>…</${tag}>，一字不改。`);
   else if (mis?.suspects.length) extra.push(`上一轮没有 ${mis.missing.map((t) => `<${t}>`).join("、")}：必需标签的名字一字不改，不要换成别的标签名。`);
+  // 同样不写出外层的错误标签名
+  for (const tag of new Set((report.wrapped || []).map((w) => w.tag))) extra.push(`上一轮在 <${tag}> 外面多套了一层标签：<${tag}>…</${tag}> 直接输出，外面不套其他标签。`);
   if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
   return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}正文不夹入思考步骤或内部分析。这条提醒只管格式，剧情照常接着写。`;
 }
@@ -516,6 +546,11 @@ function planReplyFix(text, inputRules, extra = {}) {
       mes = mes.slice(0, block.start) + `<${tag}>` + mes.slice(openEnd, closeStart) + `</${tag}>` + mes.slice(block.end);
       steps.push(`把 <${block.name}>…</${block.name}> 改名为 <${tag}>…</${tag}>`);
     }
+  }
+  // 2c.（2.8.3）必需标签外面多套的一层预设没用到的标签：去掉外层的开始、结束标签，里面不动
+  for (const w of replyWrapped(mes, rules, extra.knownTags).reverse()) {
+    mes = mes.slice(0, w.block.start) + mes.slice(w.openEnd, w.closeStart).trim() + mes.slice(w.block.end);
+    steps.push(`去掉 <${w.tag}> 外面多套的 <${w.block.name}>…</${w.block.name}>`);
   }
   // 3. 正文落在思考标签里
   {

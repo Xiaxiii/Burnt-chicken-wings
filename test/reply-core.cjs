@@ -352,4 +352,26 @@ test('blocks next to a body inside a visible thinking tag move out with it', () 
   assert.equal(fixed('<thinking>想\n<status>s</status>\n<content>正文</content>\n<theater>t</theater>\n</thinking>', undefined, { layout }).text, '<thinking>想\n</thinking>\n<status>s</status>\n<content>正文</content>\n<theater>t</theater>');
   assert.equal(fixed('<thinking>想\n<status>s</status>\n<content>正文</content>', undefined, { layout }).text, '<thinking>想\n</thinking>\n<status>s</status>\n<content>正文</content>');
 });
+test('an unused wrapper around a required tag is reported, reminded without its name and removed (2.8.3)', () => {
+  const rules = { requiredTags: ['lxs_status'] };
+  const knownTags = new Set(['content', 'lxs_status', '时']);
+  knownTags.children = new Map([['lxs_status', new Set(['时'])]]);
+  const inner = '<lxs_status>\n  <时>酉时</时>\n</lxs_status>';
+  const reply = `<content>正文。</content>\n<状态栏>\n${inner}\n</状态栏>`;
+  const report = checkReplyFormat(reply, rules, { knownTags });
+  assert.deepEqual(report.issues.map((i) => i.kind), ['wrapped']);
+  assert.match(report.issues[0].text, /<lxs_status> 外面多套了一层 <状态栏>/);
+  const reminder = buildReplyReminder(report, rules);
+  assert.match(reminder, /上一轮在 <lxs_status> 外面多套了一层标签/);
+  assert.doesNotMatch(reminder, /状态栏/, '提醒不写出外层的错误标签名');
+  const plan = planReplyFix(reply, rules, { knownTags, strict: true });
+  assert.deepEqual(plan.steps, ['去掉 <lxs_status> 外面多套的 <状态栏>…</状态栏>']);
+  assert.equal(plan.text, `<content>正文。</content>\n${inner}`);
+  assert.deepEqual(plan.after.issues, []);
+  // 外层是预设用到的容器、外层里还有别的文字、读不到预设时都不算
+  const container = new Set([...knownTags, '状态栏']); container.children = knownTags.children;
+  assert.deepEqual(checkReplyFormat(reply, rules, { knownTags: container }).issues, []);
+  assert.deepEqual(checkReplyFormat(`<content>正文。</content>\n<状态栏>\n${inner}\n附注</状态栏>`, rules, { knownTags }).issues, []);
+  assert.deepEqual(checkReplyFormat(reply, rules).issues, []);
+});
 console.log(`${passed} reply-format tests passed`);
