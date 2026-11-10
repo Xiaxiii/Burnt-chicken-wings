@@ -1779,3 +1779,68 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 /* 编辑栏打开时列表变窄：工具按钮收进「＋」「⋯」 */
 #pa-root [data-page="organize"].pa-edit-open .pa-tools { display: none; }
 #pa-root [data-page="organize"].pa-edit-open .pa-tools-more { display: inline-flex; }
+
+/* =====================================================================
+   2.7.3 方案页、连接页版式
+   ===================================================================== */
+#pa-root .pa-plan { padding: 12px calc(12px + env(safe-area-inset-right)) 20px calc(12px + env(safe-area-inset-left)); }
+@media (min-width: 1000px) { #pa-root .pa-plan > * { max-width: 760px; } #pa-root .pa-plan { padding-left: 20px; } }
+#pa-root .pa-plan-schemes, #pa-root .pa-plan-sites { margin-top: 0; }
+#pa-root .pa-plan-opts { margin-top: 20px; }
+#pa-root .pa-plan-opts::before { content: "选项"; display: block; margin: 0 2px 8px; font-weight: 600; }
+#pa-root .pa-plan-opts:empty::before { content: none; }
+
+/* 键值行（当前状态、当前连接） */
+#pa-root .pa-kv { display: grid; grid-template-columns: 3.2em minmax(0, 1fr); gap: 8px 14px; margin: 10px 0 0; align-items: center; }
+#pa-root .pa-kv dt { color: var(--pa-dim); font-size: .9em; }
+#pa-root .pa-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+#pa-root .pa-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; }
+#pa-root .pa-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--pa-card-2); color: var(--pa-dim); font-size: .78em; font-weight: 600; white-space: nowrap; }
+#pa-root .pa-badge-ok { background: color-mix(in srgb, var(--pa-ok) 14%, transparent); color: var(--pa-ok); }
+
+/* 方案页：当前状态卡、工具行、方案列表 */
+#pa-root .pa-nowcard { padding: 14px 16px; margin-bottom: 14px; }
+#pa-root .pa-nowhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+#pa-root .pa-nowhead b { font-size: 1.02em; }
+#pa-root .pa-nowcard .pa-hint { margin: 10px 0 0; }
+#pa-root .pa-scheme-bar { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; flex-wrap: wrap; }
+#pa-root .pa-scheme-bar .pa-head-btn { margin-left: auto; min-height: 38px; padding: 4px 14px; }
+#pa-root .pa-scheme-bar .pa-namebtn-s { min-height: 36px; border-radius: var(--pa-r); }
+#pa-root .pa-plan-schemes .pa-sgroup, #pa-root .pa-plan-sites .pa-sitecard, #pa-root .pa-plan-opts .pa-optgroup { border: 1px solid var(--pa-line); border-radius: 14px; background: var(--pa-tint); margin-bottom: 10px; overflow: hidden; }
+#pa-root .pa-plan-schemes .pa-sghead { min-height: 46px; padding: 6px 14px; background: var(--pa-card); }
+#pa-root .pa-plan-schemes .pa-sghead small { margin-left: auto; color: var(--pa-dim); }
+#pa-root .pa-plan-schemes .pa-sgbody { border-top: 1px solid var(--pa-line); padding: 0; }
+#pa-root .pa-plan-schemes .pa-srow { padding: 12px 10px 12px 14px; gap: 10px; align-items: flex-start; }
+#pa-root .pa-plan-schemes .pa-srow:last-child { border-bottom: 0; }
+#pa-root .pa-srow-main { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-srow-main > b { font-weight: 600; }
+#pa-root .pa-srow-main > small { flex-basis: 100%; color: var(--pa-dim); font-size: .84em; line-height: 1.45; }
+#pa-root .pa-srow-on { background: color-mix(in srgb, var(--pa-ok) 6%, transparent); }
+#pa-root .pa-plan-schemes .pa-srow .pa-swpill { align-self: center; }
+#pa-root .pa-plan-schemes .pa-srow .pa-icon-btn { align-self: center; }
+
+/* 连接页：当前连接卡、站点列表 */
+#pa-root .pa-plan-live .pa-live { padding: 14px 16px; margin-bottom: 18px; border: 1px solid var(--pa-line); border-radius: 14px; background: var(--pa-tint); }
+#pa-root .pa-live > header { gap: 8px; }
+#pa-root .pa-live > header b { font-size: 1.02em; }
+#pa-root .pa-live > header .pa-dot { order: -1; padding: 2px 8px; border-radius: 999px; background: var(--pa-card-2); font-weight: 600; font-size: .78em; }
+#pa-root .pa-live > header .pa-dot-on { background: color-mix(in srgb, var(--pa-ok) 14%, transparent); }
+#pa-root .pa-live-kv .pa-live-url { margin: 0; font-size: .86em; color: var(--pa-text); white-space: normal; overflow-wrap: anywhere; }
+#pa-root .pa-live-kv .pa-live-model { margin: 0; }
+#pa-root .pa-live-kv .pa-live-model > .pa-model-btn { width: 100%; min-height: 38px; font-size: .92em; }
+#pa-root .pa-live-btns { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 12px; }
+#pa-root .pa-live-btns .pa-btn { width: auto; height: auto; min-height: 42px; gap: 6px; color: var(--pa-text); }
+#pa-root .pa-live-btns .pa-btn svg { width: 17px; height: 17px; }
+#pa-root .pa-live-res { margin-top: 10px; }
+#pa-root .pa-live-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--pa-line); }
+#pa-root .pa-plan-sites .pa-row-head { margin-top: 4px; }
+#pa-root .pa-plan-sites .pa-sitecard { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; }
+#pa-root .pa-plan-sites .pa-site-multi { display: block; padding: 0; }
+#pa-root .pa-plan-sites .pa-site-mhead { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; }
+#pa-root .pa-plan-sites .pa-klines { border-top: 1px solid var(--pa-line); }
+#pa-root .pa-plan-sites .pa-kline { display: flex; align-items: center; gap: 10px; padding: 10px 10px 10px 26px; border-bottom: 1px solid var(--pa-line); }
+#pa-root .pa-plan-sites .pa-kline:last-child { border-bottom: 0; }
+#pa-root .pa-plan-sites .pa-site-name { cursor: pointer; }
+#pa-root .pa-plan-opts .pa-sghead { min-height: 50px; padding: 6px 14px; }
+#pa-root .pa-plan-opts .pa-sgbody { border-top: 1px solid var(--pa-line); padding: 0 0 0 14px; }
+#pa-root .pa-srow-main > small.pa-srow-noapi { color: var(--pa-dim); }

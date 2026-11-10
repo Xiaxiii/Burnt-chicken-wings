@@ -259,8 +259,8 @@ function shortTime(t) {
 function mountSchemes(page, { after } = {}) {
   const VIEWS = [["char", "角色卡"], ["preset", "预设"], ["persona", "人设"]];
   page.innerHTML = `
-        <div class="pa-row-head"><h3 class="pa-h">方案</h3><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">保存当前状态为方案</button></div>
-        <div class="pa-scheme-bar"><span class="pa-dim">按</span><button class="pa-namebtn pa-namebtn-s" data-s="view" type="button"><span></span><i aria-hidden="true">▾</i></button><span class="pa-dim">分组</span><span class="pa-scheme-pick"></span></div>
+        <div class="pa-scheme-now" aria-live="polite"></div>
+        <div class="pa-scheme-bar"><span class="pa-dim">分组</span><button class="pa-namebtn pa-namebtn-s" data-s="view" type="button" aria-label="方案分组方式"><span></span><i aria-hidden="true">▾</i></button><span class="pa-scheme-pick"></span><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">＋ 保存方案</button></div>
         ${tip("方案保存预设和条目开关，可选记下人设、API 和模型。<br>「切换」：恢复方案保存时的全部状态。<br>「自动套用」：绑定聊天或角色后，进入该聊天时切换一次。之后手动修改的内容保持不变。<br>换预设时 API 不变；切换方案时，方案记了 API 的才换 API。")}
         <div class="pa-scheme-nudge"></div>
         <div class="pa-schemes"></div>`;
@@ -274,14 +274,32 @@ function mountSchemes(page, { after } = {}) {
   const view = () => VIEWS.some(([k]) => k === settings().schemeView) ? settings().schemeView : "char";
   const groupKey = (s) => view() === "preset" ? s.preset : view() === "persona" ? s.persona ? s.personaName || s.persona : "" : schemeCharKey(s);
   const groupName = (k) => view() === "char" ? charNameOf(k) : k || (view() === "persona" ? "没记人设" : "");
+  // 「使用中」要和酒馆实际生效的一致：预设正在用、开关一致、人设和 API 站点也对得上
+  function schemeState(s, d) {
+    const switchesOk = !!d && s.preset === d.name && schemeMatches(d, s);
+    const cs = connSite(schemeConn(s));
+    const on = switchesOk && currentPresetName() === s.preset && (!s.persona || currentPersona() === s.persona) && (!cs || !siteDiffers(cs, { ...liveConnection(), online: true }));
+    return { switchesOk, on };
+  }
+  // 2.7.3 页顶「当前状态」：酒馆现在的预设、人设、连接，以及和哪个方案一致、本聊天自动套用哪个
+  function renderNow(d) {
+    const cur = currentPresetName();
+    const persona = listPersonas().find((p) => p.avatar === currentPersona())?.name || "";
+    const conn = liveConn();
+    const match = all().find((x) => schemeState(x, d).on);
+    const bind = bindingNow();
+    const bound = bind ? all().find((x) => x.id === bind.id) : null;
+    const kv = [["预设", cur || "未选择"], ["人设", persona || "未设置"], ["连接", conn ? connLabel(conn) : "非聊天补全接口"]];
+    page.querySelector(".pa-scheme-now").innerHTML = `<div class="pa-card pa-nowcard">
+        <div class="pa-nowhead"><b>当前状态</b>${match ? `<span class="pa-badge pa-badge-ok">与「${esc(match.name)}」一致</span>` : all().length ? '<span class="pa-badge">没有一致的方案</span>' : ""}</div>
+        <dl class="pa-kv">${kv.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+        ${bound ? `<p class="pa-hint">${bind.scope === "chat" ? "本聊天" : "本角色的聊天"}进入时自动套用「${esc(bound.name)}」${bind.scope === "chat" ? "，聊天绑定优先于角色绑定" : ""}。</p>` : ""}</div>`;
+  }
   function row(s, d) {
     const bind = bindingNow();
     const bound = bind?.id === s.id ? bind.scope : null;
-    // 「使用中」要和酒馆实际生效的一致：预设正在用、开关一致、人设和 API 站点也对得上
-    const switchesOk = !!d && s.preset === d.name && schemeMatches(d, s);
+    const { switchesOk, on } = schemeState(s, d);
     const conn = schemeConn(s);
-    const cs = connSite(conn);
-    const on = switchesOk && currentPresetName() === s.preset && (!s.persona || currentPersona() === s.persona) && (!cs || !siteDiffers(cs, { ...liveConnection(), online: true }));
     const archived = !listPresets().includes(s.preset) && archiveList().some((x) => x.name === s.preset);
     const meta = [
       view() !== "preset" ? esc(s.preset) + (archived ? "（已归档）" : "") : "",
@@ -305,6 +323,7 @@ function mountSchemes(page, { after } = {}) {
     } catch {
     }
     page.querySelector('[data-s="view"] span').textContent = VIEWS.find(([k]) => k === view())[1];
+    renderNow(d);
     for (const id of [...picked]) if (!all().some((x) => x.id === id)) picked.delete(id);
     if (picking && !all().length) picking = false;
     page.querySelector(".pa-scheme-pick").innerHTML = picking

@@ -606,11 +606,15 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     // 2.4.0：当前连接只留名称、网址、模型；类型、密钥、备注和操作收进 ⋯
     // 2.4.1：模型旁放「拉取」（中转站）和「测试」；拉取到列表后模型框才出现 ▾
     const sub = live.url || src?.label || "";
-    liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">当前连接</h3></div>
+    liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">酒馆当前连接</h3></div>
         <article class="pa-card pa-site pa-site-on pa-live"${active ? ` data-id="${esc(active.id)}"` : ""}>
             <header>${dot}<b>${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">未保存为站点</button>'}<button class="pa-icon-btn pa-live-more${liveOpen() ? " on" : ""}" data-a="livemore" aria-expanded="${liveOpen()}" aria-label="连接详情" title="连接详情">⋯</button></header>
-            ${sub ? `<div class="pa-live-url" title="${esc(sub)}">${esc(sub)}</div>` : ""}
-            <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}<button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button></div>
+            <dl class="pa-kv pa-live-kv">
+              <dt>类型</dt><dd>${esc(src?.label || live.source || "—")}</dd>
+              ${sub && sub !== src?.label ? `<dt>网址</dt><dd class="pa-live-url pa-mono" title="${esc(sub)}">${esc(sub)}</dd>` : ""}
+              <dt>模型</dt><dd class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}</dd>
+            </dl>
+            <div class="pa-live-btns"><button class="pa-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}测试</button>${live.source === "custom" ? `<button class="pa-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}拉取模型</button>` : ""}</div>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         ${liveOpen() ? liveDetails(live, active) : ""}
@@ -692,7 +696,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       ? '<button class="pa-swpill pa-danger-pill" data-a="del" type="button">删除</button><button class="pa-swpill" data-a="edit" type="button">编辑</button>'
       : '<button class="pa-swpill" data-a="capture" type="button">保存为站点</button>';
     return `<div class="pa-live-detail"><dl class="pa-site-dl">
-          <dt>类型</dt><dd>${esc(SOURCES[source]?.label || source || "—")}</dd>
           ${key ? `<dt>密钥</dt><dd>${esc(key)}</dd>` : ""}
           ${active?.note ? `<dt>备注</dt><dd>${esc(active.note)}</dd>` : ""}
         </dl><div class="pa-live-acts">${acts}</div></div>`;
