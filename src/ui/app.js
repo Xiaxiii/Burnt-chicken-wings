@@ -124,11 +124,11 @@ function buildRoot() {
     look: mountLook(pageEl("look"))
   };
   applyTheme(rootEl2);
-  // 键盘：在条目行、分组头上按回车或空格，等于点一下
+  // 键盘：在条目行、分组头、当作按钮用的行（站点名、导入文件等）上按回车或空格，等于点一下
   rootEl2.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.key !== "Enter" && e.key !== " " || e.defaultPrevented) return;
     const t = e.target;
-    if (!(t instanceof HTMLElement) || !t.matches(".pa-row, .pa-ghead")) return;
+    if (!(t instanceof HTMLElement) || !t.matches('.pa-row, .pa-ghead, [role="button"]:not(button)')) return;
     e.preventDefault();
     t.click();
   });
@@ -316,7 +316,39 @@ function onPopState() {
 function onRootKey(e) {
   if (e.key !== "Escape" || !rootEl2 || rootEl2.hidden) return;
   if (rootEl2.querySelector(".pa-sheet-mask")) return; // 弹窗自己处理
-  if (e.target?.classList?.contains("pa-inline-input")) return; // 原地改名自己处理
+  const t = e.target;
+  if (t?.classList?.contains("pa-inline-input")) return; // 原地改名自己处理
+  // 2.8.7 Esc 一次只退一层：搜索框里清除并收起搜索，编辑栏里关编辑栏，其他输入框里先移走光标；都不是时才关面板
+  if (t instanceof HTMLElement && rootEl2.contains(t)) {
+    const row = t.closest(".pa-findrow");
+    if (row) {
+      e.preventDefault();
+      const pg = row.closest(".pa-page");
+      const x = row.querySelector(".pa-qx") || pg?.querySelector('[data-tool="search"]');
+      if (x) x.click();
+      else { t.value = ""; t.dispatchEvent(new Event("input", { bubbles: true })); t.blur(); }
+      (pg?.querySelector(row.dataset.qside ? `[data-st="${row.dataset.qside}search"]` : '[data-tool="search"]'))?.focus({ preventScroll: true });
+      return;
+    }
+    const pane = t.closest(".pa-editpane");
+    if (pane) {
+      e.preventDefault();
+      pane.querySelector('[data-ep="x"]')?.click();
+      return;
+    }
+    if (t.matches("input:not([type=checkbox]):not([type=radio]), textarea, select")) {
+      e.preventDefault();
+      t.blur();
+      return;
+    }
+  }
+  // 宽屏编辑栏开着时，先关编辑栏
+  const openPane = rootEl2.querySelector('.pa-page:not([hidden]) .pa-editpane:not([hidden]) [data-ep="x"]');
+  if (openPane) {
+    e.preventDefault();
+    openPane.click();
+    return;
+  }
   e.preventDefault();
   close();
 }

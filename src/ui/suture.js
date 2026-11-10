@@ -704,7 +704,7 @@ function mountSuture(page, app) {
     const pn = bar.querySelector(".pa-picked-n");
     pn.textContent = n ? `已选 ${n} 条 ▸` : "未选条目";
     pn.disabled = !n;
-    bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "点下方条目选位置" : "点下方组名或条目选位置";
+    bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」一栏点条目选位置" : "在「到」一栏点组名或条目选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
     swbar.querySelector(".pa-sw-n").textContent = n ? ` ${n}` : "";
     swbar.querySelector(".pa-sw-pos").textContent = m ? " ✓" : "";

@@ -102,9 +102,23 @@ function sheet(opt) {
       acts.append(b);
     }
     if (!(opt.actions || []).length) acts.remove();
-    wrap.querySelector(".pa-sheet-x").addEventListener("click", () => done(null));
+    // 2.8.7 guardDirty：填过字的窗口，点窗口外、按 Esc、返回手势、点 ✕ 时先问一句，免得误触丢掉刚写的内容；「取消」按钮照常直接关
+    // guardDirty 传函数时由调用方给出「填了什么」的摘要（如站点窗口里看过的密钥不算改动）
+    const snap = () => typeof opt.guardDirty === "function" ? opt.guardDirty(wrap) : JSON.stringify([...wrap.querySelectorAll(".pa-sheet-body :is(input, textarea, select)")].map((x) => x.type === "checkbox" || x.type === "radio" ? x.checked : x.value));
+    let snap0 = null, asking = false;
+    const dismiss = async () => {
+      if (asking) return;
+      if (opt.guardDirty && snap0 !== null && snap() !== snap0) {
+        asking = true;
+        const ok = await confirmBox("放弃未保存的修改", "这个窗口里填写的内容尚未保存。", "放弃修改", true, "继续编辑");
+        asking = false;
+        if (!ok) return;
+      }
+      done(null);
+    };
+    wrap.querySelector(".pa-sheet-x").addEventListener("click", dismiss);
     wrap.addEventListener("click", (e) => {
-      if (e.target === wrap) done(null);
+      if (e.target === wrap) dismiss();
     });
     // 叠着好几个弹窗时，Esc 和 Tab 只给最上面那个
     const isTop = () => {
@@ -116,7 +130,7 @@ function sheet(opt) {
       if (e.key === "Escape") {
         e.stopImmediatePropagation();
         e.preventDefault();
-        done(null);
+        dismiss();
         return;
       }
       if (e.key === "Tab") {
@@ -140,6 +154,7 @@ function sheet(opt) {
     (rootEl || document.body).append(wrap);
     if (place === "pop") placePop(wrap, opt.anchor);
     opt.onMount?.(wrap);
+    if (opt.guardDirty) snap0 = snap();
     const first = wrap.querySelector("input:not([type=checkbox]):not([type=radio]), textarea");
     // focusInput：触屏上也直接把光标放进输入框（弹出键盘），用于点了就要打字的搜索窗
     if (first && !opt.noFocus && (opt.focusInput || matchMedia("(pointer:fine)").matches)) first.focus();
@@ -195,8 +210,8 @@ function placePop(wrap, anchor) {
     box.style.maxHeight = above + "px";
   }
 }
-async function confirmBox(title, text, okLabel = "确定", danger = false) {
-  const r = await sheet({ title, place: "center", body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: "取消", value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
+async function confirmBox(title, text, okLabel = "确定", danger = false, cancelLabel = "取消") {
+  const r = await sheet({ title, place: "center", body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: cancelLabel, value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
   return !!r;
 }
 // 2.6.1 删除前提醒备份，不强制：「下载备份」交给浏览器下载，弹窗不关、写明下载了什么；「删除」不管下没下载都删。
@@ -219,7 +234,7 @@ async function promptBox(title, value = "", placeholder = "") {
   return sheet({
     title,
     place: "center",
-    body: `<input class="pa-input" value="${esc(value)}" placeholder="${esc(placeholder)}" maxlength="120">`,
+    body: `<input class="pa-input" value="${esc(value)}" placeholder="${esc(placeholder)}" maxlength="120" aria-label="${esc(title)}" autocomplete="off">`,
     actions: [{ label: "取消", value: null }, { label: "确定", kind: "primary", value: (w) => w.querySelector("input").value.trim() || null }],
     onMount: (w) => {
       const i = w.querySelector("input");

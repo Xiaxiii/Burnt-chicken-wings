@@ -2090,3 +2090,63 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-bal-line .pa-chip { flex: none; }
 #pa-root .pa-plan-sites .pa-site-model { color: var(--pa-dim); }
 #pa-root .pa-field > small.pa-hint { margin: 2px 0 0; font-size: .8em; }
+/* ---------- 2.8.7 ---------- */
+/* 组外条目与分组胶囊共用左右边线：手柄、勾选圈、名称、开关各在同一条竖线上；行间细线与胶囊同宽 */
+#pa-root .pa-loose { padding: 0 8px; }
+#pa-root .pa-loose > .pa-row { padding-left: calc(3px + env(safe-area-inset-left)); padding-right: calc(9px + env(safe-area-inset-right)); }
+#pa-root .pa-loose > .pa-row > .pa-check { margin: 0 2px; }
+#pa-root .pa-loose > .pa-row:not(:has(> .pa-handle)) { padding-left: calc(12px + env(safe-area-inset-left)); }
+#pa-root .pa-loose > .pa-row:not(:has(> .pa-handle)) > .pa-check { margin: 0 4px 0 0; }
+#pa-root .pa-loose > .pa-row:last-child { border-bottom-color: transparent; }
+/* 宽屏编辑栏：表单靠上排列，不把多出的高度分给各行 */
+#pa-root .pa-editpane-body > .pa-form { align-content: start; flex: none; }
+/* 小字不小于 11px（「文字大小」选小时同样） */
+#pa-root .pa-tabs button, #pa-root .pa-kicker, #pa-root .pa-brand-t small, #pa-root .pa-fs-note, #pa-root .pa-entry-note:not([hidden]), #pa-root .pa-bal-kv dt, #pa-root .pa-meta, #pa-root .pa-hitline { font-size: max(11px, .78em); }
+#pa-root .pa-chip, #pa-root .pa-lv, #pa-root .pa-split, #pa-root .pa-optcount, #pa-root .pa-kchip, #pa-root .pa-kmore { font-size: max(11px, .76em); }
+#pa-root .pa-cot-sum span, #pa-root .pa-tip, #pa-root .pa-rtags .pa-field > span, #pa-root .pa-live > header .pa-dot, #pa-root .pa-count, #pa-root .pa-rt-detail, #pa-root .pa-kvl small, #pa-root .pa-whynote { font-size: max(11px, .82em); }
+@media (min-width: 1000px) { #pa-root .pa-tabs button { font-size: 1em; } }
+/* 淡色标签：改用淡色文字，不整体降透明度 */
+#pa-root .pa-chip-dim { opacity: 1; color: var(--pa-dim); }
+#pa-root [data-page="health"] small, #pa-root .pa-rt-row span small, #pa-root .pa-kv dd small { font-size: max(11px, .84em); }
+/* 「已连接」字色加深；清理页当前使用的预设不再整行变淡（勾选框已是不可选状态） */
+#pa-root .pa-live > header .pa-dot-on { color: color-mix(in srgb, var(--pa-ok) 78%, var(--pa-text)); }
+#pa-root .pa-crow.pa-locked { opacity: 1; }
+/* 宽屏：各页内容左边线与页头标题对齐（20px），表单类页面同一栏宽 */
+@media (min-width: 1000px) {
+    #pa-root [data-page="organize"] > .pa-toolbar, #pa-root [data-page="cot"] > .pa-toolbar, #pa-root [data-page="vars"] > .pa-toolbar, #pa-root [data-page="reply"] > .pa-toolbar { padding-left: 20px; padding-right: 20px; }
+    #pa-root [data-page="organize"] .pa-list > .pa-group { margin-left: 20px; margin-right: 20px; }
+    #pa-root [data-page="organize"] .pa-list > .pa-loose { padding-left: 20px; padding-right: 20px; }
+    #pa-root [data-page="organize"] .pa-list > :is(.pa-card, .pa-qsum, .pa-empty) { margin-left: 20px; margin-right: 20px; }
+    #pa-root [data-page="organize"].pa-edit-open > .pa-toolbar { padding-right: 12px; }
+    #pa-root [data-page="organize"].pa-edit-open .pa-list > .pa-group { margin-right: 12px; }
+    #pa-root [data-page="organize"].pa-edit-open .pa-list > .pa-loose { padding-right: 12px; }
+    #pa-root [data-page="cot"] .pa-scroll, #pa-root [data-page="vars"] .pa-scroll { padding-left: 20px; padding-right: 20px; }
+    #pa-root .pa-plan > *, #pa-root .pa-replypage .pa-form, #pa-root [data-page="cot"] .pa-scroll > *, #pa-root [data-page="vars"] .pa-scroll > * { max-width: 820px; }
+    #pa-root [data-page="reply"] .pa-toolbar, #pa-root [data-page="cot"] > .pa-toolbar, #pa-root [data-page="vars"] > .pa-toolbar { max-width: 860px; }
+    #pa-root .pa-ckinds { justify-content: flex-start; }
+}
+/* 句中的文字链接不带左右留白，标点紧跟文字 */
+#pa-root .pa-empty .pa-link { padding-left: 0; padding-right: 0; white-space: nowrap; }
+/* 回复页：必需标签可填多个，单独占一行，提示文字不被截断 */
+#pa-root .pa-rtags > .pa-rtag-req { grid-column: 1 / -1; order: 1; }
+/* 目标栏顶部的位置行与胶囊同宽 */
+#pa-root :is(.pa-list, .pa-dst-list) > .pa-slot { margin: 0 8px; width: calc(100% - 16px); }
+/* 选位置时行间只留一道细线（条目行自带底线后，原先的内描线成了第二道） */
+#pa-root .pa-placing .pa-row:not(.pa-sel):not(:hover):not(:active) { box-shadow: none; }
+/* 空状态说明：两行长短相近，末行不剩一两个字 */
+#pa-root .pa-empty { text-wrap: balance; }
+/* 「保存为站点」是操作：与「填余额」同为下划线文字，不再像一枚灰色标签 */
+#pa-root .pa-live > header .pa-chip-btn { padding: 0; border-radius: 0; color: var(--pa-em); line-height: 1.5; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--pa-line-strong, var(--pa-line)); }
+/* 折叠卡片：整条标题行（含卡片留白）都可点，外观不变 */
+#pa-root details.pa-card > summary { margin: -10px -12px; padding: 10px 12px; border-radius: inherit; }
+/* 触屏：文字按钮、说明按钮的点按范围上下各放大，外观不变 */
+@media (pointer: coarse) {
+    #pa-root .pa-tiprow > .pa-tip, #pa-root .pa-toolbar .pa-tip, #pa-root .pa-hookbtn, #pa-root .pa-link:not(.pa-file) { position: relative; }
+    #pa-root .pa-tiprow > .pa-tip::after, #pa-root .pa-toolbar .pa-tip::after, #pa-root .pa-hookbtn::after, #pa-root .pa-link:not(.pa-file)::after { content: ""; position: absolute; inset: -8px -4px; }
+}
+/* 预设页搜索框右侧的 ✕：清除并收起（与缝合页一致） */
+#pa-root .pa-toolbar > .pa-qrow { display: flex; align-items: center; gap: 2px; }
+#pa-root .pa-toolbar > .pa-qrow[hidden] { display: none; }
+/* 深色配色下，滚动条、下拉列表等系统控件同为深色；浅色配色在深色酒馆里保持浅色 */
+#pa-root[data-theme="mo"], #pa-root[data-theme="night"] { color-scheme: dark; }
+#pa-root[data-theme]:not([data-theme="follow"]):not([data-theme="mo"]):not([data-theme="night"]) { color-scheme: light; }

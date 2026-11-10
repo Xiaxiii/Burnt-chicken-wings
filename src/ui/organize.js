@@ -23,7 +23,7 @@ function entryForm(p, { marker = false, promptOnly = false, hint = "" } = {}) {
   const depthPos = p.injection_position === 1;
   const body = el(`<div class="pa-form">
           ${hint ? `<p class="pa-hint pa-edit-where">${esc(hint)}</p>` : ""}
-          <label class="pa-field"><span>名称</span><input class="pa-input" data-f="name" value="${esc(p.name || "")}"></label>
+          <label class="pa-field"><span>名称</span><input class="pa-input" data-f="name" autocomplete="off" value="${esc(p.name || "")}"></label>
           ${marker ? '<p class="pa-hint">系统位置条目，正文由酒馆填入，这里只能改名称。</p>' : `
           ${promptOnly ? "" : `<div class="pa-item-ctl">
             <label class="pa-field"><span>角色</span><select class="pa-select" data-f="role">${[["system", "系统"], ["user", "用户"], ["assistant", "AI"]].map(([k, l]) => `<option value="${k}" ${(p.role || "system") === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -74,7 +74,7 @@ function entryForm(p, { marker = false, promptOnly = false, hint = "" } = {}) {
 async function editEntrySheet(p, { marker = false, promptOnly = false, hint = "", title = "编辑条目" } = {}) {
   const f = entryForm(p, { marker, promptOnly, hint });
   return sheet({
-    title, body: f.body, wide: true, noFocus: true,
+    title, body: f.body, wide: true, noFocus: true, guardDirty: true,
     onMount: (w) => { if (!marker) w.querySelector(".pa-sheet").classList.add("pa-sheet-edit"); },
     actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: f.read }]
   });
@@ -114,7 +114,7 @@ function mountOrganize(page) {
             <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索条目">${ICON.search}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">${ICON.plus}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">⋯</button>
-            <div class="pa-findrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜索条目名、标签、分组名" aria-label="搜索条目"></div>
+            <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜名称、分组名、标签或正文" aria-label="搜索条目"><button type="button" class="pa-icon-btn pa-qx" data-tool="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
             <div class="pa-tools">
                 <button class="pa-btn pa-btn-soft" data-tool="newgroup">＋ 新建分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="newentry">＋ 新建条目</button>
@@ -388,13 +388,15 @@ function mountOrganize(page) {
       ]);
       if (!t) return;
     }
-    if (t === "search") {
+    if (t === "search" || t === "searchclose") {
       const row = page.querySelector(".pa-findrow");
-      row.hidden = !row.hidden;
-      if (row.hidden && st.query) {
-        st.query = "";
+      row.hidden = t === "searchclose" || !row.hidden;
+      if (row.hidden) {
         search.value = "";
-        render();
+        if (st.query) {
+          st.query = "";
+          render();
+        }
       }
       if (!row.hidden) search.focus();
       return;
@@ -601,19 +603,22 @@ function mountOrganize(page) {
     if (pane.id) list.querySelector(`.pa-row[data-id="${CSS.escape(pane.id)}"]`)?.classList.add("pa-editing");
   }
   function closePane() {
+    // 光标在编辑栏里时，关闭后回到这一条的「查看或编辑」按钮，键盘操作不断开
+    const back = paneEl.contains(document.activeElement) ? pane.id : null;
     pane = { id: null, preset: null, form: null };
     paneEl.hidden = true;
     paneEl.replaceChildren();
     page.classList.remove("pa-edit-open");
     markPaneRow();
+    if (back) list.querySelector(`.pa-row[data-id="${CSS.escape(back)}"] [data-act="peek"]`)?.focus({ preventScroll: true });
   }
   async function openPane(d, id, { force = false } = {}) {
-    if (!force && pane.form?.dirty() && pane.id !== id && !await confirmBox("放弃未保存的修改", `「${paneEl.querySelector(".pa-editpane-head b")?.textContent || ""}」的修改尚未保存。`, "放弃修改")) return;
+    if (!force && pane.form?.dirty() && pane.id !== id && !await confirmBox("放弃未保存的修改", `「${paneEl.querySelector(".pa-editpane-head b")?.textContent || ""}」的修改尚未保存。`, "放弃修改", true, "继续编辑")) return;
     const p = d.prompt(id);
     if (!p) return closePane();
     const form = entryForm(p, { marker: d.isMarker(id) });
     pane = { id, preset: d.name, form };
-    paneEl.innerHTML = `<div class="pa-editpane-head"><b></b><button class="pa-icon-btn" data-ep="close" aria-label="关闭编辑栏" title="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    paneEl.innerHTML = `<div class="pa-editpane-head"><b></b><button class="pa-icon-btn" data-ep="x" aria-label="关闭编辑栏" title="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div class="pa-editpane-body"></div>
       <div class="pa-editpane-foot"><button class="pa-btn" data-ep="close">取消</button><button class="pa-btn pa-btn-primary" data-ep="save">保存</button></div>`;
     paneEl.querySelector(".pa-editpane-head b").textContent = p.name || id;
@@ -637,10 +642,22 @@ function mountOrganize(page) {
     }
     openPane(getDraft(pane.preset), pane.id, { force: true });
   }
-  paneEl.addEventListener("click", (e) => {
+  // ✕ 和 Esc：有没保存的修改时先问；「取消」直接放弃
+  let paneAsking = false;
+  paneEl.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-ep]")?.dataset.ep;
     if (a === "close") closePane();
     else if (a === "save") savePane();
+    else if (a === "x") {
+      if (paneAsking) return;
+      if (pane.form?.dirty()) {
+        paneAsking = true;
+        const ok = await confirmBox("放弃未保存的修改", `「${paneEl.querySelector(".pa-editpane-head b")?.textContent || ""}」的修改尚未保存。`, "放弃修改", true, "继续编辑");
+        paneAsking = false;
+        if (!ok) return;
+      }
+      closePane();
+    }
   });
   async function peek(d, id) {
     const p = d.prompt(id);

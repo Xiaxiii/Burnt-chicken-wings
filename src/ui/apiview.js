@@ -659,7 +659,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       if (siteMulti(x)) return multiRow(x, on, used);
       const bal = balSiteText(x);
       return `<div class="pa-sgroup pa-sitecard pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
-            <div class="pa-srow-main pa-site-name" data-a="edit" title="${esc([x.model || "未选模型", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · "))}"><b>${esc(x.name)}</b><small class="pa-site-model pa-num">${bal ? `余额 ${esc(bal)}` : "余额未知"}</small></div>
+            <div class="pa-srow-main pa-site-name" data-a="edit" role="button" tabindex="0" aria-label="编辑「${esc(x.name)}」" title="${esc([x.model || "未选模型", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · "))}"><b>${esc(x.name)}</b><small class="pa-site-model pa-num">${bal ? `余额 ${esc(bal)}` : "余额未知"}</small></div>
             ${sitesEditing ? `<button class="pa-icon-btn pa-site-del" data-a="del" type="button" aria-label="删除「${esc(x.name)}」" title="删除">${ICON.trash}</button>` : on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
     };
     // 2.5.0 多密钥站点：左边小三角，点开每个分组一行，各有「切换」；折起时小字是当前分组和模型
@@ -864,6 +864,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       body,
       wide: true,
       noFocus: !isNew,
+      guardDirty: (w) => JSON.stringify([read(w), ks.map((k) => [k.id, k.name, typed.get(k.id) || ""])]),
       onMount: (w) => {
         sync(w);
         setModel(w, (ks.find((x) => x.id === curKey) || ks[0]).model || "");

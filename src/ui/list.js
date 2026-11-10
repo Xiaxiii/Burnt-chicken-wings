@@ -88,7 +88,7 @@ function renderIndexedList(draft, o) {
             <span class="pa-check" aria-hidden="true"></span>
             <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${hits.get(id)?.body ? esc(name) : markText(name, q)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}</span>${hits.get(id)?.body ? `<small class="pa-hitline">正文：${hits.get(id).snip}</small>` : ""}${meta ? `<small class="pa-meta">${meta}</small>` : ""}</span>
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button>
-            ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" ${on ? "checked" : ""}><i></i></label>` : ""}
+            ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>` : ""}
             ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="拖动">${ICON.grip}</span>` : ""}
         </div>${at ? mark : ""}`;
   };
@@ -124,7 +124,7 @@ function renderIndexedList(draft, o) {
     const emptyNote = b.empty && !startSlot ? '<p class="pa-gempty">空分组</p>' : "";
     html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${draft.groupOff(b.groupId) ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}" tabindex="0">
-                ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
+                ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠" aria-expanded="${!isCol}">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
                 <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${markText(g?.name || "分组", q)}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>
                 ${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
                 ${showSwitch ? `<label class="pa-switch pa-switch-s" title="分组开关（不修改内部条目）"><input type="checkbox" aria-label="分组开关" data-act="gtoggle" ${draft.groupOff(b.groupId) ? "" : "checked"}><i></i></label>
