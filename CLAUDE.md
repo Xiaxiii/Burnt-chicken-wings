@@ -13,3 +13,5 @@
 ## 设计
 
 做界面时先读 `.claude/skills/design-taste-frontend/SKILL.md`（面板属于 app screen，规则见其中的 `references/app-screens.md`）和 `.claude/skills/frontend-design/SKILL.md`。
+
+改完界面，用 `web-design-guidelines` 逐条核对代码，用 `impeccable` 的 audit、polish 收尾（本仓库副本不含引擎，按其 `reference/` 人工检查）；细节打磨看 `make-interfaces-feel-better`，交互、配色、字体规范查 `ui-ux-pro-max/references/`。

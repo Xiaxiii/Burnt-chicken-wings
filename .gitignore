@@ -11,3 +11,4 @@ test/fixtures/*.json
 dist/
 test/site/st/
 .taste-skill/
+__pycache__/
