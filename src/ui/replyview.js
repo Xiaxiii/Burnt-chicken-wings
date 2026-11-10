@@ -32,7 +32,9 @@ function replyForm(name, { inPage = false } = {}) {
   const available = replyGuardAvailable();
   const semanticAvailable = semanticReviewAvailable();
   let reviewCancel = null;
+  // 2.7.5 分四节：规则、自动、检查、语义审查；「回复」页按分页只显示一节，弹窗里全部显示
   const body = el(`<div class="pa-form">
+    <section class="pa-rsec" data-rsec="rules">
     ${inPage ? '<p class="pa-hint">按预设分别设置。标签名须与预设的输出格式一致。</p>' : `<div class="pa-whyrow"><p class="pa-hint">当前预设「${esc(name)}」</p>${whyBtn("preset")}</div>
     ${whyNote("preset", "每个预设分别设置。标签名须与预设的输出格式一致。")}`}
     <label class="pa-field"><span>正文标签名（不填尖括号）${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
@@ -41,10 +43,14 @@ function replyForm(name, { inPage = false } = {}) {
     ${guess?.suggest.length ? whyNote("required", `显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入这里。`) : ""}
     <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
     ${!saved.thinkingTag && thinkingDefault ? whyNote("thinking", `已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。`) : ""}
+    </section>
+    <section class="pa-rsec" data-rsec="auto">
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
     <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>${whyBtn("autofix")}</div>
     ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，可在这里撤销。不勾：点下面「检查最近回复」，看到问题后手动点「修正这条回复」。")}
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
+    </section>
+    <section class="pa-rsec" data-rsec="check">
     <details class="pa-card"><summary>检测范围</summary><ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和上面填的必需标签，不提其他标签。</li>
@@ -55,7 +61,8 @@ function replyForm(name, { inPage = false } = {}) {
     <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
     <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
     <div data-r="result" aria-live="polite"></div>
-    <details class="pa-card"><summary>AI 语义审查（可选）</summary>
+    </section>
+    <details class="pa-card pa-rsec" data-rsec="ai" ${inPage ? "open" : ""}><summary>AI 语义审查（可选）</summary>
       <p class="pa-hint">通过酒馆当前连接发送这一条回复，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用；结果可能误判，仅供核对，不改动正文。</p>
       <label class="pa-field-row"><input type="checkbox" data-r="semantic" ${saved.semanticAfterReply ? "checked" : ""} ${semanticAvailable ? "" : "disabled"}>生成完成后自动语义审查（默认关闭）</label>
       ${semanticAvailable ? "" : '<p class="pa-warn">当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。结构检查仍可使用。</p>'}
@@ -207,7 +214,8 @@ async function replyFormatDialog(name) {
   if (value) saveReplyConfig(name, value);
 }
 // 「回复」页：当前预设的正文格式检查、自动修正、语义审查
-function mountReply(page) {
+var REPLY_TABS = { "reply-check": "check", "reply-rules": "rules", "reply-auto": "auto", "reply-ai": "ai" };
+function mountReply(page, { go } = {}) {
   page.innerHTML = `<div class="pa-toolbar"><div class="pa-picker-slot"></div></div>
     <div class="pa-scroll pa-replypage"><div class="pa-replybox"></div></div>
     <div class="pa-pagefoot"><button class="pa-btn pa-btn-primary" data-r="save">保存设置</button></div>`;
@@ -234,12 +242,20 @@ function mountReply(page) {
   page.querySelector('[data-r="save"]').addEventListener("click", () => {
     if (!form) return;
     let value;
-    try { value = form.read(); } catch (e) { return form.showError(e); }
+    try { value = form.read(); } catch (e) {
+      // 标签填错：切到「规则」页再标出输入框
+      if (page.dataset.rtab !== "rules") go?.("reply-rules");
+      return form.showError(e);
+    }
     saveReplyConfig(shown, value);
     savedSig = sigOf(shown);
   });
   const off = onDraftChange((name, kind) => {
     if (kind === "focus" && draftViewVisible(page)) render();
   });
-  return { render: () => { picker.refresh(); render(); }, destroy: () => { off(); form?.abort(); } };
+  return { render: (key) => {
+    page.dataset.rtab = REPLY_TABS[key] || "check";
+    picker.refresh();
+    render();
+  }, destroy: () => { off(); form?.abort(); } };
 }

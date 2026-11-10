@@ -66,14 +66,29 @@ const state = (page) => page.evaluate(() => {
   await page.click('.pa-tabs [data-nav="reply"]');
   s = await state(page);
   assert.equal(s.title, "回复"); assert.deepEqual(s.page, ["reply"]);
-  assert.ok(await page.locator('[data-page=reply] [data-r="body"]').isVisible(), "回复页内有正文标签输入框");
+  assert.deepEqual(s.sub, ["检查*", "规则", "自动", "语义审查"]);
+  assert.ok(await page.locator('[data-page=reply] [data-r="latest"]').isVisible(), "默认是检查页");
+  assert.equal(await page.locator('[data-page=reply] [data-r="save"]').isVisible(), false, "检查页不显示保存");
+  await page.click('.pa-subnav [data-tab="reply-rules"]');
+  assert.ok(await page.locator('[data-page=reply] [data-r="body"]').isVisible(), "规则页有正文标签输入框");
+  assert.equal(await page.locator('[data-page=reply] [data-r="latest"]').isVisible(), false);
   await page.fill('[data-page=reply] [data-r="body"]', "content");
   await page.click('[data-page=reply] [data-r="save"]');
   await page.waitForTimeout(200);
   const saved = await page.evaluate(() => { const c = window.SillyTavern.getContext(); const n = window.__mock?.names?.[0]; return c.extensionSettings.presetAtelier.replyGuard; });
   assert.ok(saved && Object.values(saved).some((v) => v.bodyTag === "content"), "回复页保存设置写入当前预设");
+  // 标签填错：在别的分页点保存，会切到规则页标出输入框
+  await page.fill('[data-page=reply] [data-r="body"]', "think");
+  await page.click('.pa-subnav [data-tab="reply-auto"]');
+  await page.click('[data-page=reply] [data-r="save"]');
+  await page.waitForTimeout(200);
+  assert.deepEqual((await state(page)).sub, ["检查", "规则*", "自动", "语义审查"]);
+  await page.fill('[data-page=reply] [data-r="body"]', "content");
+  await page.click('.pa-tabs [data-nav="conn"]');
+  await page.click('.pa-tabs [data-nav="reply"]');
+  assert.deepEqual((await state(page)).sub, ["检查", "规则*", "自动", "语义审查"], "回到回复时停在上次的分页");
   await page.screenshot({ path: S + "n-3-phone-reply.png" });
-  ok("手机：回复页内直接设置、保存");
+  ok("手机：回复页分检查、规则、自动、语义审查，页内设置、保存");
 
   await page.click('.pa-tabs [data-nav="more"]');
   s = await state(page);

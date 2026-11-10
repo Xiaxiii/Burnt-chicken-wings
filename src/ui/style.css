@@ -1791,9 +1791,9 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-plan-opts:empty::before { content: none; }
 
 /* 键值行（当前状态、当前连接） */
-#pa-root .pa-kv { display: grid; grid-template-columns: 3.2em minmax(0, 1fr); gap: 8px 14px; margin: 10px 0 0; align-items: center; }
-#pa-root .pa-kv dt { color: var(--pa-dim); font-size: .9em; }
-#pa-root .pa-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+#pa-root .pa-nowcard .pa-kv, #pa-root .pa-live-kv { display: grid; grid-template-columns: 3.2em minmax(0, 1fr); gap: 8px 14px; margin: 10px 0 0; align-items: center; }
+#pa-root .pa-nowcard .pa-kv dt, #pa-root .pa-live-kv dt { color: var(--pa-dim); font-size: .9em; }
+#pa-root .pa-nowcard .pa-kv dd, #pa-root .pa-live-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 #pa-root .pa-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; }
 #pa-root .pa-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--pa-card-2); color: var(--pa-dim); font-size: .78em; font-weight: 600; white-space: nowrap; }
 #pa-root .pa-badge-ok { background: color-mix(in srgb, var(--pa-ok) 14%, transparent); color: var(--pa-ok); }
@@ -1852,3 +1852,32 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-meta .pa-badges { max-width: none; flex: 0 1 auto; min-width: 0; overflow: hidden; }
 #pa-root .pa-meta .pa-chip { font-size: 1em; }
 #pa-root .pa-meta .pa-chip:not(.pa-chip-dim):not(.pa-chip-cot) { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+/* 2.7.5 回复页四个分页：只显示当前一节；「检查」页不需要保存按钮 */
+#pa-root [data-page="reply"][data-rtab="check"] .pa-rsec:not([data-rsec="check"]),
+#pa-root [data-page="reply"][data-rtab="rules"] .pa-rsec:not([data-rsec="rules"]),
+#pa-root [data-page="reply"][data-rtab="auto"] .pa-rsec:not([data-rsec="auto"]),
+#pa-root [data-page="reply"][data-rtab="ai"] .pa-rsec:not([data-rsec="ai"]) { display: none; }
+#pa-root [data-page="reply"][data-rtab="check"] .pa-pagefoot { display: none; }
+#pa-root [data-page="reply"] details.pa-rsec[data-rsec="ai"] { border: 0; padding: 0; background: none; }
+#pa-root [data-page="reply"] details.pa-rsec[data-rsec="ai"] > summary { display: none; }
+#pa-root .pa-rsec { display: flex; flex-direction: column; gap: inherit; }
+
+/* 2.7.5 清理、体检：摘要卡与列表行改为白底细边卡片 */
+#pa-root .pa-sum { padding: 12px 14px; border: 1px solid var(--pa-line); border-left: 1px solid var(--pa-line); border-radius: 14px; background: var(--pa-tint); margin: 4px 0 12px; }
+#pa-root .pa-sum::before { content: ""; position: absolute; left: 14px; top: 16px; width: 8px; height: 8px; border-radius: 50%; background: var(--pa-line-strong, var(--pa-line)); }
+#pa-root .pa-sum.pa-good::before { background: var(--pa-ok); }
+#pa-root .pa-sum.pa-bad::before { background: var(--pa-warn); }
+#pa-root .pa-sum > .pa-sum-main { padding-left: 16px; }
+#pa-root .pa-bar { background: var(--pa-card-2); }
+#pa-root .pa-crow { padding: 12px 14px; border-radius: 12px; background: var(--pa-tint); }
+#pa-root .pa-crow.on { background: color-mix(in srgb, var(--pa-warn) 5%, var(--pa-tint)); }
+#pa-root .pa-clist { gap: 8px; }
+#pa-root [data-page="clean"] > .pa-scroll, #pa-root [data-page="health"] .pa-scroll { padding-left: calc(12px + env(safe-area-inset-left)); padding-right: calc(12px + env(safe-area-inset-right)); }
+@media (min-width: 1000px) { #pa-root [data-page="clean"] .pa-scroll > *, #pa-root [data-page="health"] .pa-scroll > *, #pa-root [data-page="look"] .pa-scroll > * { max-width: 820px; } }
+/* 回复页「检查」：按钮在前，主操作为实底 */
+#pa-root .pa-rsec .pa-toolbar { padding: 0; border: 0; background: none; }
+#pa-root [data-page="reply"] [data-rsec="check"] > details { order: 9; }
+#pa-root [data-page="reply"] [data-r="latest"] { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }
+#pa-root .pa-sum.pa-good, #pa-root .pa-sum.pa-bad { border-left-color: var(--pa-line); }
+@media (min-width: 1000px) { #pa-root [data-page="clean"] > .pa-scroll, #pa-root [data-page="health"] .pa-scroll, #pa-root [data-page="look"] .pa-scroll, #pa-root [data-page="reply"] .pa-scroll, #pa-root [data-page="vars"] .pa-scroll { padding-left: 20px; } #pa-root [data-page="reply"] > .pa-toolbar, #pa-root [data-page="vars"] > .pa-toolbar { padding-left: 20px; } }

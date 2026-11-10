@@ -16,14 +16,16 @@ var NAV = [
   ["suture", "缝合", "tool"], ["clean", "清理", "tool"], ["health", "体检", "tool"], ["look", "设置", "tool"]
 ];
 // 各页面所属栏目；「预设」「更多」在页头下方分页
-var SECTION_OF = { organize: "preset", cot: "preset", vars: "preset", schemes: "schemes", conn: "conn", reply: "reply", suture: "more", clean: "more", health: "more", look: "more" };
-var SUBNAV = { preset: [["organize", "条目"], ["cot", "思维链"], ["vars", "变量"]], more: [["suture", "缝合"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
-var PAGE_TITLE = { organize: "预设", cot: "预设", vars: "预设", schemes: "方案", conn: "连接", reply: "回复", suture: "缝合", clean: "清理", health: "体检", look: "设置" };
+var SECTION_OF = { organize: "preset", cot: "preset", vars: "preset", schemes: "schemes", conn: "conn", reply: "reply", "reply-check": "reply", "reply-rules": "reply", "reply-auto": "reply", "reply-ai": "reply", suture: "more", clean: "more", health: "more", look: "more" };
+var SUBNAV = { preset: [["organize", "条目"], ["cot", "思维链"], ["vars", "变量"]], reply: [["reply-check", "检查"], ["reply-rules", "规则"], ["reply-auto", "自动"], ["reply-ai", "语义审查"]], more: [["suture", "缝合"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
+var PAGE_TITLE = { organize: "预设", cot: "预设", vars: "预设", schemes: "方案", conn: "连接", reply: "回复", "reply-check": "回复", "reply-rules": "回复", "reply-auto": "回复", "reply-ai": "回复", suture: "缝合", clean: "清理", health: "体检", look: "设置" };
+var PAGE_EL = { "reply-check": "reply", "reply-rules": "reply", "reply-auto": "reply", "reply-ai": "reply" };
 var navSvg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${NAV_ICON[k]}</svg>`;
 var rootEl2;
 var pages = {};
 var current = "organize";
 var lastPresetPage = "organize";
+var lastReplyPage = "reply-check";
 var cleanups = [];
 function injectStyle() {
   document.getElementById("pa-style")?.remove();
@@ -82,7 +84,7 @@ function buildRoot() {
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </header>
             <div class="pa-subnav" role="tablist" hidden></div>
-            <main class="pa-main">${Object.keys(SECTION_OF).map((k) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
+            <main class="pa-main">${Object.keys(SECTION_OF).filter((k) => !PAGE_EL[k]).map((k) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
             <div class="pa-savebar" role="status" hidden>
                 <span class="pa-dirty-text"></span>
                 <button class="pa-btn" data-g="undo">撤销</button>
@@ -113,7 +115,7 @@ function buildRoot() {
     vars: mountVariables(pageEl("vars")),
     schemes: plan.schemes,
     conn: plan.conn,
-    reply: mountReply(pageEl("reply")),
+    reply: mountReply(pageEl("reply"), { go: (k) => show(k) }),
     suture: mountSuture(pageEl("suture"), app),
     clean: mountCleanup(pageEl("clean")),
     health: mountHealth(pageEl("health"), { goClean: () => show("clean") }),
@@ -204,6 +206,7 @@ function resolvePage(key, sub) {
   if (key === "more" && sub && SECTION_OF[sub]) return sub;
   if (key === "api") return "conn";
   if (key === "preset") return lastPresetPage;
+  if (key === "reply") return lastReplyPage;
   if (key === "more") {
     const m = settings().moreTab;
     return SUBNAV.more.some(([k]) => k === m) ? m : "suture";
@@ -215,6 +218,7 @@ function show(key, sub) {
   const sec = SECTION_OF[k];
   current = k;
   if (sec === "preset") lastPresetPage = k;
+  if (sec === "reply") lastReplyPage = k;
   if (sec === "more" && settings().moreTab !== k) {
     settings().moreTab = k;
     saveSettings();
@@ -234,11 +238,13 @@ function show(key, sub) {
     subnav.innerHTML = subs.map(([sk, l]) => `<button type="button" role="tab" ${attr}="${sk}" aria-selected="${sk === k}" class="${sk === k ? "on" : ""}">${l}</button>`).join("");
   }
   rootEl2.querySelector(".pa-title").textContent = PAGE_TITLE[k];
+  // 「回复」的四个分页共用一个页面元素
+  const pk = PAGE_EL[k] || k;
   rootEl2.querySelectorAll(".pa-page").forEach((p) => {
-    p.hidden = p.dataset.page !== k;
+    p.hidden = p.dataset.page !== pk;
   });
   try {
-    pages[k].render();
+    pages[pk].render(k);
   } catch (e) {
     console.error(e);
     toast("出错：" + e.message, "error");
