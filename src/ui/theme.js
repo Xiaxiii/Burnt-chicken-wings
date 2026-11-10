@@ -81,12 +81,17 @@ var themeWatcher = null;
 function watchTheme(root) {
   if (themeWatcher?.root === root) return;
   themeWatcher?.stop();
-  let frame = 0;
-  const refresh = () => {
+  let frame = 0, lastKey = "";
+  // 2.7.8 宿主可能反复写入相同的 class、style（同值也会触发观察）；内容没变就不重算配色、不放探针
+  const hostKey = () => [document.documentElement.className, document.documentElement.getAttribute("style"), document.body.className, document.body.getAttribute("style")].join("|");
+  const refresh = (records) => {
     if (root.hidden || !root.isConnected || frame) return;
+    const key = hostKey();
+    if (Array.isArray(records) && key === lastKey) return;
+    lastKey = key;
     frame = requestAnimationFrame(() => {
       frame = 0;
-      if (!root.hidden && root.isConnected) applyTheme(root);
+      if (!root.hidden && root.isConnected) jankTime("跟随酒馆配色", () => applyTheme(root));
     });
   };
   // 不观察条目、聊天内容或整个 DOM 子树；宿主换主题时只合并处理一次。

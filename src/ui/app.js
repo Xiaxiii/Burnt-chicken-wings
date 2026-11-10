@@ -246,7 +246,8 @@ function show(key, sub) {
     p.hidden = p.dataset.page !== pk;
   });
   try {
-    pages[pk].render(k, !wasVisible);
+    const subLabel = SUBNAV[sec]?.find(([x]) => x === k)?.[1];
+    jankTime(`显示页面：${sec === "more" ? subLabel : PAGE_TITLE[k] + (subLabel ? " · " + subLabel : "")}`, () => pages[pk].render(k, !wasVisible));
   } catch (e) {
     console.error(e);
     toast("出错：" + e.message, "error");
@@ -704,10 +705,13 @@ var onChatChanged = debounce(async () => {
   handledChat = key;
   let applied = null;
   try {
-    applied = await autoApplyBinding();
+    const t0 = performance.now();
+    const job = autoApplyBinding();
+    jankOwn("切换聊天：自动套用方案", t0, performance.now() - t0);
+    applied = await job;
   } finally {
     // 等自动连回站点、预设切换的事件处理完，再读当前的预设和模型
-    setTimeout(() => { if (chatKeyNow() === key) chatInfoToast(applied); }, 900);
+    setTimeout(() => { if (chatKeyNow() === key) jankTime("切换聊天：提示预设和模型", () => chatInfoToast(applied)); }, 900);
   }
 }, 600);
 async function autoApplyBinding() {
@@ -744,6 +748,7 @@ function watchMirrorWrites() {
   const orig = window.fetch;
   if (typeof orig !== "function" || orig.__paWatch) return;
   const wrapped = function(input, init) {
+    const t0 = performance.now();
     try {
       const url = typeof input === "string" ? input : input?.url || "";
       const body = init?.body;
@@ -764,6 +769,8 @@ function watchMirrorWrites() {
       }
     } catch {
     }
+    const ms = performance.now() - t0;
+    if (ms > 1) jankOwn("保存预设时检查重复分组", t0, ms);
     return orig.apply(this, arguments);
   };
   wrapped.__paWatch = true;
@@ -783,10 +790,14 @@ function migrateApiRule() {
 function bindEvents() {
   const c2 = ctx();
   const et2 = c2.eventTypes || c2.event_types;
+  // 2.7.8 每个处理函数都计时，供「体检 → 运行中的卡顿」核对
+  const EV_NAME = { CHAT_CHANGED: "切换聊天", PRESET_CHANGED: "切换预设", GENERATION_STARTED: "开始生成", GENERATION_AFTER_COMMANDS: "生成前", GENERATION_ENDED: "生成结束", GENERATION_STOPPED: "停止生成" };
+  const evLabel = (ev) => EV_NAME[Object.keys(et2).find((k) => et2[k] === ev)] || ev;
   const on = (ev, fn) => {
     if (!ev) return;
-    c2.eventSource.on(ev, fn);
-    cleanups.push(() => c2.eventSource.removeListener?.(ev, fn));
+    const timed = jankWrap(`事件：${evLabel(ev)}`, fn);
+    c2.eventSource.on(ev, timed);
+    cleanups.push(() => c2.eventSource.removeListener?.(ev, timed));
   };
   on(et2.PRESET_CHANGED, (e) => {
     if (e?.apiId && e.apiId !== "openai") return;
@@ -815,6 +826,7 @@ async function start() {
     } catch {
     }
   }
+  jankStart();
   await initHost();
   migrateApiRule();
   watchMirrorWrites();
@@ -853,6 +865,7 @@ async function start() {
     version: VERSION,
     kind: BUILD_KIND,
     open,
+    jank: jankSummary,
     destroy() {
       clearInterval(timer);
       cleanups.splice(0).forEach((f) => {

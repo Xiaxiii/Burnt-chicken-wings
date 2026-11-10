@@ -8,8 +8,9 @@ function variableForm(d) {
     <p class="pa-hint">状态只包含变量名、是否为空及类型，不保存正文。生成前后对比仅保留在本页内存中，默认关闭；不是每一次宏调用的执行追踪。</p>
     <div data-vf="result" aria-live="polite"></div></div>`);
   const result = body.querySelector('[data-vf="result"]');
-  function render() {
-    const report = auditVariableFlow(d), nm = (id) => esc(d.prompt(id)?.name || id);
+  function render() { d.withReadIndex(renderIndexed); }
+  function renderIndexed() {
+    const report = memoByDraft(d, "varflow", () => auditVariableFlow(d)), nm = (id) => esc(d.prompt(id)?.name || id);
     let html = `<p class="pa-p">发现 ${report.issues.length} 项顺序风险，${report.unknown.length} 个条目需运行时核对。</p>`;
     if (report.issues.length) html += `<ul class="pa-notes">${report.issues.map((i) => `<li><b>${i.scope === "global" ? "全局" : "聊天"}变量「${esc(i.name)}」</b>：${esc(i.text)}<br><small>${i.ids.map(nm).join(" → ")}</small></li>`).join("")}</ul>`;
     if (report.unknown.length) html += `<details class="pa-card"><summary>未推演的条目（${report.unknown.length}）</summary><ul class="pa-notes">${report.unknown.map((i) => `<li>「${nm(i.id)}」：${esc(i.reasons.join("；"))}</li>`).join("")}</ul></details>`;

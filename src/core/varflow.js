@@ -43,6 +43,9 @@ function flowVariableEvents(text, depth = 0) {
 }
 function variableIdentity(scope, name) { return JSON.stringify([scope, name]); }
 function auditVariableFlow(draft) {
+  return draft.withReadIndex ? draft.withReadIndex(() => auditVariableFlowIndexed(draft)) : auditVariableFlowIndexed(draft);
+}
+function auditVariableFlowIndexed(draft) {
   const events = [], unknown = [], issues = [], states = new Map();
   const add = (kind, event, ids, text) => issues.push({ kind, scope: event.scope, name: event.name, ids: [...new Set(ids)], text });
   for (const o of draft.order) {

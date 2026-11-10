@@ -1885,3 +1885,10 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 @media (min-width: 1000px) { #pa-root [data-page="clean"] > .pa-scroll, #pa-root [data-page="health"] .pa-scroll, #pa-root [data-page="look"] .pa-scroll, #pa-root [data-page="reply"] .pa-scroll, #pa-root [data-page="vars"] .pa-scroll { padding-left: 20px; } #pa-root [data-page="reply"] > .pa-toolbar, #pa-root [data-page="vars"] > .pa-toolbar { padding-left: 20px; } }
 /* 2.7.6 提示段落：淡色底的提示框，不再整段红字 */
 #pa-root p.pa-warn { margin: 0; padding: 9px 12px; border-radius: 10px; background: color-mix(in srgb, var(--pa-warn) 8%, transparent); color: color-mix(in srgb, var(--pa-warn) 70%, var(--pa-text)); line-height: 1.5; font-size: .92em; }
+/* 2.7.8 体检：运行中的卡顿 */
+#pa-root .pa-jank { display: grid; gap: 8px; margin-bottom: 12px; }
+#pa-root .pa-jank > p { margin: 0; }
+#pa-root .pa-jank .pa-rank > div { grid-template-columns: minmax(0, 1fr) auto; }
+#pa-root .pa-jank .pa-card-act { margin: 0; }
+/* 2.7.8 思维链页的条目关联列表：屏幕外的组跳过排版 */
+#pa-root .pa-cov-group { content-visibility: auto; contain-intrinsic-height: auto calc(var(--n, 1) * 44px + 36px); }

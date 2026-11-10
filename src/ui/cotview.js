@@ -103,8 +103,11 @@ function mountCot(page, app) {
       return;
     }
     picker.set(d.name);
-    const a = analyze(d, manualFor(d.name));
-    const nm = (id) => esc(d.prompt(id)?.name || id);
+    // 2.7.8 分析结果按预设改动缓存（手动指定的思维链也算在缓存键里）；条目名查索引
+    const manual = manualFor(d.name);
+    const a = memoByDraft(d, "cot:" + JSON.stringify(manual || {}), () => analyze(d, manual));
+    const names = new Map(d.preset.prompts.map((p) => [p.identifier, p.name]));
+    const nm = (id) => esc(names.get(id) || id);
     const dead = a.issues.filter((i) => i.kind === "dead" || i.kind === "cotfrag");
     const counts = { var: 0, chain: 0, mention: 0, none: 0 };
     for (const c2 of a.coverage.values()) counts[c2.level]++;
@@ -200,7 +203,8 @@ function mountCot(page, app) {
       byGroup.get(gname).push([id, c2]);
     }
     for (const gname of groupsOrder) {
-      html += `<div class="pa-cov-group"><h4>${esc(gname)}</h4>`;
+      // 2.7.8 --n：行数；屏幕外的组跳过排版，按它占位（条目多时切到这一页不卡）
+      html += `<div class="pa-cov-group" style="--n:${byGroup.get(gname).length}"><h4>${esc(gname)}</h4>`;
       for (const [id, c2] of byGroup.get(gname)) {
         const [cls, label] = LEVEL[c2.level];
         const via = c2.level === "none" ? "" : `${esc(c2.via)} → ${nm(c2.cot)}`;

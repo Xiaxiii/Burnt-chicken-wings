@@ -104,17 +104,21 @@ function scheduleReplyAutoFix() {
   // 等酒馆和其他扩展处理完这条消息（渲染、保存）再改
   setTimeout(async () => {
     try {
-      const config = replyGuardConfig();
-      const latest = latestReplyForCheck(ctx().chat);
-      if (!config?.autoFix || !latest || replyAutoFixStopped) return;
-      const rules = normalizeReplyRules(config);
-      const reasoning = latest.message.extra?.reasoning;
-      const layout = replyLayoutLazy(ctx().chat, latest.index, rules);
-      const knownTags = replyKnownTagsLazy(currentPresetName(), rules.requiredTags);
-      const report = checkReplyFormat(latest.message.mes, rules, { reasoning, layout, knownTags });
-      if (!report.issues.length) return;
-      const plan = planReplyFix(latest.message.mes, rules, { reasoning, layout, knownTags, noTailClose: true, strict: true });
-      if (!plan) return;
+      const found = jankTime("生成结束：自动修正检查", () => {
+        const config = replyGuardConfig();
+        const latest = latestReplyForCheck(ctx().chat);
+        if (!config?.autoFix || !latest || replyAutoFixStopped) return null;
+        const rules = normalizeReplyRules(config);
+        const reasoning = latest.message.extra?.reasoning;
+        const layout = replyLayoutLazy(ctx().chat, latest.index, rules);
+        const knownTags = replyKnownTagsLazy(currentPresetName(), rules.requiredTags);
+        const report = checkReplyFormat(latest.message.mes, rules, { reasoning, layout, knownTags });
+        if (!report.issues.length) return null;
+        const plan = planReplyFix(latest.message.mes, rules, { reasoning, layout, knownTags, noTailClose: true, strict: true });
+        return plan ? { latest, report, plan } : null;
+      });
+      if (!found) return;
+      const { latest, report, plan } = found;
       const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
       replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
       const left = plan.after.issues.length;

@@ -129,6 +129,7 @@ function mountHealth(sec, { goClean } = {}) {
         <p>每次打开要读取：全部预设（内存中约 ${fmtSize(r.presetTotal)}${r.presetByApi.length > 1 ? `：${r.presetByApi.map((x) => `${x.label} ${fmtSize(x.size)}`).join("，")}` : ""}），扩展数据 ${fmtSize(r.extDataTotal)}，角色卡 ${r.charCount} 张${r.lazyChars ? "（按需加载）" : ""}。内存中的大小是序列化后的统计量，不是网络传输量。</p>
         ${r.rate ? `<p>本次接收速率估计约 ${fmtSize(r.rate)}/秒（按${r.rateSource === "settings" ? "设置请求的接收阶段" : "所有同源请求的接收阶段"}估算，受同时进行的请求和网络波动影响，不是服务器带宽上限）。</p>` : ""}`, "这些数字怎么来的")}
       </div>
+      ${jankHtml(r.extData)}
       ${n ? `<h3 class="pa-h">建议 <span class="pa-dim">${n}</span></h3>` : '<p class="pa-hint">没有发现明显拖慢打开的地方。</p>'}
       ${r.warn.map((w) => card(w, true)).join("")}
       ${r.tips.map((w) => card(w, false)).join("")}
@@ -178,6 +179,11 @@ function mountHealth(sec, { goClean } = {}) {
     toast("已交给浏览器下载诊断报告。报告不含预设正文、聊天内容和密钥，角色、聊天等文件名已隐去");
   }
   sec.querySelector("[data-h=run]").addEventListener("click", run);
+  box.addEventListener("click", (e) => {
+    if (!e.target.closest("[data-h=jankclear]")) return;
+    jankClear();
+    run();
+  });
   sec.querySelector("[data-h=detail]").addEventListener("click", showDetail);
   sec.querySelector("[data-h=export]").addEventListener("click", exportReport);
   box.addEventListener("click", (e) => {
@@ -192,4 +198,28 @@ function mountHealth(sec, { goClean } = {}) {
       run();
     }
   };
+}
+
+// 2.7.8 运行中的卡顿：打开酒馆以来页面卡了几次、卡顿时本扩展是否在处理
+function jankHtml(extData) {
+  const j = jankSummary();
+  const mins = j.minutes < 1 ? "不到 1 分钟" : `${Math.round(j.minutes)} 分钟`;
+  const how = j.mode === "longtask" ? "单次占住页面超过 50 毫秒记为一次卡顿" : "按计时器晚到的时间估算（本浏览器不提供更准确的记录）";
+  const mine = extData?.find((x) => x.key === "presetAtelier");
+  let verdict;
+  if (j.mode === "none") verdict = "本浏览器不提供卡顿记录。";
+  else if (!j.count) verdict = "记录期间没有出现卡顿。卡顿再出现时，回到这一页查看。";
+  else if (!j.overlapped) verdict = `卡顿发生时${esc(appName())}都没有在处理，原因在酒馆本身或其他扩展。可看下方「扩展在设置文件中的数据」，存得多的扩展每次保存设置都要整份上传；也可逐个停用扩展对比。`;
+  else verdict = `有 ${j.overlapped} 次卡顿发生在${esc(appName())}处理期间，主要是「${esc(j.blame[0][0])}」。导出报告发给作者可帮助定位。`;
+  const ms = (v) => v < 10 ? `${v.toFixed(1)} 毫秒` : fmtMs(v);
+  const ago = (t) => { const s = Math.max(0, Math.round((performance.now() - t) / 1e3)); return s < 60 ? `${s} 秒前` : `${Math.round(s / 60)} 分钟前`; };
+  return `<h3 class="pa-h">运行中的卡顿 <span class="pa-dim">打开酒馆后 ${mins}</span></h3>
+    <div class="pa-card pa-jank">
+      <p><b>${j.mode === "none" ? "无法记录" : j.count ? `页面卡顿 ${j.count} 次` : "没有卡顿"}</b>${j.count ? `，最长 ${fmtMs(j.longest)}${j.severe ? `，其中 ${j.severe} 次超过 0.2 秒` : ""}；与${esc(appName())}处理重叠 ${j.overlapped} 次。` : ""}</p>
+      <p class="pa-hint">${verdict}${mine ? `本扩展在设置文件中的数据 ${fmtSize(mine.size)}。` : ""}</p>
+      ${j.recent.length ? `<details><summary>最近的卡顿</summary><ul class="pa-notes">${j.recent.map((x) => `<li>${ago(x.at)}，${fmtMs(x.ms)}${x.own.length ? `，同时在处理：${esc(x.own.join("、"))}` : ""}</li>`).join("")}</ul></details>` : ""}
+      ${j.own.length ? `<details><summary>${esc(appName())}各项处理耗时</summary><div class="pa-rank">${j.own.slice(0, 12).map((x) => `<div><span>${esc(x.label)}</span><em>${x.n} 次 · 最长 ${ms(x.max)} · 平均 ${ms(x.avg)}</em></div>`).join("")}</div></details>` : ""}
+      <div class="pa-card-act"><button type="button" class="pa-btn pa-btn-s" data-h="jankclear">清空记录</button></div>
+      ${tip(`${how}。只记时间和处理名称，不记内容，只保存在本页内存中，刷新页面后重新开始。「重叠」指卡顿期间${esc(appName())}有一项处理超过 16 毫秒。`)}
+    </div>`;
 }

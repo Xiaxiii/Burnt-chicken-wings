@@ -110,7 +110,7 @@ function queueAutoSave(name) {
   }
   autoTimers.set(name, setTimeout(() => {
     autoTimers.delete(name);
-    saveDraft(name, "自动保存").catch((e) => handleSaveError(name, e));
+    jankTime("自动保存预设", () => saveDraft(name, "自动保存").catch((e) => handleSaveError(name, e)));
   }, 350));
 }
 function handleSaveError(name, e) {
@@ -215,8 +215,23 @@ function unblock(name) {
   saveBlocked.delete(name);
   saveErrors.delete(name);
 }
+// 2.7.8 草稿每变一次计数加一，分析结果按「草稿对象 + 计数」缓存，没改动时切页不再重算
+var draftEpochs = new Map();
+function draftEpoch(name) { return draftEpochs.get(name) || 0; }
+var draftMemo = new WeakMap();
+function memoByDraft(d, key, fn) {
+  if (!d) return fn();
+  let m = draftMemo.get(d);
+  if (!m) draftMemo.set(d, m = new Map());
+  const epoch = draftEpoch(d.name), hit = m.get(key);
+  if (hit && hit.epoch === epoch) return hit.value;
+  const value = fn();
+  m.set(key, { epoch, value });
+  return value;
+}
 function notifyDraft(name, kind = "status") {
-  for (const fn of listeners) { try { fn(name, kind); } catch (e) { console.error(e); } }
+  draftEpochs.set(name, draftEpoch(name) + 1);
+  jankTime("改动后刷新页面", () => { for (const fn of listeners) { try { fn(name, kind); } catch (e) { console.error(e); } } });
 }
 // 本地草稿不再每改一下就整份写进 localStorage（大预设每次要整份序列化，手机上明显卡）。
 // 350 毫秒后自动保存成功就不需要草稿；保存失败、被挡住、切到后台或关页面时才写草稿。

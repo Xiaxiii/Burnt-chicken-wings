@@ -2,6 +2,11 @@
 function replyTagGuess(name) {
   try {
     const d = getDraft(name);
+    return memoByDraft(d, "replyguess", () => d.withReadIndex(() => replyTagGuessOf(d)));
+  } catch { return null; }
+}
+function replyTagGuessOf(d) {
+  try {
     const texts = d.order.filter((o) => d.isActive(o.identifier)).map((o) => d.prompt(o.identifier)?.content);
     const regexTags = [];
     try { for (const rule of presetRegexList(d)) if (!rule?.disabled) regexTags.push(...presetRegexAnchors(rule).tags); } catch {}
