@@ -65,7 +65,7 @@ try {
   assert.equal(afterCalls,generationCalls+2,'滑动与续写各调用一次后端');
   console.log('✓ 真实酒馆原生生成、滑动与续写流程通过本地模型协议桩');
   await page.evaluate(()=>window.__presetAtelier.open('cot'));
-  await page.click('[data-variable-audit]');
+  await page.evaluate(() => window.__presetAtelier.open('vars'));
   const flow=await page.locator('[data-vf=result]').innerText();
   assert.match(flow,/可见写入之前读取/);assert.match(flow,/清空或删除/);
   await page.evaluate(()=>{
@@ -81,7 +81,7 @@ try {
     const c=window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS,'normal',{},false);
     c.variables.local.set('bcw_zero',1);await c.eventSource.emit(c.eventTypes.GENERATION_ENDED,c.chat.length);
   });
-  await page.click('[data-variable-audit]');
+  await page.evaluate(() => window.__presetAtelier.open('vars'));
   await page.click('[data-vf=refresh]');
   await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();
   assert.match(await page.locator('[data-vf=result]').innerText(),/bcw_zero.*变化/);
@@ -93,7 +93,7 @@ try {
     const c=window.SillyTavern.getContext();c.chat.push({is_user:true,mes:'测试输入'},{is_user:false,mes:text});c.variables.local.del('bcw_attack');
   },text);
   const chatBefore=await page.evaluate(()=>JSON.stringify(window.SillyTavern.getContext().chat));
-  await page.click('[data-reply-format]');
+  await page.evaluate(() => window.__presetAtelier.open('reply-ai'));
   await page.locator('.pa-sheet details').filter({hasText:'AI 语义审查（可选）'}).locator('summary').click();
   await page.click('[data-r=ai-latest]');
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('模型标记了疑似内部分析'),null,{timeout:15000});

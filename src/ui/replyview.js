@@ -21,7 +21,7 @@ function nativeReasoningNote(message) {
   if (!new RegExp(`<\\s*${st.tag}\\s*>`, "iu").test(replyCheckMask(String(message.mes || "")))) return "";
   return `<div class="pa-card pa-card-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型回传了自己的思考，酒馆不再把 &lt;${esc(st.tag)}&gt; 解析进思考区，生成时它先出现在正文中，写完才被美化正则收起。只保留预设思维链：酒馆「AI 响应配置」关闭「请求思维链」。模型仍会思考，只是不再回传。</p></div>`;
 }
-// 2.7.0 表单拆出来：「回复」页直接嵌入，思维链页的「格式」仍以弹窗打开
+// 正文格式检查表单：只在「回复」页显示
 function replyForm(name, { inPage = false } = {}) {
   const saved = replyGuardConfig(name);
   const stTag = stReasoningTag();
@@ -47,21 +47,21 @@ function replyForm(name, { inPage = false } = {}) {
     <section class="pa-rsec" data-rsec="auto">
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
     <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>${whyBtn("autofix")}</div>
-    ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，可在这里撤销。不勾：点下面「检查最近回复」，看到问题后手动点「修正这条回复」。")}
+    ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，可在「检查」页撤销。不勾：到「检查」页点「检查最近回复」，看到问题后手动点「修正这条回复」。")}
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     </section>
     <section class="pa-rsec" data-rsec="check">
-    <details class="pa-card"><summary>检测范围</summary><ul class="pa-notes">
+    <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
+    </section>
+    <label class="pa-field pa-rsec" data-rsec="sample"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
+    <div class="pa-rsec" data-rsec="check" data-r="result" aria-live="polite"></div>
+    <details class="pa-card pa-rsec" data-rsec="check"><summary>检测范围</summary><ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和上面填的必需标签，不提其他标签。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
       <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
       <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;lxs_status&gt; 写成 &lt;状态栏&gt;）时，当作写错了名字：提醒写明改回来；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
       <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断，免得把思考里的步骤搬出来。上次只搬出正文、块还留在思考区末尾的，也会照前几条回复放回原位。</li></ul></details>
-    <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
-    <label class="pa-field"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
-    <div data-r="result" aria-live="polite"></div>
-    </section>
     <details class="pa-card pa-rsec" data-rsec="ai" ${inPage ? "open" : ""}><summary>AI 语义审查（可选）</summary>
       <p class="pa-hint">通过酒馆当前连接发送这一条回复，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用；结果可能误判，仅供核对，不改动正文。</p>
       <label class="pa-field-row"><input type="checkbox" data-r="semantic" ${saved.semanticAfterReply ? "checked" : ""} ${semanticAvailable ? "" : "disabled"}>生成完成后自动语义审查（默认关闭）</label>
@@ -196,7 +196,10 @@ function replyForm(name, { inPage = false } = {}) {
       body.querySelector('[data-r="ai-cancel"]').hidden = true;
     }
   });
-  return { body, read, showError, abort: () => reviewCancel?.abort() };
+  // 有没有改过设置（粘贴框不算）
+  const raw = () => JSON.stringify([...body.querySelectorAll("input[data-r], textarea[data-r]:not([data-r=sample])")].map((i) => i.type === "checkbox" ? i.checked : i.value));
+  const initialRaw = raw();
+  return { body, read, showError, dirty: () => raw() !== initialRaw, abort: () => reviewCancel?.abort() };
 }
 function saveReplyConfig(name, value) {
   settings().replyGuard = { ...settings().replyGuard, [name]: value };
@@ -204,14 +207,6 @@ function saveReplyConfig(name, value) {
   clearReplyGuard();
   const on = [value.autoFix && "自动修正这条回复", value.enabled && "下一轮提醒 AI"].filter(Boolean);
   toast(on.length ? `已开启：发现正文格式问题时，${on.join("，并")}` : "已保存正文格式检查设置，自动修正和提醒都未开启", "success");
-}
-async function replyFormatDialog(name) {
-  const f = replyForm(name);
-  const value = await sheet({ title: "正文格式检查", body: f.body, wide: true, noFocus: true, onMount: (wrap) => wrap.addEventListener("pa-closed", f.abort), actions: [
-    { label: "取消", value: null },
-    { label: "保存设置", kind: "primary", validate: () => { try { f.read(); return true; } catch (e) { f.showError(e); return false; } }, value: f.read }
-  ] });
-  if (value) saveReplyConfig(name, value);
 }
 // 「回复」页：当前预设的正文格式检查、自动修正、语义审查
 var REPLY_TABS = { "reply-check": "check", "reply-rules": "rules", "reply-auto": "auto", "reply-ai": "ai" };
@@ -224,10 +219,11 @@ function mountReply(page, { go } = {}) {
   let form = null, shown = null, savedSig = "";
   const sigOf = (name) => JSON.stringify(replyGuardConfig(name) || {});
   // 同一预设、设置未在别处改动时保留表单里尚未保存的输入
-  function render() {
+  // 进入「回复」页时，设置没改过就按最新状态重建（酒馆推理前缀、预设条目可能已变）；在四个分页之间切换保留检查结果
+  function render(entering = false) {
     const name = focusPreset();
     picker.set(name);
-    if (form && shown === name && savedSig === sigOf(name)) return;
+    if (form && shown === name && savedSig === sigOf(name) && !(entering && !form.dirty())) return;
     form?.abort();
     shown = name;
     if (!name) {
@@ -253,9 +249,9 @@ function mountReply(page, { go } = {}) {
   const off = onDraftChange((name, kind) => {
     if (kind === "focus" && draftViewVisible(page)) render();
   });
-  return { render: (key) => {
+  return { render: (key, entering) => {
     page.dataset.rtab = REPLY_TABS[key] || "check";
     picker.refresh();
-    render();
+    render(entering);
   }, destroy: () => { off(); form?.abort(); } };
 }

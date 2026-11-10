@@ -66,17 +66,17 @@ try {
   assert.match(await page.evaluate((key) => window.__prompts[key] || '', KEY), /\S/, '修好后下一轮仍提醒');
   ok('生成结束后自动修正，下一轮照样提醒');
 
-  // 「格式」窗口里显示已自动修正，可撤销
-  await page.evaluate(() => window.__presetAtelier.open('cot'));
-  await page.click('[data-reply-format]');
-  await page.locator('.pa-sheet [data-r=autofix]').waitFor();
-  assert.equal(await page.locator('.pa-sheet [data-r=autofix]').isChecked(), true);
-  await page.click('.pa-sheet [data-r=latest]');
-  await page.locator('.pa-sheet [data-r=undo-auto]').click();
-  await page.locator('.pa-sheet', { hasText: '已撤销自动修正' }).waitFor();
+  // 「回复」页：自动页显示已开启，检查页显示已自动修正，可撤销
+  await page.evaluate(() => window.__presetAtelier.open('reply-auto'));
+  await page.locator('[data-page=reply] [data-r=autofix]').waitFor();
+  assert.equal(await page.locator('[data-page=reply] [data-r=autofix]').isChecked(), true);
+  await page.evaluate(() => window.__presetAtelier.open('reply-check'));
+  await page.click('[data-page=reply] [data-r=latest]');
+  await page.locator('[data-page=reply] [data-r=undo-auto]').click();
+  await page.locator('[data-page=reply] [data-r=result]', { hasText: '已撤销自动修正' }).waitFor();
   assert.equal((await chat()).mes, LEAK, '撤销后恢复原文');
-  await page.locator('.pa-sheet-actions .pa-btn').filter({ hasText: '取消' }).click();
-  ok('可在「格式」窗口撤销自动修正');
+  await page.evaluate(() => window.__presetAtelier.open('organize'));
+  ok('可在「回复 → 检查」撤销自动修正');
 
   // 手动停止、续写、末尾只缺结束标签（可能被截断）：都不自动改
   await generate(LEAK, { end: 'GENERATION_STOPPED' });

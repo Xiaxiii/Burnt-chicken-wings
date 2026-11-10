@@ -80,18 +80,11 @@ async function hookExistingDialog(d, id) {
 function mountCot(page, app) {
   const st = { filter: "none" };
   page.innerHTML = `
-        <div class="pa-toolbar"><div class="pa-picker-slot"></div><button class="pa-btn pa-btn-soft" data-reply-format title="正文格式检查">格式</button><button class="pa-btn pa-btn-soft" data-variable-audit title="变量顺序与现状">变量</button><button class="pa-btn pa-btn-primary" data-repair-all title="修复变量问题">修复</button></div>
+        <div class="pa-toolbar"><div class="pa-picker-slot"></div><button class="pa-btn pa-btn-primary" data-repair-all title="修复变量问题">修复</button></div>
         <div class="pa-scroll pa-cot"></div>`;
   const box = page.querySelector(".pa-cot");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
-  page.querySelector('[data-variable-audit]').addEventListener('click', async () => {
-    try { await variableAuditDialog(getDraft(focusPreset())); }
-    catch(err) { toast('变量检查失败：'+err.message,'error'); }
-  });
-  page.querySelector('[data-reply-format]').addEventListener('click', async () => {
-    try { await replyFormatDialog(focusPreset()); }
-    catch(err) { toast('格式检查失败：'+err.message,'error'); }
-  });
+  // 2.7.7 变量检查只在「预设 → 变量」页，正文格式只在「回复」页
   page.querySelector('[data-repair-all]').addEventListener('click', async () => {
     try { await repairAllVariables(getDraft(focusPreset()), manualFor(focusPreset())); }
     catch(err) { toast('修复失败：'+err.message,'error'); }

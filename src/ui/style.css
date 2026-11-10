@@ -1854,10 +1854,13 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-meta .pa-chip:not(.pa-chip-dim):not(.pa-chip-cot) { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 
 /* 2.7.5 回复页四个分页：只显示当前一节；「检查」页不需要保存按钮 */
-#pa-root [data-page="reply"][data-rtab="check"] .pa-rsec:not([data-rsec="check"]),
+/* 粘贴框在「检查」「语义审查」两页共用 */
+#pa-root [data-page="reply"][data-rtab="check"] .pa-rsec:not([data-rsec="check"]):not([data-rsec="sample"]),
 #pa-root [data-page="reply"][data-rtab="rules"] .pa-rsec:not([data-rsec="rules"]),
 #pa-root [data-page="reply"][data-rtab="auto"] .pa-rsec:not([data-rsec="auto"]),
-#pa-root [data-page="reply"][data-rtab="ai"] .pa-rsec:not([data-rsec="ai"]) { display: none; }
+#pa-root [data-page="reply"][data-rtab="ai"] .pa-rsec:not([data-rsec="ai"]):not([data-rsec="sample"]) { display: none; }
+#pa-root [data-page="reply"][data-rtab="ai"] [data-rsec="sample"] { order: 2; }
+#pa-root [data-page="reply"][data-rtab="ai"] [data-rsec="ai"] { order: 1; }
 #pa-root [data-page="reply"][data-rtab="check"] .pa-pagefoot { display: none; }
 #pa-root [data-page="reply"] details.pa-rsec[data-rsec="ai"] { border: 0; padding: 0; background: none; }
 #pa-root [data-page="reply"] details.pa-rsec[data-rsec="ai"] > summary { display: none; }
@@ -1877,7 +1880,6 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 @media (min-width: 1000px) { #pa-root [data-page="clean"] .pa-scroll > *, #pa-root [data-page="health"] .pa-scroll > *, #pa-root [data-page="look"] .pa-scroll > * { max-width: 820px; } }
 /* 回复页「检查」：按钮在前，主操作为实底 */
 #pa-root .pa-rsec .pa-toolbar { padding: 0; border: 0; background: none; }
-#pa-root [data-page="reply"] [data-rsec="check"] > details { order: 9; }
 #pa-root [data-page="reply"] [data-r="latest"] { background: var(--pa-thread); border-color: var(--pa-thread); color: var(--pa-on-accent); font-weight: 600; }
 #pa-root .pa-sum.pa-good, #pa-root .pa-sum.pa-bad { border-left-color: var(--pa-line); }
 @media (min-width: 1000px) { #pa-root [data-page="clean"] > .pa-scroll, #pa-root [data-page="health"] .pa-scroll, #pa-root [data-page="look"] .pa-scroll, #pa-root [data-page="reply"] .pa-scroll, #pa-root [data-page="vars"] .pa-scroll { padding-left: 20px; } #pa-root [data-page="reply"] > .pa-toolbar, #pa-root [data-page="vars"] > .pa-toolbar { padding-left: 20px; } }

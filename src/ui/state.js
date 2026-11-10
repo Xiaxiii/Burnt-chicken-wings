@@ -12,7 +12,7 @@ var DEFAULTS = {
   followTargetInjection: true,
   theme: "su",
   sutureSplit: 45,
-  moreTab: "suture",
+  moreTab: "clean",
   nameWithSource: false,
   noPullRefresh: true,
   floatBall: false,

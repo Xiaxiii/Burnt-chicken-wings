@@ -32,16 +32,15 @@ async function openPage({ interfaces = true, mobile = false } = {}) {
   await page.goto(URL);
   await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
   await page.evaluate(() => window.__presetAtelier.open('cot'));
-  await page.locator('[data-reply-format]').waitFor({ state: 'visible' });
   return page;
 }
-const dialog = async (page) => {
-  await page.click('[data-reply-format]');
-  await page.locator('.pa-sheet [data-r=body]').waitFor({ state: 'visible' });
-};
+// 2.7.7 正文格式检查在「回复」页：检查、规则、自动三个分页；保存用页底按钮，不保存就离开
+// 用导航切换（open() 会把查看的预设换回酒馆当前预设）
+const tab = async (page, t) => { await page.click('.pa-tabs [data-nav="reply"]'); await page.click(`.pa-subnav [data-tab="reply-${t}"]`); await page.waitForTimeout(80); };
+const dialog = async (page) => { await tab(page, 'check'); await page.locator('[data-page=reply] [data-r=latest]').waitFor({ state: 'visible' }); };
 const close = async (page, save = false) => {
-  await page.locator(save ? '.pa-sheet-actions .pa-btn-primary' : '.pa-sheet-actions .pa-btn').filter({ hasText: save ? '保存设置' : '取消' }).click();
-  await page.locator('.pa-sheet [data-r=body]').waitFor({ state: 'detached' });
+  if (save) { if (await page.locator('[data-page=reply] [data-r=save]').isHidden()) await tab(page, 'auto'); await page.click('[data-page=reply] [data-r=save]'); await page.waitForTimeout(150); }
+  await page.click('.pa-tabs [data-nav="preset"]'); await page.click('.pa-subnav [data-tab="cot"]');
 };
 const settings = (page) => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard);
 const reminder = (page) => page.evaluate((key) => window.__replyPrompts[key] || '', KEY);
@@ -60,8 +59,10 @@ try {
   assert.equal(await reminder(page), '');
   assert.deepEqual(await settings(page), {});
   await dialog(page);
+  await tab(page, 'auto');
   assert.equal(await page.locator('[data-r=enabled]').isChecked(), false);
   assert.equal(await page.locator('[data-r=enabled]').isDisabled(), false);
+  await tab(page, 'check');
   await page.click('[data-r=latest]');
   assert.match(await page.locator('[data-r=result]').innerText(), /缺少完整的 <content>/);
   await page.fill('[data-r=sample]', '<content>正文<think>内部分析</think></content>');
@@ -75,20 +76,25 @@ try {
   assert.equal(await page.evaluate(() => JSON.stringify(window.SillyTavern.getContext().chat)), original.chat);
   ok('默认关闭，手检发现掉标签、思考夹入正文和正文被吞；取消不保存、不修改聊天');
 
-  await dialog(page);
+  await tab(page, 'rules');
   await page.fill('[data-r=body]', '正文');
   await page.fill('[data-r=required]', '摘要，状态、摘要');
   await page.fill('[data-r=thinking]', '分析区');
+  await tab(page, 'check');
   await page.fill('[data-r=sample]', '<分析区>内部文字</分析区><正文>故事正文</正文><摘要>概述</摘要><状态>晴</状态>');
   await page.click('[data-r=paste]');
   assert.match(await page.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
+  await tab(page, 'rules');
   await page.fill('[data-r=body]', '<1非法>');
-  await page.locator('.pa-sheet-actions .pa-btn-primary').click();
-  assert.equal(await page.locator('.pa-sheet [data-r=body]').count(), 1);
-  assert.match(await page.locator('.pa-sheet [data-err=body]').innerText(), /标签名/, '报错写在正文标签框下面');
+  await tab(page, 'auto');
+  await page.click('[data-page=reply] [data-r=save]');
+  assert.equal(await page.locator('[data-page=reply] [data-r=body]').isVisible(), true, '保存时切到规则页');
+  assert.match(await page.locator('[data-page=reply] [data-err=body]').innerText(), /标签名/, '报错写在正文标签框下面');
   assert.deepEqual(await settings(page), {});
   await page.fill('[data-r=body]', '正文');
+  await tab(page, 'auto');
   await page.check('[data-r=enabled]');
+  await tab(page, 'check');
   await page.fill('[data-r=sample]', '仅供手检的未保存样本');
   await close(page, true);
   assert.deepEqual((await settings(page))[active], { bodyTag: '正文', requiredTags: ['摘要', '状态'], thinkingTag: '分析区', enabled: true });
@@ -127,7 +133,9 @@ try {
   }, second);
   await choose(page, '.pa-picker-slot:visible .pa-namebtn', second);
   await dialog(page);
+  await tab(page, 'rules');
   assert.equal(await page.locator('[data-r=body]').inputValue(), 'content');
+  await tab(page, 'auto');
   assert.equal(await page.locator('[data-r=enabled]').isChecked(), false);
   await close(page, true);
   assert.equal((await settings(page))[second].enabled, false);
@@ -144,8 +152,10 @@ try {
 
   const fallback = await openPage({ interfaces: false });
   await dialog(fallback);
+  await tab(fallback, 'auto');
   assert.equal(await fallback.locator('[data-r=enabled]').isDisabled(), true);
-  assert.match(await fallback.locator('.pa-sheet').innerText(), /手动检测可用，自动提醒不可用/);
+  assert.match(await fallback.locator('[data-page=reply]').innerText(), /手动检测可用，自动提醒不可用/);
+  await tab(fallback, 'check');
   await fallback.click('[data-r=latest]');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /发现 \d+ 个格式风险/);
   await fallback.evaluate(() => { window.SillyTavern.getContext().chat = [{ is_user: false, mes: '开场白' }, { is_system: true, mes: '系统' }, { is_user: true, mes: '用户' }]; });
@@ -160,7 +170,7 @@ try {
 
   const mobile = await openPage({ mobile: true });
   await dialog(mobile);
-  const layout = await mobile.locator('.pa-sheet').evaluate((sheet) => {
+  const layout = await mobile.locator('[data-page=reply] .pa-scroll').evaluate((sheet) => {
     const rect = sheet.getBoundingClientRect();
     return { width: innerWidth, left: rect.left, right: rect.right, overflow: sheet.scrollWidth > sheet.clientWidth + 2, fields: [...sheet.querySelectorAll('input:not([type=checkbox]),textarea')].map((field) => { const r = field.getBoundingClientRect(); return { left: r.left, right: r.right }; }) };
   });
@@ -173,7 +183,7 @@ try {
   await mobile.click('[data-r=paste]');
   assert.match(await mobile.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
   await close(mobile, true);
-  ok('390px 移动端弹窗、字段与操作无横向溢出');
+  ok('390px 移动端回复页、字段与操作无横向溢出');
   assert.deepEqual(errors, []);
   console.log('正文格式检查浏览器回归全部通过');
 } finally {

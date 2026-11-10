@@ -36,10 +36,12 @@ async function open(mobile=false) {
 }
 const pause=page=>page.waitForTimeout(220);
 const close=async(page,label)=>{await page.locator('.pa-sheet-actions .pa-btn').filter({hasText:label}).click();await pause(page);};
-const modelDetails=async page=>{await page.locator('.pa-sheet details').filter({hasText:'AI 语义审查（可选）'}).locator('summary').click();};
+// 2.7.7 变量检查在「预设 → 变量」页，语义审查在「回复 → 语义审查」页
+const go=async(page,key)=>{await page.evaluate(k=>window.__presetAtelier.open(k),key);await pause(page);};
+const R=s=>`[data-page=reply] ${s}`;
 try {
   const page=await open();
-  await page.click('[data-variable-audit]');
+  await go(page,'vars');
   assert.match(await page.locator('[data-vf=result]').innerText(),/可见写入之前读取/);
   assert.match(await page.locator('[data-vf=result]').innerText(),/清空或删除/);
   assert.equal(await page.locator('[data-vf=watch]').isChecked(),false);
@@ -48,12 +50,12 @@ try {
   const snapshotText=await page.locator('[data-vf=result]').innerText();
   assert.match(snapshotText,/audit_hidden/);assert.match(snapshotText,/audit_zero.*有值/);assert(!snapshotText.includes('STATE_VALUE_NOT_FOR_API'));
   assert.equal(await page.evaluate(()=>JSON.stringify(window.SillyTavern.getContext().chatMetadata.variables)),before);
-  await page.check('[data-vf=watch]');await close(page,'关闭');
+  await page.check('[data-vf=watch]');
   await page.evaluate(async()=>{const c=window.SillyTavern.getContext();await c.eventSource.emit(c.eventTypes.GENERATION_STARTED,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS,'normal',{},false);c.chatMetadata.variables.audit_zero=1;await c.eventSource.emit(c.eventTypes.GENERATION_ENDED);});
-  await page.click('[data-variable-audit]');await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();assert.match(await page.locator('[data-vf=result]').innerText(),/audit_zero.*变化/);await page.uncheck('[data-vf=watch]');await close(page,'关闭');
+  await page.click('[data-vf=refresh]');await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();assert.match(await page.locator('[data-vf=result]').innerText(),/audit_zero.*变化/);await page.uncheck('[data-vf=watch]');
   console.log('✓ 顺序风险、变量快照、只读状态与默认关闭的生成前后对比');
 
-  await page.click('[data-reply-format]');await modelDetails(page);
+  await go(page,'reply-ai');
   assert.equal(await page.locator('[data-r=semantic]').isChecked(),false);
   assert.equal(await page.locator('[data-r=ai-cancel]').isVisible(),false);
   assert.equal(await page.evaluate(()=>window.__auditCalls.length),0);
@@ -71,21 +73,21 @@ try {
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('已取消'));
   assert.equal(await page.locator('[data-r=ai-paste]').isEnabled(),true);
   await page.evaluate(()=>window.__auditMode='ok');
-  await page.check('[data-r=semantic]');await close(page,'保存设置');
+  await page.check('[data-r=semantic]');await page.click(R('[data-r=save]'));await pause(page);
   await page.evaluate(async()=>{const c=window.SillyTavern.getContext();c.chat.push({is_user:true,mes:'测试'},{is_user:false,mes:'我需要先检查用户要求。正文。'});await c.eventSource.emit(c.eventTypes.GENERATION_STARTED,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_ENDED);});
   await page.waitForFunction(()=>window.__auditCalls.length===3);
-  await page.click('[data-reply-format]');await modelDetails(page);await page.click('[data-r=ai-result]');
+  await go(page,'reply-ai');await page.click('[data-r=ai-result]');
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('疑似内部分析'));
-  assert.equal(await page.locator('[data-r=semantic]').isChecked(),true);await close(page,'取消');
+  assert.equal(await page.locator('[data-r=semantic]').isChecked(),true);
   console.log('✓ 取消请求、按预设保存自动审查及最近结果展示');
 
-  const mobile=await open(true);await mobile.click('[data-variable-audit]');
-  assert.equal(await mobile.locator('[data-vf=snapshot]').isVisible(),true);await mobile.click('[data-vf=snapshot]');await close(mobile,'关闭');
-  await mobile.click('[data-reply-format]');await modelDetails(mobile);
+  const mobile=await open(true);await go(mobile,'vars');
+  assert.equal(await mobile.locator('[data-vf=snapshot]').isVisible(),true);await mobile.click('[data-vf=snapshot]');
+  await go(mobile,'reply-ai');
   assert.equal(await mobile.locator('[data-r=ai-paste]').isVisible(),true);
   await mobile.fill('[data-r=sample]','普通故事正文');await mobile.click('[data-r=ai-paste]');
   await mobile.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('未标记'));
-  const overflow=await mobile.locator('.pa-sheet').evaluate(e=>e.scrollWidth>e.clientWidth+2);assert.equal(overflow,false);
+  const overflow=await mobile.locator('[data-page=reply] .pa-scroll').evaluate(e=>e.scrollWidth>e.clientWidth+2);assert.equal(overflow,false);
   console.log('✓ 手机端变量和语义检查均可操作，无横向溢出');
   assert.deepEqual(errors,[]);
 } finally {await browser.close();}

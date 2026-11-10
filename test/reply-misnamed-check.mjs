@@ -52,9 +52,8 @@ try {
     const c = window.SillyTavern.getContext();
     c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), replyGuard: { [NAME]: { bodyTag: 'content', requiredTags: ['lxs_status'] } } };
     c.chat = [{ is_user: false, mes: '开场白' }, { is_user: true, mes: '继续' }, { is_user: false, mes: wrong }, { is_user: true, mes: '再来' }, { is_user: false, mes: wrong, swipe_id: 0, swipes: [wrong], extra: { reasoning: '' } }];
-    window.__presetAtelier.open('cot');
+    window.__presetAtelier.open('reply-check');
   }, { preset, NAME, wrong });
-  await page.click('[data-reply-format]');
   await page.click('[data-r=latest]');
   const result = page.locator('[data-r=result]');
   const text = await result.innerText();

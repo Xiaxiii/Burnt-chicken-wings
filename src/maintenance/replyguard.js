@@ -92,7 +92,7 @@ function replyLayoutLazy(chat, index, rules) {
   return () => value ??= replyLayoutBefore(chat, index, rules);
 }
 // 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改。
-// 修正前的问题记在这里，下一轮照样提醒 AI；undo 供「格式」窗口撤销
+// 修正前的问题记在这里，下一轮照样提醒 AI；undo 供「回复」页撤销
 var replyAutoFixed = null;
 var replyAutoFixPending = false;
 // 这一轮被手动停止过（停止和结束两个事件谁先到都不改）
@@ -118,7 +118,7 @@ function scheduleReplyAutoFix() {
       const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
       replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
       const left = plan.after.issues.length;
-      toast(`已自动修正这条回复：${plan.steps.join("；")}${left ? `。还有 ${left} 个问题要手动处理` : ""}。可在「思维链 → 格式」里撤销`, left ? "warning" : "success");
+      toast(`已自动修正这条回复：${plan.steps.join("；")}${left ? `。还有 ${left} 个问题要手动处理` : ""}。可在「回复 → 检查」里撤销`, left ? "warning" : "success");
     } catch (e) {
       console.warn("[焦香鸡翅] 自动修正失败", e);
     }

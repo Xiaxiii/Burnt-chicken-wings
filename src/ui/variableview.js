@@ -1,4 +1,4 @@
-// 2.7.2 内容拆出来：「预设 → 变量」页直接显示，思维链页的「变量」按钮仍以弹窗打开
+// 变量顺序与现状：只在「预设 → 变量」页显示
 function variableForm(d) {
   let snapshot = null;
   const body = el(`<div class="pa-form">
@@ -45,10 +45,6 @@ function variableForm(d) {
   });
   render();
   return { body, render, name: d.name };
-}
-async function variableAuditDialog(d) {
-  const f = variableForm(d);
-  await sheet({ title: "变量顺序与现状", body: f.body, wide: true, noFocus: true, actions: [{ label: "关闭", value: true }] });
 }
 function mountVariables(page) {
   page.innerHTML = '<div class="pa-toolbar"><div class="pa-picker-slot"></div></div><div class="pa-scroll pa-varpage"></div>';
