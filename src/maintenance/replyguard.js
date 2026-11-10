@@ -122,7 +122,7 @@ function scheduleReplyAutoFix() {
       const undo = await applyReplyFix(latest.index, plan, replyMessageSnapshot(latest.index));
       replyAutoFixed = { snapshot: undo.snapshot, report, undo, steps: plan.steps };
       const left = plan.after.issues.length;
-      toast(`已自动修正这条回复：${plan.steps.join("；")}${left ? `。还有 ${left} 个问题要手动处理` : ""}。可在「回复 → 检查」里撤销`, left ? "warning" : "success");
+      toast(`已自动修正这条回复：${plan.steps.join("；")}${left ? `。还有 ${left} 个问题要手动处理` : ""}。可在「检查 → 回复」里撤销`, left ? "warning" : "success");
     } catch (e) {
       console.warn("[焦香鸡翅] 自动修正失败", e);
     }

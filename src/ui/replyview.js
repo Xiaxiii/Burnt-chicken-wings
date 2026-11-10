@@ -27,7 +27,7 @@ function nativeReasoningNote(message) {
   return `<div class="pa-card pa-card-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型回传了自己的思考，酒馆不再把 &lt;${esc(st.tag)}&gt; 解析进思考区，生成时它先出现在正文中，写完才被美化正则收起。只保留预设思维链：酒馆「AI 响应配置」关闭「请求思维链」。模型仍会思考，只是不再回传。</p></div>`;
 }
 // 正文格式检查表单：只在「回复」页显示
-function replyForm(name, { inPage = false } = {}) {
+function replyForm(name) {
   const saved = replyGuardConfig(name);
   const stTag = stReasoningTag();
   const thinkingDefault = saved.thinkingTag ?? (stTag && !/^think(ing)?$/i.test(stTag.tag) ? stTag.tag : "");
@@ -37,41 +37,38 @@ function replyForm(name, { inPage = false } = {}) {
   const available = replyGuardAvailable();
   const semanticAvailable = semanticReviewAvailable();
   let reviewCancel = null;
-  // 2.7.5 分四节：规则、自动、检查、语义审查；「回复」页按分页只显示一节，弹窗里全部显示
-  const body = el(`<div class="pa-form">
-    <section class="pa-rsec" data-rsec="rules">
-    ${inPage ? '<p class="pa-hint">按预设分别设置。标签名须与预设的输出格式一致。</p>' : `<div class="pa-whyrow"><p class="pa-hint">当前预设「${esc(name)}」</p>${whyBtn("preset")}</div>
-    ${whyNote("preset", "每个预设分别设置。标签名须与预设的输出格式一致。")}`}
-    <label class="pa-field"><span>正文标签名（不填尖括号）${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="例如 content 或 正文" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
-    ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
-    <label class="pa-field"><span>额外必需标签（可选，逗号分隔）${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="例如 状态栏、摘要" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small></label>
-    ${guess?.suggest.length ? whyNote("required", `显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入这里。`) : ""}
-    <label class="pa-field"><span>自定义思考标签（可选，另已识别 think 和 thinking）${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
-    ${!saved.thinkingTag && thinkingDefault ? whyNote("thinking", `已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。`) : ""}
-    </section>
-    <section class="pa-rsec" data-rsec="auto">
-    <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>发现问题时，下一轮提醒 AI</label>
-    <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>发现问题时，自动修正这条回复</label>${whyBtn("autofix")}</div>
-    ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，可在「检查」页撤销。不勾：到「检查」页点「检查最近回复」，看到问题后手动点「修正这条回复」。")}
-    ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
-    </section>
-    <section class="pa-rsec" data-rsec="check">
-    <div class="pa-toolbar"><button class="pa-btn pa-btn-soft" data-r="latest">检查最近回复</button><button class="pa-btn pa-btn-soft" data-r="paste">检查下方文字</button></div>
-    </section>
-    <label class="pa-field pa-rsec" data-rsec="sample"><span>粘贴一条 AI 回复（只在本页检测，不保存）</span><textarea class="pa-input" data-r="sample" rows="5"></textarea></label>
-    <div class="pa-rsec" data-rsec="check" data-r="result" aria-live="polite"></div>
-    <details class="pa-card pa-rsec" data-rsec="check"><summary>检测范围</summary><ul class="pa-notes">
+  // 2.8.0 一页排完：检查（按钮、粘贴框、结果）在上，标签和自动处理在下，语义审查和检测范围折叠
+  const body = el(`<div class="pa-form pa-replyform">
+    <div class="pa-toolbar pa-rcheck"><button class="pa-btn pa-btn-primary" data-r="latest">检查最近回复</button><button class="pa-btn" data-r="paste">检查下方文字</button>${tip(`<ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
-      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和上面填的必需标签，不提其他标签。</li>
+      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和下面填的必需标签，不提其他标签。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
       <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
       <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;lxs_status&gt; 写成 &lt;状态栏&gt;）时，当作写错了名字：提醒写明改回来；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
-      <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断，免得把思考里的步骤搬出来。上次只搬出正文、块还留在思考区末尾的，也会照前几条回复放回原位。</li></ul></details>
-    <details class="pa-card pa-rsec" data-rsec="ai" ${inPage ? "open" : ""}><summary>AI 语义审查（可选）</summary>
+      <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断。</li></ul>`, "检测范围")}</div>
+    <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复，点「检查下方文字」（只在本页检测，不保存）"></textarea>
+    <div data-r="result" aria-live="polite"></div>
+    <h3 class="pa-h">标签 <small class="pa-dim">按预设分别保存，须与预设的输出格式一致</small></h3>
+    <div class="pa-rtags">
+    <label class="pa-field"><span>正文标签${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="content" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
+    <label class="pa-field"><span>必需标签${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，如 状态栏、摘要" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small></label>
+    <label class="pa-field"><span>思考标签${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" placeholder="可选，已识别 think" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
+    </div>
+    ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
+    ${guess?.suggest.length ? whyNote("required", `显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入这里。`) : ""}
+    ${!saved.thinkingTag && thinkingDefault ? whyNote("thinking", `已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。`) : ""}
+    <h3 class="pa-h">发现问题时</h3>
+    <div class="pa-rautoset">
+    <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>下一轮提醒 AI</label>
+    <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>自动修正这条回复</label>${whyBtn("autofix")}</div>
+    ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，点「检查最近回复」可撤销。不勾：点「检查最近回复」，看到问题后手动点「修正这条回复」。")}
+    <label class="pa-field-row"><input type="checkbox" data-r="semantic" ${saved.semanticAfterReply ? "checked" : ""} ${semanticAvailable ? "" : "disabled"}>生成完成后自动 AI 语义审查（每次多一次请求）</label>
+    </div>
+    ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
+    <details class="pa-card pa-rai"><summary>AI 语义审查</summary>
       <p class="pa-hint">通过酒馆当前连接发送这一条回复，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用；结果可能误判，仅供核对，不改动正文。</p>
-      <label class="pa-field-row"><input type="checkbox" data-r="semantic" ${saved.semanticAfterReply ? "checked" : ""} ${semanticAvailable ? "" : "disabled"}>生成完成后自动语义审查（默认关闭）</label>
       ${semanticAvailable ? "" : '<p class="pa-warn">当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。结构检查仍可使用。</p>'}
-      <div class="pa-toolbar"><button class="pa-btn" data-r="ai-latest" ${semanticAvailable ? "" : "disabled"}>AI 审查最近回复</button><button class="pa-btn" data-r="ai-paste" ${semanticAvailable ? "" : "disabled"}>AI 审查粘贴文字</button><button class="pa-btn" data-r="ai-cancel" hidden>取消审查</button><button class="pa-link" data-r="ai-result">查看最近结果</button></div>
+      <div class="pa-toolbar"><button class="pa-btn" data-r="ai-latest" ${semanticAvailable ? "" : "disabled"}>审查最近回复</button><button class="pa-btn" data-r="ai-paste" ${semanticAvailable ? "" : "disabled"}>审查粘贴文字</button><button class="pa-btn" data-r="ai-cancel" hidden>取消审查</button><button class="pa-link" data-r="ai-result">查看最近结果</button></div>
       <div data-r="semantic-result" aria-live="polite"></div>
     </details>
   </div>`);
@@ -214,7 +211,6 @@ function saveReplyConfig(name, value) {
   toast(on.length ? `已开启：发现正文格式问题时，${on.join("，并")}` : "已保存正文格式检查设置，自动修正和提醒都未开启", "success");
 }
 // 「回复」页：当前预设的正文格式检查、自动修正、语义审查
-var REPLY_TABS = { "reply-check": "check", "reply-rules": "rules", "reply-auto": "auto", "reply-ai": "ai" };
 function mountReply(page, { go } = {}) {
   page.innerHTML = `<div class="pa-toolbar"><div class="pa-picker-slot"></div></div>
     <div class="pa-scroll pa-replypage"><div class="pa-replybox"></div></div>
@@ -237,17 +233,13 @@ function mountReply(page, { go } = {}) {
       return;
     }
     savedSig = sigOf(name);
-    form = replyForm(name, { inPage: true });
+    form = replyForm(name);
     box.replaceChildren(form.body);
   }
   page.querySelector('[data-r="save"]').addEventListener("click", () => {
     if (!form) return;
     let value;
-    try { value = form.read(); } catch (e) {
-      // 标签填错：切到「规则」页再标出输入框
-      if (page.dataset.rtab !== "rules") go?.("reply-rules");
-      return form.showError(e);
-    }
+    try { value = form.read(); } catch (e) { return form.showError(e); }
     saveReplyConfig(shown, value);
     savedSig = sigOf(shown);
   });
@@ -255,7 +247,6 @@ function mountReply(page, { go } = {}) {
     if (kind === "focus" && draftViewVisible(page)) render();
   });
   return { render: (key, entering) => {
-    page.dataset.rtab = REPLY_TABS[key] || "check";
     picker.refresh();
     render(entering);
   }, destroy: () => { off(); form?.abort(); } };

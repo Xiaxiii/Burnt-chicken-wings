@@ -1,5 +1,4 @@
 // 2.7.0 导航：手机底部五栏「预设 · 方案 · 连接 · 回复 · 更多」；宽屏（≥1000px）改为左侧栏，「更多」里的工具直接列在侧栏
-// 2.7.7 缝合归入「预设」
 var NAV_ICON = {
   preset: '<path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/>',
   schemes: '<path d="M7 3.5h10a1 1 0 0 1 1 1V21l-6-4-6 4V4.5a1 1 0 0 1 1-1Z"/>',
@@ -9,24 +8,25 @@ var NAV_ICON = {
   suture: '<circle cx="6" cy="5.5" r="2.5"/><circle cx="6" cy="18.5" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 8v8"/><path d="M6 8c0 2.8 3.2 4 9.5 4"/>',
   clean: '<rect x="3.5" y="4" width="17" height="4.5" rx="1"/><path d="M5.5 8.5V19a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V8.5"/><path d="M10 12.5h4"/>',
   health: '<path d="M3 12h4l2.5-6 5 12 2.5-6h4"/>',
+  check: '<path d="M9 3.5h6v3H9z"/><path d="M8 5H6a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2"/><path d="m9 14 2 2 4-4"/>',
   look: '<path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/>'
 };
+// 2.8.0 手机底部五栏「预设 · 缝合 · 检查 · 连接 · 更多」：缝合单列；检查含回复格式、思维链、变量；方案移入更多
 var NAV = [
-  ["preset", "预设", "work"], ["schemes", "方案", "work"], ["conn", "连接", "work"], ["reply", "回复", "work"],
+  ["preset", "预设", "work"], ["suture", "缝合", "work"], ["check", "检查", "work"], ["conn", "连接", "work"],
   ["more", "更多", "phone"],
-  ["clean", "清理", "tool"], ["health", "体检", "tool"], ["look", "设置", "tool"]
+  ["schemes", "方案", "tool"], ["clean", "清理", "tool"], ["health", "体检", "tool"], ["look", "设置", "tool"]
 ];
-// 各页面所属栏目；「预设」「更多」在页头下方分页
-var SECTION_OF = { organize: "preset", cot: "preset", vars: "preset", suture: "preset", schemes: "schemes", conn: "conn", reply: "reply", "reply-check": "reply", "reply-rules": "reply", "reply-auto": "reply", "reply-ai": "reply", clean: "more", health: "more", look: "more" };
-var SUBNAV = { preset: [["organize", "条目"], ["cot", "思维链"], ["vars", "变量"], ["suture", "缝合"]], reply: [["reply-check", "检查"], ["reply-rules", "规则"], ["reply-auto", "自动"], ["reply-ai", "语义审查"]], more: [["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
-var PAGE_TITLE = { organize: "预设", cot: "预设", vars: "预设", suture: "预设", schemes: "方案", conn: "连接", reply: "回复", "reply-check": "回复", "reply-rules": "回复", "reply-auto": "回复", "reply-ai": "回复", clean: "清理", health: "体检", look: "设置" };
-var PAGE_EL = { "reply-check": "reply", "reply-rules": "reply", "reply-auto": "reply", "reply-ai": "reply" };
+// 各页面所属栏目；「检查」「更多」在页头下方分页
+var SECTION_OF = { organize: "preset", suture: "suture", reply: "check", cot: "check", vars: "check", conn: "conn", schemes: "more", clean: "more", health: "more", look: "more" };
+var SUBNAV = { check: [["reply", "回复"], ["cot", "思维链"], ["vars", "变量"]], more: [["schemes", "方案"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
+var PAGE_TITLE = { organize: "预设", suture: "缝合", reply: "检查", cot: "检查", vars: "检查", conn: "连接", schemes: "方案", clean: "清理", health: "体检", look: "设置" };
+var PAGE_EL = {};
 var navSvg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${NAV_ICON[k]}</svg>`;
 var rootEl2;
 var pages = {};
 var current = "organize";
-var lastPresetPage = "organize";
-var lastReplyPage = "reply-check";
+var lastCheckPage = "reply";
 var cleanups = [];
 function injectStyle() {
   document.getElementById("pa-style")?.remove();
@@ -81,6 +81,7 @@ function buildRoot() {
             </nav>
             <header class="pa-top">
                 <div class="pa-head-t"><small class="pa-kicker pa-appname">${esc(appName())}</small><h2 class="pa-title"></h2></div>
+                <button class="pa-icon-btn pa-sulayout" data-g="sulayout" hidden></button>
                 <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份（只存在这个浏览器里）"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg></button>
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </header>
@@ -160,6 +161,10 @@ function buildRoot() {
       }
     }
     if (g === "backups") return backupsSheet(focusPreset());
+    if (g === "sulayout") {
+      pages.suture?.toggleLayout?.();
+      return paintSutureLayoutBtn(true);
+    }
     if (g === "save") {
       const name = focusPreset();
       if (saveBlocked.has(name)) return resolveSaveProblem(name);
@@ -206,8 +211,9 @@ function updateSavebar() {
 function resolvePage(key, sub) {
   if (key === "more" && sub && SECTION_OF[sub]) return sub;
   if (key === "api") return "conn";
-  if (key === "preset") return lastPresetPage;
-  if (key === "reply") return lastReplyPage;
+  if (key === "preset") return "organize";
+  if (key === "check") return lastCheckPage;
+  if (/^reply-/.test(key)) return "reply";
   if (key === "more") {
     const m = settings().moreTab;
     return SUBNAV.more.some(([k]) => k === m) ? m : "clean";
@@ -219,8 +225,7 @@ function show(key, sub) {
   const sec = SECTION_OF[k];
   const wasVisible = !rootEl2.hidden && (PAGE_EL[current] || current) === (PAGE_EL[k] || k) && rootEl2.dataset.paShown === "1";
   current = k;
-  if (sec === "preset") lastPresetPage = k;
-  if (sec === "reply") lastReplyPage = k;
+  if (sec === "check") lastCheckPage = k;
   if (sec === "more" && settings().moreTab !== k) {
     settings().moreTab = k;
     saveSettings();
@@ -240,7 +245,7 @@ function show(key, sub) {
     subnav.innerHTML = subs.map(([sk, l]) => `<button type="button" role="tab" ${attr}="${sk}" aria-selected="${sk === k}" class="${sk === k ? "on" : ""}">${l}</button>`).join("");
   }
   rootEl2.querySelector(".pa-title").textContent = PAGE_TITLE[k];
-  // 「回复」的四个分页共用一个页面元素
+  paintSutureLayoutBtn(sec === "suture");
   const pk = PAGE_EL[k] || k;
   rootEl2.querySelectorAll(".pa-page").forEach((p) => {
     p.hidden = p.dataset.page !== pk;
@@ -253,6 +258,22 @@ function show(key, sub) {
     toast("出错：" + e.message, "error");
   }
   updateSavebar();
+}
+// 2.8.0 缝合页顶栏的布局按钮：分栏 ⇄ 切换。图标画的是点下去之后的样子
+const LAYOUT_ICON = {
+  split: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M12 4.5v15"/></svg>',
+  switch: '<svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9h17"/></svg>'
+};
+function paintSutureLayoutBtn(on) {
+  const b = rootEl2?.querySelector(".pa-sulayout");
+  if (!b) return;
+  b.hidden = !on;
+  if (!on) return;
+  const next = settings().sutureLayout === "switch" ? "split" : "switch";
+  b.innerHTML = LAYOUT_ICON[next];
+  const label = next === "split" ? "改为分栏：从、到同屏" : "改为切换：一次显示一栏";
+  b.setAttribute("aria-label", label);
+  b.title = label;
 }
 function open(tab, sub) {
   if (!rootEl2) buildRoot();
@@ -694,7 +715,7 @@ function chatInfoToast(scheme) {
     const preset = currentPresetName() || "（未选预设）";
     const model = liveConnection().model || "（未选模型）";
     const msg = `模型：${model}${scheme ? `\n方案：${scheme.name}` : ""}`;
-    if (t?.info) t.info(msg, `预设：${preset}`, { timeOut: 3e3, extendedTimeOut: 1e3, preventDuplicates: false, toastClass: "toast pa-chat-toast", escapeHtml: true });
+    if (t?.info) t.info(msg, `预设：${preset}`, { timeOut: 3e3, extendedTimeOut: 1e3, preventDuplicates: false, toastClass: "toast pa-chat-toast", escapeHtml: true, tapToDismiss: true });
   } catch (e) {
     console.warn("[焦香鸡翅] 提示当前预设失败", e);
   }
@@ -813,6 +834,7 @@ function bindEvents() {
   bindReplyGuard(on, et2);
   bindVariableWatch(on, et2);
   bindSemanticReview(on, et2);
+  bindBalanceWatch(on, et2);
 }
 async function start() {
   const prev = globalThis.__presetAtelier;

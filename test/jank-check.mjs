@@ -30,7 +30,7 @@ if (loaf) {
 await page.locator("[data-page=health] .pa-jank summary", { hasText: "各项处理耗时" }).click();
 const own = await page.locator("[data-page=health] .pa-jank details", { hasText: "各项处理耗时" }).locator(".pa-rank").innerText();
 assert.match(own, /事件：切换聊天/);
-assert.match(own, /显示页面：预设 · 条目/);
+assert.match(own, /显示页面：预设/);
 console.log("✓ 别的代码造成的卡顿被记录，不算在本扩展头上；本扩展各项处理有计时");
 await page.click("[data-page=health] [data-h=jankclear]");
 await page.waitForTimeout(400);

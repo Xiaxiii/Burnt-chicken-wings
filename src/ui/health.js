@@ -222,12 +222,11 @@ function jankHtml(extData) {
   const ago = (t) => { const s = Math.max(0, Math.round((performance.now() - t) / 1e3)); return s < 60 ? `${s} 秒前` : `${Math.round(s / 60)} 分钟前`; };
   return `<h3 class="pa-h">运行中的卡顿 <span class="pa-dim">打开酒馆后 ${mins}</span></h3>
     <div class="pa-card pa-jank">
-      <p><b>${j.mode === "none" ? "无法记录" : j.count ? `页面卡顿 ${j.count} 次` : "没有卡顿"}</b>${j.count ? `，最长 ${fmtMs(j.longest)}${j.severe ? `，其中 ${j.severe} 次超过 0.2 秒` : ""}；与${esc(appName())}处理重叠 ${j.overlapped} 次。` : ""}</p>
+      <div class="pa-jank-head"><span><b>${j.mode === "none" ? "无法记录" : j.count ? `页面卡顿 ${j.count} 次` : "没有卡顿"}</b>${j.count ? `，最长 ${fmtMs(j.longest)}${j.severe ? `，其中 ${j.severe} 次超过 0.2 秒` : ""}；与${esc(appName())}处理重叠 ${j.overlapped} 次。` : ""}</span>${tip(`${how}。只记时间和处理名称，不记内容，只保存在本页内存中，刷新页面后重新开始。「重叠」指卡顿期间${esc(appName())}有一项处理超过 16 毫秒。`)}</div>
       <p class="pa-hint">${verdict}${mine ? `本扩展在设置文件中的数据 ${fmtSize(mine.size)}。` : ""}</p>
       ${j.scripts.length || j.layout.n ? `<details${top ? " open" : ""}><summary>卡顿时在运行的脚本（按来源）</summary><div class="pa-rank">${j.scripts.slice(0, 8).map((x) => `<div><span>${esc(x.who)}</span><em>${x.n} 次 · 共 ${fmtMs(x.ms)}${x.forced >= 5 ? ` · 其中强制排版 ${fmtMs(x.forced)}` : ""}</em></div>`).join("")}${j.layout.n ? `<div><span>浏览器计算样式和排版</span><em>${j.layout.n} 次 · 共 ${fmtMs(j.layout.ms)}</em></div>` : ""}</div></details>` : ""}
       ${j.recent.length ? `<details><summary>最近的卡顿</summary><ul class="pa-notes">${j.recent.map((x) => `<li>${ago(x.at)}，${fmtMs(x.ms)}${x.owners?.length ? `，脚本来源：${esc(x.owners.join("、"))}` : ""}${x.own.length ? `，${esc(appName())}在处理：${esc(x.own.join("、"))}` : ""}</li>`).join("")}</ul></details>` : ""}
       ${j.own.length ? `<details><summary>${esc(appName())}各项处理耗时</summary><div class="pa-rank">${j.own.slice(0, 12).map((x) => `<div><span>${esc(x.label)}</span><em>${x.n} 次 · 最长 ${ms(x.max)} · 平均 ${ms(x.avg)}</em></div>`).join("")}</div></details>` : ""}
       <div class="pa-card-act"><button type="button" class="pa-btn pa-btn-s" data-h="jankclear">清空记录</button></div>
-      ${tip(`${how}。只记时间和处理名称，不记内容，只保存在本页内存中，刷新页面后重新开始。「重叠」指卡顿期间${esc(appName())}有一项处理超过 16 毫秒。`)}
     </div>`;
 }

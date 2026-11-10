@@ -125,7 +125,7 @@ try {
     await page.waitForFunction(() => document.querySelectorAll('[data-page=organize] .pa-list .pa-row').length === 0);
 
     // 页签切换仅绘制可见页；缝合1200→1200仍只为选中4条生成预览。
-    await page.click('[data-tab=cot]');
+    await page.click('.pa-tabs [data-nav=check]'); await page.click('[data-tab=cot]');
     await page.waitForSelector('[data-page=cot]:not([hidden])');
     const beforeContent = await page.evaluate(() => ({ renders: window.__perf.renders.length, analyses: window.__perf.analyses }));
     await page.evaluate(() => window.__perfContentNotify());
@@ -188,7 +188,7 @@ try {
     assert.ok(JSON.stringify(await saved(page)) === JSON.stringify(beforePreview), '取消4条预览保持目标原值');
     assert.ok(JSON.stringify(await page.evaluate(name => window.__mock.presets[window.__mock.names.indexOf(name)], sourceName)) === JSON.stringify(source));
     await page.click('.pa-tabs [data-nav="preset"]');
-    await page.click('[data-tab=organize]');
+    await page.click('.pa-tabs [data-nav=preset]');
     assert.equal(await list.locator('.pa-row').count(), 0, '返回整理保留折叠与搜索状态');
     const report = await page.evaluate(() => ({ renders: window.__perf.renders, regions: window.__perf.regions, analyses: window.__perf.analyses }));
     reports.push({ viewport: mobile ? 'phone' : 'desktop', ...report });

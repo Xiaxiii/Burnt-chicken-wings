@@ -1,8 +1,10 @@
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
 function toast(msg, type = "info") {
   const t = globalThis.toastr;
-  if (t && t[type]) t[type](msg, "", { timeOut: type === "error" ? 6e3 : 2600, preventDuplicates: true });
-  else console.log("[焦香鸡翅]", msg);
+  if (!t?.[type]) return console.log("[焦香鸡翅]", msg);
+  // 2.8.0 点按即关闭，与酒馆其他提示一致
+  const $t = t[type](msg, "", { timeOut: type === "error" ? 6e3 : 2600, preventDuplicates: true, tapToDismiss: true });
+  $t?.[0]?.addEventListener?.("click", () => t.clear($t, { force: true }));
 }
 var rootEl = null;
 // 等这一帧画出来再继续：先显示「正在…」，重活放到下一帧

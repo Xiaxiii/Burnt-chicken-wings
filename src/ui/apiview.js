@@ -72,6 +72,10 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     has: (id) => foldGet("mpick", secKey(id), secDefault.has(id)),
     set: (id, on) => foldSet("mpick", secKey(id), on, 300)
   };
+  // 2.8.0 搜索时段落默认全部展开，也可逐段收起；换了搜索词重新全部展开，不改记住的展开状态
+  const qClosed = new Set();
+  let qLast = "";
+  const isOpen = (id) => query() ? !qClosed.has(id) : secOpen.has(id);
   const more = new Set();
   // 多选：sel 是勾选的模型；editing 是正在编辑模型的分类
   let selecting = false;
@@ -125,6 +129,10 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     });
     box.classList.toggle("pa-kpick", multi || mode !== "model");
     const q = query();
+    if (q !== qLast) {
+      qClosed.clear();
+      qLast = q;
+    }
     if (mode === "model") {
       box.innerHTML = custom() + all.filter(hit).map(row).join("") || none;
     } else if (mode === "cat") {
@@ -135,21 +143,21 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
         const ms = present.filter(hit);
         if (q && !ms.length) continue;
         const id = `c:${c.id}`;
-        const open = !!q || secOpen.has(id);
+        const open = isOpen(id);
         html += `<div class="pa-ksec-wrap">${secHead(id, c.name, present.length, open)}<button type="button" class="pa-icon-btn pa-cat-more" data-catmenu="${esc(c.id)}" aria-label="分类「${esc(c.name)}」的操作">⋯</button></div>${open ? ms.map(row).join("") : ""}`;
       }
       for (const f of fams()) {
         const ms = f.list.filter(hit);
         if (q && !ms.length) continue;
         const id = `f:${f.name}`;
-        const open = !!q || secOpen.has(id);
+        const open = isOpen(id);
         html += secHead(id, f.name, f.list.length, open, tagAuto ? "自动" : "") + (open ? ms.map(row).join("") : "");
       }
       box.innerHTML = custom() + html || none;
     } else {
       box.innerHTML = keys.map((k) => {
         const ms = (k.models || []).filter(hit);
-        const open = !!q || secOpen.has(k.id);
+        const open = isOpen(k.id);
         const kc = !selecting && q && !(k.models || []).includes(q) ? `<button class="pa-mpick-item pa-mpick-custom" style="${ROW_STYLE}" data-m="${esc(q)}" data-k="${esc(k.id)}">使用「${esc(q)}」</button>` : "";
         const items = ms.map((m) => selecting ? selRow(m) : plainRow(m, k)).join("");
         const empty = !ms.length && !kc ? `<p class="pa-hint">${(k.models || []).length ? "没有匹配的模型" : "还没有模型列表，可在搜索框输入模型名称"}</p>` : "";
@@ -308,7 +316,9 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       }
       const f = e.target.closest("[data-fold]");
       if (f) {
-        secOpen.set(f.dataset.fold, !secOpen.has(f.dataset.fold));
+        const id = f.dataset.fold;
+        if (query()) qClosed.has(id) ? qClosed.delete(id) : qClosed.add(id);
+        else secOpen.set(id, !secOpen.has(id));
         return paint();
       }
       const sr = e.target.closest("[data-sel]");
@@ -578,6 +588,33 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const fetched = liveFetched && liveFetched.source === live.source && liveFetched.url === (live.url || "") ? liveFetched.models : [];
     return [...new Set([...liveModelOptions(), ...isSame(active, live) ? siteKey(active).models || [] : [], ...fetched])];
   }
+  // 2.8.0 余额：总余额、上一轮、近 24 / 48 小时用量。只在有余额接口的连接类型显示
+  const hm = (t) => {
+    const d = new Date(t);
+    const p2 = (n) => String(n).padStart(2, "0");
+    const today = new Date().toDateString() === d.toDateString();
+    return `${today ? "" : `${d.getMonth() + 1}-${d.getDate()} `}${p2(d.getHours())}:${p2(d.getMinutes())}`;
+  };
+  function balCard(live) {
+    const b = balanceSummary(live);
+    if (!b.supported) return "";
+    const cur = b.last?.cur || "$";
+    const win = (w) => w.pairs ? fmtMoney(w.sum, cur) : "—";
+    const part = b.d2.since ? `<p class="pa-hint pa-bal-note">记录自 ${hm(b.d2.since)} 起，之前的用量未计入</p>` : "";
+    const total = b.last ? b.last.unl ? "不限额度" : fmtMoney(b.last.bal, cur) : "—";
+    return `<section class="pa-card pa-bal" aria-label="余额">
+        <div class="pa-bal-head"><b>余额</b><span class="pa-bal-time">${b.busy ? "正在查询…" : b.last ? `${hm(b.last.t)} 更新` : "尚未查询"}</span><button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额"${b.busy ? " disabled" : ""}>${ICON.refresh}</button></div>
+        <div class="pa-bal-total pa-num">${esc(total)}</div>
+        <dl class="pa-bal-kv">
+          <div><dt>${b.round && !b.round.gen ? "距上次查询" : "上一轮"}</dt><dd class="pa-num">${b.round ? fmtMoney(b.round.v, cur) : "—"}</dd></div>
+          <div><dt>近 24 小时</dt><dd class="pa-num">${win(b.d1)}</dd></div>
+          <div><dt>近 48 小时</dt><dd class="pa-num">${win(b.d2)}</dd></div>
+        </dl>
+        ${part}
+        ${b.err ? `<p class="pa-live-res bad">${RES_BAD}${esc(b.err)}</p>` : ""}
+        <label class="pa-bal-auto"><span>每轮生成后自动查询</span><span class="pa-switch"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}><i></i></span></label>
+      </section>`;
+  }
   function render() {
     const live = liveConnection();
     const s = settings();
@@ -618,7 +655,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         ${liveOpen() ? liveDetails(live, active) : ""}
-        </article>`;
+        </article>${balCard(live)}`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
     const siteRow = (x) => {
       const used = usedBy(x.id);
@@ -1229,6 +1266,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       settings().chatToast = e.target.checked;
       saveSettings();
     }
+    if (o === "balauto") {
+      settings().balanceAuto = e.target.checked;
+      saveSettings();
+      if (e.target.checked && Date.now() - (balanceSummary().last?.t || 0) > 6e4) balanceQuery();
+    }
     if (o === "reasoningfollow") {
       settings().reasoningFollowPreset = e.target.checked;
       // 打开时先记下当前预设现在的推理格式
@@ -1237,7 +1279,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       render();
     }
   };
-  for (const box of new Set([sitesBox, optsBox])) box.addEventListener("change", onChange);
+  for (const box of new Set([liveBox, sitesBox, optsBox])) box.addEventListener("change", onChange);
   const onClick = async (e) => {
     const a = e.target.closest("[data-a]")?.dataset.a;
     if (!a) return;
@@ -1471,6 +1513,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return render();
     }
     if (a === "testmodel") return testModel(btn);
+    if (a === "balq") return balanceQuery();
     if (a === "testraw") return liveTest?.raw && toast(`原文：${liveTest.raw.length > 300 ? liveTest.raw.slice(0, 300) + "…" : liveTest.raw}`, "info");
     if (a === "use" || a === "reconnect") {
       const target = a === "use" ? site : sites().find((x) => x.id === settings().activeSiteId);
@@ -1508,6 +1551,14 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".pa-sghead, .pa-site-mhead")) { e.preventDefault(); e.target.click(); }
   };
   bindWhy(sitesBox);
+  // 余额查询前后只换余额这一块
+  onBalance(() => {
+    const old = liveBox.querySelector(".pa-bal");
+    if (!old) return;
+    const html = balCard(liveConnection());
+    if (html) old.replaceWith(el(html));
+    else old.remove();
+  });
   for (const box of new Set([liveBox, sitesBox, optsBox])) box.addEventListener("click", onClick);
   for (const box of new Set([sitesBox, optsBox])) box.addEventListener("keydown", onKey);
   return { render };

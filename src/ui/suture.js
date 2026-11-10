@@ -68,7 +68,11 @@ function mountSuture(page, app) {
     wbDraft: null,
     wbMarker: null
   };
+  // 2.8.0 两种布局：split 分栏（从、到同屏）；switch 切换（一次只显示一栏，顶部切换）
+  const layout = () => settings().sutureLayout === "switch" ? "switch" : "split";
+  let side = "src";
   page.innerHTML = `
+    <div class="pa-swbar" role="tablist" aria-label="来源与目标"><button type="button" role="tab" data-sw="src">从<small class="pa-sw-n"></small></button><button type="button" role="tab" data-sw="dst">到<small class="pa-sw-pos"></small></button></div>
     <div class="pa-suture pa-compact">
         <div class="pa-pane pa-src">
             <div class="pa-pane-head pa-fromto"><b class="pa-ft">从</b>
@@ -104,6 +108,26 @@ function mountSuture(page, app) {
   const srcList = page.querySelector(".pa-src-list");
   const dstList = page.querySelector(".pa-dst-list");
   const bar = page.querySelector(".pa-sbar");
+  const swbar = page.querySelector(".pa-swbar");
+  function paintLayout() {
+    const sw = layout() === "switch";
+    sutureEl.classList.toggle("pa-sw", sw);
+    sutureEl.dataset.sw = side;
+    swbar.hidden = !sw;
+    swbar.querySelectorAll("[data-sw]").forEach((b) => {
+      const on = b.dataset.sw === side;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", String(on));
+    });
+  }
+  function setSide(v) {
+    side = v;
+    paintLayout();
+  }
+  swbar.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-sw]");
+    if (b) setSide(b.dataset.sw);
+  });
   const ngbar = page.querySelector(".pa-ngbar");
   const dstPicker = presetPicker(page.querySelector(".pa-dst-picker"), (name) => {
     st.marker = null;
@@ -119,6 +143,7 @@ function mountSuture(page, app) {
     return r;
   };
   applySplit(settings().sutureSplit ?? 45);
+  paintLayout();
   splitter.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     splitter.setPointerCapture(e.pointerId);
@@ -672,6 +697,9 @@ function mountSuture(page, app) {
     pn.disabled = !n;
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "点下方条目选位置" : "点下方组名或条目选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
+    swbar.querySelector(".pa-sw-n").textContent = n ? ` ${n}` : "";
+    swbar.querySelector(".pa-sw-pos").textContent = m ? " ✓" : "";
+    if (layout() === "switch" && !(d && m) && n) bar.querySelector(".pa-where").textContent = "切到「到」，点组名或条目选位置";
     bar.querySelector("[data-st=clear]").disabled = !(n || m);
     const undo = bar.querySelector("[data-st=wbundo]");
     undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
@@ -1420,6 +1448,13 @@ function mountSuture(page, app) {
     if (kind !== "status" && name === focusPreset() && draftViewVisible(page) && st.dstType === "preset") renderDst();
   });
   return {
+    toggleLayout() {
+      settings().sutureLayout = layout() === "switch" ? "split" : "switch";
+      saveSettings();
+      paintLayout();
+      return layout();
+    },
+    layout,
     render() {
       dstPicker.refresh();
       renderSrcPick();

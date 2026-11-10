@@ -34,13 +34,13 @@ async function openPage({ interfaces = true, mobile = false } = {}) {
   await page.evaluate(() => window.__presetAtelier.open('cot'));
   return page;
 }
-// 2.7.7 正文格式检查在「回复」页：检查、规则、自动三个分页；保存用页底按钮，不保存就离开
+// 2.8.0 正文格式检查在「检查 → 回复」单页；保存用页底按钮，不保存就离开
 // 用导航切换（open() 会把查看的预设换回酒馆当前预设）
-const tab = async (page, t) => { await page.click('.pa-tabs [data-nav="reply"]'); await page.click(`.pa-subnav [data-tab="reply-${t}"]`); await page.waitForTimeout(80); };
+const tab = async (page) => { await page.click('.pa-tabs [data-nav="check"]'); await page.click('.pa-subnav [data-tab="reply"]'); await page.waitForTimeout(80); };
 const dialog = async (page) => { await tab(page, 'check'); await page.locator('[data-page=reply] [data-r=latest]').waitFor({ state: 'visible' }); };
 const close = async (page, save = false) => {
-  if (save) { if (await page.locator('[data-page=reply] [data-r=save]').isHidden()) await tab(page, 'auto'); await page.click('[data-page=reply] [data-r=save]'); await page.waitForTimeout(150); }
-  await page.click('.pa-tabs [data-nav="preset"]'); await page.click('.pa-subnav [data-tab="cot"]');
+  if (save) { await page.click('[data-page=reply] [data-r=save]'); await page.waitForTimeout(150); }
+  await page.click('.pa-tabs [data-nav="preset"]');
 };
 const settings = (page) => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard);
 const reminder = (page) => page.evaluate((key) => window.__replyPrompts[key] || '', KEY);

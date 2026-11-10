@@ -101,7 +101,7 @@ check(L.includes("[新组A: 📌收尾]") && L[L.indexOf("[新组A: 📌收尾]"
 await page.screenshot({ path: "test/shots/p-4-suture-done.png" });
 
 // 4) 整理页：整组「顶部」用把手拖到「思维链」下半 ＝ 思维链之后，保持成组
-await page.click('.pa-tabs [data-nav="preset"]'); await page.click('[data-tab="organize"]'); await page.waitForTimeout(300);
+await page.click('.pa-tabs [data-nav="preset"]'); await page.waitForTimeout(300);
 await choose(page, ".pa-picker-slot .pa-namebtn", T); await page.waitForTimeout(300);
 const dragTo = async (fromSel, toSel, frac) => {
   const hb = await page.locator(fromSel).first().boundingBox();
@@ -165,7 +165,7 @@ const site = await page.evaluate(() => window.SillyTavern.getContext().extension
 check(site?.model === "claude-sonnet" && site.models.length === 2, "站点保存了模型和列表");
 // 切到这个站点，再存方案（API 默认不记录，选「当前连接」后记录 API 站点）
 await page.locator(".pa-site", { hasText: "测试站" }).locator('[data-a="use"]').click(); await page.waitForTimeout(2500);
-await page.click('.pa-tabs [data-nav="schemes"]'); await page.waitForTimeout(300);
+await page.click('.pa-tabs [data-nav="more"]'); await page.click('.pa-subnav [data-m="schemes"]'); await page.waitForTimeout(300);
 await page.click('[data-s="new"]'); await page.waitForTimeout(300);
 await page.fill('.pa-sheet [data-f="name"]', "测试方案");
 check(/测试站/.test(await page.locator(".pa-sheet .pa-save-list").innerText()), "保存窗口列出将保存的 API");

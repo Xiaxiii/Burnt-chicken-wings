@@ -18,6 +18,7 @@
  "maintenance/replyguard.js",
  "maintenance/reasoningbind.js",
  "maintenance/semanticreview.js",
+ "maintenance/balance.js",
  "ui/list.js",
  "ui/sorttags.js",
  "core/smartgroup.js",

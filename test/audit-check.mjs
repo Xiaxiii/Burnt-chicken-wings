@@ -39,6 +39,8 @@ const close=async(page,label)=>{await page.locator('.pa-sheet-actions .pa-btn').
 // 2.7.7 变量检查在「预设 → 变量」页，语义审查在「回复 → 语义审查」页
 const go=async(page,key)=>{await page.evaluate(k=>window.__presetAtelier.open(k),key);await pause(page);};
 const R=s=>`[data-page=reply] ${s}`;
+// 2.8.0 AI 语义审查收在回复页页尾的折叠块里
+const goAi=async(page)=>{await go(page,'reply-ai');await page.evaluate(()=>{const d=document.querySelector('[data-page=reply] details.pa-rai');if(d)d.open=true;});};
 try {
   const page=await open();
   await go(page,'vars');
@@ -55,7 +57,7 @@ try {
   await page.click('[data-vf=refresh]');await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();assert.match(await page.locator('[data-vf=result]').innerText(),/audit_zero.*变化/);await page.uncheck('[data-vf=watch]');
   console.log('✓ 顺序风险、变量快照、只读状态与默认关闭的生成前后对比');
 
-  await go(page,'reply-ai');
+  await goAi(page);
   assert.equal(await page.locator('[data-r=semantic]').isChecked(),false);
   assert.equal(await page.locator('[data-r=ai-cancel]').isVisible(),false);
   assert.equal(await page.evaluate(()=>window.__auditCalls.length),0);
@@ -76,14 +78,14 @@ try {
   await page.check('[data-r=semantic]');await page.click(R('[data-r=save]'));await pause(page);
   await page.evaluate(async()=>{const c=window.SillyTavern.getContext();c.chat.push({is_user:true,mes:'测试'},{is_user:false,mes:'我需要先检查用户要求。正文。'});await c.eventSource.emit(c.eventTypes.GENERATION_STARTED,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_ENDED);});
   await page.waitForFunction(()=>window.__auditCalls.length===3);
-  await go(page,'reply-ai');await page.click('[data-r=ai-result]');
+  await goAi(page);await page.click('[data-r=ai-result]');
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('疑似内部分析'));
   assert.equal(await page.locator('[data-r=semantic]').isChecked(),true);
   console.log('✓ 取消请求、按预设保存自动审查及最近结果展示');
 
   const mobile=await open(true);await go(mobile,'vars');
   assert.equal(await mobile.locator('[data-vf=snapshot]').isVisible(),true);await mobile.click('[data-vf=snapshot]');
-  await go(mobile,'reply-ai');
+  await goAi(mobile);
   assert.equal(await mobile.locator('[data-r=ai-paste]').isVisible(),true);
   await mobile.fill('[data-r=sample]','普通故事正文');await mobile.click('[data-r=ai-paste]');
   await mobile.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('未标记'));

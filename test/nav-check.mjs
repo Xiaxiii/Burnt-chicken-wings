@@ -1,4 +1,4 @@
-// 2.7.0 导航：手机底部五栏、宽屏左侧栏、分页、批次栏位置、旧的打开方式仍可用
+// 2.8.0 导航：手机底部五栏、宽屏左侧栏、分页、批次栏位置、旧的打开方式仍可用
 // 用法：在仓库根目录起静态服务（python3 -m http.server 8765）；node test/nav-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
@@ -34,86 +34,83 @@ const state = (page) => page.evaluate(() => {
   await page.evaluate(() => window.__presetAtelier.open());
   await page.waitForTimeout(300);
   let s = await state(page);
-  assert.deepEqual(s.nav, ["预设", "方案", "连接", "回复", "更多"]);
+  assert.deepEqual(s.nav, ["预设", "缝合", "检查", "连接", "更多"]);
   assert.deepEqual(s.navOn, ["预设"]);
   assert.equal(s.title, "预设");
-  assert.deepEqual(s.sub, ["条目*", "思维链", "变量", "缝合"]);
+  assert.deepEqual(s.sub, []);
   assert.deepEqual(s.page, ["organize"]);
   await page.screenshot({ path: S + "n-1-phone-preset.png" });
-  ok("手机：底部五栏，预设下分条目、思维链、变量、缝合");
+  ok("手机：底部五栏「预设、缝合、检查、连接、更多」，预设不再分页");
+
+  await page.click('.pa-tabs [data-nav="suture"]');
+  s = await state(page);
+  assert.equal(s.title, "缝合"); assert.deepEqual(s.page, ["suture"]); assert.deepEqual(s.navOn, ["缝合"]);
+  ok("手机：缝合单列一栏");
+
+  await page.click('.pa-tabs [data-nav="check"]');
+  s = await state(page);
+  assert.equal(s.title, "检查"); assert.deepEqual(s.page, ["reply"]);
+  assert.deepEqual(s.sub, ["回复*", "思维链", "变量"]);
+  const rp = page.locator("[data-page=reply]");
+  for (const q of ['[data-r="latest"]', '[data-r="body"]', '[data-r="enabled"]', '[data-r="save"]']) assert.ok(await rp.locator(q).isVisible(), `回复单页显示 ${q}`);
+  assert.equal(await rp.locator('[data-r="ai-latest"]').isVisible(), false, "AI 语义审查默认收起");
+  await rp.locator("details.pa-rai > summary").click();
+  assert.ok(await rp.locator('[data-r="ai-latest"]').isVisible(), "展开后显示 AI 语义审查");
+  await page.fill('[data-page=reply] [data-r="body"]', "content");
+  await page.click('[data-page=reply] [data-r="save"]');
+  await page.waitForTimeout(200);
+  const saved = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard);
+  assert.ok(saved && Object.values(saved).some((v) => v.bodyTag === "content"), "回复页保存设置写入当前预设");
+  await page.screenshot({ path: S + "n-3-phone-reply.png" });
+  ok("手机：检查 → 回复为单页，检查、标签、处理方式、语义审查同页");
 
   await page.click('.pa-subnav [data-tab="cot"]');
   s = await state(page);
-  assert.deepEqual(s.page, ["cot"]);
-  assert.deepEqual(s.sub, ["条目", "思维链*", "变量", "缝合"]);
+  assert.deepEqual(s.page, ["cot"]); assert.deepEqual(s.sub, ["回复", "思维链*", "变量"]);
   await page.click('.pa-subnav [data-tab="vars"]');
   s = await state(page);
   assert.deepEqual(s.page, ["vars"]);
   assert.ok(await page.locator('[data-page=vars] [data-vf="refresh"]').isVisible(), "变量页直接显示顺序检查");
   await page.click('.pa-subnav [data-tab="cot"]');
-  await page.click('.pa-tabs [data-nav="schemes"]');
-  s = await state(page);
-  assert.equal(s.title, "方案"); assert.deepEqual(s.page, ["schemes"]); assert.deepEqual(s.sub, []);
-  assert.ok(await page.locator("[data-page=schemes] .pa-plan-schemes").isVisible());
+
   await page.click('.pa-tabs [data-nav="conn"]');
   s = await state(page);
   assert.equal(s.title, "连接"); assert.deepEqual(s.page, ["conn"]);
   assert.ok(await page.locator("[data-page=conn] .pa-plan-live").isVisible());
   assert.ok(await page.locator("[data-page=conn] .pa-plan-sites").isVisible());
   await page.screenshot({ path: S + "n-2-phone-conn.png" });
-  ok("手机：方案、连接分为两页");
-
-  await page.click('.pa-tabs [data-nav="reply"]');
-  s = await state(page);
-  assert.equal(s.title, "回复"); assert.deepEqual(s.page, ["reply"]);
-  assert.deepEqual(s.sub, ["检查*", "规则", "自动", "语义审查"]);
-  assert.ok(await page.locator('[data-page=reply] [data-r="latest"]').isVisible(), "默认是检查页");
-  assert.equal(await page.locator('[data-page=reply] [data-r="save"]').isVisible(), false, "检查页不显示保存");
-  await page.click('.pa-subnav [data-tab="reply-rules"]');
-  assert.ok(await page.locator('[data-page=reply] [data-r="body"]').isVisible(), "规则页有正文标签输入框");
-  assert.equal(await page.locator('[data-page=reply] [data-r="latest"]').isVisible(), false);
-  await page.fill('[data-page=reply] [data-r="body"]', "content");
-  await page.click('[data-page=reply] [data-r="save"]');
-  await page.waitForTimeout(200);
-  const saved = await page.evaluate(() => { const c = window.SillyTavern.getContext(); const n = window.__mock?.names?.[0]; return c.extensionSettings.presetAtelier.replyGuard; });
-  assert.ok(saved && Object.values(saved).some((v) => v.bodyTag === "content"), "回复页保存设置写入当前预设");
-  // 标签填错：在别的分页点保存，会切到规则页标出输入框
-  await page.fill('[data-page=reply] [data-r="body"]', "think");
-  await page.click('.pa-subnav [data-tab="reply-auto"]');
-  await page.click('[data-page=reply] [data-r="save"]');
-  await page.waitForTimeout(200);
-  assert.deepEqual((await state(page)).sub, ["检查", "规则*", "自动", "语义审查"]);
-  await page.fill('[data-page=reply] [data-r="body"]', "content");
-  await page.click('.pa-tabs [data-nav="conn"]');
-  await page.click('.pa-tabs [data-nav="reply"]');
-  assert.deepEqual((await state(page)).sub, ["检查", "规则*", "自动", "语义审查"], "回到回复时停在上次的分页");
-  await page.screenshot({ path: S + "n-3-phone-reply.png" });
-  ok("手机：回复页分检查、规则、自动、语义审查，页内设置、保存");
+  await page.click('.pa-tabs [data-nav="check"]');
+  assert.deepEqual((await state(page)).page, ["cot"], "回到检查时停在上次的分页");
+  ok("手机：连接一页；检查记住上次的分页");
 
   await page.click('.pa-tabs [data-nav="more"]');
   s = await state(page);
   assert.deepEqual(s.navOn, ["更多"]);
-  assert.equal(s.sub.length, 3);
+  assert.equal(s.sub.length, 4);
+  await page.click('.pa-subnav [data-m="schemes"]');
+  s = await state(page);
+  assert.equal(s.title, "方案"); assert.deepEqual(s.page, ["schemes"]);
+  assert.ok(await page.locator("[data-page=schemes] .pa-plan-schemes").isVisible());
   await page.click('.pa-subnav [data-m="health"]');
   s = await state(page);
-  assert.equal(s.title, "体检"); assert.deepEqual(s.page, ["health"]); assert.deepEqual(s.sub, ["清理", "体检*", "设置"]);
+  assert.equal(s.title, "体检"); assert.deepEqual(s.page, ["health"]); assert.deepEqual(s.sub, ["方案", "清理", "体检*", "设置"]);
   await page.click('.pa-tabs [data-nav="preset"]');
-  s = await state(page);
-  assert.deepEqual(s.page, ["cot"], "回到预设时停在上次的分页");
   await page.click('.pa-tabs [data-nav="more"]');
   s = await state(page);
   assert.deepEqual(s.page, ["health"], "回到更多时停在上次的分页");
-  ok("手机：更多下分清理、体检、设置，记住上次的分页");
+  ok("手机：更多下分方案、清理、体检、设置，记住上次的分页");
 
   // 旧的打开方式
   await page.evaluate(() => window.__presetAtelier.open("more", "look"));
   assert.deepEqual((await state(page)).page, ["look"]);
   await page.evaluate(() => window.__presetAtelier.open("suture"));
   s = await state(page);
-  assert.deepEqual(s.page, ["suture"]); assert.deepEqual(s.navOn, ["预设"]); assert.deepEqual(s.sub, ["条目", "思维链", "变量", "缝合*"]);
+  assert.deepEqual(s.page, ["suture"]); assert.deepEqual(s.navOn, ["缝合"]);
+  await page.evaluate(() => window.__presetAtelier.open("reply-rules"));
+  assert.deepEqual((await state(page)).page, ["reply"]);
   await page.evaluate(() => window.__presetAtelier.open("organize"));
   assert.deepEqual((await state(page)).page, ["organize"]);
-  ok("旧写法 open(\"more\", 子页)、open(\"suture\") 仍可用");
+  ok("旧写法 open(\"more\", 子页)、open(\"suture\")、open(\"reply-rules\") 仍可用");
 
   // 有修改时批次栏出现在底部导航上方
   await page.locator("[data-page=organize] .pa-row .pa-switch").first().click();
@@ -138,10 +135,10 @@ for (const [w, h] of [[1280, 800], [1024, 768]]) {
   await page.evaluate(() => window.__presetAtelier.open());
   await page.waitForTimeout(300);
   let s = await state(page);
-  assert.deepEqual(s.nav, ["预设", "方案", "连接", "回复", "清理", "体检", "设置"]);
+  assert.deepEqual(s.nav, ["预设", "缝合", "检查", "连接", "方案", "清理", "体检", "设置"]);
   const side = await page.evaluate(() => document.querySelector(".pa-tabs").getBoundingClientRect().toJSON());
   assert.ok(side.left === 0 && side.width > 180 && side.width < 260 && side.height > h - 60, "左侧栏贴左、全高");
-  assert.deepEqual(s.sub, ["条目*", "思维链", "变量", "缝合"]);
+  assert.deepEqual(s.sub, []);
   await page.click('.pa-tabs [data-nav="clean"]');
   s = await state(page);
   assert.equal(s.title, "清理"); assert.deepEqual(s.page, ["clean"]); assert.deepEqual(s.sub, [], "宽屏不显示「更多」的分页");

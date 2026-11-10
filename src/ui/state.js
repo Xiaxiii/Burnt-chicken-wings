@@ -4,6 +4,7 @@ var DEFAULTS = {
   activeSiteId: null,
   keepApi: false,
   chatToast: true,
+  balanceAuto: false,
   schemes: [],
   cotManual: {},
   replyGuard: {},

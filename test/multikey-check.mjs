@@ -154,7 +154,7 @@ try {
   await page.locator(".pa-plan-sites .pa-site-multi .pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
   await page.waitForTimeout(2500);
   assert.equal(await vault(), "old,aaa*,bbb");
-  await page.click('.pa-tabs [data-nav="schemes"]'); await page.waitForTimeout(300);
+  await page.click('.pa-tabs [data-nav="more"]'); await page.click('.pa-subnav [data-m="schemes"]'); await page.waitForTimeout(300);
   await page.locator(".pa-srow", { hasText: "按量方案" }).locator("[data-a=apply]").click(); await page.waitForTimeout(2500);
   assert.equal(await vault(), "old,aaa,bbb*", "套用方案连回它记的分组");
   ok("套用方案连回它记的分组");
