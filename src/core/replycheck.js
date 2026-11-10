@@ -303,7 +303,8 @@ function buildReplyReminder(report, inputRules) {
   else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文结束后不追加说明或总结。`);
   if (kinds.has("leak")) extra.push(`正文内不得出现思考标签。`);
   const sure = mis?.pairs.filter((p) => p.sure) || [];
-  if (sure.length) for (const { tag, block } of sure) extra.push(`上一轮把 <${tag}> 写成了 <${block.name}>：请用 <${tag}>…</${tag}>，标签名一字不改，不要输出 <${block.name}>。`);
+  // 2.8.1 不写出错误的标签名：提醒在最后一条消息的位置，写出「不要输出 <状态栏>」反而让模型照抄，自动修正后每轮都提醒，错名一直延续
+  if (sure.length) for (const { tag } of sure) extra.push(`上一轮 <${tag}> 的标签名写错了：外层标签必须写作 <${tag}>…</${tag}>，一字不改。`);
   else if (mis?.suspects.length) extra.push(`上一轮没有 ${mis.missing.map((t) => `<${t}>`).join("、")}：必需标签的名字一字不改，不要换成别的标签名。`);
   if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
   return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}正文不夹入思考步骤或内部分析。这条提醒只管格式，剧情照常接着写。`;

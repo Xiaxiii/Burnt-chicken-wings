@@ -135,7 +135,8 @@ test('a required tag written under another name is named in the check, reminder 
   const report = checkReplyFormat(reply, rules, { layout, knownTags });
   assert.match(report.issues.find((i) => i.kind === 'missing').text, /<状态栏> 预设没有用到，多半是写错了名字的 <lxs_status>/);
   const reminder = buildReplyReminder(report, rules);
-  assert.match(reminder, /上一轮把 <lxs_status> 写成了 <状态栏>/);
+  assert.match(reminder, /上一轮 <lxs_status> 的标签名写错了/);
+  assert.doesNotMatch(reminder, /状态栏/, '提醒不写出错误的标签名');
   assert.doesNotMatch(reminder, /正文后的[^。]*<状态栏>[^。]*照常输出/, '不再点名让 <状态栏> 照常输出');
   assert.doesNotMatch(reminder, /author_note/, '只点名正文和必需标签');
   // 用到时才扫预设：没缺必需标签时不调用
@@ -157,7 +158,7 @@ test('a stranger whose inner tags do not match is not renamed automatically', ()
   const report = checkReplyFormat(reply, rules, { knownTags });
   assert.match(report.issues[0].text, /可能是写错了名字/);
   const reminder = buildReplyReminder(report, rules);
-  assert.doesNotMatch(reminder, /写成了/, '不确定时不点名说写错了');
+  assert.doesNotMatch(reminder, /写错了/, '不确定时不点名说写错了');
   assert.match(reminder, /上一轮没有 <lxs_status>：必需标签的名字一字不改/);
   assert.equal(planReplyFix(reply, rules, { knownTags, strict: true }), null, '自动修正不改名');
   assert.ok(planReplyFix(reply, rules, { knownTags }).steps[0].includes('改名为 <lxs_status>'), '手动修正有预览，仍可改');
@@ -170,7 +171,8 @@ test('among several strangers the one whose inner tags match is picked', () => {
   const reply = '<content>正文。</content>\n<author_note>注</author_note>\n<状态栏>\n<时>未时</时>\n</状态栏>';
   const report = checkReplyFormat(reply, rules, { knownTags });
   assert.deepEqual(report.misnamed.pairs.map((p) => [p.block.name, p.sure]), [['状态栏', true]]);
-  assert.match(buildReplyReminder(report, rules), /上一轮把 <lxs_status> 写成了 <状态栏>/);
+  assert.match(buildReplyReminder(report, rules), /上一轮 <lxs_status> 的标签名写错了/);
+  assert.doesNotMatch(buildReplyReminder(report, rules), /状态栏/);
   const plan = planReplyFix(reply, rules, { knownTags, strict: true });
   assert.ok(plan.text.includes('<lxs_status>\n<时>未时</时>\n</lxs_status>') && plan.text.includes('<author_note>注</author_note>'), '只改结构对得上的那块');
 });

@@ -59,7 +59,8 @@ try {
   const text = await result.innerText();
   assert.match(text, /<状态栏> 预设没有用到，多半是写错了名字的 <lxs_status>/);
   const reminder = await page.locator('[data-r=result] pre.pa-pre').last().textContent();
-  assert.match(reminder, /上一轮把 <lxs_status> 写成了 <状态栏>/);
+  assert.match(reminder, /上一轮 <lxs_status> 的标签名写错了/);
+  assert.doesNotMatch(reminder, /状态栏/, '提醒不写出错误的标签名');
   assert.doesNotMatch(reminder, /<状态栏>[^。]*照常输出/);
   ok('检查点名写错名的 <状态栏>；提醒写明改回 <lxs_status>，不再让 <状态栏> 照常输出');
   await page.click('[data-r=fix]');
