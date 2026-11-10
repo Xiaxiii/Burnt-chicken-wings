@@ -604,12 +604,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const total = b.last ? b.last.unl ? "不限额度" : fmtMoney(b.last.bal, cur) : "—";
     return `<section class="pa-card pa-bal" aria-label="余额">
         <div class="pa-bal-head"><b>余额</b><span class="pa-bal-time">${b.busy ? "正在查询…" : b.last ? `${hm(b.last.t)} 更新` : "尚未查询"}</span><button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额"${b.busy ? " disabled" : ""}>${ICON.refresh}</button></div>
-        <div class="pa-bal-total pa-num">${esc(total)}</div>
+        ${b.last ? `<div class="pa-bal-total pa-num">${esc(total)}</div>
         <dl class="pa-bal-kv">
           <div><dt>${b.round && !b.round.gen ? "距上次查询" : "上一轮"}</dt><dd class="pa-num">${b.round ? fmtMoney(b.round.v, cur) : "—"}</dd></div>
           <div><dt>近 24 小时</dt><dd class="pa-num">${win(b.d1)}</dd></div>
           <div><dt>近 48 小时</dt><dd class="pa-num">${win(b.d2)}</dd></div>
-        </dl>
+        </dl>` : ""}
         ${part}
         ${b.err ? `<p class="pa-live-res bad">${RES_BAD}${esc(b.err)}</p>` : ""}
         <label class="pa-bal-auto"><span>每轮生成后自动查询</span><span class="pa-switch"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}><i></i></span></label>

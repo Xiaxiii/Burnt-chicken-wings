@@ -365,7 +365,7 @@ function bindThemeCards(box, after) {
 }
 function bgPanel() {
   const bg = settings().bg || {};
-  return `<div class="pa-card pa-bgpanel">
+  return `<div class="pa-bgpanel">
       <div class="pa-card-act">
         <label class="pa-btn pa-btn-soft pa-file">${bg.on ? "更换图片" : "选择图片"}<input type="file" accept="image/*" data-bg="file" hidden></label>
         ${bg.on ? '<button class="pa-btn" data-bg="off">移除</button>' : ""}

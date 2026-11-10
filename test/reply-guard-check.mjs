@@ -34,12 +34,12 @@ async function openPage({ interfaces = true, mobile = false } = {}) {
   await page.evaluate(() => window.__presetAtelier.open('cot'));
   return page;
 }
-// 2.8.0 正文格式检查在「检查 → 回复」单页；保存用页底按钮，不保存就离开
+// 2.8.1 正文格式检查在「检查 → 回复」单页；设置改动即保存（离开输入框、点勾选框时）
 // 用导航切换（open() 会把查看的预设换回酒馆当前预设）
 const tab = async (page) => { await page.click('.pa-tabs [data-nav="check"]'); await page.click('.pa-subnav [data-tab="reply"]'); await page.waitForTimeout(80); };
 const dialog = async (page) => { await tab(page, 'check'); await page.locator('[data-page=reply] [data-r=latest]').waitFor({ state: 'visible' }); };
 const close = async (page, save = false) => {
-  if (save) { await page.click('[data-page=reply] [data-r=save]'); await page.waitForTimeout(150); }
+  if (save) { await page.evaluate(() => document.activeElement?.blur?.()); await page.waitForTimeout(150); }
   await page.click('.pa-tabs [data-nav="preset"]');
 };
 const settings = (page) => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard);
@@ -86,11 +86,9 @@ try {
   assert.match(await page.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
   await tab(page, 'rules');
   await page.fill('[data-r=body]', '<1非法>');
-  await tab(page, 'auto');
-  await page.click('[data-page=reply] [data-r=save]');
-  assert.equal(await page.locator('[data-page=reply] [data-r=body]').isVisible(), true, '保存时切到规则页');
+  await page.locator('[data-page=reply] [data-r=body]').dispatchEvent('change');
   assert.match(await page.locator('[data-page=reply] [data-err=body]').innerText(), /标签名/, '报错写在正文标签框下面');
-  assert.deepEqual(await settings(page), {});
+  assert.equal((await settings(page))[active].bodyTag, '正文', '非法标签不保存');
   await page.fill('[data-r=body]', '正文');
   await tab(page, 'auto');
   await page.check('[data-r=enabled]');
@@ -101,7 +99,7 @@ try {
   assert.equal(JSON.stringify(await settings(page)).includes('仅供手检'), false);
   assert.equal(await page.evaluate(() => JSON.stringify(window.__mock.presets)), original.presets);
   assert.equal(await page.evaluate(() => window.__saved || 0), original.saves);
-  ok('支持自定义正文、必需和思考标签；非法标签阻止保存，样本不持久化，预设不改动');
+  ok('支持自定义正文、必需和思考标签；改动即保存，非法标签不保存，样本不持久化，预设不改动');
 
   // 2.8.2 必需标签要在当前对话用到才检查：写进全局启用的世界书，改世界书后重读
   await page.evaluate(async () => {
@@ -144,7 +142,7 @@ try {
   await tab(page, 'auto');
   assert.equal(await page.locator('[data-r=enabled]').isChecked(), false);
   await close(page, true);
-  assert.equal((await settings(page))[second].enabled, false);
+  assert.equal((await settings(page))[second]?.enabled ?? false, false, '只浏览其他预设不写入');
   assert.equal((await settings(page))[active].bodyTag, '正文');
   await reply(page, '坏回复'); await generate(page);
   assert.match(await reminder(page), /<正文>/, '浏览其他预设设置不会替换实际使用中预设的规则');
@@ -171,7 +169,7 @@ try {
   await fallback.click('[data-r=paste]');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
   await close(fallback, true);
-  assert.equal(Object.values(await settings(fallback))[0].enabled, false);
+  assert.equal(Object.values((await settings(fallback)) || {})[0]?.enabled ?? false, false);
   ok('缺少宿主接口时禁用自动提醒，最近回复与粘贴手检仍可用');
 
   const mobile = await openPage({ mobile: true });

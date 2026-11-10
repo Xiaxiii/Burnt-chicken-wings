@@ -81,12 +81,12 @@ function renderIndexedList(draft, o) {
     }
     if (marker) badge = '<span class="pa-chip pa-chip-dim">系统位置</span>';
     // 2.7.4 名称下一行：角色、插入深度、标签
-    const meta = marker || empty && !marker ? "" : `<span>${ROLE_TEXT[p?.role] || "系统"}</span>${p?.injection_position === 1 ? `<span>深度 ${esc(p.injection_depth ?? 4)}</span>` : ""}`;
+    const meta = marker || empty && !marker ? "" : `${p?.role && p.role !== "system" && ROLE_TEXT[p.role] ? `<span>${ROLE_TEXT[p.role]}</span>` : ""}${p?.injection_position === 1 ? `<span>深度 ${esc(p.injection_depth ?? 4)}</span>` : ""}`;
     const at = m?.at === "row" && m.id === id;
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
     return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}" tabindex="0">
             <span class="pa-check" aria-hidden="true"></span>
-            <span class="pa-namebox"><span class="pa-name">${hits.get(id)?.body ? esc(name) : markText(name, q)}</span>${hits.get(id)?.body ? `<small class="pa-hitline">正文：${hits.get(id).snip}</small>` : ""}${meta || badge ? `<small class="pa-meta">${meta}${badge ? `<span class="pa-badges">${badge}</span>` : ""}</small>` : ""}</span>
+            <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${hits.get(id)?.body ? esc(name) : markText(name, q)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}</span>${hits.get(id)?.body ? `<small class="pa-hitline">正文：${hits.get(id).snip}</small>` : ""}${meta ? `<small class="pa-meta">${meta}</small>` : ""}</span>
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" ${on ? "checked" : ""}><i></i></label>` : ""}
             ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="拖动">${ICON.grip}</span>` : ""}

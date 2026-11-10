@@ -260,8 +260,7 @@ function mountSchemes(page, { after } = {}) {
   const VIEWS = [["char", "角色卡"], ["preset", "预设"], ["persona", "人设"]];
   page.innerHTML = `
         <div class="pa-scheme-now" aria-live="polite"></div>
-        <div class="pa-scheme-bar"><span class="pa-dim">分组</span><button class="pa-namebtn pa-namebtn-s" data-s="view" type="button" aria-label="方案分组方式"><span></span><i aria-hidden="true">▾</i></button><span class="pa-scheme-pick"></span><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">＋ 保存方案</button></div>
-        ${tip("方案保存预设和条目开关，可选记下人设、API 和模型。<br>「切换」：恢复方案保存时的全部状态。<br>「自动套用」：绑定聊天或角色后，进入该聊天时切换一次。之后手动修改的内容保持不变。<br>换预设时 API 不变；切换方案时，方案记了 API 的才换 API。")}
+        <div class="pa-scheme-bar"><span class="pa-dim pa-sview">分组</span><button class="pa-namebtn pa-namebtn-s pa-sview" data-s="view" type="button" aria-label="方案分组方式"><span></span><i aria-hidden="true">▾</i></button><span class="pa-scheme-pick"></span><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">＋ 保存方案</button>${tip("方案保存预设和条目开关，可选记下人设、API 和模型。<br>「切换」：恢复方案保存时的全部状态。<br>「自动套用」：绑定聊天或角色后，进入该聊天时切换一次。之后手动修改的内容保持不变。<br>换预设时 API 不变；切换方案时，方案记了 API 的才换 API。")}</div>
         <div class="pa-scheme-nudge"></div>
         <div class="pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
@@ -323,6 +322,7 @@ function mountSchemes(page, { after } = {}) {
     } catch {
     }
     page.querySelector('[data-s="view"] span').textContent = VIEWS.find(([k]) => k === view())[1];
+    page.querySelectorAll(".pa-sview").forEach((x) => { x.hidden = !all().length; });
     renderNow(d);
     for (const id of [...picked]) if (!all().some((x) => x.id === id)) picked.delete(id);
     if (picking && !all().length) picking = false;
@@ -336,7 +336,7 @@ function mountSchemes(page, { after } = {}) {
     nudge.innerHTML = ck && cur && !all().some((s) => schemeCharKey(s) === ck && s.preset === cur)
       ? `<div class="pa-nudge">「${esc(currentCharName())}」还没有「${esc(cur)}」的方案<button class="pa-link" data-s="new">保存一个</button></div>` : "";
     if (!all().length) {
-      box.innerHTML = '<p class="pa-empty">还没有方案。先开启需要的条目，再点「保存当前状态为方案」。</p>';
+      box.innerHTML = '<p class="pa-empty">还没有方案。开启需要的条目后，点「保存方案」。</p>';
       return after?.();
     }
     const groups = new Map();

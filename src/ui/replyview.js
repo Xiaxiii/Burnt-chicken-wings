@@ -27,7 +27,7 @@ function nativeReasoningNote(message) {
   return `<div class="pa-card pa-card-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型回传了自己的思考，酒馆不再把 &lt;${esc(st.tag)}&gt; 解析进思考区，生成时它先出现在正文中，写完才被美化正则收起。只保留预设思维链：酒馆「AI 响应配置」关闭「请求思维链」。模型仍会思考，只是不再回传。</p></div>`;
 }
 // 正文格式检查表单：只在「回复」页显示
-function replyForm(name) {
+function replyForm(name, { onSaved } = {}) {
   const saved = replyGuardConfig(name);
   const stTag = stReasoningTag();
   const thinkingDefault = saved.thinkingTag ?? (stTag && !/^think(ing)?$/i.test(stTag.tag) ? stTag.tag : "");
@@ -49,7 +49,7 @@ function replyForm(name) {
       <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断。</li></ul>`, "检测范围")}</div>
     <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复，点「检查下方文字」（只在本页检测，不保存）"></textarea>
     <div data-r="result" aria-live="polite"></div>
-    <h3 class="pa-h">标签 <small class="pa-dim">按预设分别保存，须与预设的输出格式一致</small></h3>
+    <h3 class="pa-h">标签 <small class="pa-dim" data-r="stamp">按预设自动保存，须与预设的输出格式一致</small></h3>
     <div class="pa-rtags">
     <label class="pa-field"><span>正文标签${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="content" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
     <label class="pa-field"><span>必需标签${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，填卡里的原标签名，几张卡的可一起填" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small><small class="pa-hint" data-r="unused" hidden></small></label>
@@ -104,10 +104,19 @@ function replyForm(name) {
     } else target.innerHTML = `<p class="pa-warn">${esc(e.message)}</p>`;
   };
   body.addEventListener("input", (e) => { if (e.target.dataset?.r) fieldError(e.target.dataset.r, ""); });
+  // 2.8.1 改动即保存：标签离开输入框时、勾选框点下时写入当前预设
+  const stamp = body.querySelector('[data-r="stamp"]'), stampText = stamp.textContent;
+  let stampTimer = 0;
   body.addEventListener("change", (e) => {
     const key = e.target.dataset?.r;
-    if (!["body", "required", "thinking"].includes(key)) return;
-    try { read(); } catch (err) { if (err.field === key) fieldError(key, err.message); }
+    if (!["body", "required", "thinking", "enabled", "autofix", "semantic"].includes(key)) return;
+    let value;
+    try { value = read(); } catch (err) { if (err.field) fieldError(err.field, err.message); return; }
+    saveReplyConfig(name, value);
+    onSaved?.();
+    stamp.textContent = "已保存";
+    clearTimeout(stampTimer);
+    stampTimer = setTimeout(() => { stamp.textContent = stampText; }, 1600);
   });
   // 2.8.2 填了但当前对话没用到的必需标签：写在输入框下面，检查、提醒、修正都跳过
   const unusedNote = body.querySelector('[data-r="unused"]');
@@ -217,17 +226,19 @@ function replyForm(name) {
   return { body, read, showError, dirty: () => raw() !== initialRaw, abort: () => reviewCancel?.abort() };
 }
 function saveReplyConfig(name, value) {
+  const prev = settings().replyGuard?.[name] || {};
   settings().replyGuard = { ...settings().replyGuard, [name]: value };
   saveSettings();
   clearReplyGuard();
+  // 只在「自动修正」「下一轮提醒」开关变化时提示
+  if (!!prev.autoFix === !!value.autoFix && !!prev.enabled === !!value.enabled) return;
   const on = [value.autoFix && "自动修正这条回复", value.enabled && "下一轮提醒 AI"].filter(Boolean);
-  toast(on.length ? `已开启：发现正文格式问题时，${on.join("，并")}` : "已保存正文格式检查设置，自动修正和提醒都未开启", "success");
+  toast(on.length ? `已开启：发现正文格式问题时，${on.join("，并")}` : "自动修正和提醒都已关闭", "success");
 }
 // 「回复」页：当前预设的正文格式检查、自动修正、语义审查
 function mountReply(page, { go } = {}) {
   page.innerHTML = `<div class="pa-toolbar"><div class="pa-picker-slot"></div></div>
-    <div class="pa-scroll pa-replypage"><div class="pa-replybox"></div></div>
-    <div class="pa-pagefoot"><button class="pa-btn pa-btn-primary" data-r="save">保存设置</button></div>`;
+    <div class="pa-scroll pa-replypage"><div class="pa-replybox"></div></div>`;
   const box = page.querySelector(".pa-replybox");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
   let form = null, shown = null, savedSig = "";
@@ -246,16 +257,9 @@ function mountReply(page, { go } = {}) {
       return;
     }
     savedSig = sigOf(name);
-    form = replyForm(name);
+    form = replyForm(name, { onSaved: () => { savedSig = sigOf(name); } });
     box.replaceChildren(form.body);
   }
-  page.querySelector('[data-r="save"]').addEventListener("click", () => {
-    if (!form) return;
-    let value;
-    try { value = form.read(); } catch (e) { return form.showError(e); }
-    saveReplyConfig(shown, value);
-    savedSig = sigOf(shown);
-  });
   const off = onDraftChange((name, kind) => {
     if (kind === "focus" && draftViewVisible(page)) render();
   });

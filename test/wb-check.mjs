@@ -119,7 +119,7 @@ assert.ok(await page.$(".pa-dst-list .pa-insert-mark"));
 await page.click('[data-st="clear"]'); await page.waitForTimeout(200);
 assert.ok(!(await page.$(".pa-dst-list .pa-insert-mark")), "取消后缝合位置标识消失");
 assert.equal(await page.$eval(".pa-picked-n", (x) => x.textContent), "未选条目");
-assert.ok(await page.$eval('[data-st="clear"]', (b) => b.disabled));
+assert.ok(await page.$eval('[data-st="clear"]', (b) => b.hidden), "没有可清的内容时不显示「清空」");
 assert.deepEqual(errs, []);
 console.log("世界书与搬到新版检查全部通过");
 await browser.close();

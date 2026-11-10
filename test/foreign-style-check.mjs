@@ -19,7 +19,7 @@ try {
   // 2.7.1 默认配色「素」的输入框本来就是白底，这里用跟随酒馆主题（深色）区分
   await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings; Object.assign(st.presetAtelier || (st.presetAtelier = {}), { theme: "follow", ui271: true }); window.__presetAtelier.open(); });
   await page.click('#pa-root [data-tool=search]');
-  const q = page.locator('#pa-root .pa-findrow .pa-input');
+  const q = page.locator('#pa-root [data-page=organize] .pa-findrow .pa-input');
   await q.waitFor();
   const look = (loc) => loc.evaluate((x) => { const s = getComputedStyle(x); return { radius: s.borderTopLeftRadius, margin: s.marginBottom, type: x.type, mode: x.inputMode, hint: x.enterKeyHint }; });
   const a = await look(q);
@@ -28,7 +28,7 @@ try {
   assert.equal(a.mode, 'search'); assert.equal(a.hint, 'search');
   assert.notEqual(await q.evaluate((x) => getComputedStyle(x).backgroundColor), 'rgb(255, 255, 255)', '搜索框底色是配色里的');
   const wrap = (sel) => page.locator(sel).evaluate((x) => { const s = getComputedStyle(x); return [s.backgroundColor, s.paddingBottom, s.borderTopWidth]; });
-  assert.deepEqual(await wrap('#pa-root .pa-findrow'), ['rgba(0, 0, 0, 0)', '0px', '0px'], '外面那层没有外来的底色、下边距');
+  assert.deepEqual(await wrap('#pa-root [data-page=organize] .pa-findrow'), ['rgba(0, 0, 0, 0)', '0px', '0px'], '外面那层没有外来的底色、下边距');
   ok('整理页搜索框不受别处按类型、类名、搜索键改的样式影响，键盘照样是搜索键');
 
   // 选预设的列表、选择模型的搜索框

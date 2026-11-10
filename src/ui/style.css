@@ -1919,3 +1919,95 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-suture.pa-sw { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
 #pa-root .pa-suture.pa-sw > .pa-splitter, #pa-root .pa-suture.pa-sw .pa-ft { display: none; }
 #pa-root .pa-suture.pa-sw[data-sw=src] > .pa-dst, #pa-root .pa-suture.pa-sw[data-sw=dst] > .pa-src { display: none; }
+/* =====================================================================
+   2.8.1 紧凑：行高、留白、控件高度一起收；同类卡片并成一组；无拖动手柄的行不贴左边
+   ===================================================================== */
+@media (pointer: coarse) { #pa-root { --pa-row-h: 44px; } #pa-root .pa-btn { min-height: 40px; } }
+@media (pointer: fine) { #pa-root { --pa-row-h: 38px; } }
+#pa-root .pa-btn { min-height: 38px; padding: 5px 13px; }
+#pa-root .pa-row-head .pa-head-btn, #pa-root .pa-btn-s { min-height: 34px; padding: 3px 11px; }
+#pa-root .pa-input, #pa-root .pa-select { min-height: 38px; padding: 6px 10px; }
+#pa-root .pa-seg button { min-height: 30px; }
+#pa-root .pa-h { margin: 16px 2px 6px; }
+#pa-root .pa-card { padding: 10px 12px; border-radius: 12px; }
+#pa-root .pa-scroll { padding-top: 8px; }
+
+/* 条目行：名称和标签同一行；第二行只在有角色、深度时出现 */
+#pa-root .pa-row .pa-namebox { padding: 3px 0; gap: 0; }
+#pa-root .pa-nameline { display: flex; align-items: center; gap: 6px; min-width: 0; }
+#pa-root .pa-nameline > .pa-name { flex: 0 1 auto; }
+#pa-root .pa-nameline > .pa-badges { max-width: 48%; }
+#pa-root .pa-meta { line-height: 18px; }
+#pa-root .pa-row:not(:has(> .pa-handle)) { padding-left: calc(12px + env(safe-area-inset-left)); }
+#pa-root .pa-gbody > .pa-row:not(:has(> .pa-handle)) { padding-left: calc(24px + env(safe-area-inset-left)); }
+#pa-root .pa-ghead:not(:has(> .pa-handle)) { padding-left: calc(4px + env(safe-area-inset-left)); }
+#pa-root .pa-ghead .pa-group-select, #pa-root .pa-ghead .pa-caret { width: 32px; height: 32px; }
+
+/* 缝合：栏头一行；搜索框在栏头下方 */
+#pa-root .pa-fromto { padding: 6px 8px 6px 12px; }
+#pa-root .pa-pane > .pa-qrow { display: flex; align-items: center; gap: 2px; padding: 0 6px 6px 12px; }
+#pa-root .pa-qrow .pa-input { flex: 1 1 auto; min-width: 0; min-height: 34px; padding: 4px 10px; }
+#pa-root .pa-qrow input::-webkit-search-cancel-button { display: none; }
+#pa-root .pa-qrow .pa-qx svg { width: 16px; height: 16px; }
+#pa-root .pa-stitchbar { padding-top: 6px; padding-bottom: 6px; gap: 6px; }
+#pa-root .pa-stitchbar .pa-btn { min-height: 38px; }
+#pa-root .pa-slot { min-height: 36px; }
+
+/* 回复页：检查按钮与粘贴框紧排，设置改动即保存 */
+#pa-root .pa-replyform { gap: 8px; }
+#pa-root .pa-replyform > .pa-h { margin: 10px 2px 0; }
+#pa-root .pa-rcheck .pa-btn { min-height: 36px; padding: 4px 12px; }
+#pa-root .pa-replyform textarea[data-r=sample] { min-height: 0; height: 4.6em; resize: vertical; }
+#pa-root .pa-rtags { gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+#pa-root .pa-rtags .pa-field > span { font-size: .86em; }
+#pa-root .pa-rautoset .pa-field-row { min-height: 34px; margin: 0; }
+#pa-root .pa-replyform [data-r=stamp] { transition: color .2s; }
+
+/* 同类卡片并成一组：思维链变量、方案页选项 */
+#pa-root .pa-cards { gap: 0; border: 1px solid var(--pa-line); border-radius: 12px; overflow: hidden; background: var(--pa-tint); }
+#pa-root .pa-cards > .pa-card { border: 0; border-radius: 0; border-bottom: 1px solid var(--pa-line); background: none; }
+#pa-root .pa-cards > .pa-card:last-child { border-bottom: 0; }
+#pa-root .pa-plan-opts { border: 1px solid var(--pa-line); border-radius: 12px; overflow: hidden; background: var(--pa-tint); }
+#pa-root .pa-plan-opts:empty { border: 0; }
+#pa-root .pa-plan-opts .pa-optgroup { margin: 0; border: 0; border-radius: 0; border-bottom: 1px solid var(--pa-line); }
+#pa-root .pa-plan-opts .pa-optgroup:last-child { border-bottom: 0; }
+#pa-root .pa-plan-opts .pa-sghead { min-height: 44px; padding: 4px 12px; background: none; }
+#pa-root .pa-plan-opts::before { content: none; }
+#pa-root .pa-plan-opts { margin-top: 14px; }
+#pa-root .pa-plan { padding-top: 10px; }
+#pa-root .pa-nowcard { padding: 10px 12px; margin-bottom: 10px; }
+#pa-root .pa-nowcard .pa-kv { gap: 4px 12px; margin-top: 6px; }
+#pa-root .pa-scheme-bar { margin-bottom: 6px; }
+#pa-root .pa-scheme-bar > * { order: 2; }
+#pa-root .pa-scheme-bar > .pa-sview { order: 0; }
+#pa-root .pa-scheme-bar > .pa-tip { order: 1; }
+#pa-root .pa-scheme-bar > .pa-head-btn { order: 3; }
+#pa-root .pa-scheme-bar > .pa-tip[open] { order: 9; flex-basis: 100%; }
+#pa-root .pa-plan-live .pa-live { padding: 10px 12px; margin-bottom: 12px; }
+#pa-root .pa-live-btns { margin-top: 8px; }
+#pa-root .pa-live-btns .pa-btn { min-height: 38px; }
+
+/* 清理、体检：摘要卡收紧 */
+#pa-root .pa-sum { padding: 10px 12px; margin: 2px 0 10px; }
+#pa-root .pa-sum::before { top: 15px; left: 12px; }
+#pa-root .pa-crow { padding: 9px 12px; }
+
+/* 体检「运行中的卡顿」：标题行带说明、清空；明细为两端对齐的行，放不下时数字换到下一行 */
+#pa-root .pa-jank-h { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 12px; margin: 16px 2px 6px; }
+#pa-root .pa-jank-h > .pa-h { flex: 1 1 auto; min-width: 0; margin: 0; }
+#pa-root .pa-jank-h > .pa-h small { font-weight: 400; font-size: .82em; margin-left: 4px; }
+#pa-root .pa-jank-h > .pa-tip[open] { order: 9; flex-basis: 100%; }
+#pa-root .pa-jank-h > .pa-link { font-size: .86em; }
+#pa-root .pa-jank { gap: 6px; }
+#pa-root .pa-jank > .pa-p, #pa-root .pa-jank > .pa-hint { margin: 0; overflow-wrap: anywhere; }
+#pa-root .pa-jank details > summary { padding: 4px 0; }
+#pa-root .pa-kvl { display: grid; margin: 2px 0 4px; font-size: .9em; }
+#pa-root .pa-kvl > div { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 10px; padding: 5px 0; border-bottom: 1px solid var(--pa-line); }
+#pa-root .pa-kvl > div:last-child { border-bottom: 0; }
+#pa-root .pa-kvl span { min-width: 0; overflow-wrap: anywhere; }
+#pa-root .pa-kvl em { margin-left: auto; font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; text-align: right; }
+#pa-root .pa-bgpanel { display: grid; gap: 8px; }
+#pa-root .pa-bgpanel .pa-card-act { margin: 0; justify-content: flex-start; }
+#pa-root .pa-varpage .pa-form, #pa-root .pa-varpage .pa-form > [data-vf=result] { display: grid; gap: 8px; }
+#pa-root .pa-varpage [data-vf=result] > .pa-p { margin: 4px 2px 0; }
+#pa-root :is(.pa-src-list, .pa-dst-list, .pa-list) > .pa-qsum { padding-left: calc(12px + env(safe-area-inset-left)); padding-right: calc(12px + env(safe-area-inset-right)); }

@@ -75,7 +75,7 @@ try {
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('已取消'));
   assert.equal(await page.locator('[data-r=ai-paste]').isEnabled(),true);
   await page.evaluate(()=>window.__auditMode='ok');
-  await page.check('[data-r=semantic]');await page.click(R('[data-r=save]'));await pause(page);
+  await page.check('[data-r=semantic]');await pause(page);
   await page.evaluate(async()=>{const c=window.SillyTavern.getContext();c.chat.push({is_user:true,mes:'测试'},{is_user:false,mes:'我需要先检查用户要求。正文。'});await c.eventSource.emit(c.eventTypes.GENERATION_STARTED,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_ENDED);});
   await page.waitForFunction(()=>window.__auditCalls.length===3);
   await goAi(page);await page.click('[data-r=ai-result]');

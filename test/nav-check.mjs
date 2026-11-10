@@ -52,15 +52,16 @@ const state = (page) => page.evaluate(() => {
   assert.equal(s.title, "检查"); assert.deepEqual(s.page, ["reply"]);
   assert.deepEqual(s.sub, ["回复*", "思维链", "变量"]);
   const rp = page.locator("[data-page=reply]");
-  for (const q of ['[data-r="latest"]', '[data-r="body"]', '[data-r="enabled"]', '[data-r="save"]']) assert.ok(await rp.locator(q).isVisible(), `回复单页显示 ${q}`);
+  for (const q of ['[data-r="latest"]', '[data-r="body"]', '[data-r="enabled"]']) assert.ok(await rp.locator(q).isVisible(), `回复单页显示 ${q}`);
   assert.equal(await rp.locator('[data-r="ai-latest"]').isVisible(), false, "AI 语义审查默认收起");
   await rp.locator("details.pa-rai > summary").click();
   assert.ok(await rp.locator('[data-r="ai-latest"]').isVisible(), "展开后显示 AI 语义审查");
   await page.fill('[data-page=reply] [data-r="body"]', "content");
-  await page.click('[data-page=reply] [data-r="save"]');
+  await page.locator('[data-page=reply] [data-r="body"]').dispatchEvent("change");
   await page.waitForTimeout(200);
+  assert.equal(await rp.locator('[data-r="save"]').count(), 0, "改动即保存，没有「保存设置」按钮");
   const saved = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard);
-  assert.ok(saved && Object.values(saved).some((v) => v.bodyTag === "content"), "回复页保存设置写入当前预设");
+  assert.ok(saved && Object.values(saved).some((v) => v.bodyTag === "content"), "离开输入框即写入当前预设");
   await page.screenshot({ path: S + "n-3-phone-reply.png" });
   ok("手机：检查 → 回复为单页，检查、标签、处理方式、语义审查同页");
 

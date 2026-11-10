@@ -81,6 +81,7 @@ function mountSuture(page, app) {
                 <button class="pa-icon-btn pa-qbtn" data-st="srcsearch" aria-label="搜索来源条目" title="搜索条目">${ICON.search}</button>
                 <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
             </div>
+            <div class="pa-findrow pa-qrow" data-qside="src" style="${BOX_STYLE.replace("padding:0!important;", "")}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="search" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组名、标签或正文" aria-label="搜索来源条目"><button type="button" class="pa-icon-btn pa-qx" data-qx="src" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
             <div class="pa-scroll pa-src-list"></div>
         </div>
         <div class="pa-splitter" role="separator" tabindex="0" aria-label="拖动调整两栏大小" title="拖动调整大小"><span></span></div>
@@ -91,6 +92,7 @@ function mountSuture(page, app) {
                 <div class="pa-dst-wbslot" hidden></div>
                 <button class="pa-icon-btn pa-qbtn" data-st="dstsearch" aria-label="搜索目标条目" title="搜索条目">${ICON.search}</button>
             </div>
+            <div class="pa-findrow pa-qrow" data-qside="dst" style="${BOX_STYLE.replace("padding:0!important;", "")}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="search" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组名、标签或正文" aria-label="搜索目标条目"><button type="button" class="pa-icon-btn pa-qx" data-qx="dst" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
             <div class="pa-scroll pa-dst-list"></div>
         </div>
     </div>
@@ -391,7 +393,7 @@ function mountSuture(page, app) {
   }
   srcList.addEventListener("click", async (e) => {
     const qa = e.target.closest("[data-act=qedit],[data-act=qclear],[data-act=qbody]")?.dataset.act;
-    if (qa === "qedit") return searchBox("src");
+    if (qa === "qedit") return qRow("src").querySelector("input").focus();
     if (qa === "qclear") { setQuery("src", ""); return saveSettings(); }
     if (qa === "qbody") { st.srcBody = !st.srcBody; return renderSrc(); }
     const kind = srcList.dataset.kind;
@@ -600,7 +602,7 @@ function mountSuture(page, app) {
   }
   dstList.addEventListener("click", (e) => {
     const qa = e.target.closest("[data-act=qedit],[data-act=qclear],[data-act=qbody]")?.dataset.act;
-    if (qa === "qedit") return searchBox("dst");
+    if (qa === "qedit") return qRow("dst").querySelector("input").focus();
     if (qa === "qclear") { setQuery("dst", ""); return saveSettings(); }
     if (qa === "qbody") { st.dstBody = !st.dstBody; return renderDst(); }
     if (st.dstType === "world") {
@@ -645,41 +647,48 @@ function mountSuture(page, app) {
     st.marker = m;
     renderDst();
   });
-  // ---- 🔍 搜索：点放大镜弹出输入框，边打边在「从」「到」的列表里筛出来（和整理页一样）；
-  // 搜的词存进设置，关掉弹窗、关掉面板后列表仍按它筛，点列表上方的「✕ 清除」或在弹窗里清空才恢复
+  // ---- 🔍 搜索：点放大镜在栏头下方展开输入框，边打边在「从」「到」的列表里筛出来（和预设页一样）；
+  // 搜的词存进设置，关掉面板后列表仍按它筛；点输入框右侧 ✕ 或再点放大镜清除
   const qStore = () => {
     if (!settings().sutureQuery || typeof settings().sutureQuery !== "object") settings().sutureQuery = {};
     return settings().sutureQuery;
   };
   const qKey = (side) => side === "src" ? (st.srcType === "world" ? "qSrcWb" : "qSrc") : (st.dstType === "world" ? "qDstWb" : "qDst");
   const qOf = (side) => String(qStore()[qKey(side)] || "").trim();
-  function qBar(side) {
-    const q = qOf(side);
-    return q ? `<div class="pa-qbar"><span>搜索「<b>${esc(q)}</b>」</span><button class="pa-link" data-act="qedit" type="button">改</button><button class="pa-link" data-act="qclear" type="button">✕ 清除</button></div>` : "";
-  }
+  const qRow = (side) => page.querySelector(`.pa-qrow[data-qside="${side}"]`);
+  const qOpen = { src: false, dst: false };
+  const qBar = () => "";
   function paintQBtns() {
-    page.querySelector('[data-st="srcsearch"]').classList.toggle("on", !!qOf("src"));
-    page.querySelector('[data-st="dstsearch"]').classList.toggle("on", !!qOf("dst"));
+    for (const side of ["src", "dst"]) {
+      const q = qOf(side), row = qRow(side), inp = row.querySelector("input");
+      const off = side === "src" && (st.srcType === "paste" || regexSource());
+      row.hidden = off || !(q || qOpen[side]);
+      if (document.activeElement !== inp && inp.value.trim() !== q) inp.value = q;
+      page.querySelector(`[data-st="${side}search"]`).classList.toggle("on", !row.hidden);
+    }
   }
   function setQuery(side, v) {
     qStore()[qKey(side)] = v;
     if (!v) st[side === "src" ? "srcBody" : "dstBody"] = false;
     side === "src" ? renderSrc() : renderDst();
   }
+  for (const side of ["src", "dst"]) {
+    const inp = qRow(side).querySelector("input");
+    onSearchInput(inp, () => setQuery(side, inp.value.trim()));
+    inp.addEventListener("change", () => saveSettings());
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); inp.blur(); } });
+    qRow(side).querySelector(".pa-qx").addEventListener("click", () => closeSearch(side));
+  }
+  function closeSearch(side) {
+    qOpen[side] = false;
+    qRow(side).querySelector("input").value = "";
+    if (qOf(side)) { setQuery(side, ""); saveSettings(); } else paintQBtns();
+  }
   function searchBox(side) {
-    const body = el(`<div class="pa-sfind" style="${BOX_STYLE}"><input class="pa-input pa-ss-q" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" placeholder="搜名称、分组名、标签或正文" autocapitalize="off" autocomplete="off">
-        <p class="pa-hint">边打边在${side === "src" ? "「从」" : "「到」"}的列表里筛出来。搜的词会一直留着，列表上方点「✕ 清除」恢复全部。</p></div>`);
-    const q = body.querySelector(".pa-ss-q");
-    q.value = qOf(side);
-    return sheet({ title: side === "src" ? "搜索来源条目" : "搜索目标条目", body, focusInput: true, actions: [{ label: "清空", value: "clear" }, { label: "完成", kind: "primary", value: "ok" }], onMount: (w) => {
-      onSearchInput(q, () => setQuery(side, q.value.trim()));
-      q.addEventListener("keydown", (e) => { if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); w.querySelector(".pa-sheet-actions .pa-btn-primary")?.click(); } });
-      w.addEventListener("pa-closed", () => saveSettings());
-    } }).then((r) => {
-      if (r === "clear") setQuery(side, "");
-      else setQuery(side, q.value.trim());
-      saveSettings();
-    });
+    if (!qRow(side).hidden) return closeSearch(side);
+    qOpen[side] = true;
+    paintQBtns();
+    qRow(side).querySelector("input").focus();
   }
   function searchSrc() { if (st.srcType !== "paste") return searchBox("src"); }
   function searchDst() { return searchBox("dst"); }
@@ -700,7 +709,7 @@ function mountSuture(page, app) {
     swbar.querySelector(".pa-sw-n").textContent = n ? ` ${n}` : "";
     swbar.querySelector(".pa-sw-pos").textContent = m ? " ✓" : "";
     if (layout() === "switch" && !(d && m) && n) bar.querySelector(".pa-where").textContent = "切到「到」，点组名或条目选位置";
-    bar.querySelector("[data-st=clear]").disabled = !(n || m);
+    bar.querySelector("[data-st=clear]").hidden = !(n || m);
     const undo = bar.querySelector("[data-st=wbundo]");
     undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
     if (!undo.hidden) undo.textContent = `撤销刚缝的 ${st.lastWb.uids.length} 条`;

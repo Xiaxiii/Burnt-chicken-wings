@@ -24,11 +24,11 @@ const loaf = await page.evaluate(() => PerformanceObserver.supportedEntryTypes.i
 if (loaf) {
   assert.match(text, /卡顿帧里耗时最多的是扩展「Fake-Heavy」（共 \d+ 毫秒）。/, text);
   assert.match(text, /可停用它对比/, text);
-  assert.match(text, /卡顿时在运行的脚本（按来源）\n扩展「Fake-Heavy」/, text);
+  assert.match(text, /卡顿时在运行的脚本\n扩展「Fake-Heavy」/, text);
   console.log("✓ 卡顿归到具体扩展：扩展「Fake-Heavy」");
 } else assert.match(text, /都没有在处理，原因在酒馆本身或其他扩展/, text);
 await page.locator("[data-page=health] .pa-jank summary", { hasText: "各项处理耗时" }).click();
-const own = await page.locator("[data-page=health] .pa-jank details", { hasText: "各项处理耗时" }).locator(".pa-rank").innerText();
+const own = await page.locator("[data-page=health] .pa-jank details", { hasText: "各项处理耗时" }).locator(".pa-kvl").innerText();
 assert.match(own, /事件：切换聊天/);
 assert.match(own, /显示页面：预设/);
 console.log("✓ 别的代码造成的卡顿被记录，不算在本扩展头上；本扩展各项处理有计时");
