@@ -135,8 +135,10 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
     if (!k.value) throw new Error("取不到当前连接的密钥");
     const r = await balQueryRaw(live, k.value);
     const list = balRecords(live);
-    list.push({ t: Date.now(), bal: r.bal, used: r.used, cur: r.cur, gen: gen || undefined, unl: r.unlimited || undefined });
+    const rec = { t: Date.now(), bal: r.bal, used: r.used, cur: r.cur, gen: gen || undefined, unl: r.unlimited || undefined };
+    list.push(rec);
     balSave(live, list);
+    balDeductManual(live, list[list.length - 2], rec);
     return r;
   } catch (e) {
     BAL.err = e.message || String(e);
@@ -146,6 +148,46 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
     BAL.busy = false;
     balEmit();
   }
+}
+// 2.8.5 手填余额：接口查不到账户余额（如不限额度的令牌）时，在站点上记下余额；
+// 之后每次查询到的用量从中扣除（同一站点的各个密钥共用这份余额）。只扣填写之后的用量
+function balSiteOf(live = liveConnection()) {
+  const url = (live.url || "").replace(/\/+$/, "");
+  return settings().sites.find((x) => x.source === live.source && (live.source !== "custom" || (x.url || "").replace(/\/+$/, "") === url)) || null;
+}
+function balDeductManual(live, prev, rec) {
+  const mb = balSiteOf(live)?.manualBalance;
+  if (!mb || !prev || prev.t < mb.at) return;
+  const spent = balSpent(prev, rec);
+  if (!(spent > 0)) return;
+  mb.amount = Math.round((mb.amount - spent) * 1e4) / 1e4;
+  saveSettings();
+}
+// 「50」「$50.5」「¥1,200」「30 元」「-1.2」→ { amount, cur }；格式不对返回 null
+function balParseAmount(text) {
+  const t = String(text || "").trim().replace(/[,，\s]/g, "").replace(/^[−–]/, "-");
+  const m = /^(-)?([$¥￥]|US\$)?(-)?(\d+(?:\.\d+)?)(元|块|CNY|RMB|USD|美元|刀)?$/i.exec(t);
+  if (!m) return null;
+  const yuan = /[¥￥]/.test(m[2] || "") || /元|块|CNY|RMB/i.test(m[5] || "");
+  return { amount: (m[1] || m[3] ? -1 : 1) * Number(m[4]), cur: yuan ? "¥" : "$" };
+}
+function balSetManual(site, text) {
+  if (!String(text || "").trim()) { delete site.manualBalance; saveSettings(); balEmit(); return true; }
+  const p = balParseAmount(text);
+  if (!p) return false;
+  site.manualBalance = { amount: p.amount, cur: p.cur, at: Date.now() };
+  saveSettings();
+  balEmit();
+  return true;
+}
+// 站点列表里显示的余额：手填的优先，其次这个站点（当前密钥）最近一次查到的余额
+function balSiteText(site) {
+  const mb = site.manualBalance;
+  if (mb) return fmtMoney(mb.amount, mb.cur);
+  const k = siteKey(site);
+  const rec = balRecords({ source: site.source, url: site.url, secretId: k?.secretId || null }).at(-1);
+  if (!rec) return "";
+  return rec.unl ? "不限额度" : rec.bal != null ? fmtMoney(rec.bal, rec.cur) : "";
 }
 // 两次记录之间的用量
 function balSpent(a, b) {
@@ -172,7 +214,10 @@ function balanceSummary(live = liveConnection()) {
   const now = Date.now();
   const lastRec = list[list.length - 1] || null;
   const prev = list[list.length - 2] || null;
+  const mb = balSiteOf(live)?.manualBalance || null;
   return {
+    manual: mb ? { amount: mb.amount, cur: mb.cur } : null,
+    site: balSiteOf(live),
     supported: balSupported(live.source),
     busy: BAL.busy,
     err: BAL.err,

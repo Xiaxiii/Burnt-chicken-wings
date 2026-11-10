@@ -49,8 +49,11 @@ const state = (page) => page.evaluate(() => {
 
   await page.click('.pa-tabs [data-nav="check"]');
   s = await state(page);
-  assert.equal(s.title, "检查"); assert.deepEqual(s.page, ["reply"]);
-  assert.deepEqual(s.sub, ["回复*", "思维链", "变量"]);
+  assert.equal(s.title, "检查"); assert.deepEqual(s.page, ["cot"]);
+  assert.deepEqual(s.sub, ["思维链*", "变量", "回复"], "先查预设本身，再查回复");
+  await page.click('.pa-subnav [data-tab="reply"]');
+  s = await state(page);
+  assert.deepEqual(s.page, ["reply"]);
   const rp = page.locator("[data-page=reply]");
   for (const q of ['[data-r="latest"]', '[data-r="body"]', '[data-r="enabled"]']) assert.ok(await rp.locator(q).isVisible(), `回复单页显示 ${q}`);
   assert.equal(await rp.locator('[data-r="ai-latest"]').isVisible(), false, "AI 语义审查默认收起");
@@ -67,7 +70,7 @@ const state = (page) => page.evaluate(() => {
 
   await page.click('.pa-subnav [data-tab="cot"]');
   s = await state(page);
-  assert.deepEqual(s.page, ["cot"]); assert.deepEqual(s.sub, ["回复", "思维链*", "变量"]);
+  assert.deepEqual(s.page, ["cot"]); assert.deepEqual(s.sub, ["思维链*", "变量", "回复"]);
   await page.click('.pa-subnav [data-tab="vars"]');
   s = await state(page);
   assert.deepEqual(s.page, ["vars"]);

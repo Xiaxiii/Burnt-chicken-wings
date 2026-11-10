@@ -34,6 +34,22 @@ function entryForm(p, { marker = false, promptOnly = false, hint = "" } = {}) {
           <div class="pa-edit-bar"><p class="pa-hint">写法：${esc(info)}</p><button type="button" class="pa-icon-btn pa-expand" data-f="expand" aria-label="展开正文" title="展开正文">${ICON.expand}</button></div>
           <textarea class="pa-input pa-text pa-edit-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
       </div>`);
+  // 2.8.5 正文框随内容增高，整个窗口一起滚动，不在框里单独滚
+  const ta = body.querySelector(".pa-edit-text");
+  if (ta) {
+    const fit = () => {
+      if (!ta.isConnected) return;
+      const box = ta.closest(".pa-sheet-body, .pa-editpane-body");
+      const top = box?.scrollTop;
+      ta.style.height = "auto";
+      ta.style.height = ta.scrollHeight + 2 + "px";
+      if (box && top != null) box.scrollTop = top;
+    };
+    ta.addEventListener("input", fit);
+    requestAnimationFrame(() => requestAnimationFrame(fit));
+    let lastW = 0;
+    new ResizeObserver((es) => { const w = Math.round(es[0].contentRect.width); if (w !== lastW) { lastW = w; requestAnimationFrame(fit); } }).observe(body);
+  }
   // 展开：正文占满弹窗（或编辑栏），其他设置先收起；再点一次恢复。触屏上不顺手聚焦，免得一展开就弹键盘
   body.querySelector("[data-f=expand]")?.addEventListener("click", (e) => {
     const sh = body.closest(".pa-sheet, .pa-editpane");
@@ -116,7 +132,7 @@ function mountOrganize(page) {
                 <button class="pa-link" data-sel="all">全选</button><button class="pa-btn pa-btn-s pa-selcancel" data-sel="none">取消</button></div>
             <div class="pa-selbar-btns">
                 <button class="pa-btn pa-btn-primary" data-sel="moveto">移动</button>
-                <button class="pa-btn" data-sel="newgroup">建成分组</button>
+                <button class="pa-btn pa-seltoggle" data-sel="on">开启</button>
                 <button class="pa-btn pa-btn-danger-soft" data-sel="delete">删除</button>
                 <button class="pa-btn" data-sel="more">更多</button>
             </div>
@@ -211,7 +227,18 @@ function mountOrganize(page) {
     const n = st.selected.size;
     selbar.hidden = n === 0;
     page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
+    if (!n) return;
+    const vis = visibleRows();
+    const allSel = vis.length && vis.every((id) => st.selected.has(id));
+    page.querySelector('[data-sel="all"]').textContent = allSel ? "取消全选" : "全选";
+    page.querySelector(".pa-selcancel").hidden = !!allSel;
+    // 所选全部开着时按钮为「关闭」，否则为「开启」
+    const allOn = [...st.selected].every((id) => d.order.find((o) => o.identifier === id)?.enabled !== false);
+    const tg = page.querySelector(".pa-seltoggle");
+    tg.dataset.sel = allOn ? "off" : "on";
+    tg.textContent = allOn ? "关闭" : "开启";
   }
+  const visibleRows = () => [...list.querySelectorAll(".pa-row[data-id]")].filter((r) => !r.closest(".pa-collapsed")).map((r) => r.dataset.id);
   const ordered = () => {
     const d = draft();
     return settings().keepClickOrder ? [...st.selected] : d.sortByOrder([...st.selected]);
@@ -420,18 +447,17 @@ function mountOrganize(page) {
       return paintSel();
     }
     if (a === "all") {
-      // 只选看得见的：折叠分组里的条目不选，免得接着「关闭」「删除」动到看不见的条目
-      list.querySelectorAll(".pa-row").forEach((r) => {
-        if (!r.closest(".pa-collapsed")) st.selected.add(r.dataset.id);
-      });
+      // 只选看得见的：折叠分组里的条目不选，免得接着「关闭」「删除」动到看不见的条目；已全选时再点为取消全选
+      const vis = visibleRows();
+      if (vis.length && vis.every((id) => st.selected.has(id))) st.selected.clear();
+      else vis.forEach((id) => st.selected.add(id));
       return paintSel();
     }
     if (a === "more") {
       const v = await pickBox(`已选 ${ids.length} 条`, [
+        { label: "建成分组…", value: "newgroup" },
         { label: "移入分组…", value: "intogroup" },
         { label: "移出分组", value: "ungroup" },
-        { label: "全部开启", value: "on" },
-        { label: "全部关闭", value: "off" },
         { label: "复制", sub: "每条的副本放在原条目后面", value: "copy" },
         { label: "按变量名排序…", sub: "按条目登记的变量名（如 文风1、文风2）分类，类别内按编号排", value: "sorttags" }
       ]);
@@ -476,7 +502,7 @@ function mountOrganize(page) {
     }
     if (a === "on" || a === "off") {
       mutate(d, a === "on" ? "批量开启" : "批量关闭", (x) => x.setEnabled(ids, a === "on"));
-      return;
+      return paintSel();
     }
     if (a === "copy") {
       if (ids.some((id) => d.isMarker(id))) return toast("系统位置条目（如聊天记录、角色描述）不能复制", "warning");

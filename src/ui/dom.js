@@ -304,5 +304,14 @@ function bindWhy(box) {
 }
 function tip(inner, label = "说明") {
   if (!String(inner || "").trim()) return "";
-  return `<details class="pa-tip"><summary>${INFO_ICON}${esc(label)}</summary><div class="pa-tip-body">${inner}</div></details>`;
+  // 2.8.5 按钮留在原位，说明在所在行下方展开（行内为弹性布局时排到最后、占满整行）
+  return `<button type="button" class="pa-tip" data-tip aria-expanded="false">${INFO_ICON}${esc(label)}</button><div class="pa-tip-body" hidden>${inner}</div>`;
 }
+if (typeof document !== "undefined") document.addEventListener("click", (e) => {
+  const b = e.target.closest?.(".pa-tip[data-tip]");
+  const body = b?.nextElementSibling;
+  if (!body?.classList.contains("pa-tip-body")) return;
+  const on = body.hidden;
+  body.hidden = !on;
+  b.setAttribute("aria-expanded", String(on));
+});

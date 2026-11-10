@@ -42,7 +42,8 @@ console.log("before", JSON.stringify(await groups()));
 await page.locator(".pa-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(200);
 await page.locator(".pa-list .pa-group").first().locator(".pa-row").nth(0).click();
 await page.locator(".pa-list .pa-group").first().locator(".pa-row").nth(1).click();
-await page.click('[data-sel="newgroup"]'); await page.waitForTimeout(300);
+await page.click('[data-sel="more"]'); await page.waitForTimeout(200);
+await page.click(".pa-pick-item >> text=建成分组"); await page.waitForTimeout(300);
 await page.fill(".pa-sheet input.pa-input", "新组测试"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(2500);
 check((await groups()).includes("新组测试"), "建成分组后保存仍在");
 // 缝合页：新建空白分组

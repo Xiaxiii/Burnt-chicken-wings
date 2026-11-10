@@ -1,4 +1,4 @@
-// 编辑条目：弹窗占 80% 高度，正文框占满剩余空间；展开按钮让正文占满整屏，再点恢复
+// 编辑条目：弹窗占 80% 高度，正文框随内容增高、整个窗口一起滚动（2.8.5）；展开按钮让正文占满整屏，再点恢复
 import { chromium } from "playwright";
 import assert from "node:assert";
 const S = new URL("./shots/", import.meta.url).pathname;
@@ -18,8 +18,15 @@ await page.waitForTimeout(400);
 const box = async (sel) => page.locator(sel).boundingBox();
 const sh = await box(".pa-sheet-edit");
 assert.ok(sh && sh.height >= 844 * 0.78, `弹窗高度约 80%：${sh?.height}`);
+const fits = () => page.evaluate(() => { const t = document.querySelector(".pa-sheet-edit .pa-edit-text"); return t.scrollHeight <= t.clientHeight + 2; });
+assert.ok(await fits(), "正文框不在框里单独滚动");
+await page.fill(".pa-sheet [data-f=content]", Array.from({ length: 80 }, (_, i) => `第 ${i + 1} 行`).join("\n")); await page.waitForTimeout(150);
+assert.ok(await fits(), "内容变长时正文框跟着增高");
+const scrolls = await page.evaluate(() => { const b = document.querySelector(".pa-sheet-edit .pa-sheet-body"); b.scrollTop = 99999; return b.scrollTop > 200; });
+assert.ok(scrolls, "整个窗口可以往下滚");
+await page.evaluate(() => { document.querySelector(".pa-sheet-edit .pa-sheet-body").scrollTop = 0; });
+await page.fill(".pa-sheet [data-f=content]", "短正文"); await page.waitForTimeout(150);
 const ta = await box(".pa-sheet-edit .pa-edit-text");
-assert.ok(ta.height > 844 * 0.3, `正文框占满剩余高度：${ta.height}`);
 await page.screenshot({ path: S + "e-1-edit.png" });
 await page.click(".pa-expand"); await page.waitForTimeout(250);
 const full = await box(".pa-sheet-edit .pa-edit-text");

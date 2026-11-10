@@ -52,10 +52,9 @@ try {
   txt = await page.locator('.pa-bal').innerText();
   assert.match(txt, /上一轮\s*\$0\.180/);
   assert.match(txt, /近 24 小时\s*\$0\.300/);
-  assert.match(txt, /近 48 小时\s*\$0\.300/);
-  assert.match(txt, /记录自/, '记录不满 48 小时时注明起点');
+  assert.doesNotMatch(txt, /48 小时/, '只列上一轮和近 24 小时');
   await page.screenshot({ path: new URL('./shots/v280-balance.png', import.meta.url).pathname });
-  ok('余额：总余额、上一轮、近 24/48 小时用量；生成结束自动查询');
+  ok('余额：当前余额、上一轮、近 24 小时用量；生成结束自动查询');
 
   // 跨域失败给出原因
   await page.route('https://example.com/v1/dashboard/billing/subscription', (r) => r.abort('failed'));
