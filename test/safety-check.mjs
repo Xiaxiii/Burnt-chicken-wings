@@ -122,9 +122,9 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   const id = await row.getAttribute("data-id");
   const content0 = await page.evaluate((id) => window.__mock.live.prompts.find((p) => p.identifier === id)?.content, id);
   await row.locator("[data-act=peek]").click(); await page.waitForTimeout(200);
-  await page.fill(".pa-sheet [data-f=content]", "随便改改");
+  await page.fill(".pa-editpane [data-f=content]", "随便改改");
   await page.waitForTimeout(600);
-  await page.click(".pa-sheet-actions >> text=取消"); await page.waitForTimeout(600);
+  await page.click('.pa-editpane [data-ep="close"]'); await page.waitForTimeout(600);
   const content1 = await page.evaluate((id) => window.__mock.live.prompts.find((p) => p.identifier === id)?.content, id);
   assert.equal(content1, content0, "取消后正文不变");
   ok("编辑条目点取消不改动");

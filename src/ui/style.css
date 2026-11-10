@@ -1745,3 +1745,37 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-site-on, #pa-root .pa-scheme-on { border-color: var(--pa-line-strong, var(--pa-line)); }
 #pa-root .pa-swpill { border-color: var(--pa-line-strong, var(--pa-line)); background: var(--pa-tint); color: var(--pa-text); font-weight: 500; letter-spacing: 0; height: 30px; }
 #pa-root .pa-site-on-chip { background: var(--pa-sel); color: var(--pa-info, var(--pa-thread)); font-weight: 600; }
+
+/* 2.7.2 条目行：拖动手柄在最左，开关在最右（只调显示顺序，不改结构） */
+#pa-root .pa-row > .pa-handle, #pa-root .pa-ghead > .pa-handle { order: -2; }
+#pa-root .pa-row > .pa-check, #pa-root .pa-ghead > .pa-group-select, #pa-root .pa-ghead > .pa-caret { order: -1; }
+#pa-root .pa-row > .pa-switch, #pa-root .pa-ghead > .pa-switch { order: 1; }
+#pa-root .pa-row { padding-left: calc(2px + env(safe-area-inset-left)); padding-right: calc(8px + env(safe-area-inset-right)); }
+#pa-root .pa-gbody > .pa-row { padding-left: calc(14px + env(safe-area-inset-left)); }
+#pa-root .pa-ghead { padding-left: calc(2px + env(safe-area-inset-left)); padding-right: calc(8px + env(safe-area-inset-right)); }
+#pa-root .pa-row > .pa-handle { width: 34px; }
+#pa-root .pa-ghead > .pa-handle { width: 34px; }
+#pa-root .pa-row.pa-editing { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-info, var(--pa-thread)); }
+
+/* 2.7.2 宽屏编辑栏：列表在左，编辑在右，保存前不写入 */
+#pa-root .pa-editpane[hidden] { display: none; }
+@media (min-width: 1000px) {
+    #pa-root [data-page="organize"].pa-edit-open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 44%); grid-template-rows: auto auto minmax(0, 1fr) auto; }
+    #pa-root [data-page="organize"].pa-edit-open > .pa-toolbar { grid-column: 1; grid-row: 1; }
+    #pa-root [data-page="organize"].pa-edit-open > .pa-movebar { grid-column: 1; grid-row: 2; }
+    #pa-root [data-page="organize"].pa-edit-open > .pa-list { grid-column: 1; grid-row: 3; }
+    #pa-root [data-page="organize"].pa-edit-open > .pa-selbar { grid-column: 1; grid-row: 4; }
+    #pa-root .pa-editpane { grid-column: 2; grid-row: 1 / -1; display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--pa-line); background: var(--pa-tint); }
+}
+@media (max-width: 999px) { #pa-root .pa-editpane { display: none; } }
+#pa-root .pa-editpane-head { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 8px 6px 16px; border-bottom: 1px solid var(--pa-line); }
+#pa-root .pa-editpane-head b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 1.05em; }
+#pa-root .pa-editpane-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px; display: flex; flex-direction: column; }
+#pa-root .pa-editpane-body > .pa-form { flex: 1 1 auto; display: flex; flex-direction: column; }
+#pa-root .pa-editpane .pa-edit-text { flex: 1 1 auto; min-height: 280px; }
+#pa-root .pa-editpane-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--pa-line); }
+#pa-root .pa-editpane.pa-sheet-max { position: fixed; inset: 0; z-index: 5; height: auto; max-height: none; border-radius: 0; }
+#pa-root .pa-editpane.pa-sheet-max .pa-form > .pa-field, #pa-root .pa-editpane.pa-sheet-max .pa-item-ctl, #pa-root .pa-editpane.pa-sheet-max .pa-edit-where { display: none; }
+/* 编辑栏打开时列表变窄：工具按钮收进「＋」「⋯」 */
+#pa-root [data-page="organize"].pa-edit-open .pa-tools { display: none; }
+#pa-root [data-page="organize"].pa-edit-open .pa-tools-more { display: inline-flex; }

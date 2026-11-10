@@ -16,9 +16,9 @@ var NAV = [
   ["suture", "缝合", "tool"], ["clean", "清理", "tool"], ["health", "体检", "tool"], ["look", "设置", "tool"]
 ];
 // 各页面所属栏目；「预设」「更多」在页头下方分页
-var SECTION_OF = { organize: "preset", cot: "preset", schemes: "schemes", conn: "conn", reply: "reply", suture: "more", clean: "more", health: "more", look: "more" };
-var SUBNAV = { preset: [["organize", "条目"], ["cot", "思维链"]], more: [["suture", "缝合"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
-var PAGE_TITLE = { organize: "预设", cot: "预设", schemes: "方案", conn: "连接", reply: "回复", suture: "缝合", clean: "清理", health: "体检", look: "设置" };
+var SECTION_OF = { organize: "preset", cot: "preset", vars: "preset", schemes: "schemes", conn: "conn", reply: "reply", suture: "more", clean: "more", health: "more", look: "more" };
+var SUBNAV = { preset: [["organize", "条目"], ["cot", "思维链"], ["vars", "变量"]], more: [["suture", "缝合"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
+var PAGE_TITLE = { organize: "预设", cot: "预设", vars: "预设", schemes: "方案", conn: "连接", reply: "回复", suture: "缝合", clean: "清理", health: "体检", look: "设置" };
 var navSvg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${NAV_ICON[k]}</svg>`;
 var rootEl2;
 var pages = {};
@@ -110,6 +110,7 @@ function buildRoot() {
   pages = {
     organize: mountOrganize(pageEl("organize"), app),
     cot: mountCot(pageEl("cot"), app),
+    vars: mountVariables(pageEl("vars")),
     schemes: plan.schemes,
     conn: plan.conn,
     reply: mountReply(pageEl("reply")),

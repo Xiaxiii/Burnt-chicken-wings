@@ -37,15 +37,20 @@ const state = (page) => page.evaluate(() => {
   assert.deepEqual(s.nav, ["预设", "方案", "连接", "回复", "更多"]);
   assert.deepEqual(s.navOn, ["预设"]);
   assert.equal(s.title, "预设");
-  assert.deepEqual(s.sub, ["条目*", "思维链"]);
+  assert.deepEqual(s.sub, ["条目*", "思维链", "变量"]);
   assert.deepEqual(s.page, ["organize"]);
   await page.screenshot({ path: S + "n-1-phone-preset.png" });
-  ok("手机：底部五栏，预设下分条目、思维链");
+  ok("手机：底部五栏，预设下分条目、思维链、变量");
 
   await page.click('.pa-subnav [data-tab="cot"]');
   s = await state(page);
   assert.deepEqual(s.page, ["cot"]);
-  assert.deepEqual(s.sub, ["条目", "思维链*"]);
+  assert.deepEqual(s.sub, ["条目", "思维链*", "变量"]);
+  await page.click('.pa-subnav [data-tab="vars"]');
+  s = await state(page);
+  assert.deepEqual(s.page, ["vars"]);
+  assert.ok(await page.locator('[data-page=vars] [data-vf="refresh"]').isVisible(), "变量页直接显示顺序检查");
+  await page.click('.pa-subnav [data-tab="cot"]');
   await page.click('.pa-tabs [data-nav="schemes"]');
   s = await state(page);
   assert.equal(s.title, "方案"); assert.deepEqual(s.page, ["schemes"]); assert.deepEqual(s.sub, []);
@@ -120,15 +125,32 @@ for (const [w, h] of [[1280, 800], [1024, 768]]) {
   assert.deepEqual(s.nav, ["预设", "方案", "连接", "回复", "缝合", "清理", "体检", "设置"]);
   const side = await page.evaluate(() => document.querySelector(".pa-tabs").getBoundingClientRect().toJSON());
   assert.ok(side.left === 0 && side.width > 180 && side.width < 260 && side.height > h - 60, "左侧栏贴左、全高");
-  assert.deepEqual(s.sub, ["条目*", "思维链"]);
+  assert.deepEqual(s.sub, ["条目*", "思维链", "变量"]);
   await page.click('.pa-tabs [data-nav="clean"]');
   s = await state(page);
   assert.equal(s.title, "清理"); assert.deepEqual(s.page, ["clean"]); assert.deepEqual(s.sub, [], "宽屏不显示「更多」的分页");
   assert.deepEqual(s.navOn, ["清理"]);
   await page.screenshot({ path: S + `n-5-wide-${w}-clean.png` });
   await page.click('.pa-tabs [data-nav="preset"]');
+  // 宽屏编辑栏：点条目的查看按钮，在右侧编辑；保存写入草稿
+  const row = page.locator("[data-page=organize] .pa-loose .pa-row, [data-page=organize] .pa-gbody .pa-row").first();
+  const id = await row.getAttribute("data-id");
+  await row.locator('[data-act="peek"]').click();
+  await page.waitForTimeout(200);
+  assert.ok(await page.locator("[data-page=organize] .pa-editpane").isVisible(), "宽屏在右侧打开编辑栏");
+  assert.equal(await page.locator(".pa-sheet-mask:not(.pa-out)").count(), 0, "宽屏不弹窗");
+  const pb = await page.evaluate(() => ({ list: document.querySelector("[data-page=organize] .pa-list").getBoundingClientRect().toJSON(), pane: document.querySelector("[data-page=organize] .pa-editpane").getBoundingClientRect().toJSON() }));
+  assert.ok(pb.pane.left >= pb.list.right - 1 && pb.list.width > 300, "列表在左、编辑栏在右");
+  await page.fill("[data-page=organize] .pa-editpane [data-f=name]", "编辑栏改名");
+  await page.click('[data-page=organize] .pa-editpane [data-ep="save"]');
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator(`[data-page=organize] .pa-row[data-id="${id}"] .pa-name`).textContent(), "编辑栏改名");
+  assert.ok(await page.locator(`[data-page=organize] .pa-row[data-id="${id}"].pa-editing`).count(), "编辑中的条目高亮");
   await page.screenshot({ path: S + `n-6-wide-${w}-preset.png` });
-  ok(`宽屏 ${w}：左侧栏分工作、工具两组`);
+  await page.click('[data-page=organize] .pa-editpane [data-ep="close"]');
+  assert.equal(await page.locator("[data-page=organize] .pa-editpane").isVisible(), false);
+  await page.click('.pa-savebar [data-g="undo"]').catch(() => {});
+  ok(`宽屏 ${w}：左侧栏分工作、工具两组；条目在右侧编辑栏编辑`);
   assert.deepEqual(errs, []);
   await page.close();
 }

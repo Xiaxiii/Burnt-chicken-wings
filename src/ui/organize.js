@@ -16,7 +16,8 @@ function dupBannerHtml(d, dups) {
 }
 // 编辑条目弹窗（整理页、缝合页共用）。打开时不把光标放进输入框：手机上点了正文才弹键盘。
 // promptOnly：世界书条目只有名称和正文。返回填写的值，取消返回 null；由调用方决定写到哪里
-async function editEntrySheet(p, { marker = false, promptOnly = false, hint = "", title = "编辑条目" } = {}) {
+// 2.7.2 表单拆出来：手机用弹窗，宽屏整理页用右侧编辑栏
+function entryForm(p, { marker = false, promptOnly = false, hint = "" } = {}) {
   const s = detectShape(p.content);
   const info = s.shape === "wrap" || s.shape === "tagname" ? `${SHAPE_LABEL[s.shape]}「${s.varName}」` : SHAPE_LABEL[s.shape];
   const depthPos = p.injection_position === 1;
@@ -33,9 +34,9 @@ async function editEntrySheet(p, { marker = false, promptOnly = false, hint = ""
           <div class="pa-edit-bar"><p class="pa-hint">写法：${esc(info)}</p><button type="button" class="pa-icon-btn pa-expand" data-f="expand" aria-label="展开正文" title="展开正文">${ICON.expand}</button></div>
           <textarea class="pa-input pa-text pa-edit-text" data-f="content" spellcheck="false">${esc(p.content || "")}</textarea>`}
       </div>`);
-  // 展开：正文占满弹窗，其他设置先收起；再点一次恢复。触屏上不顺手聚焦，免得一展开就弹键盘
+  // 展开：正文占满弹窗（或编辑栏），其他设置先收起；再点一次恢复。触屏上不顺手聚焦，免得一展开就弹键盘
   body.querySelector("[data-f=expand]")?.addEventListener("click", (e) => {
-    const sh = body.closest(".pa-sheet");
+    const sh = body.closest(".pa-sheet, .pa-editpane");
     const on = !sh.classList.contains("pa-sheet-max");
     sh.classList.toggle("pa-sheet-max", on);
     e.currentTarget.innerHTML = on ? ICON.collapse : ICON.expand;
@@ -46,14 +47,20 @@ async function editEntrySheet(p, { marker = false, promptOnly = false, hint = ""
   body.querySelector("[data-f=pos]")?.addEventListener("change", (e) => {
     body.querySelectorAll("[data-show=depth]").forEach((x) => { x.hidden = e.target.value !== "1"; });
   });
-  // 输入时不保存；点「保存」才写入，点「取消」或 ✕ 不改动
+  const read = () => {
+    const v = (k) => body.querySelector(`[data-f=${k}]`)?.value;
+    return { name: v("name"), content: v("content"), role: v("role"), pos: v("pos"), depth: v("depth"), order: v("order") };
+  };
+  const initial = JSON.stringify(read());
+  return { body, read, dirty: () => JSON.stringify(read()) !== initial };
+}
+// 编辑条目弹窗（整理页、缝合页共用）。输入时不保存；点「保存」才写入，点「取消」或 ✕ 不改动
+async function editEntrySheet(p, { marker = false, promptOnly = false, hint = "", title = "编辑条目" } = {}) {
+  const f = entryForm(p, { marker, promptOnly, hint });
   return sheet({
-    title, body, wide: true, noFocus: true,
+    title, body: f.body, wide: true, noFocus: true,
     onMount: (w) => { if (!marker) w.querySelector(".pa-sheet").classList.add("pa-sheet-edit"); },
-    actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => {
-      const v = (k) => w.querySelector(`[data-f=${k}]`)?.value;
-      return { name: v("name"), content: v("content"), role: v("role"), pos: v("pos"), depth: v("depth"), order: v("order") };
-    } }]
+    actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: f.read }]
   });
 }
 // 把弹窗填的值换成条目字段；只返回有变化的部分（没有变化返回 null）
@@ -113,7 +120,8 @@ function mountOrganize(page) {
                 <button class="pa-btn pa-btn-danger-soft" data-sel="delete">删除</button>
                 <button class="pa-btn" data-sel="more">更多</button>
             </div>
-        </div>`;
+        </div>
+        <aside class="pa-editpane" aria-label="编辑条目" hidden></aside>`;
   const list = page.querySelector(".pa-list");
   const selbar = page.querySelector(".pa-selbar");
   const movebar = page.querySelector(".pa-movebar");
@@ -165,6 +173,8 @@ function mountOrganize(page) {
     const repairBanner = fragments.length ? `<div class="pa-card pa-group-repair"><p><b>检测到 ${fragments.length} 个分区被拆成多段</b></p><small>${esc(fragments.slice(0, 4).map((g) => `${g.name}（${g.parts} 段）`).join("、"))}${fragments.length > 4 ? " 等" : ""}。可以按已有归属收拢到各组首段，先预览再应用。</small><div class="pa-card-act"><button class="pa-btn pa-btn-s" data-repair-groups>归整分区</button></div></div>` : "";
     list.innerHTML = dupBanner + repairBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight });
     list.scrollTop = top;
+    if (pane.id && (pane.preset !== d.name || !d.prompt(pane.id) || !wideEdit())) closePane();
+    else markPaneRow();
     list.classList.toggle("pa-placing", placing);
     const n = st.selected.size;
     selbar.hidden = n === 0 || placing;
@@ -556,9 +566,60 @@ function mountOrganize(page) {
     render();
     return peek(getDraft(d.name), id);
   }
+  // 2.7.2 宽屏（≥1000px）在右侧编辑栏里编辑，列表不被遮住；手机仍用弹窗
+  const paneEl = page.querySelector(".pa-editpane");
+  let pane = { id: null, preset: null, form: null };
+  const wideEdit = () => matchMedia("(min-width: 1000px)").matches;
+  function markPaneRow() {
+    list.querySelectorAll(".pa-row.pa-editing").forEach((r) => r.classList.remove("pa-editing"));
+    if (pane.id) list.querySelector(`.pa-row[data-id="${CSS.escape(pane.id)}"]`)?.classList.add("pa-editing");
+  }
+  function closePane() {
+    pane = { id: null, preset: null, form: null };
+    paneEl.hidden = true;
+    paneEl.replaceChildren();
+    page.classList.remove("pa-edit-open");
+    markPaneRow();
+  }
+  async function openPane(d, id, { force = false } = {}) {
+    if (!force && pane.form?.dirty() && pane.id !== id && !await confirmBox("放弃未保存的修改", `「${paneEl.querySelector(".pa-editpane-head b")?.textContent || ""}」的修改尚未保存。`, "放弃修改")) return;
+    const p = d.prompt(id);
+    if (!p) return closePane();
+    const form = entryForm(p, { marker: d.isMarker(id) });
+    pane = { id, preset: d.name, form };
+    paneEl.innerHTML = `<div class="pa-editpane-head"><b></b><button class="pa-icon-btn" data-ep="close" aria-label="关闭编辑栏" title="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="pa-editpane-body"></div>
+      <div class="pa-editpane-foot"><button class="pa-btn" data-ep="close">取消</button><button class="pa-btn pa-btn-primary" data-ep="save">保存</button></div>`;
+    paneEl.querySelector(".pa-editpane-head b").textContent = p.name || id;
+    paneEl.querySelector(".pa-editpane-body").append(form.body);
+    paneEl.hidden = false;
+    page.classList.add("pa-edit-open");
+    markPaneRow();
+  }
+  function savePane() {
+    const dd = getDraft(pane.preset);
+    const cur = dd?.prompt(pane.id);
+    if (!cur) {
+      toast("条目已不存在，未保存", "warning");
+      return closePane();
+    }
+    const next = entryChanges(cur, pane.form.read());
+    if (next) {
+      const id = pane.id;
+      mutate(dd, "编辑条目", (x) => Object.assign(x.prompt(id), next));
+      toast("已保存", "success");
+    }
+    openPane(getDraft(pane.preset), pane.id, { force: true });
+  }
+  paneEl.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-ep]")?.dataset.ep;
+    if (a === "close") closePane();
+    else if (a === "save") savePane();
+  });
   async function peek(d, id) {
     const p = d.prompt(id);
     if (!p) return;
+    if (wideEdit()) return openPane(d, id);
     const r = await editEntrySheet(p, { marker: d.isMarker(id) });
     if (!r) return;
     // 弹窗开着时草稿可能被换过（切换预设、别处修改），按名称重新取

@@ -1,4 +1,5 @@
-async function variableAuditDialog(d) {
+// 2.7.2 内容拆出来：「预设 → 变量」页直接显示，思维链页的「变量」按钮仍以弹窗打开
+function variableForm(d) {
   let snapshot = null;
   const body = el(`<div class="pa-form">
     <p class="pa-hint">按「${esc(d.name)}」的预设列表顺序检查先读后写、清空后读取和未读即覆盖。这里只做风险检查，不移动条目、不执行宏。酒馆可能重排提示词；脚本、条件、深度插入、对象/数组键和其他扩展变量需另行核对。</p>
@@ -43,5 +44,34 @@ async function variableAuditDialog(d) {
     saveSettings(); render();
   });
   render();
-  await sheet({ title: "变量顺序与现状", body, wide: true, noFocus: true, actions: [{ label: "关闭", value: true }] });
+  return { body, render, name: d.name };
+}
+async function variableAuditDialog(d) {
+  const f = variableForm(d);
+  await sheet({ title: "变量顺序与现状", body: f.body, wide: true, noFocus: true, actions: [{ label: "关闭", value: true }] });
+}
+function mountVariables(page) {
+  page.innerHTML = '<div class="pa-toolbar"><div class="pa-picker-slot"></div></div><div class="pa-scroll pa-varpage"></div>';
+  const box = page.querySelector(".pa-varpage");
+  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
+  let form = null, shownDraft = null;
+  function render() {
+    const name = focusPreset();
+    picker.set(name);
+    let d;
+    try { d = name && getDraft(name); } catch (e) { d = null; }
+    if (!d) {
+      form = shownDraft = null;
+      box.innerHTML = '<p class="pa-empty">酒馆尚未选择预设。</p>';
+      return;
+    }
+    if (form && shownDraft === d) return form.render();
+    shownDraft = d;
+    form = variableForm(d);
+    box.replaceChildren(form.body);
+  }
+  const off = onDraftChange((name, kind) => {
+    if (draftViewVisible(page) && (kind === "focus" || name === focusPreset())) render();
+  });
+  return { render: () => { picker.refresh(); render(); }, destroy: off };
 }
