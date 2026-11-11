@@ -641,7 +641,7 @@ function mountSuture(page, app) {
       toggleOpen(d, st.dstFoldKey, gid, true);
       st.marker = { at: "gstart", gid };
       renderDst();
-      dstList.querySelector(`.pa-group[data-gid="${CSS.escape(gid)}"]`)?.scrollIntoView({ block: "center" });
+      scrollToView(dstList.querySelector(`.pa-group[data-gid="${CSS.escape(gid)}"]`));
       return;
     }
     st.marker = m;
@@ -1217,7 +1217,7 @@ function mountSuture(page, app) {
     st.highlight = new Set(newIds);
     renderSrc();
     renderDst();
-    dstList.querySelector(".pa-flash")?.scrollIntoView({ block: "center" });
+    scrollToView(dstList.querySelector(".pa-flash"));
     setTimeout(() => {
       st.highlight = null;
     }, 1500);
@@ -1369,7 +1369,7 @@ function mountSuture(page, app) {
       toast(`已缝合 ${uids.length} 条到世界书「${d.name}」`, "success");
       renderSrc();
       await renderDst();
-      dstList.querySelector(".pa-flash")?.scrollIntoView({ block: "center" });
+      scrollToView(dstList.querySelector(".pa-flash"));
       setTimeout(() => { st.highlight = null; }, 1500);
     } catch (e) {
       toast("写入世界书失败：" + e.message, "error");

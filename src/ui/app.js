@@ -747,7 +747,7 @@ function chatInfoToast(scheme) {
     const preset = currentPresetName() || "（未选预设）";
     const model = liveConnection().model || "（未选模型）";
     const msg = `模型：${model}${scheme ? `\n方案：${scheme.name}` : ""}`;
-    if (t?.info) t.info(msg, `预设：${preset}`, { timeOut: 3e3, extendedTimeOut: 1e3, preventDuplicates: false, toastClass: "toast pa-chat-toast", escapeHtml: true, tapToDismiss: true });
+    if (t?.info) tapToClose(t, t.info(msg, `预设：${preset}`, { timeOut: 3e3, extendedTimeOut: 1e3, closeOnHover: false, preventDuplicates: false, toastClass: "toast pa-chat-toast", escapeHtml: true, tapToDismiss: true }));
   } catch (e) {
     console.warn("[焦香鸡翅] 提示当前预设失败", e);
   }

@@ -534,6 +534,8 @@ function pruneKeyCopies(state) {
 function setSelect(sel, value) {
   const el2 = $(sel);
   if (!el2.length || !value) return;
+  // 2.8.8 已经选着这一项时不再触发 change：酒馆每次换模型都会重算提示词（手机上要几百毫秒），连上后列表已按记录选好
+  if (el2.is("select") && el2.val() === value) return;
   if (el2.is("select") && !el2.find(`option[value="${CSS.escape(value)}"]`).length) {
     el2.append($("<option></option>").val(value).text(value));
   }

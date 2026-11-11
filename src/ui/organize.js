@@ -206,7 +206,7 @@ function mountOrganize(page) {
     co.title = "移动、建组时，多选条目按什么先后排列。点击切换";
     if (st.highlight.size) {
       const first = list.querySelector(".pa-flash");
-      first?.scrollIntoView({ block: "center" });
+      scrollToView(first);
       setTimeout(() => {
         st.highlight.clear();
         list.querySelectorAll(".pa-flash").forEach((x) => x.classList.remove("pa-flash"));
@@ -262,7 +262,7 @@ function mountOrganize(page) {
   function showGroup(gid) {
     setOpen(draft(), gid, true);
     render();
-    list.querySelector(`.pa-group[data-gid="${CSS.escape(gid)}"]`)?.scrollIntoView({ block: "center" });
+    scrollToView(list.querySelector(`.pa-group[data-gid="${CSS.escape(gid)}"]`));
   }
   // 新建空白分组：先起名，再点位置
   async function startNewGroup() {

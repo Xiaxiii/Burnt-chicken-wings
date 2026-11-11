@@ -45,7 +45,7 @@ await page.evaluate(() => {
 });
 await page.evaluate(() => window.__presetAtelier.open("conn")); await page.waitForTimeout(300);
 await page.click('[data-a="livemodel"]'); await page.waitForTimeout(300);
-const items = await page.locator(".pa-sheet .pa-mpick-item").allTextContents();
+const items = await page.locator(".pa-sheet .pa-mpick-item").evaluateAll((xs) => xs.map((x) => x.dataset.m));
 assert.ok(items.length >= 2 && !items.some((t) => t.includes("[A]old-model")), items.join("|"));
 assert.match(await page.locator(".pa-sheet .pa-mcur-miss").textContent(), /不在此站点的列表中/);
 ok("选择模型不混入不在列表里的当前模型");

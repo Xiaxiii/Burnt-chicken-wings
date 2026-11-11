@@ -3,10 +3,40 @@ function toast(msg, type = "info") {
   const t = globalThis.toastr;
   if (!t?.[type]) return console.log("[焦香鸡翅]", msg);
   // 2.8.0 点按即关闭，与酒馆其他提示一致
-  const $t = t[type](msg, "", { timeOut: type === "error" ? 6e3 : 2600, preventDuplicates: true, tapToDismiss: true });
-  $t?.[0]?.addEventListener?.("click", () => t.clear($t, { force: true }));
+  const $t = t[type](msg, "", { timeOut: type === "error" ? 6e3 : 2600, preventDuplicates: true, tapToDismiss: true, closeOnHover: false });
+  tapToClose(t, $t);
+}
+// 2.8.8 酒馆的提示默认「悬停时暂停」：iOS 上第一下点按只算悬停，提示既不关闭、也不再倒计时。
+// 本扩展的提示关掉悬停暂停（closeOnHover: false），并在手指抬起时直接关闭
+function tapToClose(t, $t) {
+  const node = $t?.[0];
+  if (!node?.addEventListener) return;
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    t.clear($t, { force: true });
+  };
+  node.addEventListener("click", close);
+  node.addEventListener("pointerup", close);
 }
 var rootEl = null;
+// 2.8.8 只滚动 node 所在的那个滚动容器，让它居中（block = "start" 时靠上）。
+// scrollIntoView 会连带滚动外层：模型很多时把整页（html）滚上去几百像素，面板和弹窗跟着上移，✕ 跑到屏幕外点不到
+function scrollToView(node, block = "center", smooth = false) {
+  if (!node?.isConnected) return;
+  let box = node.parentElement;
+  while (box && box !== document.body && box !== document.documentElement) {
+    const oy = getComputedStyle(box).overflowY;
+    if ((oy === "auto" || oy === "scroll") && box.scrollHeight > box.clientHeight + 1) break;
+    box = box.parentElement;
+  }
+  if (!box || box === document.body || box === document.documentElement) return;
+  const r = node.getBoundingClientRect(), br = box.getBoundingClientRect();
+  const delta = block === "start" ? r.top - br.top : r.top - br.top - (box.clientHeight - r.height) / 2;
+  if (Math.abs(delta) < 1) return;
+  box.scrollTo({ top: box.scrollTop + delta, behavior: smooth ? "smooth" : "auto" });
+}
 // 等这一帧画出来再继续：先显示「正在…」，重活放到下一帧
 const nextPaint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 // 2.5.0 最近点的按钮：菜单贴着它弹出，不再从屏幕底部升上来
@@ -151,6 +181,9 @@ function sheet(opt) {
     const back = document.activeElement;
     const restoreFocus = () => { try { if (back?.isConnected) back.focus({ preventScroll: true }); } catch {} };
     wrap.addEventListener("pa-closed", restoreFocus);
+    // 2.8.8 打开弹窗不应滚动酒馆页面本身；滚动了（聚焦、外部脚本）就滚回去，免得面板和弹窗整体上移
+    const docEl = document.scrollingElement || document.documentElement;
+    const docY = docEl.scrollTop;
     (rootEl || document.body).append(wrap);
     if (place === "pop") placePop(wrap, opt.anchor);
     opt.onMount?.(wrap);
@@ -159,6 +192,7 @@ function sheet(opt) {
     // focusInput：触屏上也直接把光标放进输入框（弹出键盘），用于点了就要打字的搜索窗
     if (first && !opt.noFocus && (opt.focusInput || matchMedia("(pointer:fine)").matches)) first.focus();
     else wrap.querySelector(".pa-sheet")?.focus({ preventScroll: true });
+    if (docEl.scrollTop !== docY) docEl.scrollTop = docY;
   });
 }
 // 2.5.0 原地改名：把这段文字换成输入框，回车或点别处保存，Esc 取消。返回新名字，没改返回 null

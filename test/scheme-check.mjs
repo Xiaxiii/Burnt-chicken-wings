@@ -119,7 +119,7 @@ assert.equal(await page.$eval(".pa-sheet [data-f=api]", (x) => x.value), "__none
 assert.ok(await page.locator(".pa-sheet [data-f=apimodel]").isHidden(), "不记录时不显示模型");
 await page.selectOption(".pa-sheet [data-f=api]", "__live");
 await page.selectOption(".pa-sheet [data-f=persona]", "__none");
-assert.equal(await page.locator(".pa-sheet [data-f=apimodelbtn] span").innerText(), "claude-x");
+assert.equal(await page.locator(".pa-sheet [data-f=apimodelbtn] .pa-mn").innerText(), "claude-x");
 await page.fill(".pa-sheet [data-f=name]", "带API");
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
 st = await S();

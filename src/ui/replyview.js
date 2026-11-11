@@ -100,7 +100,7 @@ function replyForm(name, { onSaved } = {}) {
   const showError = (e, target = result) => {
     if (fieldError(e.field, e.message)) {
       const input = body.querySelector(`[data-r="${e.field}"]`);
-      input.scrollIntoView({ block: "center" });
+      scrollToView(input);
       input.focus({ preventScroll: true });
     } else target.innerHTML = `<p class="pa-warn">${esc(e.message)}</p>`;
   };

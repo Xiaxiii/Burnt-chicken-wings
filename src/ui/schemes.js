@@ -108,9 +108,9 @@ function connPicker(init, keep = null) {
     model = m || "";
     const x = site();
     keyId = x && siteMulti(x) ? siteKey(x, k).id : null;
-    const label = keyId ? `${model || "选择模型"} · ${keyName(x, siteKey(x, keyId))}` : model || "选择模型";
-    btn.title = label;
-    btn.querySelector("span").textContent = label;
+    const kn = keyId ? keyName(x, siteKey(x, keyId)) : "";
+    btn.title = [model || "选择模型", kn].filter(Boolean).join(" · ");
+    setModelBtn(btn, model, kn);
   };
   // 换了来源就带出它记的模型；原来就是这个站点时用方案记的模型
   const reset = () => {

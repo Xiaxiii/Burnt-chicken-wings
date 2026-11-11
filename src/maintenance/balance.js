@@ -51,13 +51,45 @@ async function balKey(live) {
   if (!live.secretId) return {};
   return revealSecret(live.source, live.secretId);
 }
-// 先直接请求；浏览器拦下（跨域）时改走酒馆的转发（config.yaml 打开 enableCorsProxy 才有）
-async function balFetch(url, key) {
+// 2.8.8 浏览器拦下（跨域）时，中转站经酒馆后台查询：借用酒馆拉取模型列表的接口（/status），
+// 网址末尾加「#」，酒馆拼上的「/models」落在 # 之后不发出，请求的就是余额接口本身；secret_id 指定用当前连接的密钥。
+// 酒馆收到站点的非 2xx 时只回 { error: true }，看不到状态码，按「站点返回错误」处理。返回 null 表示这条路走不通
+async function balViaST(url, live) {
+  let r;
+  try {
+    const s = mods.openai?.oai_settings || {};
+    r = await fetch(stUrl("api/backends/chat-completions/status"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
+      body: JSON.stringify({ chat_completion_source: "custom", custom_url: `${url}#`, custom_include_headers: s.custom_include_headers, ...live.secretId ? { secret_id: live.secretId } : {} }),
+      cache: "no-store"
+    });
+  } catch {
+    return null;
+  }
+  if (!r.ok) return null;
+  const d = await r.json().catch(() => null);
+  if (!d || d.error === true) return { failed: true };
+  return { data: d };
+}
+// 先直接请求；浏览器拦下（跨域）时，中转站经酒馆后台查询，其他再试酒馆的转发（config.yaml 打开 enableCorsProxy 才有）
+async function balFetch(url, key, live = null) {
+  // 读不到密钥全文（allowKeysExposure 为 false）时，中转站只走酒馆后台，密钥不出酒馆
+  if (!key) {
+    const via = live?.source === "custom" ? await balViaST(url, live) : null;
+    if (via?.data) return via.data;
+    throw new Error(via?.failed ? "站点返回错误（经酒馆转发）" : "取不到当前连接的密钥");
+  }
   const opt = { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" }, cache: "no-store" };
   let r;
   try {
     r = await fetch(url, opt);
   } catch {
+    if (live?.source === "custom") {
+      const via = await balViaST(url, live);
+      if (via?.data) return via.data;
+      if (via?.failed) throw new Error("站点返回错误（经酒馆转发）");
+    }
     try {
       r = await fetch(stUrl("proxy/" + url), opt);
     } catch {
@@ -73,21 +105,21 @@ async function balFetch(url, key) {
 }
 const balNum = (v) => typeof v === "number" && isFinite(v) ? v : typeof v === "string" && v.trim() && isFinite(+v) ? +v : null;
 // 中转站：/v1/dashboard/billing/subscription 给额度上限，/v1/dashboard/billing/usage 给累计用量（单位：美分）
-async function balRelay(base, key) {
+async function balRelay(base, key, live = null) {
   const u = new URL(base);
   const path = u.pathname.replace(/\/+$/, "");
   const roots = [...new Set([u.origin + path, u.origin + "/v1", u.origin])];
   let lastErr = null;
   for (const root of roots) {
     try {
-      const sub = await balFetch(`${root}/dashboard/billing/subscription`, key);
+      const sub = await balFetch(`${root}/dashboard/billing/subscription`, key, live);
       const hard = balNum(sub.hard_limit_usd ?? sub.system_hard_limit_usd);
       if (hard == null) throw new Error("站点没有余额接口");
       const end = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
       const start = new Date(Date.now() - 99 * 864e5).toISOString().slice(0, 10);
       let used = null;
       try {
-        const us = await balFetch(`${root}/dashboard/billing/usage?start_date=${start}&end_date=${end}`, key);
+        const us = await balFetch(`${root}/dashboard/billing/usage?start_date=${start}&end_date=${end}`, key, live);
         const cents = balNum(us.total_usage);
         if (cents != null) used = cents / 100;
       } catch {}
@@ -96,9 +128,11 @@ async function balRelay(base, key) {
       return { bal: used != null ? hard - used : hard, used, cur: "$" };
     } catch (e) {
       lastErr = e;
-      if (/拦截|无效/.test(e.message)) break;
+      // 一个地址被拦截（如该路径 404 时不带跨域头），其余地址照样试
+      if (/无效/.test(e.message)) break;
     }
   }
+  if (/经酒馆转发/.test(lastErr?.message || "")) throw new Error(key ? "浏览器拦截了直接请求（站点不允许跨域），经酒馆转发也未查到余额" : "经酒馆转发查询，站点未返回余额");
   throw lastErr && !/站点返回 404/.test(lastErr.message) ? lastErr : new Error("站点没有余额接口（仅支持 OneAPI / NewAPI 类中转站）");
 }
 async function balQueryRaw(live, key) {
@@ -118,7 +152,7 @@ async function balQueryRaw(live, key) {
   }
   if (live.source === "custom") {
     if (!live.url) throw new Error("当前连接没有网址");
-    return balRelay(live.url, key);
+    return balRelay(live.url, key, live);
   }
   throw new Error("此连接类型没有余额接口");
 }
@@ -131,9 +165,12 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
   balEmit();
   try {
     const k = await balKey(live);
-    if (k.blocked) throw new Error("酒馆不允许读取密钥（config.yaml 中 allowKeysExposure 为 false）");
-    if (!k.value) throw new Error("取不到当前连接的密钥");
-    const r = await balQueryRaw(live, k.value);
+    // 中转站读不到密钥时改由酒馆后台查询；其他类型仍需密钥全文
+    if (live.source !== "custom") {
+      if (k.blocked) throw new Error("酒馆不允许读取密钥（config.yaml 中 allowKeysExposure 为 false）");
+      if (!k.value) throw new Error("取不到当前连接的密钥");
+    }
+    const r = await balQueryRaw(live, k.value || null);
     const list = balRecords(live);
     const rec = { t: Date.now(), bal: r.bal, used: r.used, cur: r.cur, gen: gen || undefined, unl: r.unlimited || undefined };
     list.push(rec);

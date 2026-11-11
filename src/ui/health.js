@@ -168,7 +168,7 @@ function mountHealth(sec, { goClean } = {}) {
       </div></div>
       <p class="pa-hint">「首字节」是从发出请求到收到第一个字节，包含网络往返，不等于服务器处理时间。</p>`;
     detail.hidden = false;
-    detail.scrollIntoView({ block: "start", behavior: "smooth" });
+    scrollToView(detail, "start", true);
   }
   function exportReport() {
     if (!last) return;

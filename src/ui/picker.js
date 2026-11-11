@@ -36,7 +36,7 @@ async function pickName({ title, items, current = null, search, extra = null } =
       picked = b.dataset.v;
       w.querySelector(".pa-sheet-x").click();
     });
-    box.querySelector(".on")?.scrollIntoView({ block: "center" });
+    scrollToView(box.querySelector(".on"));
   } });
   return picked;
 }

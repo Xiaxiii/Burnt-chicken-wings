@@ -5,6 +5,7 @@ const browser = await chromium.launch({ executablePath: process.env.PW_CHROME ||
 const errors = [];
 const ok = (m) => console.log('✓', m);
 const LONG = 'claude-sonnet-4-5-20250929-thinking-extended-context-1m-beta-preview';
+const TAGGED = '「爱琴海」按次vt-claude-opus-4-1-20250805-thinking[0.086]';
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   page.on('pageerror', (e) => errors.push(e.message));
@@ -17,7 +18,14 @@ try {
     r.fulfill({ json: { total_usage: usage[Math.min(calls++, usage.length - 1)] }, headers: { 'access-control-allow-origin': '*' } });
   });
   await page.route('**/api/secrets/find', (r) => r.fulfill({ json: { value: 'sk-balance-test' } }));
-  await page.route('**/api/backends/chat-completions/status', (r) => r.fulfill({ json: { data: [{ id: 'claude-x' }, { id: LONG }, { id: 'gemini-z' }, { id: 'gemini-y' }] } }));
+  // 酒馆后台：拉模型列表；网址带「#」的是经酒馆查询余额（relay 为站点的回应，null 表示站点出错）
+  let relay = null;
+  const relayed = [];
+  await page.route('**/api/backends/chat-completions/status', (r) => {
+    const b = r.request().postDataJSON();
+    if (/#$/.test(b.custom_url || '')) { relayed.push(b); return r.fulfill({ json: relay ? relay(b.custom_url) : { error: true, data: { data: [] } } }); }
+    r.fulfill({ json: { data: [{ id: 'claude-x' }, { id: LONG }, { id: 'gemini-z' }, { id: 'gemini-y' }, { id: TAGGED }] } });
+  });
   await page.goto('http://127.0.0.1:8765/test/site/index.html');
   await page.waitForFunction(() => window.__presetAtelier?.open);
   await page.evaluate(async () => {
@@ -61,7 +69,18 @@ try {
   await page.route('**/proxy/**', (r) => r.fulfill({ status: 404, body: '' }));
   await page.locator('.pa-bal [data-a=balq]').click();
   await page.waitForFunction(() => /跨域/.test(document.querySelector('.pa-bal')?.textContent || ''));
-  ok('余额：请求被拦截时说明原因');
+  ok('余额：请求被拦截、经酒馆也查不到时说明原因');
+
+  // 2.8.8 浏览器拦截时经酒馆后台查询：用当前连接的密钥编号，网址末尾带「#」
+  await page.route('https://example.com/v1/dashboard/billing/usage**', (r) => r.abort('failed'));
+  relay = (u) => /subscription#$/.test(u) ? { hard_limit_usd: 20 } : { total_usage: 600 };
+  relayed.length = 0;
+  await page.locator('.pa-bal [data-a=balq]').click();
+  await page.waitForFunction(() => /\$14\.00/.test(document.querySelector('.pa-bal-total')?.textContent || ''));
+  assert.equal(relayed[0].secret_id, 'k1');
+  assert.equal(relayed[0].custom_url, 'https://example.com/v1/dashboard/billing/subscription#');
+  assert.doesNotMatch(await page.locator('.pa-bal').innerText(), /跨域/);
+  ok('余额：站点不允许跨域时经酒馆后台查询');
 
   // 提示点按关闭：真实 toastr 行为由酒馆提供，这里检查调用参数与点按关闭
   await page.evaluate(() => {
@@ -89,6 +108,12 @@ try {
   const long = page.locator('.pa-mpick-item', { hasText: LONG });
   const box = await long.evaluate((e) => ({ sw: e.scrollWidth, cw: e.clientWidth, h: e.getBoundingClientRect().height }));
   assert.ok(box.sw <= box.cw + 1 && box.h > 44, `长模型名换行显示（${JSON.stringify(box)}）`);
+  // 2.8.8 带标签的模型名：上行模型名，下行标签；两行都完整显示
+  const tagged = page.locator(`.pa-mpick-item[data-m="${TAGGED}"]`);
+  assert.equal(await tagged.locator('.pa-mn').innerText(), 'vt-claude-opus-4-1-20250805-thinking');
+  assert.deepEqual(await tagged.locator('.pa-mtags > span').allInnerTexts(), ['爱琴海', '按次', '0.086']);
+  const tb = await tagged.evaluate((e) => ({ sh: e.scrollHeight, ch: e.clientHeight, tags: e.querySelector('.pa-mtags').getBoundingClientRect().bottom, row: e.getBoundingClientRect().bottom }));
+  assert.ok(tb.sh <= tb.ch + 1 && tb.tags <= tb.row, `标签行完整显示（${JSON.stringify(tb)}）`);
   await page.locator('.pa-kview [data-v=cat]').click();
   await page.fill('.pa-mfind input', 'gemini');
   assert.equal(await page.locator('.pa-mpick-item:not(.pa-mpick-custom)').count(), 2);
@@ -99,7 +124,7 @@ try {
   assert.equal(await page.locator('.pa-mpick-item:not(.pa-mpick-custom)').count(), 2, '换搜索词后重新展开');
   await page.screenshot({ path: new URL('./shots/v280-picker.png', import.meta.url).pathname });
   await page.keyboard.press('Escape');
-  ok('模型选择框：长名换行；搜索时可收起段落');
+  ok('模型选择框：长名换行，带标签的名字分两行；搜索时可收起段落');
 
   // 缝合：分栏 ⇄ 切换
   await page.evaluate(() => window.__presetAtelier.open('suture'));

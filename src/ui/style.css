@@ -43,8 +43,9 @@ html.pa-open body { overflow: hidden; }
 /* 2.8.0 面板打开时提示浮在面板之上，可点按关闭 */
 html.pa-open #toast-container { z-index: 10030 !important; }
 html.pa-open #toast-container > .toast { cursor: pointer; }
-#toast-container > .toast.pa-chat-toast { width: auto; min-width: 0; max-width: min(300px, calc(100vw - 32px)); padding: 7px 12px 7px 38px; background-position: 11px center; background-size: 18px; font-size: 13px; line-height: 1.35; }
-#toast-container > .toast.pa-chat-toast .toast-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 2.8.8 换聊天的提示与酒馆其他提示同宽同位，只调文字；标题过长时省略 */
+#toast-container > .toast.pa-chat-toast { line-height: 1.4; }
+#toast-container > .toast.pa-chat-toast .toast-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #toast-container > .toast.pa-chat-toast .toast-message { white-space: pre-line; overflow-wrap: anywhere; opacity: .85; }
 
 #pa-root *, #pa-root *::before, #pa-root *::after { box-sizing: border-box; }
@@ -821,7 +822,7 @@ html.pa-open #toast-container > .toast { cursor: pointer; }
 
 /* 1.4.0 模型按钮、模型选择框 */
 #pa-root .pa-model-btn { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; max-width: 100%; min-height: 34px; padding: 4px 10px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-input-bg); color: var(--pa-text); text-align: left; cursor: pointer; }
-#pa-root .pa-model-btn span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; white-space: normal; line-height: 1.35; }
+#pa-root .pa-model-btn > .pa-mlabel { flex: 1 1 auto; min-width: 0; white-space: normal; line-height: 1.35; }
 #pa-root .pa-model-btn i { font-style: normal; color: var(--pa-dim); flex: none; }
 #pa-root .pa-field > .pa-model-btn { width: 100%; }
 #pa-root .pa-site-dl dd .pa-model-btn { flex: 1 1 200px; }
@@ -830,6 +831,13 @@ html.pa-open #toast-container > .toast { cursor: pointer; }
 #pa-root .pa-mpick-item { white-space: normal; word-break: break-word; height: auto; text-align: left; padding: 8px 10px; min-height: 40px; border: 1px solid var(--pa-line); border-radius: 8px; background: var(--pa-card); color: var(--pa-text); cursor: pointer; overflow-wrap: anywhere; }
 #pa-root .pa-mpick-item.on { border-color: var(--pa-thread); background: var(--pa-sel); --pa-row-bg: var(--pa-sel); font-weight: 600; }
 #pa-root .pa-mpick-custom { border-style: dashed; color: var(--pa-thread); }
+/* 2.8.8 模型名一行、标签（站名、计费方式、单价）灰色小字一行；当前模型的 ✓ 靠右 */
+#pa-root .pa-mpick-item:not(.pa-mpick-custom), #pa-root .pa-kname { display: flex; align-items: center; gap: 8px; }
+#pa-root .pa-mlabel { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
+#pa-root .pa-mn { overflow-wrap: anywhere; line-height: 1.35; }
+#pa-root .pa-mtags { display: flex; flex-wrap: wrap; gap: 0 10px; color: var(--pa-dim); font-size: max(11px, .8em); font-weight: 400; line-height: 1.4; }
+#pa-root .pa-mtags > span { white-space: nowrap; }
+#pa-root .pa-mcheck { flex: none; color: var(--pa-thread); font-weight: 600; }
 
 /* 1.4.1 缝合预览：每条默认收起 */
 #pa-root .pa-item { gap: 0; padding: 0; }
@@ -946,7 +954,7 @@ html.pa-open #toast-container > .toast { cursor: pointer; }
 #pa-root .pa-krow:last-child, #pa-root .pa-kpick > :last-child { border-bottom: 0; }
 #pa-root .pa-krow.on { background: var(--pa-sel); }
 /* 屏幕外的行不排版、不绘制（iOS 18、安卓 Chrome 85 起生效，旧系统照常显示） */
-#pa-root .pa-krow, #pa-root .pa-kpick > .pa-mpick-item { content-visibility: auto; contain-intrinsic-size: auto 40px; }
+/* 2.8.8 去掉 content-visibility：Safari 按估计的 40px 高度裁掉第二行，两行的模型名显示不全 */
 #pa-root .pa-kname { flex: 1 1 auto; min-width: 0; min-height: 30px; padding: 4px 0; border: 0; background: none; color: var(--pa-text); text-align: left; cursor: pointer; white-space: normal; word-break: break-word; overflow-wrap: anywhere; height: auto; font-family: inherit; }
 #pa-root .pa-krow.on .pa-kname { font-weight: 600; }
 #pa-root .pa-kchip, #pa-root .pa-kmore { flex: none; font: inherit; font-size: .76em; line-height: 1.7; padding: 0 8px; border-radius: 999px; border: 1px solid var(--pa-line); background: none; color: var(--pa-em); cursor: pointer; white-space: nowrap; }
@@ -1896,20 +1904,7 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-cov-group { content-visibility: auto; contain-intrinsic-height: auto calc(var(--n, 1) * 44px + 36px); }
 #pa-root .pa-jank-head { display: flex; align-items: baseline; gap: 4px 8px; flex-wrap: wrap; }
 #pa-root .pa-jank-head > span { flex: 1 1 auto; min-width: 0; }
-/* 2.8.0 余额卡片 */
-#pa-root .pa-bal { margin-top: 10px; display: grid; gap: 8px; }
-#pa-root .pa-bal-head { display: flex; align-items: center; gap: 8px; }
-#pa-root .pa-bal-head > b { font-weight: 600; }
-#pa-root .pa-bal-time { flex: 1 1 auto; min-width: 0; color: var(--pa-dim); font-size: .82em; }
-#pa-root .pa-bal-q svg { width: 17px; height: 17px; }
 #pa-root .pa-num { font-variant-numeric: tabular-nums; }
-#pa-root .pa-bal-total { font-size: 1.7em; font-weight: 600; line-height: 1.15; letter-spacing: -.01em; }
-#pa-root .pa-bal-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
-#pa-root .pa-bal-kv > div { min-width: 0; padding: 7px 9px; border-radius: 8px; background: var(--pa-card); }
-#pa-root .pa-bal-kv dt { font-size: .76em; color: var(--pa-dim); white-space: nowrap; }
-#pa-root .pa-bal-kv dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
-#pa-root .pa-bal-note, #pa-root .pa-bal .pa-live-res { margin: 0; }
-#pa-root .pa-bal-auto { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--pa-line); font-size: .9em; cursor: pointer; }
 /* 2.8.0 缝合「切换」布局：顶部「从 | 到」，一次显示一栏 */
 #pa-root .pa-swbar { flex: none; display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--pa-line); }
 #pa-root .pa-swbar button { position: relative; min-height: 40px; border: 0; background: none; color: var(--pa-dim); font-weight: 500; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
@@ -2019,16 +2014,21 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-live-ic .pa-icon-btn svg { width: 17px; height: 17px; }
 #pa-root .pa-live .pa-live-kv { margin-top: 8px; gap: 6px 12px; }
 #pa-root .pa-live-kv .pa-live-model > .pa-model-btn { min-height: 34px; }
-#pa-root .pa-bal { margin: 0; display: grid; gap: 1px; }
-#pa-root .pa-bal-line { display: flex; align-items: center; flex-wrap: wrap; gap: 0 8px; min-height: 28px; font-size: .9em; }
-#pa-root .pa-bal-line .pa-bal-total { font-size: 1em; font-weight: 600; letter-spacing: 0; line-height: 1.3; }
-#pa-root .pa-bal-line .pa-bal-time { flex: 0 1 auto; font-size: .9em; }
-#pa-root .pa-bal-line .pa-bal-q { width: 28px; height: 28px; }
-#pa-root .pa-bal-line .pa-bal-q svg { width: 15px; height: 15px; }
-#pa-root .pa-bal-line .pa-bal-auto { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; padding: 0; border: 0; font-size: .9em; color: var(--pa-dim); cursor: pointer; }
-#pa-root .pa-bal-used, #pa-root .pa-bal-note { color: var(--pa-dim); font-size: .8em; line-height: 1.4; }
+/* 2.8.8 余额三行：余额与查询按钮、用量、填余额与每轮自动；左右各对齐一条边 */
+#pa-root .pa-bal { margin: 0; display: grid; gap: 2px; min-width: 0; }
+#pa-root .pa-bal-top, #pa-root .pa-bal-acts { display: flex; align-items: center; gap: 8px; min-height: 34px; min-width: 0; }
+#pa-root .pa-bal-total { font-size: 1.06em; font-weight: 600; line-height: 1.3; }
+#pa-root .pa-bal-time { color: var(--pa-dim); font-size: .88em; }
+#pa-root .pa-bal-top .pa-chip { flex: none; }
+#pa-root .pa-bal-q { flex: none; width: 34px; height: 34px; margin: 0 -8px 0 auto; color: var(--pa-em); }
+#pa-root .pa-bal-q svg { width: 16px; height: 16px; }
+#pa-root .pa-bal-used { display: flex; flex-wrap: wrap; gap: 0 14px; color: var(--pa-dim); font-size: .84em; line-height: 1.5; }
+#pa-root .pa-bal-used > span { white-space: nowrap; }
 #pa-root .pa-bal .pa-live-res { margin: 2px 0 0; }
-#pa-root .pa-live-kv > dt.pa-bal-dt { align-self: start; line-height: 28px; }
+#pa-root .pa-bal-acts { font-size: .88em; }
+#pa-root .pa-bal-set { padding: 0; }
+#pa-root .pa-bal-auto { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--pa-dim); cursor: pointer; }
+#pa-root .pa-live-kv > dt.pa-bal-dt { align-self: start; line-height: 34px; }
 /* 2.8.5 编辑条目：正文框随内容增高，整个窗口一起滚动 */
 #pa-root .pa-sheet-edit .pa-sheet-body { display: block; }
 #pa-root .pa-sheet-edit .pa-form { display: grid; gap: 10px; min-height: 0; }
@@ -2085,9 +2085,6 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-head-ico { position: relative; }
 #pa-root .pa-site-del { position: relative; }
 @media (pointer: coarse) { #pa-root .pa-site-del::before { content: ""; position: absolute; inset: -6px -2px; } }
-#pa-root .pa-bal-line .pa-bal-used { color: var(--pa-dim); font-size: .86em; }
-#pa-root .pa-bal-line .pa-bal-set { font-size: .86em; padding: 0 2px; }
-#pa-root .pa-bal-line .pa-chip { flex: none; }
 #pa-root .pa-plan-sites .pa-site-model { color: var(--pa-dim); }
 #pa-root .pa-field > small.pa-hint { margin: 2px 0 0; font-size: .8em; }
 /* ---------- 2.8.7 ---------- */

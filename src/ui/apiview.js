@@ -43,6 +43,7 @@ const KEY_INPUT_STYLE = FIELD_STYLE;
 // 分段标题（按分类、按分组共用）
 const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
+const CHECK_MARK = '<span class="pa-mcheck" aria-hidden="true">✓</span>';
 // 1.4.0：模型选择框。系统下拉框在平板上又宽又长，改为带搜索的列表，高度限制在屏幕内
 // 2.5.0：一个选择框管单密钥和多密钥站点。
 // 「按模型」平铺；「按分类」自建分类在前，没分进去的按系列（Claude、Gemini…）自动分段；「按分组」（多密钥）一个分组一段。
@@ -99,10 +100,10 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
     const on = m === cur && k.id === curKey;
     return `<button type="button" class="pa-kchip${on ? " on" : ""}" data-m="${esc(m)}" data-k="${esc(k.id)}" aria-pressed="${on}">${esc(kname(k))}</button>`;
   };
-  const selRow = (m) => `<button type="button" class="pa-mpick-item pa-selrow${sel.has(m) ? " picked" : ""}" style="${ROW_STYLE}" data-sel="${esc(m)}" aria-pressed="${sel.has(m)}"><span class="pa-selbox" aria-hidden="true"></span><span>${esc(m)}</span></button>`;
+  const selRow = (m) => `<button type="button" class="pa-mpick-item pa-selrow${sel.has(m) ? " picked" : ""}" style="${ROW_STYLE}" data-sel="${esc(m)}" aria-label="${esc(m)}" aria-pressed="${sel.has(m)}"><span class="pa-selbox" aria-hidden="true"></span>${modelLabel(m)}</button>`;
   const plainRow = (m, k = null) => {
     const on = m === cur && (!multi || k?.id === curKey);
-    return `<button class="pa-mpick-item${on ? " on" : ""}" style="${ROW_STYLE}" data-m="${esc(m)}"${k ? ` data-k="${esc(k.id)}"` : ""}>${esc(m)}${on ? " ✓" : ""}</button>`;
+    return `<button class="pa-mpick-item${on ? " on" : ""}" style="${ROW_STYLE}" data-m="${esc(m)}"${k ? ` data-k="${esc(k.id)}"` : ""} title="${esc(m)}" aria-label="${esc(m)}"${on ? ' aria-current="true"' : ""}>${modelLabel(m)}${on ? CHECK_MARK : ""}</button>`;
   };
   const keyRow = (m) => {
     const owners = ownersOf.get(m);
@@ -114,7 +115,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       const shown = owners.find((k) => on && k.id === curKey) || owners[0];
       tail = chip(m, shown) + `<button type="button" class="pa-kmore" data-more="${esc(m)}" aria-expanded="false" aria-label="还有 ${owners.length - 1} 个分组">+${owners.length - 1}</button>`;
     }
-    return `<div class="pa-krow${on ? " on" : ""}"><button type="button" class="pa-kname" data-m="${esc(m)}" data-k="${esc(owners[0].id)}">${esc(m)}${on ? " ✓" : ""}</button>${tail}</div>`;
+    return `<div class="pa-krow${on ? " on" : ""}"><button type="button" class="pa-kname" data-m="${esc(m)}" data-k="${esc(owners[0].id)}" title="${esc(m)}" aria-label="${esc(m)}"${on ? ' aria-current="true"' : ""}>${modelLabel(m)}${on ? CHECK_MARK : ""}</button>${tail}</div>`;
   };
   const row = (m) => selecting ? selRow(m) : multi ? keyRow(m) : plainRow(m);
   const custom = () => {
@@ -336,8 +337,11 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       } else picked = b.dataset.m;
       w.querySelector(".pa-sheet-x").click();
     });
-    box.querySelector(".pa-krow.on, .pa-mpick-item.on")?.scrollIntoView({ block: "center" });
+    scrollToView(box.querySelector(".pa-krow.on, .pa-mpick-item.on"));
   } });
+  // 2.8.8 选中后先让窗口收起（约 160 毫秒的淡出），再交给酒馆换模型：酒馆换模型要重算提示词，
+  // 在手机上要占住页面一两秒，同步做时窗口停在屏幕上、点 ✕ 也没反应
+  if (picked) await sleep(180);
   return picked;
 }
 // site：传了就能建分类（分类记在站点上）
@@ -348,9 +352,50 @@ function pickModel(list, cur, { title = "选择模型", site = null } = {}) {
 function pickKeyModel(site, cur, { title = "选择模型" } = {}) {
   return modelPicker({ site, keys: site.keys, cur: cur?.model || "", curKey: cur?.keyId || null, title });
 }
+// 2.8.8 中转站的模型名常带标签：「爱琴海」按次vt-gemini-3.1-pro[0.086]。拆成模型名和标签两行显示：
+// 首尾的括号段（[] 【】 () （） 「」 『』）、紧贴在英文模型名前的中文（按次、按量）算标签；拆完没剩下模型名时整名照旧
+const TAG_OPEN = "[【(（「『<《";
+const TAG_CLOSE = { "[": "]", "【": "】", "(": ")", "（": "）", "「": "」", "『": "』", "<": ">", "《": "》" };
+function splitModelName(m) {
+  let s = String(m || "").trim();
+  const head = [], tail = [];
+  for (let guard = 0; guard < 6 && s && TAG_OPEN.includes(s[0]); guard++) {
+    const end = s.indexOf(TAG_CLOSE[s[0]], 1);
+    if (end < 0) break;
+    head.push(s.slice(1, end).trim());
+    s = s.slice(end + 1).trim();
+  }
+  const cjk = /^([㐀-鿿豈-﫿]{1,8})\s*(?=[A-Za-z])/.exec(s);
+  if (cjk) {
+    head.push(cjk[1]);
+    s = s.slice(cjk[0].length);
+  }
+  for (let guard = 0; guard < 6 && s; guard++) {
+    const close = s[s.length - 1];
+    const open = Object.keys(TAG_CLOSE).find((k) => TAG_CLOSE[k] === close);
+    const start = open ? s.lastIndexOf(open, s.length - 2) : -1;
+    if (start <= 0) break;
+    tail.unshift(s.slice(start + 1, -1).trim());
+    s = s.slice(0, start).trim();
+  }
+  if (!s) return { name: String(m || "").trim(), tags: [] };
+  return { name: s, tags: [...head, ...tail].filter(Boolean) };
+}
+// 模型名里的「/」「_」「:」后允许换行（「-」后浏览器本就会换）
+const modelNameHtml = (name) => esc(name).replace(/([/_:])(?=[^\s])/g, "$1<wbr>");
+function modelLabel(m) {
+  const { name, tags } = splitModelName(m);
+  return `<span class="pa-mlabel"><span class="pa-mn">${modelNameHtml(name)}</span>${tags.length ? `<span class="pa-mtags">${tags.map((t) => `<span>${esc(t)}</span>`).join("")}</span>` : ""}</span>`;
+}
+// 换模型按钮里的模型名和分组名，箭头不动
+function setModelBtn(b, m, key = "") {
+  b.querySelector(".pa-mlabel").outerHTML = m ? modelLabel(m) : '<span class="pa-mlabel"><span class="pa-mn">选择模型</span></span>';
+  b.querySelector(".pa-model-key")?.remove();
+  if (key) b.querySelector(".pa-mlabel").insertAdjacentHTML("afterend", `<em class="pa-chip pa-chip-cot pa-model-key">${esc(key)}</em>`);
+}
 // arrow：有模型列表可选时才显示 ▾（2.4.1 当前连接拉取到列表后才出现）
 // key：多密钥站点当前分组的名称，跟在模型名后面
-const modelBtn = (cur, attr, arrow = true, key = "") => `<button class="pa-model-btn" ${attr} title="${esc([cur, key].filter(Boolean).join(" · "))}"><span>${esc(cur || "选择模型")}</span>${key ? `<em class="pa-chip pa-chip-cot pa-model-key">${esc(key)}</em>` : ""}${arrow ? "<i>▾</i>" : ""}</button>`;
+const modelBtn = (cur, attr, arrow = true, key = "") => `<button class="pa-model-btn" ${attr} title="${esc([cur, key].filter(Boolean).join(" · "))}">${cur ? modelLabel(cur) : '<span class="pa-mlabel"><span class="pa-mn">选择模型</span></span>'}${key ? `<em class="pa-chip pa-chip-cot pa-model-key">${esc(key)}</em>` : ""}${arrow ? "<i>▾</i>" : ""}</button>`;
 // 2.3.3 推理格式记录：列表里看每个预设记住的设置，点「修改」手动改
 var REASONING_FLAGS = [["auto_parse", "自动解析"], ["add_to_prompts", "添加到提示词"], ["auto_expand", "自动展开"], ["show_hidden", "显示隐藏内容"]];
 const showBreaks = (s) => String(s ?? "").replace(/\r?\n/g, "↵");
@@ -595,7 +640,9 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const today = new Date().toDateString() === d.toDateString();
     return `${today ? "" : `${d.getMonth() + 1}-${d.getDate()} `}${p2(d.getHours())}:${p2(d.getMinutes())}`;
   };
-  // 2.8.5 余额一行：当前余额 · 上一轮 · 近 24 小时；接口查不到余额时可手填，之后按查到的用量扣减
+  // 2.8.8 余额分三行，左边对齐、右边对齐：
+  // 第一行 当前余额（手填时带「手填」）……右端查询按钮；第二行 上一轮、近 24 小时用量（灰色小字）；
+  // 第三行 填余额 / 改余额……右端「每轮自动」。查询失败的原因在第二行下面
   function balCard(live) {
     const b = balanceSummary(live);
     if (!b.supported) return "";
@@ -605,9 +652,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const used = b.last ? [`${b.round && !b.round.gen ? "距上次查询" : "上一轮"} ${b.round ? fmtMoney(b.round.v, cur) : "—"}`, `近 24 小时 ${b.d1.pairs ? fmtMoney(b.d1.sum, cur) : "—"}`] : [];
     const canSet = !apiBal && b.site;
     const when = b.busy ? "正在查询…" : b.last ? `${hm(b.last.t)} 更新` : "尚未查询";
+    const manual = !apiBal && b.manual ? '<span class="pa-chip pa-chip-dim" title="手填的余额，按每次查到的用量扣减">手填</span>' : "";
+    const usedLine = used.length ? used.map((x) => `<span>${esc(x)}</span>`).join("") : total ? `<span>${esc(when)}</span>` : "";
     return `<div class="pa-bal" aria-label="余额">
-        <div class="pa-bal-line">${total ? `<b class="pa-bal-total pa-num" title="${esc(when)}">${esc(total)}</b>${!apiBal && b.manual ? '<span class="pa-chip pa-chip-dim" title="手填的余额，按每次查到的用量扣减">手填</span>' : ""}` : `<span class="pa-bal-time">${esc(when)}</span>`}${used.length ? `<small class="pa-bal-used pa-num">${used.map(esc).join(" · ")}</small>` : ""}<button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额（${esc(when)}）"${b.busy ? " disabled" : ""}>${ICON.refresh}</button>${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}<label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
+        <div class="pa-bal-top">${total ? `<b class="pa-bal-total pa-num" title="${esc(when)}">${esc(total)}</b>${manual}` : `<span class="pa-bal-time">${esc(when)}</span>`}<button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额（${esc(when)}）"${b.busy ? " disabled" : ""}>${ICON.refresh}</button></div>
+        ${usedLine ? `<div class="pa-bal-used pa-num">${usedLine}</div>` : ""}
         ${b.err ? `<p class="pa-live-res bad">${RES_BAD}${esc(b.err)}</p>` : ""}
+        <div class="pa-bal-acts">${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}<label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
       </div>`;
   }
   function render() {
@@ -813,9 +864,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const b = w.querySelector("[data-f=modelbtn]");
       const kn = ks.length > 1 ? keyName(viewSite(), k) : "";
       b.title = [m, kn].filter(Boolean).join(" · ");
-      b.querySelector("span").textContent = m || "选择模型";
-      b.querySelector(".pa-model-key")?.remove();
-      if (kn) b.querySelector("span").insertAdjacentHTML("afterend", `<em class="pa-chip pa-chip-cot pa-model-key">${esc(kn)}</em>`);
+      setModelBtn(b, m, kn);
     };
     const readModel = (w) => w.querySelector("[data-f=model]").value.trim();
     const read = (w) => {
