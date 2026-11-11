@@ -21,6 +21,77 @@ function tapToClose(t, $t) {
   node.addEventListener("pointerup", close);
 }
 var rootEl = null;
+// 2.8.9 按住把手拖动排序。拖动中被拖的行只做位移、其余行让位，松手后才改顺序：
+// 拖动中移动被按住的元素会让浏览器中断这次拖动（只挪一格就停，iOS 上直接取消）。
+// 把手是按钮，聚焦后按 ↑ ↓ 也能移动。onDrop(from, to) 由调用方改数据并重画
+function dragSort(container, { grip, row, onDrop }) {
+  container.addEventListener("keydown", (e) => {
+    const g = e.target.closest?.(grip);
+    if (!g || !container.contains(g) || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    const rows = [...container.querySelectorAll(row)];
+    const from = rows.indexOf(g.closest(row));
+    const to = from + (e.key === "ArrowUp" ? -1 : 1);
+    if (from < 0 || to < 0 || to >= rows.length) return;
+    e.preventDefault();
+    onDrop(from, to, { keyboard: true });
+  });
+  container.addEventListener("pointerdown", (e) => {
+    const g = e.target.closest?.(grip);
+    if (!g || !container.contains(g) || e.button > 0) return;
+    const me = g.closest(row);
+    const rows = [...container.querySelectorAll(row)];
+    const from = rows.indexOf(me);
+    if (from < 0 || rows.length < 2) return;
+    e.preventDefault();
+    const rects = rows.map((r) => r.getBoundingClientRect());
+    const gap = Math.max(0, rects[1].top - rects[0].bottom);
+    const step = rects[from].height + gap;
+    const mids = rects.map((r) => r.top + r.height / 2);
+    const startY = e.clientY;
+    let scroller = me.parentElement;
+    while (scroller && scroller !== document.body && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+    const scroll0 = scroller?.scrollTop || 0;
+    let to = from;
+    me.classList.add("pa-dragging");
+    try { g.setPointerCapture(e.pointerId); } catch {}
+    const move = (ev) => {
+      if (ev.pointerId !== e.pointerId) return;
+      // 靠近滚动区上下边缘时跟着滚
+      if (scroller && scroller !== document.body) {
+        const sr = scroller.getBoundingClientRect();
+        if (ev.clientY < sr.top + 40) scroller.scrollTop -= 10;
+        else if (ev.clientY > sr.bottom - 40) scroller.scrollTop += 10;
+      }
+      const dy = ev.clientY - startY + ((scroller?.scrollTop || 0) - scroll0);
+      const center = mids[from] + dy;
+      to = mids.filter((m, i) => i !== from && m < center).length;
+      me.style.transform = `translateY(${dy}px)`;
+      rows.forEach((r, i) => {
+        if (r === me) return;
+        const shift = from < to && i > from && i <= to ? -step : from > to && i < from && i >= to ? step : 0;
+        r.style.transform = shift ? `translateY(${shift}px)` : "";
+      });
+    };
+    const end = (ev) => {
+      if (ev.pointerId !== e.pointerId) return;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      me.classList.remove("pa-dragging");
+      rows.forEach((r) => { r.style.transform = ""; });
+      if (ev.type === "pointerup" && to !== from) onDrop(from, to, { keyboard: false });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  });
+}
+// 数组里把第 from 项移到第 to 项
+function moveItem(list, from, to) {
+  const [x] = list.splice(from, 1);
+  list.splice(to, 0, x);
+  return list;
+}
 // 2.8.8 只滚动 node 所在的那个滚动容器，让它居中（block = "start" 时靠上）。
 // scrollIntoView 会连带滚动外层：模型很多时把整页（html）滚上去几百像素，面板和弹窗跟着上移，✕ 跑到屏幕外点不到
 function scrollToView(node, block = "center", smooth = false) {

@@ -43,6 +43,8 @@ const KEY_INPUT_STYLE = FIELD_STYLE;
 // 分段标题（按分类、按分组共用）
 const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
+// 排序把手：两列三行小圆点
+const ICON_GRIP = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><g fill="currentColor"><circle cx="6" cy="3.5" r="1.1"/><circle cx="10" cy="3.5" r="1.1"/><circle cx="6" cy="8" r="1.1"/><circle cx="10" cy="8" r="1.1"/><circle cx="6" cy="12.5" r="1.1"/><circle cx="10" cy="12.5" r="1.1"/></g></svg>';
 const CHECK_MARK = '<span class="pa-mcheck" aria-hidden="true">✓</span>';
 // 1.4.0：模型选择框。系统下拉框在平板上又宽又长，改为带搜索的列表，高度限制在屏幕内
 // 2.5.0：一个选择框管单密钥和多密钥站点。
@@ -703,6 +705,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
             ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
+    // 2.8.9 编辑站点时左侧出现把手，拖动或按 ↑ ↓ 调整站点顺序
+    const siteGrip = (x) => `<button type="button" class="pa-key-grip pa-site-grip" data-a="sitegrip" aria-label="「${esc(x.name)}」：拖动或按上下方向键调整顺序" title="拖动调整顺序">${ICON_GRIP}</button>`;
     // 2.4.0：站点不分组，每个站点一个独立的框（和方案下面的选项一样）
     const siteRow = (x) => {
       const used = usedBy(x.id);
@@ -710,7 +714,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       if (siteMulti(x)) return multiRow(x, on, used);
       const bal = balSiteText(x);
       return `<div class="pa-sgroup pa-sitecard pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
-            <div class="pa-srow-main pa-site-name" data-a="edit" role="button" tabindex="0" aria-label="编辑「${esc(x.name)}」" title="${esc([x.model || "未选模型", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · "))}"><b>${esc(x.name)}</b><small class="pa-site-model pa-num">${bal ? `余额 ${esc(bal)}` : "余额未知"}</small></div>
+            ${sitesEditing ? siteGrip(x) : ""}<div class="pa-srow-main pa-site-name" data-a="edit" role="button" tabindex="0" aria-label="编辑「${esc(x.name)}」" title="${esc([x.model || "未选模型", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · "))}"><b>${esc(x.name)}</b><small class="pa-site-model pa-num">${bal ? `余额 ${esc(bal)}` : "余额未知"}</small></div>
             ${sitesEditing ? `<button class="pa-icon-btn pa-site-del" data-a="del" type="button" aria-label="删除「${esc(x.name)}」" title="删除">${ICON.trash}</button>` : on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
     };
     // 2.5.0 多密钥站点：左边小三角，点开每个分组一行，各有「切换」；折起时小字是当前分组和模型
@@ -726,7 +730,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       // 和单密钥站点一样：点「切换」切换，点右边「N 组」展开、收起，点其他地方打开编辑窗口
       return `<div class="pa-sgroup pa-sitecard pa-site pa-site-multi${on ? " pa-srow-on" : ""}${open ? " open" : ""}" data-id="${esc(x.id)}">
             <div class="pa-site-mhead" data-a="edit" role="button" tabindex="0" aria-label="编辑「${esc(x.name)}」">
-            <div class="pa-srow-main"><b>${esc(x.name)}</b>${info ? `<small class="pa-site-model">${esc(info)}</small>` : ""}</div>
+            ${sitesEditing ? siteGrip(x) : ""}<div class="pa-srow-main"><b>${esc(x.name)}</b>${info ? `<small class="pa-site-model">${esc(info)}</small>` : ""}</div>
             ${sitesEditing ? `<button class="pa-icon-btn pa-site-del" data-a="del" type="button" aria-label="删除「${esc(x.name)}」" title="删除">${ICON.trash}</button>` : on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : ""}<button class="pa-swpill pa-fold-pill" data-a="sitefold" type="button" aria-expanded="${open}" aria-label="${x.keys.length} 个分组，${open ? "收起" : "展开"}">${x.keys.length} 组 ${open ? "▾" : "▸"}</button></div>${lines}</div>`;
     };
     const info = (t, d) => `<div class="pa-srow"><div class="pa-srow-main"><b>${t}</b><small>${d}</small></div></div>`;
@@ -745,7 +749,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       : `${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：删除、导入、导出" title="编辑：删除、导入、导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
     sitesBox.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">站点${n ? whyBtn("sites") : ""}</h3><div class="pa-head-btns">${headBtns}</div></div>
-        ${n ? `${whyNote("sites", sitesEditing ? "点垃圾桶删除站点。导出的文件可在重装、换设备后导入。" : "点站点名修改详情、填余额。点铅笔可删除站点、导入或导出站点文件。")}${sites().map(siteRow).join("")}` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
+        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。导出的文件可在重装、换设备后导入。" : "点站点名修改详情、填余额。点铅笔可删除站点、导入或导出站点文件。")}${sites().map(siteRow).join("")}` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
@@ -840,7 +844,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         const ph = hasKey(k) ? (k.keyMask ? `${k.keyMask} · 留空不改` : "不修改请留空") : many ? "粘贴密钥，可多行" : "留空则使用酒馆当前密钥，可多行粘贴";
         const cnt = (k.models || []).length ? `<span class="pa-key-cnt" title="拉取到的模型">✓ ${k.models.length}</span>` : "";
         return `<div class="pa-keyrow" data-k="${esc(k.id)}">
-            ${many ? `<span class="pa-key-grip" aria-hidden="true" title="拖动调顺序，排在上面的优先">⋮⋮</span><input class="pa-input pa-key-name" data-f="keyname" value="${esc(k.name)}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
+            ${many ? `<button type="button" class="pa-key-grip" aria-label="密钥 ${i + 1}：拖动或按上下方向键调整顺序" title="拖动调顺序，排在上面的优先">${ICON_GRIP}</button><input class="pa-input pa-key-name" data-f="keyname" value="${esc(k.name)}" placeholder="密钥 ${i + 1}" aria-label="密钥 ${i + 1} 的名称（分组名，可不填）">` : ""}
             <input class="pa-input pa-key-val" data-f="key" type="${shown.has(k.id) ? "text" : "password"}" style="${KEY_INPUT_STYLE}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(ph)}" aria-label="${many ? `密钥 ${i + 1}` : "密钥"}" value="${esc(typed.get(k.id) || shown.has(k.id) && revealed.get(k.id) || "")}">
             <button class="pa-icon-btn pa-key-eye${shown.has(k.id) ? " on" : ""}" data-f="keyeye" type="button" aria-pressed="${shown.has(k.id)}" aria-label="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}" title="${shown.has(k.id) ? "隐藏密钥" : "显示密钥"}">${ICON.eye}</button>
             ${shown.has(k.id) && (typed.get(k.id) || revealed.get(k.id)) ? `<button class="pa-icon-btn pa-key-copy" data-f="keycopy" type="button" aria-label="复制密钥" title="复制密钥">${ICON.copy}</button>` : ""}
@@ -993,37 +997,15 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           setModel(w, readModel(w));
           toast(`已拆成 ${lines.length} 个密钥，可在左边填分组名`, "success");
         });
-        // 按住 ⋮⋮ 拖动调顺序（排在上面的优先）
-        keysBox.addEventListener("pointerdown", (e) => {
-          const grip = e.target.closest(".pa-key-grip");
-          if (!grip) return;
-          e.preventDefault();
-          keyNote.clear();
-          keysBox.querySelectorAll(".pa-key-note").forEach((n) => n.remove());
+        // 2.8.9 按住把手拖动调顺序（排在上面的优先），也可聚焦把手后按 ↑ ↓
+        dragSort(keysBox, { grip: ".pa-key-grip", row: ".pa-keyrow", onDrop: (from, to, how) => {
           syncTyped();
-          const row = grip.closest(".pa-keyrow");
-          row.classList.add("pa-dragging");
-          grip.setPointerCapture?.(e.pointerId);
-          const move = (ev) => {
-            const rows = [...keysBox.querySelectorAll(".pa-keyrow")];
-            const over = rows.find((x) => x !== row && ev.clientY < x.getBoundingClientRect().top + x.offsetHeight / 2);
-            if (over) {
-              if (over !== row.nextElementSibling) keysBox.insertBefore(row, over);
-            } else if (row !== keysBox.lastElementChild) keysBox.append(row);
-          };
-          const up = () => {
-            grip.removeEventListener("pointermove", move);
-            grip.removeEventListener("pointerup", up);
-            grip.removeEventListener("pointercancel", up);
-            const order = [...keysBox.querySelectorAll(".pa-keyrow")].map((x) => x.dataset.k);
-            ks.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
-            paintKeys();
-            setModel(w, readModel(w));
-          };
-          grip.addEventListener("pointermove", move);
-          grip.addEventListener("pointerup", up);
-          grip.addEventListener("pointercancel", up);
-        });
+          keyNote.clear();
+          moveItem(ks, from, to);
+          paintKeys();
+          setModel(w, readModel(w));
+          if (how.keyboard) keysBox.querySelectorAll(".pa-key-grip")[to]?.focus();
+        } });
         w.querySelector("[data-f=modelbtn]").addEventListener("click", async () => {
           syncTyped();
           const view = viewSite();
@@ -1609,6 +1591,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".pa-sghead, .pa-site-mhead")) { e.preventDefault(); e.target.click(); }
   };
   bindWhy(sitesBox);
+  dragSort(sitesBox, { grip: ".pa-site-grip", row: ".pa-site", onDrop: (from, to, how) => {
+    moveItem(settings().sites, from, to);
+    saveSettings();
+    render();
+    if (how.keyboard) sitesBox.querySelectorAll(".pa-site-grip")[to]?.focus();
+  } });
   // 余额查询前后只换余额这一块
   onBalance(() => {
     // 查完（手填余额可能已扣减）整页重画，站点列表的余额跟着变；查询中只换余额这一块
