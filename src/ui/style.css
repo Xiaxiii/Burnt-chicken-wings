@@ -2187,3 +2187,6 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-edit-text { overflow-y: auto; }
 #pa-root .pa-note { resize: none; overflow: hidden; min-height: 40px; line-height: 1.45; overflow-wrap: anywhere; }
 #pa-root .pa-balshow { margin: 12px 2px 0; font-size: .9em; color: var(--pa-dim); }
+/* 2.9.2 页头名称后的署名 */
+#pa-root .pa-kicker { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pa-root .pa-kicker .pa-by { margin-left: .5em; opacity: .75; }

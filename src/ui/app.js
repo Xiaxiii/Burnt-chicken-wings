@@ -80,7 +80,7 @@ function buildRoot() {
                 ${NAV.filter((x) => x[2] === "tool").map(navBtn).join("")}
             </nav>
             <header class="pa-top">
-                <div class="pa-head-t"><small class="pa-kicker pa-appname">${esc(appName())}</small><h2 class="pa-title"></h2></div>
+                <div class="pa-head-t"><small class="pa-kicker"><span class="pa-appname">${esc(appName())}</span><span class="pa-by">by EC</span></small><h2 class="pa-title"></h2></div>
                 <div class="pa-savebar" role="status" hidden>
                     <span class="pa-dirty-text"></span>
                     <button class="pa-btn" data-g="undo">撤销</button>
