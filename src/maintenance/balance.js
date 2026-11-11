@@ -4,6 +4,10 @@
 var BAL = { busy: false, err: "", listeners: new Set() };
 const BAL_KEEP = 7 * 864e5;
 const BAL_MAX = 400;
+// 2.9.1 余额显示可关：关掉后连接页不显示余额、不自动查询
+function balShown() {
+  return settings().balanceShow !== false;
+}
 function balSupported(source) {
   return source === "custom" || source === "openrouter" || source === "deepseek";
 }
@@ -161,7 +165,9 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
   const live = liveConnection();
   if (!balSupported(live.source) || BAL.busy) return null;
   BAL.busy = true;
+  // 2.9.1 报错记在查询的那条连接上：换站点后不再显示上一个站点的报错
   BAL.err = "";
+  BAL.errFor = balIdent(live);
   balEmit();
   try {
     const k = await balKey(live);
@@ -257,7 +263,7 @@ function balanceSummary(live = liveConnection()) {
     site: balSiteOf(live),
     supported: balSupported(live.source),
     busy: BAL.busy,
-    err: BAL.err,
+    err: BAL.errFor === balIdent(live) ? BAL.err : "",
     last: lastRec,
     round: lastRec && prev ? { v: balSpent(prev, lastRec), gen: !!lastRec.gen } : null,
     d1: balWindow(list, 864e5, now),
@@ -279,7 +285,7 @@ function fmtMoney(v, cur = "$") {
 // 生成结束后自动查（设置里打开时）；10 秒内不重复
 function bindBalanceWatch(on, et2) {
   on(et2.GENERATION_ENDED, () => {
-    if (!settings().balanceAuto) return;
+    if (!settings().balanceAuto || !balShown()) return;
     if (Date.now() - (balRecords().at(-1)?.t || 0) < 1e4) return;
     setTimeout(() => balanceQuery({ gen: true, quiet: true }), 1500);
   });

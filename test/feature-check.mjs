@@ -57,8 +57,7 @@ ok("搜索分名称和正文两层");
 
 // 2) 复制：副本放在原条目后面
 await page.locator(".pa-list .pa-row", { hasText: "测试新条目" }).first().click();
-await page.click('[data-sel="more"]'); await page.waitForTimeout(200);
-await page.click(".pa-pick-item >> text=复制"); await page.waitForTimeout(800);
+await page.click('[data-sel="copy"]'); await page.waitForTimeout(800);
 const copy = (await live()).find((p) => p.name === "测试新条目（副本）");
 assert.ok(copy && copy.content === "新条目的正文" && copy.identifier !== made.identifier);
 ok("复制条目");

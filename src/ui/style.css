@@ -2158,3 +2158,32 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-replyform [data-r=result] .pa-card .pa-toolbar { padding: 0; margin: 8px 0 0; }
 #pa-root .pa-rsample { margin: 0 0 4px; overflow-wrap: anywhere; }
 #pa-root .pa-rlast > summary { cursor: pointer; }
+/* ===== 2.9.1 ===== */
+/* 条目名过长时省略，不压到右边的眼睛和开关上 */
+#pa-root .pa-row .pa-nameline > .pa-name { flex: 0 1 auto; min-width: 0; }
+/* 撤销、完成移到页头右侧，底部不再多一条栏 */
+#pa-root .pa-top > .pa-savebar { grid-area: auto; flex: none; min-width: 0; min-height: 0; padding: 0; gap: 6px; border: 0; background: none !important; box-shadow: none; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+#pa-root .pa-top > .pa-savebar[hidden] { display: none; }
+#pa-root .pa-top > .pa-savebar .pa-dirty-text { flex: 0 1 auto; max-width: 11em; font-size: .8em; }
+#pa-root .pa-top > .pa-savebar .pa-btn { min-height: 34px; padding: 2px 12px; font-size: .9em; }
+@media (max-width: 560px) {
+    #pa-root .pa-top > .pa-savebar:not(.pa-save-err) .pa-dirty-text { width: 8px; max-width: 8px; white-space: nowrap; overflow: hidden; color: transparent; }
+    #pa-root .pa-top > .pa-savebar .pa-dirty-text::before { margin-right: 0; }
+    #pa-root .pa-top > .pa-savebar.pa-save-err .pa-dirty-text { max-width: 7em; }
+}
+/* 手机上多选时，多选栏占用底部导航的位置；点「取消」恢复 */
+@media (max-width: 999px) { #pa-root.pa-selecting .pa-tabs { display: none; } #pa-root.pa-selecting .pa-selbar { padding-bottom: calc(10px + env(safe-area-inset-bottom)); } }
+/* 模型行：按钮内再包一层排版（Safari 的按钮直接做弹性容器时，两行内容不撑高按钮），行距放宽 */
+#pa-root .pa-mpick-item:not(.pa-mpick-custom), #pa-root .pa-kname, #pa-root .pa-selrow { display: block; }
+#pa-root .pa-mrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#pa-root .pa-mpick-item, #pa-root .pa-kpick > .pa-mpick-item { padding: 10px 12px; min-height: 44px; }
+#pa-root .pa-kname { padding: 8px 0; }
+#pa-root .pa-mlabel { gap: 3px; }
+/* 体检建议：标题与「详情」同一行 */
+#pa-root .pa-tiphead { flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+#pa-root .pa-tiphead > .pa-tiptitle { flex: 1 1 60%; min-width: 0; margin: 0; }
+#pa-root .pa-tiphead > .pa-tip-body { flex: 1 1 100%; }
+/* 正文框高度量小了时仍可在框内滚动 */
+#pa-root .pa-edit-text { overflow-y: auto; }
+#pa-root .pa-note { resize: none; overflow: hidden; min-height: 40px; line-height: 1.45; overflow-wrap: anywhere; }
+#pa-root .pa-balshow { margin: 12px 2px 0; font-size: .9em; color: var(--pa-dim); }

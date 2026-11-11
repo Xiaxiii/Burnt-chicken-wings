@@ -113,7 +113,7 @@ function mountHealth(sec, { goClean } = {}) {
     const total = Math.max(r.readyAt || 0, ...r.timeline.map((t) => t.end)) || 1;
     const pct = (v) => `${Math.max(0, Math.min(100, v / total * 100)).toFixed(2)}%`;
     // 建议：只显示一句短结论；带数字的完整说明和原因都收进折叠的「详情」
-    const card = (w, warn) => `<div class="pa-card pa-tipcard ${warn ? "pa-card-warn" : ""}"><p>${warn ? `<b>${esc(w.h || w.t)}</b>` : esc(w.h || w.t)}</p><div class="pa-tiprow">${tip(`${w.h ? `<p>${esc(w.t)}</p>` : ""}<p>${esc(w.d)}</p>`, "详情")}${w.act === "clean" && goClean ? '<button type="button" class="pa-golink" data-h="clean">去清理 ›</button>' : ""}</div></div>`;
+    const card = (w, warn) => `<div class="pa-card pa-tipcard ${warn ? "pa-card-warn" : ""}"><div class="pa-tiprow pa-tiphead"><p class="pa-tiptitle">${warn ? `<b>${esc(w.h || w.t)}</b>` : esc(w.h || w.t)}</p>${w.act === "clean" && goClean ? '<button type="button" class="pa-golink" data-h="clean">去清理 ›</button>' : ""}${tip(`${w.h ? `<p>${esc(w.t)}</p>` : ""}<p>${esc(w.d)}</p>`, "详情")}</div></div>`;
     const bgEnd = r.background.length ? Math.max(...r.background.map((x) => x.end)) : null;
     const readyText = r.readyAt ? fmtMs(r.readyAt) : r.readySource === "late" ? "未记录（本扩展加载时酒馆已启动完成）" : "未记录";
     const n = r.warn.length + r.tips.length;

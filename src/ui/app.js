@@ -81,18 +81,18 @@ function buildRoot() {
             </nav>
             <header class="pa-top">
                 <div class="pa-head-t"><small class="pa-kicker pa-appname">${esc(appName())}</small><h2 class="pa-title"></h2></div>
+                <div class="pa-savebar" role="status" hidden>
+                    <span class="pa-dirty-text"></span>
+                    <button class="pa-btn" data-g="undo">撤销</button>
+                    <button class="pa-btn pa-btn-primary" data-g="confirm" title="修改已自动保存。点「完成」结束这一批修改，之后不能再撤销">完成</button>
+                    <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
+                </div>
                 <button class="pa-icon-btn pa-sulayout" data-g="sulayout" hidden></button>
                 <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份（只存在这个浏览器里）"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg></button>
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </header>
             <div class="pa-subnav" role="tablist" hidden></div>
             <main class="pa-main">${Object.keys(SECTION_OF).filter((k) => !PAGE_EL[k]).map((k) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
-            <div class="pa-savebar" role="status" hidden>
-                <span class="pa-dirty-text"></span>
-                <button class="pa-btn" data-g="undo">撤销</button>
-                <button class="pa-btn pa-btn-primary" data-g="confirm" title="修改已自动保存。点「完成」结束这一批修改，之后不能再撤销">完成</button>
-                <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
-            </div>
         </div>
     </div>`);
   document.body.append(rootEl2);
@@ -197,9 +197,11 @@ function updateSavebar() {
   const pending = !!d?.history.length;
   bar.hidden = !d || !pending && !err && !saveJobs.has(d.name);
   bar.classList.toggle("pa-save-err", !!(err || blocked));
-  rootEl2.querySelector(".pa-dirty-text").textContent = blocked
+  const dirtyText = rootEl2.querySelector(".pa-dirty-text");
+  dirtyText.textContent = blocked
     ? (blocked.kind === "conflict" ? "已暂停保存：预设在别处被改过" : "已暂停保存：备份失败")
     : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty ? "保存中…" : "已自动保存";
+  dirtyText.title = dirtyText.textContent;
   const saveBtn = rootEl2.querySelector("[data-g=save]");
   saveBtn.hidden = !err;
   saveBtn.textContent = blocked ? "处理" : "重试保存";
@@ -225,6 +227,7 @@ function show(key, sub) {
   const sec = SECTION_OF[k];
   const wasVisible = !rootEl2.hidden && (PAGE_EL[current] || current) === (PAGE_EL[k] || k) && rootEl2.dataset.paShown === "1";
   current = k;
+  if (k !== "organize") rootEl2.classList.remove("pa-selecting");
   if (sec === "check") lastCheckPage = k;
   if (sec === "more" && settings().moreTab !== k) {
     settings().moreTab = k;

@@ -116,14 +116,14 @@ const state = (page) => page.evaluate(() => {
   assert.deepEqual((await state(page)).page, ["organize"]);
   ok("旧写法 open(\"more\", 子页)、open(\"suture\")、open(\"reply-rules\") 仍可用");
 
-  // 有修改时批次栏出现在底部导航上方
+  // 2.9.1 有修改时「撤销」「完成」出现在页头里，底部不多一条栏
   await page.locator("[data-page=organize] .pa-row .pa-switch").first().click();
   await page.waitForTimeout(700);
   const box = await page.evaluate(() => {
     const r = (q) => document.querySelector(q).getBoundingClientRect();
-    return { bar: r(".pa-savebar"), tabs: r(".pa-tabs"), text: document.querySelector(".pa-dirty-text").textContent };
+    return { bar: r(".pa-savebar"), top: r(".pa-top"), text: document.querySelector(".pa-dirty-text").textContent };
   });
-  assert.ok(box.bar.height > 0 && Math.abs(box.bar.bottom - box.tabs.top) <= 1, `批次栏紧贴底部导航 ${box.bar.bottom} / ${box.tabs.top}`);
+  assert.ok(box.bar.height > 0 && box.bar.top >= box.top.top && box.bar.bottom <= box.top.bottom && box.bar.right <= box.top.right, `批次栏在页头内 ${JSON.stringify(box.bar)}`);
   assert.ok(await page.locator('.pa-savebar [data-g="undo"]').isVisible());
   await page.screenshot({ path: S + "n-4-phone-savebar.png" });
   await page.click('.pa-savebar [data-g="undo"]');

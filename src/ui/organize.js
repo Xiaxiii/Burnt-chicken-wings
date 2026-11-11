@@ -47,6 +47,9 @@ function entryForm(p, { marker = false, promptOnly = false, hint = "" } = {}) {
     };
     ta.addEventListener("input", fit);
     requestAnimationFrame(() => requestAnimationFrame(fit));
+    // 2.9.1 字体载入、弹窗升起的动画结束后再量一次：量早了高度偏小，末尾几行露不出来
+    setTimeout(fit, 350);
+    try { document.fonts?.ready?.then(fit); } catch {}
     let lastW = 0;
     new ResizeObserver((es) => { const w = Math.round(es[0].contentRect.width); if (w !== lastW) { lastW = w; requestAnimationFrame(fit); } }).observe(body);
   }
@@ -58,6 +61,7 @@ function entryForm(p, { marker = false, promptOnly = false, hint = "" } = {}) {
     e.currentTarget.innerHTML = on ? ICON.collapse : ICON.expand;
     e.currentTarget.setAttribute("aria-label", on ? "收起正文" : "展开正文");
     e.currentTarget.title = on ? "收起正文" : "展开正文";
+    ta?.dispatchEvent(new Event("input"));
     if (matchMedia("(pointer:fine)").matches) body.querySelector("[data-f=content]")?.focus({ preventScroll: true });
   });
   body.querySelector("[data-f=pos]")?.addEventListener("change", (e) => {
@@ -133,6 +137,7 @@ function mountOrganize(page) {
             <div class="pa-selbar-btns">
                 <button class="pa-btn pa-btn-primary" data-sel="moveto">移动</button>
                 <button class="pa-btn pa-seltoggle" data-sel="on">开启</button>
+                <button class="pa-btn" data-sel="copy" title="每条的副本放在原条目后面">复制</button>
                 <button class="pa-btn pa-btn-danger-soft" data-sel="delete">删除</button>
                 <button class="pa-btn" data-sel="more">更多</button>
             </div>
@@ -194,6 +199,7 @@ function mountOrganize(page) {
     list.classList.toggle("pa-placing", placing);
     const n = st.selected.size;
     selbar.hidden = n === 0 || placing;
+    rootEl?.classList.toggle("pa-selecting", !selbar.hidden);
     movebar.hidden = !placing;
     movebar.classList.toggle("pa-movebar-ng", st.mode === "newgroup");
     page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
@@ -226,6 +232,7 @@ function mountOrganize(page) {
     });
     const n = st.selected.size;
     selbar.hidden = n === 0;
+    rootEl?.classList.toggle("pa-selecting", !selbar.hidden);
     page.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
     if (!n) return;
     const vis = visibleRows();
@@ -460,7 +467,6 @@ function mountOrganize(page) {
         { label: "建成分组…", value: "newgroup" },
         { label: "移入分组…", value: "intogroup" },
         { label: "移出分组", value: "ungroup" },
-        { label: "复制", sub: "每条的副本放在原条目后面", value: "copy" },
         { label: "按变量名排序…", sub: "按条目登记的变量名（如 文风1、文风2）分类，类别内按编号排", value: "sorttags" }
       ]);
       if (!v) return;
