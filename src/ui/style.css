@@ -2209,3 +2209,10 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-kname { padding: 5px 0; }
 #pa-root .pa-mlabel { gap: 1px; }
 #pa-root .pa-rscope > summary { cursor: pointer; }
+/* ===== 2.9.5 ===== */
+/* 缝合「切换」布局一次只显示一栏：触屏上行高、勾选圈与预设页一致；「分栏」布局两栏同屏，保持紧凑 */
+@media (pointer: coarse) {
+    #pa-root .pa-suture.pa-sw .pa-row { min-height: 44px; }
+    #pa-root .pa-suture.pa-sw .pa-ghead { min-height: 46px; }
+    #pa-root .pa-suture.pa-sw .pa-check, #pa-root .pa-suture.pa-sw .pa-group-select .pa-check { width: 20px; height: 20px; }
+}
