@@ -39,16 +39,7 @@ function replyForm(name, { onSaved } = {}) {
   let reviewCancel = null;
   // 2.8.0 一页排完：检查（按钮、粘贴框、结果）在上，标签和自动处理在下，语义审查和检测范围折叠
   const body = el(`<div class="pa-form pa-replyform">
-    <div class="pa-toolbar pa-rcheck"><button class="pa-btn pa-btn-primary" data-r="latest">检查最近回复</button><button class="pa-btn" data-r="paste">检查下方文字</button><button class="pa-btn" data-r="diagnose">按范本诊断</button>${tip(`<ul class="pa-notes">
-      <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
-      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和下面填的必需标签，不提其他标签。</li>
-      <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
-      <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
-      <li>必需标签只对用到它的对话生效：当前预设开着的条目、角色卡或当前对话生效的世界书里写着这个标签时，才检查、提醒、修正。几张卡的状态栏标签可以一起填，每张卡只按自己的标签检查。</li>
-      <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;status&gt; 写成 &lt;状态&gt;）时，当作写错了名字：提醒只写正确的标签名，不写出错误的名字；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
-      <li>必需标签外面多套了一层预设、角色卡、世界书和正则都没用到的标签（如 &lt;状态&gt;&lt;status&gt;…&lt;/status&gt;&lt;/状态&gt;），且外层里没有别的文字时，提醒直接输出必需标签，修正去掉外层标签。</li>
-      <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断。</li>
-      <li>按范本诊断：粘贴一份格式正确的回复，凡是被判出的问题都算设置与范本不符，逐条给出改法，可一键写回设置。范本只在本页使用；点「记为范本」只保存标签名和顺序，不保存正文。</li></ul>`, "检测范围")}</div>
+    <div class="pa-toolbar pa-rcheck"><button class="pa-btn pa-btn-primary" data-r="latest">检查最近回复</button><button class="pa-btn" data-r="paste">检查下方文字</button><button class="pa-btn" data-r="diagnose">按范本诊断</button></div>
     <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复，点「检查下方文字」；粘贴格式正确的回复，点「按范本诊断」（只在本页检测，不保存）"></textarea>
     <div data-r="result" aria-live="polite"></div>
     <div data-r="lastremind"></div>
@@ -64,8 +55,7 @@ function replyForm(name, { onSaved } = {}) {
     <h3 class="pa-h">发现问题时</h3>
     <div class="pa-rautoset">
     <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>下一轮提醒 AI</label>
-    <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>自动修正这条回复</label>${whyBtn("autofix")}</div>
-    ${whyNote("autofix", "勾上：每次生成完自动修，改了会提示，点「检查最近回复」可撤销。不勾：点「检查最近回复」，看到问题后手动点「修正这条回复」。")}
+    <label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>自动修正回复问题</label>
 <label class="pa-field-row"><input type="checkbox" data-r="outside" ${saved.allowOutside ? "checked" : ""}>正文标签外允许有文字</label>
     <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="bysample" ${saved.skeleton?.length && saved.remindBySample !== false ? "checked" : ""} ${saved.skeleton?.length ? "" : "disabled"}>提醒时照范本的标签顺序写</label>${whyBtn("bysample")}</div>
     ${whyNote("bysample", "先粘贴一份格式正确的回复，点「按范本诊断」，再点「记为范本」。只保存标签名和顺序。")}
@@ -79,6 +69,16 @@ function replyForm(name, { onSaved } = {}) {
       <div class="pa-toolbar"><button class="pa-btn" data-r="ai-latest" ${semanticAvailable ? "" : "disabled"}>审查最近回复</button><button class="pa-btn" data-r="ai-paste" ${semanticAvailable ? "" : "disabled"}>审查粘贴文字</button><button class="pa-btn" data-r="ai-cancel" hidden>取消审查</button><button class="pa-link" data-r="ai-result">查看最近结果</button></div>
       <div data-r="semantic-result" aria-live="polite"></div>
     </details>
+    <details class="pa-card pa-rscope"><summary>检测范围</summary><ul class="pa-notes">
+      <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
+      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和下面填的必需标签，不提其他标签。</li>
+      <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
+      <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
+      <li>必需标签只对用到它的对话生效：当前预设开着的条目、角色卡或当前对话生效的世界书里写着这个标签时，才检查、提醒、修正。几张卡的状态栏标签可以一起填，每张卡只按自己的标签检查。</li>
+      <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;status&gt; 写成 &lt;状态&gt;）时，当作写错了名字：提醒只写正确的标签名，不写出错误的名字；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
+      <li>必需标签外面多套了一层预设、角色卡、世界书和正则都没用到的标签（如 &lt;状态&gt;&lt;status&gt;…&lt;/status&gt;&lt;/状态&gt;），且外层里没有别的文字时，提醒直接输出必需标签，修正去掉外层标签。</li>
+      <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断。</li>
+      <li>按范本诊断：粘贴一份格式正确的回复，凡是被判出的问题都算设置与范本不符，逐条给出改法，可一键写回设置。范本只在本页使用；点「记为范本」只保存标签名和顺序，不保存正文。</li></ul></details>
   </div>`);
   bindWhy(body);
   // 2.9.0 范本的标签顺序（只有标签名）：随设置一起保存
@@ -316,7 +316,7 @@ function saveReplyConfig(name, value) {
   clearReplyGuard();
   // 只在「自动修正」「下一轮提醒」开关变化时提示
   if (!!prev.autoFix === !!value.autoFix && !!prev.enabled === !!value.enabled) return;
-  const on = [value.autoFix && "自动修正这条回复", value.enabled && "下一轮提醒 AI"].filter(Boolean);
+  const on = [value.autoFix && "自动修正回复问题", value.enabled && "下一轮提醒 AI"].filter(Boolean);
   toast(on.length ? `已开启：发现正文格式问题时，${on.join("，并")}` : "自动修正和提醒都已关闭", "success");
 }
 // 「回复」页：当前预设的正文格式检查、自动修正、语义审查

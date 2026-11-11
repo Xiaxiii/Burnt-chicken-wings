@@ -1235,7 +1235,6 @@ html.pa-open #toast-container > .toast { cursor: pointer; }
 @supports (-webkit-touch-callout: none) {
     #pa-root .pa-input, #pa-root .pa-select, #pa-root .pa-text, #pa-root textarea, #pa-root input:not([type=checkbox]):not([type=radio]):not([type=range]) { font-size: max(16px, 1em); }
     /* 2.5.0 模型框、模型选择列表和输入框（网址、密钥）同一个字号 */
-    #pa-root .pa-model-btn, #pa-root .pa-mpick-item, #pa-root .pa-kname { font-size: max(16px, 1em); }
 }
 
 /* 1.8.0 缝合页：已选清单、目标列表里的新建分组、来源的更多操作 */
@@ -2204,3 +2203,9 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
     #pa-root .pa-tabs button[aria-current="page"] { flex: 0 0 auto; padding: 0 18px; background: var(--pa-card-2); }
     #pa-root .pa-tabs button[aria-current="page"] > span { display: inline; font-size: max(13px, 1.1em); white-space: nowrap; }
 }
+/* ===== 2.9.4 ===== */
+/* 模型按钮和模型行不是输入框，不放大到 16px；行内边距收回 */
+#pa-root .pa-mpick-item, #pa-root .pa-kpick > .pa-mpick-item { padding: 7px 12px; min-height: 40px; }
+#pa-root .pa-kname { padding: 5px 0; }
+#pa-root .pa-mlabel { gap: 1px; }
+#pa-root .pa-rscope > summary { cursor: pointer; }

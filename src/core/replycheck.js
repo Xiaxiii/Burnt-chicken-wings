@@ -396,7 +396,7 @@ function diagnoseReplySample(text, inputRules, extra = {}) {
       } else {
         patch.enabled = false;
         patch.autoFix = false;
-        advice.push({ text: `范本没有用标签包正文，设置却要求 <${rules.bodyTag}>：关闭「下一轮提醒 AI」和「自动修正这条回复」。` });
+        advice.push({ text: `范本没有用标签包正文，设置却要求 <${rules.bodyTag}>：关闭「下一轮提醒 AI」和「自动修正回复问题」。` });
       }
     } else if (issue.kind === "missing" && issue.tag) {
       if (!once(`req:${low(issue.tag)}`)) continue;
