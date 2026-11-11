@@ -54,8 +54,8 @@ try {
       { name: '丙', avatar: 'bing.png', description: '丙的设定', data: { extensions: { world: '丙书' }, character_book: { entries: [{ content: '正文后输出 <bing_bar><时>…</时></bing_bar>', enabled: true }] } } },
       { name: '丁', avatar: 'ding.png', description: '丁没有状态栏', data: { extensions: {} } }
     ];
-    c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), replyGuard: { [NAME]: { bodyTag: 'content', requiredTags: ['lxs_status', 'zt', 'bing_bar'], enabled: true, autoFix: true } } };
-  }, { preset, NAME, a: rule('lxs_status'), b: rule('zt') });
+    c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), replyGuard: { [NAME]: { bodyTag: 'content', requiredTags: ['card_status', 'zt', 'bing_bar'], enabled: true, autoFix: true } } };
+  }, { preset, NAME, a: rule('card_status'), b: rule('zt') });
 
   const use = (id) => page.evaluate(async (id) => {
     const c = window.SillyTavern.getContext();
@@ -76,7 +76,7 @@ try {
   };
   const bar = (tag) => `<content>正文。</content>\n<${tag}>\n  <时>午时</时>\n  <地>东宫</地>\n</${tag}>`;
 
-  // 乙卡：写自己的 <zt>，没有问题；不要求 <lxs_status>
+  // 乙卡：写自己的 <zt>，没有问题；不要求 <card_status>
   await use(1);
   await generate(bar('zt'));
   assert.equal(await mes(), bar('zt'), '乙卡的 <zt> 原样保留，不改名');
@@ -85,26 +85,26 @@ try {
   await reply('<content>正文。</content>');
   await before();
   assert.match(await reminder(), /<zt>…<\/zt>/);
-  assert.doesNotMatch(await reminder(), /lxs_status|bing_bar/, '不提别的卡的标签');
+  assert.doesNotMatch(await reminder(), /card_status|bing_bar/, '不提别的卡的标签');
   ok('乙卡只按自己的 <zt> 检查：写对不提醒、不改名，掉了只提醒 <zt>');
 
-  // 甲卡：写成 <状态栏>，按世界书里 <lxs_status> 的子标签认定写错名，自动改回，提醒不写错名
+  // 甲卡：写成 <状态栏>，按世界书里 <card_status> 的子标签认定写错名，自动改回，提醒不写错名
   await use(0);
   await generate(bar('状态栏'));
-  assert.equal(await mes(), bar('lxs_status'), '自动修正改回 <lxs_status>');
+  assert.equal(await mes(), bar('card_status'), '自动修正改回 <card_status>');
   await before();
-  assert.match(await reminder(), /<lxs_status>…<\/lxs_status>/);
+  assert.match(await reminder(), /<card_status>…<\/card_status>/);
   assert.doesNotMatch(await reminder(), /状态栏|<zt>|bing_bar/);
   await generate(bar('zt'));
   assert.notEqual(await mes(), bar('zt'), '甲卡里冒出的 <zt> 会被认出');
-  ok('甲卡按世界书里的 <lxs_status> 检查，写错名时改回，提醒不出现错名和别的卡的标签');
+  ok('甲卡按世界书里的 <card_status> 检查，写错名时改回，提醒不出现错名和别的卡的标签');
 
   // 丙卡：世界书文件不存在，用卡内嵌的世界书
   await use(2);
   await reply('<content>正文。</content>');
   await before();
   assert.match(await reminder(), /<bing_bar>…<\/bing_bar>/);
-  assert.doesNotMatch(await reminder(), /lxs_status|<zt>/);
+  assert.doesNotMatch(await reminder(), /card_status|<zt>/);
   ok('没导入世界书的卡按卡内嵌的世界书检查');
 
   // 丁卡：没有状态栏，三个必需标签都不检查
@@ -114,7 +114,7 @@ try {
   assert.equal(await reminder(), '', '丁卡没有状态栏，不要求任何状态栏标签');
   await page.evaluate(() => window.__presetAtelier.open('reply-check'));
   await page.locator('[data-page=reply] [data-r=unused]:not([hidden])').waitFor();
-  assert.match(await page.locator('[data-page=reply] [data-r=unused]').innerText(), /没有 <lxs_status>、<zt>、<bing_bar>，这次不检查/);
+  assert.match(await page.locator('[data-page=reply] [data-r=unused]').innerText(), /没有 <card_status>、<zt>、<bing_bar>，这次不检查/);
   ok('丁卡不要求任何状态栏标签，「回复」页写明这次跳过的标签');
 
   // 改世界书后重读：乙书删掉状态栏条目，乙卡不再要求 <zt>

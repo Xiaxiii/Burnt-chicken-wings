@@ -38,11 +38,11 @@ try {
   ok('有错时离开输入框：报错在框下面，不保存');
 
   // 零宽字符、全角、尖括号、输入法的「——」：清理后保存
-  await required.fill('lxs​_status、<状态栏>，ｍｅｍｏ；mood——bar');
+  await required.fill('card​_status、<状态栏>，ｍｅｍｏ；mood——bar');
   await required.blur();
   await page.waitForTimeout(200);
   const saved = await page.evaluate(() => Object.values(window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard || {})[0]?.requiredTags);
-  assert.deepEqual(saved, ['lxs_status', '状态栏', 'memo', 'mood_bar']);
+  assert.deepEqual(saved, ['card_status', '状态栏', 'memo', 'mood_bar']);
   ok('看不见的字符、全角、尖括号和「——」清理后照常保存');
 
   assert.deepEqual(errors, []);

@@ -41,7 +41,19 @@ function normalizeReplyRules(input) {
     if (thinkingKeys.has(tag.toLowerCase())) throw replyRuleError(`必需标签「${tag}」不可是思考标签`, "required");
     if (!requiredTags.some((x) => x.toLowerCase() === tag.toLowerCase())) requiredTags.push(tag);
   }
-  return { bodyTag, thinkingTags, requiredTags };
+  const out = { bodyTag, thinkingTags, requiredTags };
+  // 2.9.0 可选项：正文标签外允许有文字；提醒时照范本的标签顺序写（remindBySample 关掉时不带）
+  if (input.allowOutside) out.allowOutside = true;
+  if (Array.isArray(input.skeleton) && input.skeleton.length && input.remindBySample !== false) {
+    const skeleton = [];
+    for (const value of input.skeleton) {
+      let tag;
+      try { tag = replyRuleTag(value, "范本标签", "required"); } catch { continue; }
+      if (!thinkingKeys.has(tag.toLowerCase()) && !skeleton.some((x) => x.toLowerCase() === tag.toLowerCase())) skeleton.push(tag);
+    }
+    if (skeleton.length) out.skeleton = skeleton;
+  }
+  return out;
 }
 
 // 2.5.7 按行切开、每行保留结尾的换行。不用后行断言 /(?<=\n)/：iOS 16.4 以前的 Safari 不认，整个扩展会加载失败
@@ -150,7 +162,7 @@ function replyReasoningHasBody(reasoning, bodyTag) {
   return new RegExp(`<\\s*${name}(?:\\s+[^<>]*?)?\\s*>`, "iu").test(text);
 }
 
-// 2.5.6 必需标签整个没出现、回复里却多了预设没用到的块：可能是模型把标签名写错了（如把 <lxs_status> 写成 <状态栏>）。
+// 2.5.6 必需标签整个没出现、回复里却多了预设没用到的块：可能是模型把标签名写错了（如把 <card_status> 写成 <状态栏>）。
 // knownTags 是预设开着的条目和正则里出现过的标签名（小写）；没有就不判断。也可以是函数（用到时才去扫预设），只在确实缺了必需标签时才调用。
 // 2.5.7 看结构：knownTags.children 记着预设里这个必需标签内部的子标签，陌生块里也有其中的子标签才算确定（sure）。
 // 确定时提醒点名、自动修正改名；只有一个陌生块但结构看不出来时配成一对但不确定，只做一般提醒，手动修正可看预览后改
@@ -175,7 +187,7 @@ function replyMisnamed(source, rules, knownTags, masked = replyCheckMask(source)
   return { missing, suspects: strangers, pairs, knownTags };
 }
 
-// 2.8.3 必需标签外面多套了一层预设没用到的标签（如 <状态栏><lxs_status>…</lxs_status></状态栏>）：
+// 2.8.3 必需标签外面多套了一层预设没用到的标签（如 <状态栏><card_status>…</card_status></状态栏>）：
 // 外层块里除了必需标签没有别的文字时才算。外层标签在预设、角色卡、世界书或正则里出现过的不算（可能是预设要求的容器）；读不到这些时不判断
 function replyWrapped(source, rules, knownTags, masked = replyCheckMask(source)) {
   if (!knownTags || !rules.requiredTags.length) return [];
@@ -286,7 +298,7 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     const stuck = replyStrandedBlocks(source, reasoning, rules, layoutOf());
     if (stuck.length) add("stranded", `思考区末尾留着 ${replyBlockLabel(stuck)}，本该在正文外（照前几条回复或必需标签判断），可能是和正文一起被吞进了思考区`);
   }
-  if (body.opens) {
+  if (body.opens && !rules.allowOutside) {
     const covered = [...scopeRanges];
     for (const [key] of required) for (const range of stats.get(key).ranges) covered.push(range);
     const firstBody = Math.min(...body.ranges.map((range) => range.start), ...scopeRanges.filter((range) => range.key === bodyKey).map((range) => range.start));
@@ -337,7 +349,91 @@ function buildReplyReminder(report, inputRules) {
   // 同样不写出外层的错误标签名
   for (const tag of new Set((report.wrapped || []).map((w) => w.tag))) extra.push(`上一轮在 <${tag}> 外面多套了一层标签：<${tag}>…</${tag}> 直接输出，外面不套其他标签。`);
   if (kinds.has("missing")) extra.push(`上一轮掉了标签：开头和结尾的标签名一字不改。`);
+  // 2.9.0 有范本时照范本的标签顺序写；范本里没有的必需标签补在后面
+  if (rules.skeleton) {
+    const has = (list, tag) => list.some((x) => x.toLowerCase() === tag.toLowerCase());
+    const ordered = [...rules.skeleton, ...tags.filter((tag) => !has(rules.skeleton, tag))];
+    return `【回复格式提醒】请按这个顺序输出，标签名一字不改，各完整成对出现一次：${ordered.map((tag) => `<${tag}>…</${tag}>`).join("、")}。全部置于思考标签之外。${extra.join("")}正文不夹入思考步骤或内部分析。这条提醒只管格式，剧情照常接着写。`;
+  }
   return `【回复格式提醒】请让 ${tags.map((tag) => `<${tag}>…</${tag}>`).join("、")} 各完整成对出现一次，准确闭合，并置于思考标签之外。${extra.join("")}正文不夹入思考步骤或内部分析。这条提醒只管格式，剧情照常接着写。`;
+}
+
+// 2.9.0 范本：一份格式正确的回复里，思考标签之外最外层的标签名，按出现顺序（不存正文）
+function replySampleSkeleton(text, inputRules) {
+  const rules = normalizeReplyRules(inputRules);
+  const thinking = new Set(rules.thinkingTags.map((tag) => tag.toLowerCase()));
+  const names = [];
+  for (const b of replyTopBlocks(String(text == null ? "" : text))) {
+    if (b.key === REPLY_FENCE_KEY || thinking.has(b.key) || names.some((x) => x.toLowerCase() === b.key)) continue;
+    try { names.push(replyRuleTag(b.name, "范本标签", "required")); } catch {}
+    if (names.length >= 12) break;
+  }
+  return names;
+}
+// 2.9.0 按范本诊断：把一份格式正确的回复交给检查器，凡是报出的问题都算设置与范本不符，逐条给出改法。
+// patch 是可以直接写回设置的改动（bodyTag / requiredTags / allowOutside / enabled / autoFix）；改设置消除不了的只说明原因。
+// after 是按 patch 改完后再查一遍的结果
+function diagnoseReplySample(text, inputRules, extra = {}) {
+  const rules = normalizeReplyRules(inputRules);
+  const source = String(text == null ? "" : text);
+  const report = checkReplyFormat(source, rules, extra);
+  const low = (tag) => tag.toLowerCase();
+  const thinking = new Set(rules.thinkingTags.map(low));
+  const blocks = replyTopBlocks(source).filter((b) => b.key !== REPLY_FENCE_KEY && !thinking.has(b.key));
+  let required = [...rules.requiredTags];
+  const advice = [], patch = {}, done = new Set();
+  const once = (key) => done.has(key) ? false : (done.add(key), true);
+  const drop = (tag) => { required = required.filter((t) => low(t) !== low(tag)); };
+  for (const issue of report.issues) {
+    const isBody = issue.tag && low(issue.tag) === low(rules.bodyTag);
+    if (issue.kind === "missing" && isBody) {
+      if (!once("body")) continue;
+      const cands = blocks.filter((b) => !required.some((t) => low(t) === b.key));
+      const pick = cands.find((b) => REPLY_BODY_ALIASES.includes(b.key)) || cands.slice().sort((a, b) => (b.end - b.start) - (a.end - a.start))[0];
+      if (pick) {
+        patch.bodyTag = pick.name;
+        advice.push({ text: `范本用 <${pick.name}> 包正文，设置里填的是 <${rules.bodyTag}>：正文标签改为 ${pick.name}。` });
+      } else {
+        patch.enabled = false;
+        patch.autoFix = false;
+        advice.push({ text: `范本没有用标签包正文，设置却要求 <${rules.bodyTag}>：关闭「下一轮提醒 AI」和「自动修正这条回复」。` });
+      }
+    } else if (issue.kind === "missing" && issue.tag) {
+      if (!once(`req:${low(issue.tag)}`)) continue;
+      const pair = report.misnamed?.pairs.find((p) => low(p.tag) === low(issue.tag));
+      drop(issue.tag);
+      if (pair) {
+        required.push(pair.block.name);
+        advice.push({ text: `范本里没有 <${issue.tag}>，同一位置是 <${pair.block.name}>：必需标签 ${issue.tag} 改为 ${pair.block.name}。` });
+      } else advice.push({ text: `范本里没有 <${issue.tag}>：从必需标签中去掉 ${issue.tag}。` });
+    } else if (issue.kind === "wrapped") {
+      const w = (report.wrapped || []).find((x) => low(x.tag) === low(issue.tag));
+      if (!w || !once(`wrap:${w.block.key}`)) continue;
+      required.push(w.block.name);
+      advice.push({ text: `范本里 <${w.tag}> 外面有一层 <${w.block.name}>：把 ${w.block.name} 也填进必需标签，这一层即按正常处理。` });
+    } else if (issue.kind === "duplicate" && issue.tag && !isBody) {
+      if (!once(`dup:${low(issue.tag)}`)) continue;
+      drop(issue.tag);
+      advice.push({ text: `范本里 <${issue.tag}> 出现多次，必需标签按各出现一次检查：从必需标签中去掉 ${issue.tag}。` });
+    } else if (issue.kind === "outside") {
+      if (!once("outside")) continue;
+      patch.allowOutside = true;
+      advice.push({ text: "范本在正文标签外有成段文字：勾选「正文标签外允许有文字」。" });
+    } else advice.push({ text: `改设置消除不了：${issue.text}。请确认这份范本本身完整、未被截断。`, manual: true });
+  }
+  const same = required.length === rules.requiredTags.length && required.every((t, i) => t === rules.requiredTags[i]);
+  if (!same) patch.requiredTags = required.filter((t, i) => required.findIndex((x) => low(x) === low(t)) === i);
+  let next = rules;
+  try { next = normalizeReplyRules({ ...rules, ...patch, skeleton: undefined }); } catch {}
+  const changed = Object.keys(patch).length > 0;
+  // 改了正文标签后才查得到的问题（如正文外的文字）：按改后的设置再诊断，合并成一次给出
+  const depth = extra.depth || 0;
+  if (changed && depth < 3) {
+    const more = diagnoseReplySample(source, next, { ...extra, depth: depth + 1 });
+    const fresh = more.advice.filter((a) => !a.manual || !advice.some((x) => x.text === a.text));
+    return { report, advice: [...advice, ...fresh.filter((a) => !advice.some((x) => x.text === a.text))], patch: { ...patch, ...more.patch }, after: more.after, skeleton: more.skeleton };
+  }
+  return { report, advice, patch, after: changed ? checkReplyFormat(source, next, extra) : report, skeleton: replySampleSkeleton(source, next) };
 }
 
 // ---- 修正标签：只改名、补齐或移动标签，不增删正文文字。修不了的返回 null，交给人工。

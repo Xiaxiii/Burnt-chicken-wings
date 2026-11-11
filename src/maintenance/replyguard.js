@@ -125,11 +125,17 @@ function replyRulesInUse(config, name = currentPresetName()) {
   const used = replyTagsInUse(name);
   if (!used) return { rules, unused: [] };
   const unused = rules.requiredTags.filter((t) => !used.has(t.toLowerCase()));
-  return { rules: { ...rules, requiredTags: rules.requiredTags.filter((t) => used.has(t.toLowerCase())) }, unused };
+  const out = { ...rules, requiredTags: rules.requiredTags.filter((t) => used.has(t.toLowerCase())) };
+  // 范本里别的角色卡的标签，这次对话没用到的不写进提醒
+  if (rules.skeleton) {
+    out.skeleton = rules.skeleton.filter((t) => t.toLowerCase() === rules.bodyTag.toLowerCase() || used.has(t.toLowerCase()));
+    if (!out.skeleton.length) delete out.skeleton;
+  }
+  return { rules: out, unused };
 }
 // 2.5.6 预设开着的条目、预设正则、角色卡文字和正则、全局正则里出现过的标签名（小写）。2.8.2 加上当前对话生效的世界书。
-// 判断回复里多出来的块是不是写错了名字的必需标签（如把 <lxs_status> 写成 <状态栏>）；读不到预设时返回 null，不判断。
-// 2.5.7 tags.children：want 里每个必需标签内部写过哪些子标签（条目里 <lxs_status>…</lxs_status> 之间的、同一条正则里的其他标签），
+// 判断回复里多出来的块是不是写错了名字的必需标签（如把 <card_status> 写成 <状态栏>）；读不到预设时返回 null，不判断。
+// 2.5.7 tags.children：want 里每个必需标签内部写过哪些子标签（条目里 <card_status>…</card_status> 之间的、同一条正则里的其他标签），
 // 用来确认陌生块的结构对得上
 function replyKnownTags(name = currentPresetName(), want = []) {
   const tags = new Set();
@@ -194,6 +200,7 @@ function replyLayoutLazy(chat, index, rules) {
 }
 // 2.4.1 自动修正：生成结束后按预设开关，自动做「修正这条回复」能做的修改。
 // 修正前的问题记在这里，下一轮照样提醒 AI；undo 供「回复」页撤销
+var replyLastReminder = null;
 var replyAutoFixed = null;
 var replyAutoFixPending = false;
 // 这一轮被手动停止过（停止和结束两个事件谁先到都不改）
@@ -263,7 +270,11 @@ function injectReplyGuard(c, config, latest) {
     // 已自动修正过的回复，按修正前的问题提醒
     const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules), knownTags: replyKnownTagsLazy(currentPresetName(), rules.requiredTags) });
     const reminder = buildReplyReminder(report, rules);
-    if (reminder) c.setExtensionPrompt(REPLY_GUARD_KEY, reminder, 1, 0, false, 0);
+    if (reminder) {
+      c.setExtensionPrompt(REPLY_GUARD_KEY, reminder, 1, 0, false, 0);
+      // 2.9.0 记下最近一次提醒的原因和原文（只在内存里），「回复」页据此说明提醒从哪来
+      replyLastReminder = { at: Date.now(), preset: currentPresetName(), index: latest.index, reasons: report.issues.map((i) => i.text), text: reminder };
+    }
   } catch (e) {
     console.warn("[焦香鸡翅] 正文格式检查失败", e);
   }

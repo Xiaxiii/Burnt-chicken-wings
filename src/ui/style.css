@@ -2154,3 +2154,7 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 /* 深色配色下，滚动条、下拉列表等系统控件同为深色；浅色配色在深色酒馆里保持浅色 */
 #pa-root[data-theme="mo"], #pa-root[data-theme="night"] { color-scheme: dark; }
 #pa-root[data-theme]:not([data-theme="follow"]):not([data-theme="mo"]):not([data-theme="night"]) { color-scheme: light; }
+/* 2.9.0 回复页：结果卡片里的按钮行与文字左对齐；范本一行 */
+#pa-root .pa-replyform [data-r=result] .pa-card .pa-toolbar { padding: 0; margin: 8px 0 0; }
+#pa-root .pa-rsample { margin: 0 0 4px; overflow-wrap: anywhere; }
+#pa-root .pa-rlast > summary { cursor: pointer; }
