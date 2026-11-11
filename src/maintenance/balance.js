@@ -136,6 +136,18 @@ async function balRelay(base, key, live = null) {
       if (/无效/.test(e.message)) break;
     }
   }
+  // 2.9.3 没有 /dashboard/billing 的 NewAPI 站点：再试令牌用量接口 /api/usage/token（额度单位按站点的 quota_per_unit 折算，默认 500000 = $1）
+  try {
+    const d = (await balFetch(`${u.origin}/api/usage/token`, key, live))?.data;
+    const left = balNum(d?.total_available), spent = balNum(d?.total_used);
+    if (left != null || d?.unlimited_quota) {
+      let per = 5e5;
+      try { per = balNum((await balFetch(`${u.origin}/api/status`, key, live))?.data?.quota_per_unit) || per; } catch {}
+      const used = spent != null ? spent / per : null;
+      if (d.unlimited_quota) return { bal: null, used, cur: "$", unlimited: true };
+      return { bal: left / per, used, cur: "$" };
+    }
+  } catch {}
   if (/经酒馆转发/.test(lastErr?.message || "")) throw new Error(key ? "浏览器拦截了直接请求（站点不允许跨域），经酒馆转发也未查到余额" : "经酒馆转发查询，站点未返回余额");
   throw lastErr && !/站点返回 404/.test(lastErr.message) ? lastErr : new Error("站点没有余额接口（仅支持 OneAPI / NewAPI 类中转站）");
 }

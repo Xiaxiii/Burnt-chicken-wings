@@ -2186,7 +2186,21 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 /* 正文框高度量小了时仍可在框内滚动 */
 #pa-root .pa-edit-text { overflow-y: auto; }
 #pa-root .pa-note { resize: none; overflow: hidden; min-height: 40px; line-height: 1.45; overflow-wrap: anywhere; }
-#pa-root .pa-balshow { margin: 12px 2px 0; font-size: .9em; color: var(--pa-dim); }
+#pa-root .pa-balshow { flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; font-size: .88em; color: var(--pa-dim); cursor: pointer; }
 /* 2.9.2 页头名称后的署名 */
 #pa-root .pa-kicker { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #pa-root .pa-kicker .pa-by { margin-left: .5em; opacity: .75; }
+/* ===== 2.9.3 ===== */
+/* 模型列表不用网格：Safari 把按钮行压到最小高度，两行内容溢出、与上下行叠在一起 */
+#pa-root .pa-mpick-list { display: block; }
+#pa-root .pa-mpick-list > .pa-mpick-item { width: 100%; }
+#pa-root .pa-mpick-list:not(.pa-kpick) > .pa-mpick-item + .pa-mpick-item { margin-top: 4px; }
+/* 手机、平板底部导航：只留图标，当前页为带文字的胶囊 */
+@media (max-width: 999px) {
+    #pa-root .pa-tabs { align-items: center; gap: 4px; padding-top: 6px; padding-bottom: calc(6px + var(--pa-sab, env(safe-area-inset-bottom))); padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
+    #pa-root .pa-tabs button { flex-direction: row; gap: 7px; min-height: 44px; border-radius: 999px; }
+    #pa-root .pa-tabs button svg { width: 21px; height: 21px; flex: none; }
+    #pa-root .pa-tabs button > span { display: none; }
+    #pa-root .pa-tabs button[aria-current="page"] { flex: 0 0 auto; padding: 0 18px; background: var(--pa-card-2); }
+    #pa-root .pa-tabs button[aria-current="page"] > span { display: inline; font-size: max(13px, 1.1em); white-space: nowrap; }
+}

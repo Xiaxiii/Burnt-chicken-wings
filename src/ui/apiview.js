@@ -691,7 +691,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     // 2.8.1 当前连接：名称、网址、模型、余额；测试、拉取、编辑为标题行的小图标，编辑一步打开站点窗口
     const sub = live.url || src?.label || "";
     const bal = balCard(live);
-    liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">酒馆当前连接</h3></div>
+    liveBox.innerHTML = `<div class="pa-row-head"><h3 class="pa-h">酒馆当前连接</h3>${balSupported(live.source) ? `<label class="pa-balshow"><input type="checkbox" data-o="balshow" ${balShown() ? "checked" : ""}>显示余额</label>` : ""}</div>
         <article class="pa-card pa-site pa-site-on pa-live"${active ? ` data-id="${esc(active.id)}"` : ""}>
             <header>${dot}<b title="${esc(src?.label || live.source || "")}">${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">保存为站点</button>'}<span class="pa-live-ic">
               ${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}
@@ -750,8 +750,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       : `${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：删除、导入、导出" title="编辑：删除、导入、导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
     sitesBox.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">站点${n ? whyBtn("sites") : ""}</h3><div class="pa-head-btns">${headBtns}</div></div>
-        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。导出的文件可在重装、换设备后导入。" : "点站点名修改详情、填余额。点铅笔可删除站点、导入或导出站点文件。")}${sites().map(siteRow).join("")}` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}
-        <label class="pa-field-row pa-balshow"><input type="checkbox" data-o="balshow" ${balShown() ? "checked" : ""}>显示余额</label>`;
+        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。导出的文件可在重装、换设备后导入。" : "点站点名修改详情、填余额。点铅笔可删除站点、导入或导出站点文件。")}${sites().map(siteRow).join("")}` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
