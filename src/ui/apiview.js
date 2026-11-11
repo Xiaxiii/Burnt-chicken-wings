@@ -545,7 +545,7 @@ function siteKeysIn(o) {
       if (typeof k === "string") return textKeys(k).map((key) => ({ name: "", key }));
       if (!k || typeof k !== "object") return [];
       const key = String(sitePick(k, SITE_KEY_FIELDS) || "").trim();
-      return [{ name: String(sitePick(k, ["name", "label", "group", "title"]) || "").trim(), key, model: String(sitePick(k, SITE_MODEL_FIELDS) || "").trim(), models: siteModelsOf(sitePick(k, SITE_MODELS_FIELDS)) }];
+      return [{ name: String(sitePick(k, ["name", "label", "group", "title"]) || "").trim(), key, model: String(sitePick(k, SITE_MODEL_FIELDS) || "").trim(), models: siteModelsOf(sitePick(k, SITE_MODELS_FIELDS)), ...(Array.isArray(k.balance) ? { balance: k.balance } : {}) }];
     });
   }
   const one = sitePick(o, SITE_KEY_FIELDS);
@@ -609,6 +609,26 @@ function parseSiteFile(text) {
   walk(data, 0);
   return out;
 }
+// 2.9.6 站点模型跟随当前模型：在酒馆或本扩展里换了模型，使用中站点（当前分组）记的模型一起改，两处显示一致。
+// 酒馆切换预设时会读入预设里存的模型，方案套用、切换连接时网址和模型先后变化，这些过程中不跟随
+var modelSyncHold = 0;
+function holdModelSync(ms) {
+  modelSyncHold = Math.max(modelSyncHold, Date.now() + ms);
+}
+function followLiveModel() {
+  if (Date.now() < modelSyncHold || connApplying > 0 || typeof applying !== "undefined" && applying) return false;
+  const live = liveConnection();
+  if (!live.model) return false;
+  const s = settings();
+  const active = s.sites?.find((x) => x.id === s.activeSiteId);
+  const norm = (u) => String(u || "").replace(/\/+$/, "");
+  if (!active || active.source !== live.source || live.source === "custom" && norm(active.url) !== norm(live.url)) return false;
+  const k = siteKey(active);
+  if (!k || siteMulti(active) && live.secretId && k.secretId !== live.secretId || k.model === live.model) return false;
+  k.model = live.model;
+  saveSettings();
+  return true;
+}
 function keyMaskOf(text) {
   return text.length > 8 ? `${text.slice(0, 3)}…${text.slice(-4)}` : "已保存";
 }
@@ -654,13 +674,15 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const used = b.last ? [`${b.round && !b.round.gen ? "距上次查询" : "上一轮"} ${b.round ? fmtMoney(b.round.v, cur) : "—"}`, `近 24 小时 ${b.d1.pairs ? fmtMoney(b.d1.sum, cur) : "—"}`] : [];
     const canSet = !apiBal && b.site;
     const when = b.busy ? "正在查询…" : b.last ? `${hm(b.last.t)} 更新` : "尚未查询";
-    const manual = !apiBal && b.manual ? '<span class="pa-chip pa-chip-dim" title="手填的余额，按每次查到的用量扣减">手填</span>' : "";
+    const manual = !apiBal && b.manual ? '<span class="pa-chip pa-chip-dim" title="手填的余额，按每次查到的用量扣减">手填</span>' : b.last?.acct && apiBal ? '<span class="pa-chip pa-chip-dim" title="站点账户的余额，用系统访问令牌查询">账户</span>' : "";
+    // 2.9.6 中转站：用系统访问令牌查账户余额
+    const acctBtn = live.source === "custom" && b.site ? `<button class="pa-link pa-bal-set" data-a="balacct" type="button">${b.site.acct ? "账户查询设置" : "自动查账户余额"}</button>` : "";
     const usedLine = used.length ? used.map((x) => `<span>${esc(x)}</span>`).join("") : total ? `<span>${esc(when)}</span>` : "";
     return `<div class="pa-bal" aria-label="余额">
         <div class="pa-bal-top">${total ? `<b class="pa-bal-total pa-num" title="${esc(when)}">${esc(total)}</b>${manual}` : `<span class="pa-bal-time">${esc(when)}</span>`}<button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额（${esc(when)}）"${b.busy ? " disabled" : ""}>${ICON.refresh}</button></div>
         ${usedLine ? `<div class="pa-bal-used pa-num">${usedLine}</div>` : ""}
         ${b.err ? `<p class="pa-live-res bad">${RES_BAD}${esc(b.err)}</p>` : ""}
-        <div class="pa-bal-acts">${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}<label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
+        <div class="pa-bal-acts">${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}${acctBtn}<label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
       </div>`;
   }
   function render() {
@@ -685,7 +707,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       ak.models = liveModels;
       saveSettings();
     }
-    const modelDiff = ak && live.model && ak.model && live.model !== ak.model;
+    followLiveModel();
     const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => schemeConn(sc)?.siteId === id).map((sc) => sc.preset))];
     const dot = `<span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span>`;
     // 2.8.1 当前连接：名称、网址、模型、余额；测试、拉取、编辑为标题行的小图标，编辑一步打开站点窗口
@@ -703,7 +725,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
               ${bal ? `<dt class="pa-bal-dt">余额</dt><dd>${bal}</dd>` : ""}
             </dl>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
-            ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
     // 2.8.9 编辑站点时左侧出现把手，拖动或按 ↑ ↓ 调整站点顺序
     const siteGrip = (x) => `<button type="button" class="pa-key-grip pa-site-grip" data-a="sitegrip" aria-label="「${esc(x.name)}」：拖动或按上下方向键调整顺序" title="拖动调整顺序">${ICON_GRIP}</button>`;
@@ -1156,6 +1177,37 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     if (k.localKey || k.legacyKey) return getLocalKey({ id: site.id, localId: k.localId, legacyKey: k.legacyKey }) || "";
     return "";
   }
+  // 2.9.6 账户余额查询：用户 ID + 系统访问令牌。令牌只存在本浏览器
+  async function acctSheet(site) {
+    const had = !!balAcctToken(site);
+    const body = el(`<div class="pa-form">
+      <p class="pa-hint">在「${esc(site.name || "站点")}」网页的「个人设置」中生成「系统访问令牌」，复制到下面；用户 ID 在同一页。查到的是整个账户的余额，不受密钥额度限制。</p>
+      <label class="pa-field"><span>用户 ID</span><input class="pa-input pa-num" data-f="uid" value="${esc(site.acct?.uid || "")}" placeholder="例如：1024" inputmode="numeric" autocomplete="off"></label>
+      <label class="pa-field"><span>系统访问令牌</span><input class="pa-input" data-f="token" type="password" value="" placeholder="${had ? "已保存；留空则不改" : "粘贴令牌"}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <p class="pa-hint">令牌只保存在这个浏览器里，换设备、换浏览器需要重新填写。</p>
+    </div>`);
+    const v = await sheet({
+      title: "查询账户余额",
+      body,
+      place: "center",
+      guardDirty: true,
+      actions: [
+        { label: "取消", value: null },
+        ...had ? [{ label: "停用", value: "off" }] : [],
+        { label: "保存并查询", kind: "primary", value: (w) => ({ uid: w.querySelector("[data-f=uid]").value, token: w.querySelector("[data-f=token]").value }),
+          validate: (w) => {
+            if (had || w.querySelector("[data-f=token]").value.trim()) return true;
+            toast("请粘贴系统访问令牌", "warning");
+            return false;
+          } }
+      ]
+    });
+    if (!v) return false;
+    if (v === "off") { balSetAcct(site, "", ""); toast("已停用账户余额查询"); return true; }
+    const token = v.token.trim() || balAcctToken(site);
+    if (!balSetAcct(site, v.uid, token)) { toast("浏览器不允许保存令牌（可能是无痕模式）", "error"); return false; }
+    return true;
+  }
   async function exportSites(btn) {
     const list = sites();
     if (!list.length) return toast("还没有站点");
@@ -1164,16 +1216,19 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       { label: "不含密钥", sub: "仅名称、网址、模型、备注", value: "bare" }
     ], { anchor: btn });
     if (!how) return;
-    let missing = 0;
+    let missing = 0, blocked = 0;
     const out = [];
     for (const s of list) {
       const keys = [];
       for (const k of keysOfSite(s)) {
         const item = { name: k.name || "", model: k.model || "", models: k.models || [] };
+        const bal = balRecordsOf(s, k.secretId);
+        if (bal.length) item.balance = bal;
         if (how === "keys" && savedKey(k)) {
-          const v = await keyTextOf(s, k);
-          if (v) item.key = v;
-          else missing++;
+          // 2.9.6 读不到时分清原因：酒馆不允许读回密钥（allowKeysExposure 为 false），还是这把密钥已不存在
+          const got = k.secretId ? await revealSecret(s.source, k.secretId) : { value: await keyTextOf(s, k) };
+          if (got.value) item.key = got.value;
+          else { missing++; if (got.blocked) blocked++; }
         }
         keys.push(item);
       }
@@ -1183,7 +1238,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const d = new Date(), two = (n) => String(n).padStart(2, "0");
     const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
     downloadBlob(new Blob([JSON.stringify({ format: SITE_FILE_FORMAT, version: 1, exported: d.toISOString(), sites: out }, null, 2)], { type: "application/json" }), `api-sites-${stamp}.json`);
-    toast(missing ? `已导出 ${out.length} 个站点；${missing} 个密钥读不到，未写入` : `已导出 ${out.length} 个站点${how === "keys" ? "（含密钥）" : ""}`, missing ? "warning" : "success");
+    if (!missing) return toast(`已导出 ${out.length} 个站点${how === "keys" ? "（含密钥）" : ""}`, "success");
+    toast(blocked
+      ? `已导出 ${out.length} 个站点；${missing} 个密钥未写入：酒馆不允许读回已保存的密钥。在酒馆 config.yaml 中将 allowKeysExposure 改为 true，重启酒馆后再导出`
+      : `已导出 ${out.length} 个站点；${missing} 个密钥读不到，未写入`, "warning");
   }
   // 同名、同网址的站点算同一个：更新它，不再新增
   const normUrl = (u) => String(u || "").trim().replace(/\/+$/, "").toLowerCase();
@@ -1286,6 +1344,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         if (k.localId && k.localId !== s.id) s.localId = k.localId;
       }
       if (k.legacyKey) s.legacyKey = k.legacyKey;
+    }
+    // 2.9.6 余额记录：文件里带了就用文件的；没带的，沿用本浏览器里这把密钥原有的记录
+    for (const [i, ik] of f.keys.entries()) {
+      const k = keys[i];
+      if (!k) continue;
+      const recs = ik.balance?.length ? ik.balance : await balFromSameKey(f.source, s.url, ik.key);
+      balMerge(s, k.secretId, recs);
     }
     if (!old) sites().push(s);
   }
@@ -1517,16 +1582,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       }
       return render();
     }
-    if (a === "keepmodel") {
-      const t = sites().find((x) => x.id === settings().activeSiteId);
-      const m = liveConnection().model;
-      if (t && m) {
-        siteKey(t).model = m;
-        saveSettings();
-        toast(`站点「${t.name}」的模型已改为 ${m}`, "success");
-      }
-      return render();
-    }
     if (a === "sitesedit" || a === "sitesdone") {
       sitesEditing = a === "sitesedit";
       return render();
@@ -1541,6 +1596,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       // 记下此刻的用量作为起点，之后的用量从余额里扣
       if (site0.manualBalance) balanceQuery({ quiet: true });
       return render();
+    }
+    if (a === "balacct") {
+      const site0 = balSiteOf();
+      if (!site0) return;
+      if (await acctSheet(site0)) { saveSettings(); render(); balanceQuery(); }
+      return;
     }
     if (a === "new") return editSite(null);
     if (a === "exportsites") return exportSites(btn);

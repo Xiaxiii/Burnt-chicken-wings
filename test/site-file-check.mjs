@@ -26,6 +26,20 @@ try {
     await page.waitForTimeout(300);
   };
 
+  // 2.9.6 本浏览器里已有的余额记录：A站这把密钥原先在酒馆里的编号是 jc-a，读回的全文与导入的密钥相同
+  const now = Date.now(), jcRecs = [{ t: now - 7200e3, bal: 10 }, { t: now - 3600e3, bal: 8 }];
+  await page.route("**/api/secrets/find", (r) => {
+    const body = r.request().postDataJSON();
+    if (body?.id === "jc-a") return r.fulfill({ json: { value: "sk-aaaa1111" } });
+    if (body?.id === "jc-x") return r.fulfill({ json: { value: "sk-别的密钥" } });
+    return r.fulfill({ status: 404, body: "" });
+  });
+  await page.evaluate((recs) => {
+    localStorage.setItem("presetAtelier:balance:default-user:custom\u0001https://a.example.com/v1\u0001jc-x", JSON.stringify([{ t: 1, bal: 99 }]));
+    localStorage.setItem("presetAtelier:balance:default-user:custom\u0001https://a.example.com/v1\u0001jc-a", JSON.stringify(recs));
+  }, jcRecs);
+  const balOf = (secretId, url = "https://a.example.com/v1") => page.evaluate(([sid, u]) => JSON.parse(localStorage.getItem(`presetAtelier:balance:default-user:custom\u0001${u}\u0001${sid}`) || "[]"), [secretId, url]);
+
   // 1) 别处的写法：数组、baseUrl / apiKey、api_url + keys
   assert.equal(await page.locator('[data-a="exportsites"]').count(), 0, "没有站点时不显示导出");
   await importFile("my-apis.json", JSON.stringify([
@@ -45,6 +59,8 @@ try {
   assert.deepEqual(b.keys.map((k) => [k.name, k.keyMask, !!k.secretId]), [["按次", "sk-…0001", true], ["按量", "sk-…0002", true]]);
   assert.equal(await vault(), 3);
   assert.match((await toasts()).join("|"), /新增 2 个/);
+  assert.deepEqual(await balOf(a.secretId), jcRecs, "沿用同一把密钥原有的余额记录，不接别的密钥的");
+  ok("导入时沿用本浏览器里同一把密钥原有的余额记录");
   ok("导入别处写法的文件：预览后新增两个站点，密钥存进密钥库");
 
   // 2) 导出（含密钥）
@@ -55,6 +71,8 @@ try {
   const file = JSON.parse(text);
   assert.equal(file.format, "焦香鸡翅-站点");
   assert.deepEqual(file.sites.map((x) => [x.name, x.url, x.keys.map((k) => k.key).join(",")]), [["A站", "https://a.example.com/v1", "sk-aaaa1111"], ["B站", "https://b.example.com/v1/", "sk-bbbb0001,sk-bbbb0002"]]);
+  assert.deepEqual(file.sites[0].keys[0].balance, jcRecs, "导出带余额记录");
+  assert.equal(file.sites[1].keys[0].balance, undefined, "没有记录的密钥不写");
   ok("导出含密钥：文件里是全文密钥、网址、模型");
 
   // 3) 再导入同一个文件：同名同网址是更新，密钥一样不重复存
@@ -109,6 +127,17 @@ try {
   assert.deepEqual(tree.cats.map((c) => c.name), ["Claude", "常用"]);
   assert.equal(tree.keys[0].key, undefined, "不含密钥");
   ok("导出带分类；选「不含密钥」时文件里没有密钥");
+
+  // 2.9.6 本浏览器没有留底、酒馆又不允许读回密钥（allowKeysExposure 为 false）：提示原因和改法
+  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("presetAtelier:keycopy:")) localStorage.removeItem(k); });
+  await page.route("**/api/secrets/find", (r) => r.fulfill({ status: 403, body: "Forbidden" }));
+  await toasts();
+  if (await page.locator("[data-a=sitesedit]").count()) { await page.click("[data-a=sitesedit]"); await page.waitForTimeout(150); } await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
+  const [dl3] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=含密钥")]);
+  assert.ok(JSON.parse(fs.readFileSync(await dl3.path(), "utf8")).sites.every((x) => x.keys.every((k) => !k.key)));
+  assert.match((await toasts()).join("|"), /warning:.*密钥未写入：酒馆不允许读回已保存的密钥。在酒馆 config\.yaml 中将 allowKeysExposure 改为 true/);
+  await page.unroute("**/api/secrets/find");
+  ok("酒馆不允许读回密钥时：导出不含密钥，提示 allowKeysExposure 的改法");
 
   // 6) 不是 JSON、没有站点
   await importFile("bad.json", "not json");
