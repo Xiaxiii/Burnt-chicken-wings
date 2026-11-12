@@ -682,8 +682,18 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         <div class="pa-bal-top">${total ? `<b class="pa-bal-total pa-num" title="${esc(when)}">${esc(total)}</b>${manual}` : `<span class="pa-bal-time">${esc(when)}</span>`}<button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额（${esc(when)}）"${b.busy ? " disabled" : ""}>${ICON.refresh}</button></div>
         ${usedLine ? `<div class="pa-bal-used pa-num">${usedLine}</div>` : ""}
         ${b.err ? `<p class="pa-live-res bad">${RES_BAD}${esc(b.err)}</p>` : ""}
-        <div class="pa-bal-acts">${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}${acctBtn}<label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
+        <div class="pa-bal-acts">${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}${acctBtn}<label class="pa-bal-auto" title="每轮生成后自动查询余额">每轮自动<span class="pa-switch"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}><i></i></span></label></div>
       </div>`;
+  }
+  // 2.9.8 流式输出：开关按「预设 + 站点」记下，切换预设或连接后自动套用
+  // 2.9.10 一行写完：说明只写「跟随预设」或「已单独记录」，预设名、站点名放进提示；开关靠右，与余额的查询按钮同一条边
+  function streamRow() {
+    const combo = streamCombo();
+    if (!combo) return "";
+    const rule = streamRule(combo);
+    const on = liveStream();
+    const tip = rule === null ? `跟随预设「${combo.preset}」里存的设置` : `已记在「${combo.preset}」+「${combo.label}」`;
+    return `<dt>流式</dt><dd class="pa-stream"><span class="pa-stream-note" title="${esc(tip)}">${rule === null ? "跟随预设" : "已单独记录"}</span>${rule === null ? "" : '<button class="pa-link" data-a="streamforget" type="button" title="不再单独记录，跟随预设">改回跟随</button>'}<label class="pa-switch" title="流式输出（逐字显示）"><input type="checkbox" data-o="livestream" ${on ? "checked" : ""} aria-label="流式输出"><i></i></label></dd>`;
   }
   function render() {
     // 2.9.7 本浏览器里还有没存进酒馆密钥库的系统访问令牌：存进去，别的设备就能用
@@ -721,10 +731,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
               ${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表">${ICON.refresh}</button>` : ""}
               <button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发送测试消息，看选中的模型能不能用">${ICON.bolt}</button>
               ${active ? `<button class="pa-icon-btn pa-live-edit" data-a="edit" type="button" aria-label="编辑站点" title="编辑站点（网址、密钥、备注、删除）">${ICON.pencil}</button>` : ""}</span></header>
+            ${sub && sub !== src?.label ? `<p class="pa-live-url pa-mono" title="${esc(sub)}">${esc(sub)}</p>` : ""}
+            <div class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}</div>
             <dl class="pa-kv pa-live-kv">
-              ${sub && sub !== src?.label ? `<dt>网址</dt><dd class="pa-live-url pa-mono" title="${esc(sub)}">${esc(sub)}</dd>` : ""}
-              <dt>模型</dt><dd class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}</dd>
-              ${bal ? `<dt class="pa-bal-dt">余额</dt><dd>${bal}</dd>` : ""}
+              ${bal ? `<dt>余额</dt><dd>${bal}</dd>` : ""}
+              ${streamRow()}
             </dl>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
         </article>`;
@@ -1381,6 +1392,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       render();
       if (e.target.checked && settings().balanceAuto) balanceQuery({ quiet: true });
     }
+    if (o === "livestream") {
+      const combo = streamCombo();
+      setLiveStream(e.target.checked);
+      setStreamRule(combo, e.target.checked);
+      if (combo) toast(`已记下：「${combo.preset}」配「${combo.label}」时${e.target.checked ? "流式" : "非流式"}输出`, "success");
+      render();
+    }
     if (o === "balauto") {
       settings().balanceAuto = e.target.checked;
       saveSettings();
@@ -1603,6 +1621,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       if (!balSetManual(site0, v)) return toast("余额格式不对，如 50、$50.5、¥300", "warning");
       // 记下此刻的用量作为起点，之后的用量从余额里扣
       if (site0.manualBalance) balanceQuery({ quiet: true });
+      return render();
+    }
+    if (a === "streamforget") {
+      setStreamRule(streamCombo(), null);
+      toast("已不再记录，流式开关跟随预设");
       return render();
     }
     if (a === "balacct") {

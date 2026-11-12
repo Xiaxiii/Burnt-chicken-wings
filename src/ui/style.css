@@ -2032,8 +2032,7 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-bal .pa-live-res { margin: 2px 0 0; }
 #pa-root .pa-bal-acts { font-size: .88em; }
 #pa-root .pa-bal-set { padding: 0; }
-#pa-root .pa-bal-auto { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--pa-dim); cursor: pointer; }
-#pa-root .pa-live-kv > dt.pa-bal-dt { align-self: start; line-height: 34px; }
+#pa-root .pa-bal-auto { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; color: var(--pa-dim); cursor: pointer; }
 /* 2.8.5 编辑条目：正文框随内容增高，整个窗口一起滚动 */
 #pa-root .pa-sheet-edit .pa-sheet-body { display: block; }
 #pa-root .pa-sheet-edit .pa-form { display: grid; gap: 10px; min-height: 0; }
@@ -2215,3 +2214,18 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
     #pa-root .pa-suture.pa-sw .pa-ghead { min-height: 46px; }
     #pa-root .pa-suture.pa-sw .pa-check, #pa-root .pa-suture.pa-sw .pa-group-select .pa-check { width: 20px; height: 20px; }
 }
+/* 2.9.10 当前连接：网址在名称下面，模型按钮占满一行，不再带左侧标签；余额、流式两行共用标签列，
+   标签对齐各行第一行；右边一条边上依次是余额的查询按钮、「每轮自动」开关、流式开关 */
+#pa-root .pa-live > .pa-live-url { margin: 4px 0 0; font-size: .82em; line-height: 1.4; color: var(--pa-dim); }
+#pa-root .pa-live > .pa-live-model { margin-top: 10px; }
+#pa-root .pa-live > .pa-live-model > .pa-model-btn { width: 100%; min-height: 40px; font-size: .92em; }
+#pa-root .pa-live .pa-live-kv { grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin-top: 12px; align-items: start; }
+#pa-root .pa-live .pa-live-kv > dt { line-height: 34px; }
+#pa-root .pa-bal-auto .pa-switch, #pa-root .pa-stream .pa-switch { margin-left: 2px; }
+#pa-root .pa-kv dd.pa-stream { display: flex; align-items: center; gap: 8px; min-height: 34px; min-width: 0; }
+#pa-root .pa-stream-note { color: var(--pa-dim); font-size: .88em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#pa-root .pa-stream .pa-link { flex: none; font-size: .88em; padding: 0; }
+#pa-root .pa-stream .pa-switch { margin-left: auto; }
+/* 2.9.8 预设页：选中的预设不是使用中的，名称右边出现「切换」 */
+#pa-root .pa-picker .pa-use-preset { flex: none; white-space: nowrap; }
+#pa-root .pa-picker .pa-use-preset[hidden] { display: none; }
