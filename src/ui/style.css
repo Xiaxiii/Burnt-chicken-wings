@@ -2215,3 +2215,11 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
     #pa-root .pa-suture.pa-sw .pa-ghead { min-height: 46px; }
     #pa-root .pa-suture.pa-sw .pa-check, #pa-root .pa-suture.pa-sw .pa-group-select .pa-check { width: 20px; height: 20px; }
 }
+/* 2.9.8 当前连接：流式开关，记录说明跟在开关后面 */
+#pa-root .pa-kv .pa-stream-dt { align-self: center; }
+#pa-root .pa-kv dd.pa-stream { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+#pa-root .pa-stream-note { color: var(--pa-dim); font-size: .84em; min-width: 0; overflow-wrap: anywhere; }
+#pa-root .pa-stream .pa-link { font-size: .84em; padding: 2px 4px; }
+/* 2.9.8 预设页：选中的预设不是使用中的，名称右边出现「切换」 */
+#pa-root .pa-picker .pa-use-preset { flex: none; white-space: nowrap; }
+#pa-root .pa-picker .pa-use-preset[hidden] { display: none; }
