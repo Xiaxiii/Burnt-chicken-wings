@@ -1546,17 +1546,14 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root.pa-glass .pa-card { border-color: transparent; }
 #pa-root.pa-glass :is(.pa-input, .pa-select, .pa-model-btn) { border-color: rgba(255, 255, 255, .7); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8); }
 #pa-root.pa-glass { --pa-key-bc: rgba(255, 255, 255, .7); --pa-key-sh: inset 0 1px 0 rgba(255, 255, 255, .8); }
-/* 2.6.9 缝合预览顶部：名称、写法、缝后开启、思维链各成一段，段间细线；
-   写法一段可整批切换原样 / 按目标写法；分组下拉框与条目里的输入框同一字号 */
+/* 缝合预览顶部：名称、写法、缝后开启、思维链各成一段，段间细线；每段一行标题、一排按钮、至多一行短注。
+   2.6.11 写法的按钮与思维链同款；缝后开启的标题与另两段同字重；分组下拉框与条目里的输入框同一字号 */
 #pa-root .pa-target-card > .pa-grp-row { font-size: .9em; }
 #pa-root .pa-target-card > .pa-inline-check { justify-self: start; }
 #pa-root .pa-rv-sec { display: grid; gap: 6px; min-width: 0; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--pa-line); }
-#pa-root .pa-rv-sec[hidden] { display: none; }
+#pa-root .pa-rv-sec[hidden], #pa-root .pa-rv-sec [hidden] { display: none !important; }
 #pa-root .pa-rv-sec > .pa-inline-check { justify-self: start; }
-#pa-root .pa-rv-sec > .pa-hint, #pa-root .pa-rv-sec > .pa-enablebar, #pa-root .pa-rv-sec > .pa-hookbar { margin: 0; }
-#pa-root .pa-modebar { flex-wrap: wrap; gap: 6px; margin: 0; }
+#pa-root .pa-rv-sec > .pa-enablebar, #pa-root .pa-rv-sec > .pa-hookbar { margin: 0; }
+#pa-root .pa-modebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 #pa-root .pa-modebar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }
-#pa-root .pa-modebar .pa-seg { flex: none; }
-@media (pointer: coarse) { #pa-root .pa-modebar .pa-seg button { min-height: 38px; } }
-/* 2.6.10 写法一段没有可选条目时，藏起切换按钮和勾选 */
-#pa-root .pa-modebar .pa-seg[hidden], #pa-root .pa-rv-sec > .pa-inline-check[hidden] { display: none; }
+#pa-root .pa-rv-sec [data-enable-count] { font-weight: 600; font-size: .9em; color: var(--pa-text); }
