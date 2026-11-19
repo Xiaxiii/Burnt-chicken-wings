@@ -1557,3 +1557,6 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-modebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 #pa-root .pa-modebar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }
 #pa-root .pa-rv-sec [data-enable-count] { font-weight: 600; font-size: .9em; color: var(--pa-text); }
+/* 2.6.12 取消接入：列出要去掉的宏，长的折行 */
+#pa-root .pa-unhook li { margin: 2px 0; line-height: 1.5; }
+#pa-root .pa-unhook code { font-size: .92em; overflow-wrap: anywhere; }
