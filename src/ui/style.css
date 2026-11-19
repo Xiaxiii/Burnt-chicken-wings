@@ -2271,3 +2271,6 @@ html.pa-open #pa-ball, #pa-ball[hidden] { display: none !important; }
 #pa-root .pa-npick-item .pa-mi-check { color: var(--pa-thread); }
 #pa-root .pa-npick-item .pa-mi svg, #pa-root .pa-pick-item .pa-mi svg { width: 16px; height: 16px; stroke-width: 2; }
 #pa-root .pa-pick-item > .pa-mi { float: right; margin: 2px 0 0 8px; }
+/* 2.11.29 取消接入：列出要去掉的宏，长的折行 */
+#pa-root .pa-unhook li { margin: 2px 0; line-height: 1.5; }
+#pa-root .pa-unhook code { font-size: .92em; overflow-wrap: anywhere; }
